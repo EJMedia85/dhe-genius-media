@@ -1,37 +1,402 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DHE GENIUS MEDIA</title>
   <link rel="stylesheet" href="/store.css">
 </head>
+
 <body>
-  <header>
-    <b>DHE GENIUS MEDIA</b>
-    <span>24/7 • Accra - Spintex</span>
-    <a href="/admin">Admin</a>
-  </header>
 
-  <main>
-    <section class="hero">
-      <h1>Stay Connected. Stay Genius.</h1>
-      <p>Data bundles and digital services.</p>
-      <a class="btn" href="https://wa.me/233241518385">
-        WhatsApp: 0241518385
-      </a>
+<header class="topbar">
+  <div>
+    <div class="brand">DHE GENIUS MEDIA</div>
+    <div class="location">24/7 • Accra - Spintex</div>
+  </div>
+
+  <button class="dark-btn" onclick="toggleDarkMode()">🌙</button>
+</header>
+
+<div class="layout">
+
+  <aside class="sidebar">
+    <h2>DGM</h2>
+
+    <nav>
+      <button class="nav-item active" onclick="showSection('dashboard')">
+        🏠 Dashboard
+      </button>
+
+      <button class="nav-item" onclick="showSection('data')">
+        📶 Buy Data
+      </button>
+
+      <button class="nav-item" onclick="showSection('airtime')">
+        📱 Buy Airtime
+      </button>
+
+      <button class="nav-item" onclick="showSection('services')">
+        🛍️ More Services
+      </button>
+
+      <button class="nav-item" onclick="showSection('orders')">
+        📦 My Orders
+      </button>
+
+      <button class="nav-item" onclick="showSection('account')">
+        👤 Account
+      </button>
+    </nav>
+
+    <a
+      class="whatsapp"
+      href="https://wa.me/233241518385"
+      target="_blank"
+    >
+      💬 WhatsApp Support
+    </a>
+  </aside>
+
+  <main class="content">
+
+    <!-- DASHBOARD -->
+
+    <section id="dashboard" class="page-section">
+
+      <div class="welcome">
+        <div>
+          <p class="small">WELCOME TO</p>
+          <h1>DHE GENIUS MEDIA</h1>
+          <p>Stay Connected. Stay Genius.</p>
+          <p class="muted">
+            Affordable data bundles and digital services, available 24/7.
+          </p>
+        </div>
+
+        <button class="primary" onclick="showSection('data')">
+          Buy Data
+        </button>
+      </div>
+
+      <h2>Quick Services</h2>
+
+      <div class="service-grid">
+
+        <div class="service-card" onclick="showSection('data')">
+          <div class="icon">📶</div>
+          <h3>Buy Data</h3>
+          <p>MTN • AirtelTigo • Telecel</p>
+        </div>
+
+        <div class="service-card" onclick="showSection('airtime')">
+          <div class="icon">📱</div>
+          <h3>Buy Airtime</h3>
+          <p>Top up your phone</p>
+        </div>
+
+        <div class="service-card" onclick="showSection('services')">
+          <div class="icon">🛍️</div>
+          <h3>Digital Services</h3>
+          <p>Netflix • DSTV • More</p>
+        </div>
+
+        <div class="service-card" onclick="showSection('orders')">
+          <div class="icon">📦</div>
+          <h3>Track Orders</h3>
+          <p>Check your order status</p>
+        </div>
+
+      </div>
+
+      <div class="info-grid">
+
+        <div class="info-card">
+          <strong>24/7</strong>
+          <span>Service</span>
+        </div>
+
+        <div class="info-card">
+          <strong>3</strong>
+          <span>Networks</span>
+        </div>
+
+        <div class="info-card">
+          <strong>90 Days</strong>
+          <span>Bundle Validity</span>
+        </div>
+
+      </div>
+
     </section>
 
-    <h2>Data Bundles</h2>
-    <div id="products" class="grid"></div>
 
-    <section class="panel">
-      <h2>Account</h2>
-      <div id="auth"></div>
-      <div id="orders"></div>
+    <!-- DATA -->
+
+    <section id="data" class="page-section hidden">
+
+      <div class="section-heading">
+        <div>
+          <p class="small">DHE GENIUS MEDIA</p>
+          <h1>Buy Data</h1>
+          <p class="muted">Choose your network and bundle.</p>
+        </div>
+      </div>
+
+      <div id="network-buttons" class="network-buttons">
+        <button onclick="renderBundles('MTN')">MTN</button>
+        <button onclick="renderBundles('AirtelTigo')">AirtelTigo</button>
+        <button onclick="renderBundles('Telecel')">Telecel</button>
+      </div>
+
+      <div id="products" class="bundle-grid"></div>
+
     </section>
+
+
+    <!-- AIRTIME -->
+
+    <section id="airtime" class="page-section hidden">
+
+      <h1>Buy Airtime</h1>
+
+      <div class="form-card">
+
+        <label>Network</label>
+
+        <select id="airtimeNetwork">
+          <option>MTN</option>
+          <option>AirtelTigo</option>
+          <option>Telecel</option>
+        </select>
+
+        <label>Phone Number</label>
+
+        <input
+          id="airtimePhone"
+          type="tel"
+          placeholder="0240000000"
+        >
+
+        <label>Amount (GH₵)</label>
+
+        <input
+          id="airtimeAmount"
+          type="number"
+          min="1"
+          placeholder="10"
+        >
+
+        <button class="primary" onclick="buyAirtime()">
+          Continue
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- SERVICES -->
+
+    <section id="services" class="page-section hidden">
+
+      <h1>More Services</h1>
+
+      <div class="service-grid">
+
+        <div class="service-card">
+          <div class="icon">🎬</div>
+          <h3>Netflix</h3>
+          <p>Netflix subscription/account services</p>
+        </div>
+
+        <div class="service-card">
+          <div class="icon">📺</div>
+          <h3>DSTV</h3>
+          <p>DSTV login and renewal services</p>
+        </div>
+
+        <div class="service-card">
+          <div class="icon">🤖</div>
+          <h3>WhatsApp Bot</h3>
+          <p>WhatsApp automation services</p>
+        </div>
+
+        <div class="service-card">
+          <div class="icon">📈</div>
+          <h3>Social Media</h3>
+          <p>Social media boosting services</p>
+        </div>
+
+        <div class="service-card">
+          <div class="icon">🇺🇸</div>
+          <h3>US Numbers</h3>
+          <p>US number and verification services</p>
+        </div>
+
+        <div class="service-card">
+          <div class="icon">📱</div>
+          <h3>Mobile Phones</h3>
+          <p>Installment and direct purchase</p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ORDERS -->
+
+    <section id="orders" class="page-section hidden">
+
+      <h1>My Orders</h1>
+
+      <div id="orders-list">
+        <div class="empty">
+          No orders yet.
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ACCOUNT -->
+
+    <section id="account" class="page-section hidden">
+
+      <h1>Account</h1>
+
+      <div class="form-card">
+
+        <label>Phone Number</label>
+
+        <input
+          id="accountPhone"
+          type="tel"
+          placeholder="0240000000"
+        >
+
+        <button class="primary" onclick="saveAccount()">
+          Save Account
+        </button>
+
+        <p id="accountMessage"></p>
+
+      </div>
+
+    </section>
+
   </main>
 
-  <script src="/app.js"></script>
+</div>
+
+<footer>
+  <strong>DHE GENIUS MEDIA</strong>
+  <br>
+  Accra - Spintex • 24/7
+  <br>
+  WhatsApp: 0241518385
+  <br>
+  © 2026 DHE GENIUS MEDIA
+</footer>
+
+<script src="/app.js"></script>
+
+<script>
+
+function showSection(sectionId) {
+
+  document.querySelectorAll(".page-section")
+    .forEach(section => {
+      section.classList.add("hidden");
+    });
+
+  const section = document.getElementById(sectionId);
+
+  if (section) {
+    section.classList.remove("hidden");
+  }
+
+  document.querySelectorAll(".nav-item")
+    .forEach(button => {
+      button.classList.remove("active");
+    });
+
+  if (sectionId === "data") {
+    renderBundles("MTN");
+  }
+
+  if (sectionId === "orders") {
+    if (typeof showOrders === "function") {
+      showOrders();
+    }
+  }
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
+
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark-mode");
+
+  localStorage.setItem(
+    "dgm_dark",
+    document.body.classList.contains("dark-mode")
+  );
+}
+
+
+function buyAirtime() {
+
+  const network =
+    document.getElementById("airtimeNetwork").value;
+
+  const phone =
+    document.getElementById("airtimePhone").value.trim();
+
+  const amount =
+    document.getElementById("airtimeAmount").value;
+
+  if (!phone || !amount) {
+    alert("Please enter the phone number and amount.");
+    return;
+  }
+
+  alert(
+    "Airtime order received.\n\n" +
+    "Network: " + network + "\n" +
+    "Phone: " + phone + "\n" +
+    "Amount: GH₵" + amount +
+    "\n\nPayment and automatic delivery will be connected in the next stage."
+  );
+}
+
+
+function saveAccount() {
+
+  const phone =
+    document.getElementById("accountPhone").value.trim();
+
+  if (!phone) {
+    alert("Please enter your phone number.");
+    return;
+  }
+
+  localStorage.setItem("dgm_account_phone", phone);
+
+  document.getElementById("accountMessage").innerText =
+    "Account information saved on this device.";
+}
+
+
+if (localStorage.getItem("dgm_dark") === "true") {
+  document.body.classList.add("dark-mode");
+}
+
+</script>
+
 </body>
 </html>
