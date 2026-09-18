@@ -1,0 +1,126 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background: #f5f7fb;
+  color: #111827;
+}
+
+header {
+  background: #111827;
+  color: white;
+  padding: 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+header b {
+  font-size: 20px;
+}
+
+header a {
+  color: white;
+  text-decoration: none;
+}
+
+main {
+  max-width: 1100px;
+  margin: auto;
+  padding: 20px;
+}
+
+.hero {
+  background: linear-gradient(135deg, #111827, #2563eb);
+  color: white;
+  padding: 40px 25px;
+  border-radius: 20px;
+  margin-bottom: 30px;
+}
+
+.hero h1 {
+  font-size: 38px;
+  margin-bottom: 10px;
+}
+
+.btn,
+button {
+  display: inline-block;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 18px;
+  background: #16a34a;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.network-selector {
+  margin-bottom: 25px;
+}
+
+.network-selector button {
+  margin: 5px;
+  background: #2563eb;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+}
+
+.bundle-card {
+  background: white;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 5px 20px rgba(0,0,0,.08);
+}
+
+.bundle-card h3 {
+  margin-top: 0;
+}
+
+.bundle-card strong {
+  font-size: 28px;
+}
+
+.bundle-card p {
+  font-size: 22px;
+  font-weight: bold;
+}
+
+.bundle-card button {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.panel {
+  background: white;
+  margin-top: 35px;
+  padding: 20px;
+  border-radius: 16px;
+}
+
+.order {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 15px;
+  margin-top: 10px;
+}
+
+@media (max-width: 600px) {
+  .hero h1 {
+    font-size: 30px;
+  }
+
+  main {
+    padding: 12px;
+  }
+}
