@@ -1,19 +1,15 @@
 {
-  "name": "dhe-genius-media-store",
+  "name": "digital-vending-dashboard",
   "version": "1.0.0",
-  "private": true,
+  "description": "Digital vending and user dashboard web app",
+  "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
-  },
-  "engines": {
-    "node": "20.x"
+    "start": "node server.js"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.7.0",
-    "cookie-parser": "^1.4.7",
-    "express": "^5.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "express": "^4.19.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
