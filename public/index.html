@@ -1,167 +1,1718 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Digital Vending Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07111f">
+
+  <title>DHE GENIUS MEDIA — DGM</title>
+
+  <style>
+    :root {
+      --bg: #050b14;
+      --card: rgba(18, 29, 47, .82);
+      --card2: #101c2e;
+      --blue: #1677ff;
+      --blue2: #00a8ff;
+      --green: #16d890;
+      --text: #ffffff;
+      --muted: #8d9bb0;
+      --border: rgba(255,255,255,.09);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+
+      background:
+        radial-gradient(
+          circle at 80% 5%,
+          rgba(22,119,255,.20),
+          transparent 30%
+        ),
+        radial-gradient(
+          circle at 10% 35%,
+          rgba(0,168,255,.08),
+          transparent 28%
+        ),
+        var(--bg);
+
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    /* HEADER */
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+
+      background: rgba(5,11,20,.82);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header {
+      max-width: 1180px;
+      margin: auto;
+
+      min-height: 72px;
+      padding: 10px 18px;
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .logo {
+      width: 47px;
+      height: 47px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 15px;
+
+      background:
+        linear-gradient(135deg, #1677ff, #0047bd);
+
+      box-shadow:
+        0 8px 25px rgba(22,119,255,.35);
+
+      font-weight: 950;
+      font-size: 15px;
+      letter-spacing: -.5px;
+    }
+
+    .brand-name {
+      font-size: 16px;
+      font-weight: 850;
+      letter-spacing: .2px;
+    }
+
+    .brand-sub {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 3px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status {
+      display: none;
+
+      padding: 8px 11px;
+      border-radius: 30px;
+
+      background: rgba(22,216,144,.1);
+      border: 1px solid rgba(22,216,144,.2);
+
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .menu-btn {
+      width: 42px;
+      height: 42px;
+
+      border: 1px solid var(--border);
+      border-radius: 12px;
+
+      background: rgba(255,255,255,.04);
+      color: white;
+
+      font-size: 19px;
+    }
+
+    /* MAIN */
+
+    main {
+      max-width: 1180px;
+      margin: auto;
+      padding: 18px;
+    }
+
+    /* HERO */
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+
+      margin-top: 8px;
+
+      border-radius: 28px;
+      padding: 34px 22px;
+
+      background:
+        linear-gradient(
+          135deg,
+          rgba(22,119,255,.96),
+          rgba(5,58,142,.94)
+        );
+
+      box-shadow:
+        0 25px 70px rgba(0,0,0,.35);
+
+      border: 1px solid rgba(255,255,255,.1);
+    }
+
+    .hero::before {
+      content: "";
+
+      position: absolute;
+
+      width: 260px;
+      height: 260px;
+
+      right: -90px;
+      top: -100px;
+
+      border-radius: 50%;
+
+      background: rgba(255,255,255,.10);
+    }
+
+    .hero::after {
+      content: "";
+
+      position: absolute;
+
+      width: 180px;
+      height: 180px;
+
+      left: -90px;
+      bottom: -110px;
+
+      border-radius: 50%;
+
+      background: rgba(0,255,180,.08);
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 650px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+
+      padding: 7px 11px;
+
+      border-radius: 30px;
+
+      background: rgba(255,255,255,.11);
+      border: 1px solid rgba(255,255,255,.12);
+
+      font-size: 11px;
+      font-weight: 700;
+
+      margin-bottom: 16px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+
+      border-radius: 50%;
+      background: #35ffb1;
+
+      box-shadow: 0 0 10px #35ffb1;
+    }
+
+    .hero h1 {
+      font-size: clamp(30px, 8vw, 52px);
+      line-height: 1.02;
+      letter-spacing: -1.8px;
+      margin-bottom: 14px;
+    }
+
+    .hero h1 span {
+      color: #9be4ff;
+    }
+
+    .hero p {
+      max-width: 550px;
+
+      color: rgba(255,255,255,.82);
+
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+
+      margin-top: 22px;
+    }
+
+    .primary-btn,
+    .secondary-btn {
+      border: 0;
+      padding: 13px 17px;
+      border-radius: 13px;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .primary-btn {
+      background: white;
+      color: #0756c9;
+    }
+
+    .secondary-btn {
+      background: rgba(255,255,255,.10);
+      color: white;
+      border: 1px solid rgba(255,255,255,.15);
+    }
+
+    /* QUICK STATS */
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 9px;
+
+      margin-top: 12px;
+    }
+
+    .stat {
+      padding: 14px 10px;
+
+      background: var(--card);
+      border: 1px solid var(--border);
+
+      border-radius: 16px;
+
+      text-align: center;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 15px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 9px;
+      margin-top: 4px;
+    }
+
+    /* SECTION */
+
+    .section {
+      margin-top: 28px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 10px;
+
+      margin-bottom: 13px;
+    }
+
+    .section-head h2 {
+      font-size: 21px;
+      letter-spacing: -.5px;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 4px;
+    }
+
+    /* NETWORKS */
+
+    .networks {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 9px;
+    }
+
+    .network {
+      position: relative;
+
+      min-height: 78px;
+
+      border: 1px solid var(--border);
+      border-radius: 17px;
+
+      background: var(--card);
+
+      color: white;
+
+      text-align: left;
+      padding: 13px;
+
+      transition: .2s ease;
+    }
+
+    .network:hover {
+      transform: translateY(-2px);
+    }
+
+    .network.active {
+      border-color: rgba(22,119,255,.8);
+
+      background:
+        linear-gradient(
+          135deg,
+          rgba(22,119,255,.24),
+          rgba(18,29,47,.9)
+        );
+
+      box-shadow:
+        0 10px 30px rgba(22,119,255,.12);
+    }
+
+    .network-icon {
+      width: 31px;
+      height: 31px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 9px;
+
+      background: rgba(255,255,255,.08);
+
+      font-size: 13px;
+      font-weight: 900;
+
+      margin-bottom: 8px;
+    }
+
+    .network strong {
+      display: block;
+      font-size: 12px;
+    }
+
+    .network small {
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    /* SEARCH */
+
+    .search {
+      width: 100%;
+
+      margin: 14px 0;
+
+      padding: 14px 16px;
+
+      border-radius: 14px;
+
+      border: 1px solid var(--border);
+
+      background: rgba(255,255,255,.04);
+
+      color: white;
+
+      outline: none;
+
+      font-size: 13px;
+    }
+
+    .search:focus {
+      border-color: rgba(22,119,255,.7);
+    }
+
+    /* BUNDLES */
+
+    .bundle-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(auto-fill, minmax(145px,1fr));
+
+      gap: 10px;
+    }
+
+    .bundle {
+      position: relative;
+
+      overflow: hidden;
+
+      background:
+        linear-gradient(
+          145deg,
+          rgba(18,29,47,.98),
+          rgba(10,20,34,.98)
+        );
+
+      border: 1px solid var(--border);
+
+      border-radius: 18px;
+
+      padding: 16px;
+
+      transition: .2s ease;
+    }
+
+    .bundle:hover {
+      transform: translateY(-3px);
+
+      border-color:
+        rgba(22,119,255,.45);
+
+      box-shadow:
+        0 15px 35px rgba(0,0,0,.2);
+    }
+
+    .bundle-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      margin-bottom: 15px;
+    }
+
+    .network-mini {
+      color: #7db8ff;
+      font-size: 9px;
+      font-weight: 800;
+
+      text-transform: uppercase;
+      letter-spacing: .6px;
+    }
+
+    .popular {
+      padding: 4px 7px;
+
+      border-radius: 20px;
+
+      background: rgba(22,216,144,.10);
+      color: var(--green);
+
+      font-size: 8px;
+      font-weight: 800;
+    }
+
+    .bundle h3 {
+      font-size: 25px;
+      letter-spacing: -1px;
+    }
+
+    .validity {
+      color: var(--muted);
+      font-size: 9px;
+      margin-top: 4px;
+    }
+
+    .price {
+      font-size: 19px;
+      font-weight: 900;
+      color: var(--green);
+      margin: 15px 0;
+    }
+
+    .buy {
+      width: 100%;
+
+      border: 0;
+
+      padding: 11px;
+
+      border-radius: 11px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #1677ff,
+          #0755c9
+        );
+
+      color: white;
+
+      font-size: 11px;
+      font-weight: 850;
+
+      box-shadow:
+        0 7px 18px rgba(22,119,255,.20);
+    }
+
+    /* ACCOUNT */
+
+    .account {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 9px;
+    }
+
+    .input {
+      width: 100%;
+
+      border: 1px solid var(--border);
+
+      background: rgba(255,255,255,.04);
+
+      color: white;
+
+      padding: 14px;
+
+      border-radius: 13px;
+
+      outline: none;
+
+      font-size: 13px;
+    }
+
+    .save {
+      border: 0;
+
+      border-radius: 13px;
+
+      padding: 0 17px;
+
+      background: var(--green);
+      color: #03160e;
+
+      font-weight: 900;
+      font-size: 12px;
+    }
+
+    /* ORDERS */
+
+    .orders {
+      background: var(--card);
+      border: 1px solid var(--border);
+
+      border-radius: 18px;
+
+      overflow: hidden;
+    }
+
+    .empty {
+      padding: 25px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .order {
+      padding: 15px;
+
+      border-bottom: 1px solid var(--border);
+
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      gap: 10px;
+    }
+
+    .order:last-child {
+      border-bottom: 0;
+    }
+
+    .order-id {
+      color: #8dbdff;
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .order-name {
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .order-phone {
+      color: var(--muted);
+      font-size: 9px;
+      margin-top: 3px;
+    }
+
+    .order-right {
+      text-align: right;
+    }
+
+    .order-price {
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .pending {
+      display: inline-block;
+
+      margin-top: 5px;
+
+      padding: 4px 7px;
+
+      border-radius: 20px;
+
+      background: rgba(255,190,60,.1);
+      color: #ffc44d;
+
+      font-size: 8px;
+      font-weight: 800;
+    }
+
+    /* SUPPORT */
+
+    .support {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .support-btn {
+      border: 1px solid var(--border);
+
+      background: var(--card);
+
+      color: white;
+
+      border-radius: 16px;
+
+      padding: 17px;
+
+      text-align: left;
+    }
+
+    .support-btn strong {
+      display: block;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .support-btn span {
+      color: var(--muted);
+      font-size: 9px;
+    }
+
+    /* FOOTER */
+
+    footer {
+      margin-top: 35px;
+
+      padding: 30px 18px;
+
+      border-top: 1px solid var(--border);
+
+      text-align: center;
+
+      color: var(--muted);
+
+      font-size: 10px;
+
+      line-height: 1.8;
+    }
+
+    footer strong {
+      color: white;
+      font-size: 13px;
+    }
+
+    /* WHATSAPP */
+
+    .whatsapp {
+      position: fixed;
+
+      right: 18px;
+      bottom: 18px;
+
+      z-index: 200;
+
+      width: 53px;
+      height: 53px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 50%;
+
+      background: #18d889;
+      color: white;
+
+      font-size: 22px;
+
+      box-shadow:
+        0 10px 30px rgba(24,216,137,.35);
+
+      text-decoration: none;
+    }
+
+    /* DESKTOP */
+
+    @media (min-width: 700px) {
+
+      .status {
+        display: block;
+      }
+
+      main {
+        padding: 25px;
+      }
+
+      .hero {
+        padding: 55px 45px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(3, 180px);
+      }
+
+      .bundle-grid {
+        grid-template-columns:
+          repeat(4, 1fr);
+      }
+
+    }
+
+    @media (max-width: 480px) {
+
+      .hero {
+        border-radius: 23px;
+      }
+
+      .hero h1 {
+        font-size: 34px;
+      }
+
+      .bundle-grid {
+        grid-template-columns: repeat(2,1fr);
+      }
+
+      .account {
+        grid-template-columns: 1fr;
+      }
+
+      .save {
+        padding: 13px;
+      }
+
+      .support {
+        grid-template-columns: 1fr;
+      }
+
+    }
+
+  </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans antialiased min-h-screen flex flex-col">
 
-    <!-- Navbar -->
-    <header class="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center">
-        <div class="flex items-center space-x-3">
-            <span class="bg-indigo-600 text-white font-bold p-2 rounded-lg">⚡</span>
-            <h1 class="text-xl font-bold tracking-wide">DataMart / Vending Portal</h1>
-        </div>
-        <div class="flex items-center space-x-4">
-            <span id="username-display" class="text-sm text-gray-300">Loading...</span>
-            <button onclick="loadUserData()" class="bg-gray-700 hover:bg-gray-600 text-xs px-3 py-1.5 rounded transition">Refresh</button>
-        </div>
-    </header>
 
-    <!-- Main Container -->
-    <main class="flex-grow max-w-7xl w-full mx-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <!-- Left Column: Wallet & Quick Actions -->
-        <div class="space-y-6">
-            <!-- Wallet Card -->
-            <div class="bg-gradient-to-br from-indigo-900 to-gray-800 border border-indigo-700/50 rounded-2xl p-6 shadow-xl">
-                <p class="text-sm text-indigo-300 font-medium uppercase tracking-wider">Wallet Balance</p>
-                <h2 id="wallet-balance" class="text-4xl font-extrabold mt-2 text-white">$0.00</h2>
-                <button onclick="fundWalletPrompt()" class="mt-5 w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-xl shadow transition">
-                    + Fund Wallet
-                </button>
-            </div>
+<body>
 
-            <!-- Quick Vending Form -->
-            <div class="bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-xl">
-                <h3 class="text-lg font-semibold mb-4">Quick Service Purchase</h3>
-                <form id="purchase-form" onsubmit="handlePurchase(event)" class="space-y-4">
-                    <div>
-                        <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Select Service / Product</label>
-                        <select id="service-select" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500">
-                            <option value="MTN 1GB Data ($2.50)">MTN 1GB Data - $2.50</option>
-                            <option value="MTN 5GB Data ($10.00)">MTN 5GB Data - $10.00</option>
-                            <option value="AirtelTigo 2GB ($4.00)">AirtelTigo 2GB - $4.00</option>
-                            <option value="Airtime Topup ($5.00)">Airtime Topup - $5.00</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-xs uppercase tracking-wider text-gray-400 mb-1">Recipient Phone / Account</label>
-                        <input type="text" id="recipient" placeholder="e.g., 0541234567" required class="w-full bg-gray-900 border border-gray-700 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500">
-                    </div>
-                    <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl shadow transition">
-                        Buy Now
-                    </button>
-                </form>
-            </div>
+<header>
+
+  <div class="header">
+
+    <div class="brand">
+
+      <div class="logo">
+        DGM
+      </div>
+
+      <div>
+        <div class="brand-name">
+          DHE GENIUS MEDIA
         </div>
 
-        <!-- Right Column: Transaction History -->
-        <div class="md:col-span-2 bg-gray-800 border border-gray-700 rounded-2xl p-6 shadow-xl flex flex-col">
-            <h3 class="text-lg font-semibold mb-4">Recent Transactions</h3>
-            <div class="overflow-x-auto flex-grow">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="border-b border-gray-700 text-gray-400 text-xs uppercase tracking-wider">
-                            <th class="py-3 px-4">TXN ID</th>
-                            <th class="py-3 px-4">Service</th>
-                            <th class="py-3 px-4">Amount</th>
-                            <th class="py-3 px-4">Status</th>
-                            <th class="py-3 px-4">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="transactions-table" class="divide-y divide-gray-700/50 text-sm">
-                        <!-- Populated via JS -->
-                    </tbody>
-                </table>
-            </div>
+        <div class="brand-sub">
+          Stay Connected. Stay Genius.
+        </div>
+      </div>
+
+    </div>
+
+
+    <div class="header-right">
+
+      <div class="status">
+        ● ONLINE • 24/7
+      </div>
+
+      <button
+        class="menu-btn"
+        onclick="scrollToOrders()">
+        ☰
+      </button>
+
+    </div>
+
+  </div>
+
+</header>
+
+
+<main>
+
+
+  <!-- HERO -->
+
+  <section class="hero">
+
+    <div class="hero-content">
+
+      <div class="eyebrow">
+        <span class="dot"></span>
+        DGM DIGITAL SERVICES
+      </div>
+
+      <h1>
+        Stay Connected.<br>
+        <span>Stay Genius.</span>
+      </h1>
+
+      <p>
+        Get affordable data bundles and digital services
+        from DHE GENIUS MEDIA. Fast ordering, convenient
+        service and support available 24/7.
+      </p>
+
+
+      <div class="hero-actions">
+
+        <button
+          class="primary-btn"
+          onclick="scrollToBundles()">
+          ⚡ Buy Data
+        </button>
+
+        <a
+          href="https://wa.me/233241518385"
+          target="_blank"
+          class="secondary-btn"
+          style="text-decoration:none;">
+          💬 WhatsApp
+        </a>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- STATS -->
+
+  <div class="stats">
+
+    <div class="stat">
+      <strong>24/7</strong>
+      <span>AVAILABLE</span>
+    </div>
+
+    <div class="stat">
+      <strong>GH₵</strong>
+      <span>LOCAL PRICING</span>
+    </div>
+
+    <div class="stat">
+      <strong>3</strong>
+      <span>NETWORKS</span>
+    </div>
+
+  </div>
+
+
+  <!-- NETWORK -->
+
+  <section class="section" id="bundles">
+
+    <div class="section-head">
+
+      <div>
+        <h2>Choose Network</h2>
+
+        <p>
+          Select your preferred network
+        </p>
+      </div>
+
+    </div>
+
+
+    <div class="networks">
+
+      <button
+        class="network active"
+        onclick="selectNetwork('MTN', this)">
+
+        <div class="network-icon">
+          M
         </div>
 
-    </main>
+        <strong>MTN Ghana</strong>
 
-    <!-- Footer -->
-    <footer class="bg-gray-800 border-t border-gray-700 text-center py-4 text-xs text-gray-500">
-        Powered by Node.js & Render. Designed for automated digital vending.
-    </footer>
+        <small>Data Bundles</small>
 
-    <!-- JavaScript Logic -->
-    <script>
-        async function loadUserData() {
-            try {
-                const response = await fetch('/api/user');
-                const data = await response.json();
-                
-                document.getElementById('username-display').innerText = `${data.username} (${data.email})`;
-                document.getElementById('wallet-balance').innerText = `$${data.walletBalance.toFixed(2)}`;
-                
-                const tableBody = document.getElementById('transactions-table');
-                tableBody.innerHTML = '';
-                
-                data.transactions.forEach(tx => {
-                    tableBody.innerHTML += `
-                        <tr class="hover:bg-gray-750 transition">
-                            <td class="py-3 px-4 font-mono text-indigo-400">${tx.id}</td>
-                            <td class="py-3 px-4">${tx.service}</td>
-                            <td class="py-3 px-4 font-semibold">$${tx.amount.toFixed(2)}</td>
-                            <td class="py-3 px-4"><span class="bg-emerald-900/60 text-emerald-400 px-2 py-0.5 rounded-full text-xs font-medium">${tx.status}</span></td>
-                            <td class="py-3 px-4 text-gray-400 text-xs">${tx.date}</td>
-                        </tr>
-                    `;
-                });
-            } catch (err) {
-                console.error('Failed to load user data', err);
-            }
+      </button>
+
+
+      <button
+        class="network"
+        onclick="selectNetwork('AirtelTigo', this)">
+
+        <div class="network-icon">
+          A
+        </div>
+
+        <strong>AirtelTigo</strong>
+
+        <small>Data Bundles</small>
+
+      </button>
+
+
+      <button
+        class="network"
+        onclick="selectNetwork('Telecel', this)">
+
+        <div class="network-icon">
+          T
+        </div>
+
+        <strong>Telecel</strong>
+
+        <small>Data Bundles</small>
+
+      </button>
+
+    </div>
+
+
+    <input
+      id="search"
+      class="search"
+      type="search"
+      placeholder="🔎 Search bundle e.g. 10GB..."
+      oninput="renderBundles()">
+
+
+    <div class="section-head">
+
+      <div>
+        <h2 id="networkTitle">
+          MTN Bundles
+        </h2>
+
+        <p>
+          Valid for 90 days
+        </p>
+      </div>
+
+    </div>
+
+
+    <div
+      class="bundle-grid"
+      id="bundleList">
+    </div>
+
+  </section>
+
+
+  <!-- ACCOUNT -->
+
+  <section class="section">
+
+    <div class="section-head">
+
+      <div>
+        <h2>Your Number</h2>
+
+        <p>
+          Save it for faster ordering
+        </p>
+      </div>
+
+    </div>
+
+
+    <div class="account">
+
+      <input
+        id="accountPhone"
+        class="input"
+        type="tel"
+        maxlength="10"
+        placeholder="0241518385">
+
+      <button
+        class="save"
+        onclick="saveAccount()">
+        Save Number
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <!-- ORDERS -->
+
+  <section
+    class="section"
+    id="ordersSection">
+
+    <div class="section-head">
+
+      <div>
+        <h2>Order History</h2>
+
+        <p>
+          Your recent DGM orders
+        </p>
+      </div>
+
+    </div>
+
+
+    <div
+      class="orders"
+      id="orders">
+
+      <div class="empty">
+        📦 Your orders will appear here.
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- SUPPORT -->
+
+  <section class="section">
+
+    <div class="section-head">
+
+      <div>
+        <h2>Need Help?</h2>
+
+        <p>
+          DHE GENIUS MEDIA support
+        </p>
+      </div>
+
+    </div>
+
+
+    <div class="support">
+
+      <a
+        href="https://wa.me/233241518385"
+        target="_blank"
+        class="support-btn"
+        style="text-decoration:none;">
+
+        <strong>💬 WhatsApp</strong>
+
+        <span>
+          0241518385
+        </span>
+
+      </a>
+
+
+      <a
+        href="tel:0508667776"
+        class="support-btn"
+        style="text-decoration:none;">
+
+        <strong>📞 Call Us</strong>
+
+        <span>
+          0508667776
+        </span>
+
+      </a>
+
+    </div>
+
+  </section>
+
+
+</main>
+
+
+<footer>
+
+  <strong>
+    DHE GENIUS MEDIA (DGM)
+  </strong>
+
+  <br>
+
+  Stay Connected. Stay Genius.
+
+  <br>
+
+  Data Bundles • Airtime • Digital Services
+
+  <br>
+
+  📍 Accra - Spintex • 🟢 Open 24/7
+
+  <br>
+
+  © 2026 DHE GENIUS MEDIA
+
+</footer>
+
+
+<a
+  class="whatsapp"
+  href="https://wa.me/233241518385"
+  target="_blank"
+  aria-label="WhatsApp">
+  💬
+</a>
+
+
+<script>
+
+const bundles = {
+
+  MTN: [
+    ["1GB",5],
+    ["2GB",10],
+    ["3GB",15],
+    ["4GB",20],
+    ["5GB",24],
+    ["6GB",28],
+    ["8GB",36],
+    ["10GB",45],
+    ["15GB",64],
+    ["20GB",84],
+    ["25GB",100],
+    ["30GB",128],
+    ["40GB",168],
+    ["50GB",207]
+  ],
+
+  AirtelTigo: [
+    ["1GB",5],
+    ["2GB",10],
+    ["3GB",15],
+    ["4GB",20],
+    ["5GB",24],
+    ["6GB",26],
+    ["8GB",35],
+    ["10GB",45],
+    ["12GB",48],
+    ["15GB",65],
+    ["25GB",100],
+    ["30GB",120],
+    ["40GB",160],
+    ["50GB",200]
+  ],
+
+  Telecel: [
+    ["10GB",45],
+    ["15GB",60],
+    ["20GB",76],
+    ["25GB",100],
+    ["30GB",115],
+    ["35GB",136],
+    ["40GB",150],
+    ["45GB",165],
+    ["50GB",185],
+    ["100GB",407]
+  ]
+
+};
+
+
+let currentNetwork = "MTN";
+
+
+function selectNetwork(network, element) {
+
+  currentNetwork = network;
+
+  document
+    .querySelectorAll(".network")
+    .forEach(btn =>
+      btn.classList.remove("active")
+    );
+
+  element.classList.add("active");
+
+  document.getElementById(
+    "networkTitle"
+  ).textContent =
+    network + " Bundles";
+
+  renderBundles();
+
+}
+
+
+function renderBundles() {
+
+  const list =
+    document.getElementById("bundleList");
+
+  const search =
+    document
+      .getElementById("search")
+      .value
+      .toLowerCase()
+      .trim();
+
+
+  list.innerHTML = "";
+
+
+  const filtered =
+    bundles[currentNetwork].filter(bundle =>
+      bundle[0].toLowerCase().includes(search)
+    );
+
+
+  filtered.forEach((bundle, index) => {
+
+    const size = bundle[0];
+    const price = bundle[1];
+
+
+    const card =
+      document.createElement("div");
+
+    card.className = "bundle";
+
+
+    card.innerHTML = `
+
+      <div class="bundle-top">
+
+        <span class="network-mini">
+          ${currentNetwork}
+        </span>
+
+        ${
+          index === 4
+          ? `<span class="popular">POPULAR</span>`
+          : ""
         }
 
-        async function handlePurchase(event) {
-            event.preventDefault();
-            const serviceSelect = document.getElementById('service-select').value;
-            
-            // Extract price from string (e.g. "MTN 1GB Data ($2.50)" -> 2.50)
-            let amount = 2.50;
-            if (serviceSelect.includes('5GB')) amount = 10.00;
-            if (serviceSelect.includes('AirtelTigo')) amount = 4.00;
-            if (serviceSelect.includes('Airtime')) amount = 5.00;
+      </div>
 
-            const response = await fetch('/api/purchase', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ service: serviceSelect, amount })
-            });
+      <h3>
+        ${size}
+      </h3>
 
-            const result = await response.json();
-            if (result.success) {
-                alert(result.message);
-                loadUserData();
-            } else {
-                alert(result.message);
-            }
-        }
+      <div class="validity">
+        90 days validity
+      </div>
 
-        async function fundWalletPrompt() {
-            const amtStr = prompt("Enter amount to fund wallet ($):", "50");
-            if (!amtStr) return;
-            const amount = parseFloat(amtStr);
+      <div class="price">
+        GH₵${price}
+      </div>
 
-            const response = await fetch('/api/fund-wallet', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount })
-            });
+      <button
+        class="buy"
+        onclick="buyBundle('${size}', ${price})">
 
-            const result = await response.json();
-            if (result.success) {
-                alert(result.message);
-                loadUserData();
-            } else {
-                alert(result.message);
-            }
-        }
+        Buy ${size}
 
-        // Load data on page open
-        loadUserData();
-    </script>
+      </button>
+
+    `;
+
+
+    list.appendChild(card);
+
+  });
+
+
+  if (!filtered.length) {
+
+    list.innerHTML = `
+
+      <div
+        style="
+          grid-column:1/-1;
+          text-align:center;
+          padding:30px;
+          color:#8d9bb0;
+        ">
+
+        No bundle found.
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+
+function validPhone(phone) {
+
+  return /^0[235679][0-9]{8}$/.test(phone);
+
+}
+
+
+function getPhone() {
+
+  let phone =
+    localStorage.getItem(
+      "dgm_account_phone"
+    ) || "";
+
+
+  if (!phone) {
+
+    phone = prompt(
+      "Enter the Ghana number to receive the bundle:"
+    );
+
+  }
+
+
+  if (!phone) return null;
+
+
+  phone =
+    phone
+      .replace(/\s+/g,"")
+      .trim();
+
+
+  if (!validPhone(phone)) {
+
+    alert(
+      "Please enter a valid Ghana phone number.\n\nExample: 0241518385"
+    );
+
+    return null;
+
+  }
+
+
+  return phone;
+
+}
+
+
+function buyBundle(size, price) {
+
+  const phone = getPhone();
+
+  if (!phone) return;
+
+
+  const confirmOrder =
+    confirm(
+
+      "CONFIRM ORDER\n\n" +
+
+      "DHE GENIUS MEDIA (DGM)\n\n" +
+
+      "Network: " +
+      currentNetwork +
+
+      "\nBundle: " +
+      size +
+
+      "\nPrice: GH₵" +
+      price +
+
+      "\nRecipient: " +
+      phone
+
+    );
+
+
+  if (!confirmOrder) return;
+
+
+  const order = {
+
+    id:
+      "DGM-" +
+      Date.now(),
+
+    network:
+      currentNetwork,
+
+    bundle:
+      size,
+
+    phone:
+      phone,
+
+    amount:
+      price,
+
+    status:
+      "Pending",
+
+    date:
+      new Date().toLocaleString()
+
+  };
+
+
+  let orders =
+    JSON.parse(
+      localStorage.getItem(
+        "dgm_orders"
+      ) || "[]"
+    );
+
+
+  orders.unshift(order);
+
+
+  localStorage.setItem(
+    "dgm_orders",
+    JSON.stringify(orders)
+  );
+
+
+  localStorage.setItem(
+    "dgm_account_phone",
+    phone
+  );
+
+
+  showOrders();
+
+
+  alert(
+
+    "Order received! ✅\n\n" +
+
+    "Order ID: " +
+    order.id +
+
+    "\n\nNetwork: " +
+    currentNetwork +
+
+    "\nBundle: " +
+    size +
+
+    "\nAmount: GH₵" +
+    price +
+
+    "\nPhone: " +
+    phone +
+
+    "\n\nStatus: Pending"
+
+  );
+
+}
+
+
+function saveAccount() {
+
+  const input =
+    document.getElementById(
+      "accountPhone"
+    );
+
+
+  const phone =
+    input.value
+      .replace(/\s+/g,"")
+      .trim();
+
+
+  if (!validPhone(phone)) {
+
+    alert(
+      "Enter a valid Ghana phone number.\n\nExample: 0241518385"
+    );
+
+    return;
+
+  }
+
+
+  localStorage.setItem(
+    "dgm_account_phone",
+    phone
+  );
+
+
+  alert(
+    "Number saved successfully! ✅"
+  );
+
+}
+
+
+function showOrders() {
+
+  const container =
+    document.getElementById(
+      "orders"
+    );
+
+
+  const orders =
+    JSON.parse(
+      localStorage.getItem(
+        "dgm_orders"
+      ) || "[]"
+    );
+
+
+  if (!orders.length) {
+
+    container.innerHTML = `
+
+      <div class="empty">
+        📦 Your orders will appear here.
+      </div>
+
+    `;
+
+    return;
+
+  }
+
+
+  container.innerHTML =
+    orders
+      .slice(0,10)
+      .map(order => `
+
+        <div class="order">
+
+          <div>
+
+            <div class="order-id">
+              ${order.id}
+            </div>
+
+            <div class="order-name">
+              ${order.network}
+              ${order.bundle}
+            </div>
+
+            <div class="order-phone">
+              📱 ${order.phone}
+            </div>
+
+          </div>
+
+
+          <div class="order-right">
+
+            <div class="order-price">
+              GH₵${order.amount}
+            </div>
+
+            <span class="pending">
+              ${order.status}
+            </span>
+
+          </div>
+
+        </div>
+
+      `)
+      .join("");
+
+}
+
+
+function loadAccount() {
+
+  const phone =
+    localStorage.getItem(
+      "dgm_account_phone"
+    );
+
+
+  if (phone) {
+
+    document.getElementById(
+      "accountPhone"
+    ).value = phone;
+
+  }
+
+}
+
+
+function scrollToBundles() {
+
+  document
+    .getElementById("bundles")
+    .scrollIntoView({
+      behavior:"smooth"
+    });
+
+}
+
+
+function scrollToOrders() {
+
+  document
+    .getElementById("ordersSection")
+    .scrollIntoView({
+      behavior:"smooth"
+    });
+
+}
+
+
+loadAccount();
+
+renderBundles();
+
+showOrders();
+
+</script>
+
 </body>
 </html>
