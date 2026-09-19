@@ -75,6 +75,11 @@ app.post('/api/fund-wallet', (req, res) => {
     res.json({ success: true, message: `Successfully added $${numericAmount.toFixed(2)} to wallet!`, user: userState });
 });
 
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+// Health check endpoint for Render deployment
+app.get('/api/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on port ${PORT}`);
 });
