@@ -1,880 +1,600 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#07111f">
-
-  <title>DHE GENIUS MEDIA — DGM</title>
-
-  <style>
-    :root {
-      --bg: #050b14;
-      --card: rgba(18, 29, 47, .82);
-      --card2: #101c2e;
-      --blue: #1677ff;
-      --blue2: #00a8ff;
-      --green: #16d890;
-      --text: #ffffff;
-      --muted: #8d9bb0;
-      --border: rgba(255,255,255,.09);
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      font-family:
-        Inter,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        Arial,
-        sans-serif;
-
-      background:
-        radial-gradient(
-          circle at 80% 5%,
-          rgba(22,119,255,.20),
-          transparent 30%
-        ),
-        radial-gradient(
-          circle at 10% 35%,
-          rgba(0,168,255,.08),
-          transparent 28%
-        ),
-        var(--bg);
-
-      color: var(--text);
-      min-height: 100vh;
-      padding-bottom: 80px;
-    }
-
-    button,
-    input {
-      font: inherit;
-    }
-
-    button {
-      cursor: pointer;
-    }
-
-    /* HEADER */
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 100;
-
-      background: rgba(5,11,20,.82);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-
-      border-bottom: 1px solid var(--border);
-    }
-
-    .header {
-      max-width: 1180px;
-      margin: auto;
-
-      min-height: 72px;
-      padding: 10px 18px;
-
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 15px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 11px;
-    }
-
-    .logo {
-      width: 47px;
-      height: 47px;
-
-      display: grid;
-      place-items: center;
-
-      border-radius: 15px;
-
-      background:
-        linear-gradient(135deg, #1677ff, #0047bd);
-
-      box-shadow:
-        0 8px 25px rgba(22,119,255,.35);
-
-      font-weight: 950;
-      font-size: 15px;
-      letter-spacing: -.5px;
-    }
-
-    .brand-name {
-      font-size: 16px;
-      font-weight: 850;
-      letter-spacing: .2px;
-    }
-
-    .brand-sub {
-      color: var(--muted);
-      font-size: 10px;
-      margin-top: 3px;
-    }
-
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status {
-      display: none;
-
-      padding: 8px 11px;
-      border-radius: 30px;
-
-      background: rgba(22,216,144,.1);
-      border: 1px solid rgba(22,216,144,.2);
-
-      color: var(--green);
-      font-size: 11px;
-      font-weight: 700;
-    }
-
-    .menu-btn {
-      width: 42px;
-      height: 42px;
-
-      border: 1px solid var(--border);
-      border-radius: 12px;
-
-      background: rgba(255,255,255,.04);
-      color: white;
-
-      font-size: 19px;
-    }
-
-    /* MAIN */
-
-    main {
-      max-width: 1180px;
-      margin: auto;
-      padding: 18px;
-    }
-
-    /* HERO */
-
-    .hero {
-      position: relative;
-      overflow: hidden;
-
-      margin-top: 8px;
-
-      border-radius: 28px;
-      padding: 34px 22px;
-
-      background:
-        linear-gradient(
-          135deg,
-          rgba(22,119,255,.96),
-          rgba(5,58,142,.94)
-        );
-
-      box-shadow:
-        0 25px 70px rgba(0,0,0,.35);
-
-      border: 1px solid rgba(255,255,255,.1);
-    }
-
-    .hero::before {
-      content: "";
-
-      position: absolute;
-
-      width: 260px;
-      height: 260px;
-
-      right: -90px;
-      top: -100px;
-
-      border-radius: 50%;
-
-      background: rgba(255,255,255,.10);
-    }
-
-    .hero::after {
-      content: "";
-
-      position: absolute;
-
-      width: 180px;
-      height: 180px;
-
-      left: -90px;
-      bottom: -110px;
-
-      border-radius: 50%;
-
-      background: rgba(0,255,180,.08);
-    }
-
-    .hero-content {
-      position: relative;
-      z-index: 2;
-      max-width: 650px;
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-
-      padding: 7px 11px;
-
-      border-radius: 30px;
-
-      background: rgba(255,255,255,.11);
-      border: 1px solid rgba(255,255,255,.12);
-
-      font-size: 11px;
-      font-weight: 700;
-
-      margin-bottom: 16px;
-    }
-
-    .dot {
-      width: 7px;
-      height: 7px;
-
-      border-radius: 50%;
-      background: #35ffb1;
-
-      box-shadow: 0 0 10px #35ffb1;
-    }
-
-    .hero h1 {
-      font-size: clamp(30px, 8vw, 52px);
-      line-height: 1.02;
-      letter-spacing: -1.8px;
-      margin-bottom: 14px;
-    }
-
-    .hero h1 span {
-      color: #9be4ff;
-    }
-
-    .hero p {
-      max-width: 550px;
-
-      color: rgba(255,255,255,.82);
-
-      font-size: 14px;
-      line-height: 1.65;
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-
-      margin-top: 22px;
-    }
-
-    .primary-btn,
-    .secondary-btn {
-      border: 0;
-      padding: 13px 17px;
-      border-radius: 13px;
-      font-weight: 800;
-      font-size: 13px;
-    }
-
-    .primary-btn {
-      background: white;
-      color: #0756c9;
-    }
-
-    .secondary-btn {
-      background: rgba(255,255,255,.10);
-      color: white;
-      border: 1px solid rgba(255,255,255,.15);
-    }
-
-    /* QUICK STATS */
-
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(3,1fr);
-      gap: 9px;
-
-      margin-top: 12px;
-    }
-
-    .stat {
-      padding: 14px 10px;
-
-      background: var(--card);
-      border: 1px solid var(--border);
-
-      border-radius: 16px;
-
-      text-align: center;
-    }
-
-    .stat strong {
-      display: block;
-      font-size: 15px;
-    }
-
-    .stat span {
-      display: block;
-      color: var(--muted);
-      font-size: 9px;
-      margin-top: 4px;
-    }
-
-    /* SECTION */
-
-    .section {
-      margin-top: 28px;
-    }
-
-    .section-head {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 10px;
-
-      margin-bottom: 13px;
-    }
-
-    .section-head h2 {
-      font-size: 21px;
-      letter-spacing: -.5px;
-    }
-
-    .section-head p {
-      color: var(--muted);
-      font-size: 11px;
-      margin-top: 4px;
-    }
-
-    /* NETWORKS */
-
-    .networks {
-      display: grid;
-      grid-template-columns: repeat(3,1fr);
-      gap: 9px;
-    }
-
-    .network {
-      position: relative;
-
-      min-height: 78px;
-
-      border: 1px solid var(--border);
-      border-radius: 17px;
-
-      background: var(--card);
-
-      color: white;
-
-      text-align: left;
-      padding: 13px;
-
-      transition: .2s ease;
-    }
-
-    .network:hover {
-      transform: translateY(-2px);
-    }
-
-    .network.active {
-      border-color: rgba(22,119,255,.8);
-
-      background:
-        linear-gradient(
-          135deg,
-          rgba(22,119,255,.24),
-          rgba(18,29,47,.9)
-        );
-
-      box-shadow:
-        0 10px 30px rgba(22,119,255,.12);
-    }
-
-    .network-icon {
-      width: 31px;
-      height: 31px;
-
-      display: grid;
-      place-items: center;
-
-      border-radius: 9px;
-
-      background: rgba(255,255,255,.08);
-
-      font-size: 13px;
-      font-weight: 900;
-
-      margin-bottom: 8px;
-    }
-
-    .network strong {
-      display: block;
-      font-size: 12px;
-    }
-
-    .network small {
-      color: var(--muted);
-      font-size: 9px;
-    }
-
-    /* SEARCH */
-
-    .search {
-      width: 100%;
-
-      margin: 14px 0;
-
-      padding: 14px 16px;
-
-      border-radius: 14px;
-
-      border: 1px solid var(--border);
-
-      background: rgba(255,255,255,.04);
-
-      color: white;
-
-      outline: none;
-
-      font-size: 13px;
-    }
-
-    .search:focus {
-      border-color: rgba(22,119,255,.7);
-    }
-
-    /* BUNDLES */
-
-    .bundle-grid {
-      display: grid;
-
-      grid-template-columns:
-        repeat(auto-fill, minmax(145px,1fr));
-
-      gap: 10px;
-    }
-
-    .bundle {
-      position: relative;
-
-      overflow: hidden;
-
-      background:
-        linear-gradient(
-          145deg,
-          rgba(18,29,47,.98),
-          rgba(10,20,34,.98)
-        );
-
-      border: 1px solid var(--border);
-
-      border-radius: 18px;
-
-      padding: 16px;
-
-      transition: .2s ease;
-    }
-
-    .bundle:hover {
-      transform: translateY(-3px);
-
-      border-color:
-        rgba(22,119,255,.45);
-
-      box-shadow:
-        0 15px 35px rgba(0,0,0,.2);
-    }
-
-    .bundle-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      margin-bottom: 15px;
-    }
-
-    .network-mini {
-      color: #7db8ff;
-      font-size: 9px;
-      font-weight: 800;
-
-      text-transform: uppercase;
-      letter-spacing: .6px;
-    }
-
-    .popular {
-      padding: 4px 7px;
-
-      border-radius: 20px;
-
-      background: rgba(22,216,144,.10);
-      color: var(--green);
-
-      font-size: 8px;
-      font-weight: 800;
-    }
-
-    .bundle h3 {
-      font-size: 25px;
-      letter-spacing: -1px;
-    }
-
-    .validity {
-      color: var(--muted);
-      font-size: 9px;
-      margin-top: 4px;
-    }
-
-    .price {
-      font-size: 19px;
-      font-weight: 900;
-      color: var(--green);
-      margin: 15px 0;
-    }
-
-    .buy {
-      width: 100%;
-
-      border: 0;
-
-      padding: 11px;
-
-      border-radius: 11px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #1677ff,
-          #0755c9
-        );
-
-      color: white;
-
-      font-size: 11px;
-      font-weight: 850;
-
-      box-shadow:
-        0 7px 18px rgba(22,119,255,.20);
-    }
-
-    /* ACCOUNT */
-
-    .account {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 9px;
-    }
-
-    .input {
-      width: 100%;
-
-      border: 1px solid var(--border);
-
-      background: rgba(255,255,255,.04);
-
-      color: white;
-
-      padding: 14px;
-
-      border-radius: 13px;
-
-      outline: none;
-
-      font-size: 13px;
-    }
-
-    .save {
-      border: 0;
-
-      border-radius: 13px;
-
-      padding: 0 17px;
-
-      background: var(--green);
-      color: #03160e;
-
-      font-weight: 900;
-      font-size: 12px;
-    }
-
-    /* ORDERS */
-
-    .orders {
-      background: var(--card);
-      border: 1px solid var(--border);
-
-      border-radius: 18px;
-
-      overflow: hidden;
-    }
-
-    .empty {
-      padding: 25px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    .order {
-      padding: 15px;
-
-      border-bottom: 1px solid var(--border);
-
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      gap: 10px;
-    }
-
-    .order:last-child {
-      border-bottom: 0;
-    }
-
-    .order-id {
-      color: #8dbdff;
-      font-size: 10px;
-      font-weight: 800;
-    }
-
-    .order-name {
-      margin-top: 4px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    .order-phone {
-      color: var(--muted);
-      font-size: 9px;
-      margin-top: 3px;
-    }
-
-    .order-right {
-      text-align: right;
-    }
-
-    .order-price {
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .pending {
-      display: inline-block;
-
-      margin-top: 5px;
-
-      padding: 4px 7px;
-
-      border-radius: 20px;
-
-      background: rgba(255,190,60,.1);
-      color: #ffc44d;
-
-      font-size: 8px;
-      font-weight: 800;
-    }
-
-    /* SUPPORT */
-
-    .support {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-
-    .support-btn {
-      border: 1px solid var(--border);
-
-      background: var(--card);
-
-      color: white;
-
-      border-radius: 16px;
-
-      padding: 17px;
-
-      text-align: left;
-    }
-
-    .support-btn strong {
-      display: block;
-      font-size: 12px;
-      margin-bottom: 4px;
-    }
-
-    .support-btn span {
-      color: var(--muted);
-      font-size: 9px;
-    }
-
-    /* FOOTER */
-
-    footer {
-      margin-top: 35px;
-
-      padding: 30px 18px;
-
-      border-top: 1px solid var(--border);
-
-      text-align: center;
-
-      color: var(--muted);
-
-      font-size: 10px;
-
-      line-height: 1.8;
-    }
-
-    footer strong {
-      color: white;
-      font-size: 13px;
-    }
-
-    /* WHATSAPP */
-
-    .whatsapp {
-      position: fixed;
-
-      right: 18px;
-      bottom: 18px;
-
-      z-index: 200;
-
-      width: 53px;
-      height: 53px;
-
-      display: grid;
-      place-items: center;
-
-      border-radius: 50%;
-
-      background: #18d889;
-      color: white;
-
-      font-size: 22px;
-
-      box-shadow:
-        0 10px 30px rgba(24,216,137,.35);
-
-      text-decoration: none;
-    }
-
-    /* DESKTOP */
-
-    @media (min-width: 700px) {
-
-      .status {
-        display: block;
-      }
-
-      main {
-        padding: 25px;
-      }
-
-      .hero {
-        padding: 55px 45px;
-      }
-
-      .stats {
-        grid-template-columns: repeat(3, 180px);
-      }
-
-      .bundle-grid {
-        grid-template-columns:
-          repeat(4, 1fr);
-      }
-
-    }
-
-    @media (max-width: 480px) {
-
-      .hero {
-        border-radius: 23px;
-      }
-
-      .hero h1 {
-        font-size: 34px;
-      }
-
-      .bundle-grid {
-        grid-template-columns: repeat(2,1fr);
-      }
-
-      .account {
-        grid-template-columns: 1fr;
-      }
-
-      .save {
-        padding: 13px;
-      }
-
-      .support {
-        grid-template-columns: 1fr;
-      }
-
-    }
-
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>DHE GENIUS MEDIA — Data & Digital Services</title>
+
+<style>
+*{
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+body{
+  font-family:Inter,Arial,sans-serif;
+  background:#f5f7fa;
+  color:#111827;
+}
+
+button,input,select{
+  font:inherit;
+}
+
+button{
+  cursor:pointer;
+}
+
+/* HEADER */
+
+header{
+  background:#0879df;
+  color:white;
+  position:sticky;
+  top:0;
+  z-index:100;
+  box-shadow:0 2px 12px rgba(0,0,0,.12);
+}
+
+.nav{
+  max-width:1100px;
+  margin:auto;
+  height:70px;
+  padding:0 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.logo{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  background:white;
+  color:#0879df;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+}
+
+.brand strong{
+  font-size:15px;
+}
+
+.brand small{
+  display:block;
+  opacity:.8;
+  font-size:10px;
+  margin-top:2px;
+}
+
+.nav-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+.nav-btn{
+  border:0;
+  background:white;
+  color:#0879df;
+  padding:10px 14px;
+  border-radius:12px;
+  font-weight:700;
+}
+
+.menu{
+  border:0;
+  background:transparent;
+  color:white;
+  font-size:25px;
+}
+
+/* HERO */
+
+.hero{
+  background:linear-gradient(135deg,#0879df,#1264c4);
+  color:white;
+  padding:42px 18px 55px;
+}
+
+.hero-inner{
+  max-width:1100px;
+  margin:auto;
+}
+
+.hero h1{
+  font-size:clamp(34px,7vw,62px);
+  line-height:1;
+  font-weight:900;
+  max-width:700px;
+  letter-spacing:-2px;
+}
+
+.hero p{
+  margin-top:15px;
+  font-size:16px;
+  opacity:.9;
+}
+
+.hero-buttons{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:25px;
+}
+
+.primary{
+  border:0;
+  background:white;
+  color:#0879df;
+  padding:13px 19px;
+  border-radius:12px;
+  font-weight:800;
+}
+
+.secondary{
+  border:1px solid rgba(255,255,255,.35);
+  background:transparent;
+  color:white;
+  padding:13px 19px;
+  border-radius:12px;
+  font-weight:700;
+}
+
+/* MAIN */
+
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:22px 15px 60px;
+}
+
+.section-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin:28px 0 13px;
+}
+
+.section-head h2{
+  font-size:18px;
+}
+
+.section-head span{
+  font-size:12px;
+  color:#8a94a6;
+}
+
+/* DELIVERY CARD */
+
+.status-card{
+  background:#fff9e8;
+  border:1px solid #eadcb2;
+  border-radius:16px;
+  padding:14px;
+  margin-bottom:25px;
+}
+
+.status-top{
+  color:#806d2d;
+  font-size:12px;
+  margin-bottom:10px;
+}
+
+.status-line{
+  background:#edf8f1;
+  border-radius:12px;
+  padding:11px;
+  font-size:12px;
+  border:1px solid #d9ebdf;
+}
+
+.status-line strong{
+  color:#237a4b;
+}
+
+.status-bottom{
+  margin-top:9px;
+  font-size:11px;
+  color:#888;
+}
+
+/* NETWORKS */
+
+.networks{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+
+.network{
+  border:0;
+  border-radius:15px;
+  padding:16px 10px;
+  background:white;
+  box-shadow:0 2px 10px rgba(0,0,0,.06);
+  font-weight:800;
+}
+
+.network.active{
+  outline:3px solid #0879df;
+}
+
+.network.mtn{
+  border-bottom:5px solid #ffcc00;
+}
+
+.network.at{
+  border-bottom:5px solid #173f7a;
+}
+
+.network.telecel{
+  border-bottom:5px solid #e71931;
+}
+
+/* BUNDLES */
+
+.products{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+}
+
+.product{
+  border-radius:17px;
+  padding:18px;
+  min-height:155px;
+  color:white;
+  position:relative;
+  overflow:hidden;
+}
+
+.product.mtn{
+  background:#ffcc00;
+  color:#111;
+}
+
+.product.at{
+  background:#24467e;
+}
+
+.product.telecel{
+  background:#ed1b2f;
+}
+
+.tag{
+  display:inline-block;
+  background:rgba(255,255,255,.25);
+  padding:5px 8px;
+  border-radius:8px;
+  font-size:10px;
+  font-weight:800;
+}
+
+.product h3{
+  font-size:28px;
+  margin-top:14px;
+}
+
+.product p{
+  font-size:11px;
+  opacity:.85;
+  margin-top:3px;
+}
+
+.product-bottom{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:15px;
+}
+
+.price{
+  font-size:18px;
+  font-weight:900;
+}
+
+.arrow{
+  font-size:20px;
+}
+
+/* SUBSCRIPTIONS */
+
+.subscription-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:12px;
+}
+
+.subscription{
+  background:white;
+  border-radius:18px;
+  padding:18px;
+  border:1px solid #e4e8ef;
+  box-shadow:0 3px 12px rgba(0,0,0,.05);
+}
+
+.sub-icon{
+  width:48px;
+  height:48px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  margin-bottom:12px;
+}
+
+.netflix{
+  background:#ffe8e8;
+}
+
+.dstv{
+  background:#e7edff;
+}
+
+.apple{
+  background:#eee;
+}
+
+.subscription h3{
+  font-size:18px;
+}
+
+.subscription p{
+  color:#70798a;
+  font-size:12px;
+  margin:7px 0;
+}
+
+.sub-price{
+  font-size:18px;
+  font-weight:900;
+  margin:12px 0;
+}
+
+.buy-sub{
+  width:100%;
+  border:0;
+  padding:11px;
+  border-radius:11px;
+  background:#111827;
+  color:white;
+  font-weight:800;
+}
+
+/* SERVICES */
+
+.service-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+
+.service{
+  background:white;
+  border:1px solid #e5e9ef;
+  border-radius:15px;
+  padding:17px;
+}
+
+.service-icon{
+  font-size:25px;
+}
+
+.service h3{
+  font-size:14px;
+  margin-top:9px;
+}
+
+.service p{
+  color:#8992a2;
+  font-size:11px;
+  margin-top:4px;
+}
+
+/* CHECKOUT */
+
+.checkout{
+  background:white;
+  border-radius:20px;
+  padding:20px;
+  margin-top:28px;
+  box-shadow:0 4px 18px rgba(0,0,0,.06);
+}
+
+.checkout h2{
+  font-size:20px;
+}
+
+.checkout p{
+  color:#7a8494;
+  font-size:12px;
+  margin:5px 0 15px;
+}
+
+input,select{
+  width:100%;
+  padding:14px;
+  border:1px solid #dce1e8;
+  border-radius:11px;
+  margin-bottom:10px;
+  background:#f9fafb;
+  outline:none;
+}
+
+.checkout-btn{
+  width:100%;
+  border:0;
+  padding:14px;
+  border-radius:12px;
+  background:#0879df;
+  color:white;
+  font-weight:900;
+}
+
+/* INFO */
+
+.info{
+  background:white;
+  border-radius:18px;
+  margin-top:25px;
+  overflow:hidden;
+  border:1px solid #e5e9ef;
+}
+
+.info-row{
+  padding:15px;
+  border-bottom:1px solid #edf0f4;
+  display:grid;
+  grid-template-columns:35% 65%;
+  font-size:12px;
+}
+
+.info-row:last-child{
+  border-bottom:0;
+}
+
+.info-row strong{
+  color:#111827;
+}
+
+.info-row span{
+  color:#7d8796;
+}
+
+/* ORDERS */
+
+.orders{
+  background:white;
+  border-radius:18px;
+  padding:18px;
+  margin-top:25px;
+}
+
+.order{
+  padding:13px 0;
+  border-bottom:1px solid #edf0f4;
+  font-size:12px;
+}
+
+.order:last-child{
+  border-bottom:0;
+}
+
+.pending{
+  color:#d28a00;
+  font-weight:bold;
+}
+
+/* FOOTER */
+
+footer{
+  background:#101827;
+  color:#c9d0dc;
+  padding:35px 18px;
+  text-align:center;
+  font-size:12px;
+  line-height:1.8;
+}
+
+footer strong{
+  color:white;
+  font-size:16px;
+}
+
+/* MOBILE */
+
+@media(max-width:800px){
+
+  .products{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .subscription-grid{
+    grid-template-columns:1fr;
+  }
+
+  .service-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+}
+
+@media(max-width:500px){
+
+  .hero h1{
+    font-size:38px;
+  }
+
+  .products{
+    grid-template-columns:repeat(2,1fr);
+  }
+
+  .product{
+    min-height:145px;
+    padding:15px;
+  }
+
+  .product h3{
+    font-size:25px;
+  }
+
+  .networks{
+    gap:7px;
+  }
+
+  .network{
+    padding:13px 5px;
+    font-size:12px;
+  }
+
+  .nav-actions .nav-btn{
+    display:none;
+  }
+}
+</style>
 </head>
 
 
 <body>
 
+<!-- HEADER -->
+
 <header>
 
-  <div class="header">
+  <div class="nav">
 
     <div class="brand">
 
-      <div class="logo">
-        DGM
-      </div>
+      <div class="logo">D</div>
 
       <div>
-        <div class="brand-name">
-          DHE GENIUS MEDIA
-        </div>
-
-        <div class="brand-sub">
-          Stay Connected. Stay Genius.
-        </div>
+        <strong>DHE GENIUS MEDIA</strong>
+        <small>Stay Connected. Stay Genius.</small>
       </div>
 
     </div>
 
+    <div class="nav-actions">
 
-    <div class="header-right">
+      <button class="nav-btn"
+        onclick="scrollToCheckout()">
+        Buy Data →
+      </button>
 
-      <div class="status">
-        ● ONLINE • 24/7
-      </div>
-
-      <button
-        class="menu-btn"
-        onclick="scrollToOrders()">
+      <button class="menu"
+        onclick="alert('DHE GENIUS MEDIA\\n\\nData Bundles\\nAirtime\\nNetflix\\nDStv\\nApple Music\\nDigital Services\\n\\nWhatsApp: 0241518385')">
         ☰
       </button>
 
@@ -885,303 +605,376 @@
 </header>
 
 
-<main>
+<!-- HERO -->
 
+<section class="hero">
 
-  <!-- HERO -->
+  <div class="hero-inner">
 
-  <section class="hero">
+    <h1>DHE GENIUS MEDIA</h1>
 
-    <div class="hero-content">
+    <p>
+      Affordable data, subscriptions and digital services —
+      available 24/7 across Ghana.
+    </p>
 
-      <div class="eyebrow">
-        <span class="dot"></span>
-        DGM DIGITAL SERVICES
-      </div>
+    <div class="hero-buttons">
 
-      <h1>
-        Stay Connected.<br>
-        <span>Stay Genius.</span>
-      </h1>
+      <button class="primary"
+        onclick="scrollToBundles()">
+        Buy Data →
+      </button>
 
-      <p>
-        Get affordable data bundles and digital services
-        from DHE GENIUS MEDIA. Fast ordering, convenient
-        service and support available 24/7.
-      </p>
+      <button class="secondary"
+        onclick="scrollToSubscriptions()">
+        Premium Services
+      </button>
 
-
-      <div class="hero-actions">
-
-        <button
-          class="primary-btn"
-          onclick="scrollToBundles()">
-          ⚡ Buy Data
-        </button>
-
-        <a
-          href="https://wa.me/233241518385"
-          target="_blank"
-          class="secondary-btn"
-          style="text-decoration:none;">
-          💬 WhatsApp
-        </a>
-
-      </div>
-
-    </div>
-
-  </section>
-
-
-  <!-- STATS -->
-
-  <div class="stats">
-
-    <div class="stat">
-      <strong>24/7</strong>
-      <span>AVAILABLE</span>
-    </div>
-
-    <div class="stat">
-      <strong>GH₵</strong>
-      <span>LOCAL PRICING</span>
-    </div>
-
-    <div class="stat">
-      <strong>3</strong>
-      <span>NETWORKS</span>
     </div>
 
   </div>
 
+</section>
 
-  <!-- NETWORK -->
 
-  <section class="section" id="bundles">
+<main class="container">
 
-    <div class="section-head">
 
-      <div>
-        <h2>Choose Network</h2>
+<!-- DELIVERY STATUS -->
 
-        <p>
-          Select your preferred network
-        </p>
-      </div>
+<div class="status-card">
 
+  <div class="status-top">
+    🟢 <strong>24/7 Service</strong>
+    &nbsp; Fast processing for your orders
+  </div>
+
+  <div class="status-line">
+    ⚡ <strong>Instant order processing</strong>
+    <br>
+    Your order is received immediately after checkout.
+  </div>
+
+  <div class="status-bottom">
+    📱 Need help? WhatsApp 0241518385
+  </div>
+
+</div>
+
+
+<!-- NETWORK -->
+
+<div class="section-head">
+
+  <h2>Browse by network</h2>
+
+  <span>All prices ›</span>
+
+</div>
+
+
+<div class="networks">
+
+  <button
+    class="network mtn active"
+    onclick="showNetwork('MTN',this)">
+    🟡 MTN
+  </button>
+
+  <button
+    class="network telecel"
+    onclick="showNetwork('Telecel',this)">
+    🔴 Telecel
+  </button>
+
+  <button
+    class="network at"
+    onclick="showNetwork('AirtelTigo',this)">
+    🔵 AirtelTigo
+  </button>
+
+</div>
+
+
+<!-- BUNDLES -->
+
+<div class="section-head"
+     id="bundlesSection">
+
+  <h2 id="bundleTitle">
+    Popular MTN bundles
+  </h2>
+
+  <span>90 days</span>
+
+</div>
+
+
+<div class="products"
+     id="bundleList">
+</div>
+
+
+<!-- SUBSCRIPTIONS -->
+
+<div class="section-head"
+     id="subscriptions">
+
+  <h2>Premium subscriptions</h2>
+
+  <span>Instant activation ›</span>
+
+</div>
+
+
+<div class="subscription-grid">
+
+
+  <!-- NETFLIX -->
+
+  <div class="subscription">
+
+    <div class="sub-icon netflix">
+      🎬
     </div>
 
+    <h3>Netflix</h3>
 
-    <div class="networks">
+    <p>
+      Premium entertainment subscription.
+      Choose your preferred duration.
+    </p>
 
-      <button
-        class="network active"
-        onclick="selectNetwork('MTN', this)">
-
-        <div class="network-icon">
-          M
-        </div>
-
-        <strong>MTN Ghana</strong>
-
-        <small>Data Bundles</small>
-
-      </button>
-
-
-      <button
-        class="network"
-        onclick="selectNetwork('AirtelTigo', this)">
-
-        <div class="network-icon">
-          A
-        </div>
-
-        <strong>AirtelTigo</strong>
-
-        <small>Data Bundles</small>
-
-      </button>
-
-
-      <button
-        class="network"
-        onclick="selectNetwork('Telecel', this)">
-
-        <div class="network-icon">
-          T
-        </div>
-
-        <strong>Telecel</strong>
-
-        <small>Data Bundles</small>
-
-      </button>
-
+    <div class="sub-price">
+      Contact for price
     </div>
 
+    <button
+      class="buy-sub"
+      onclick="buySubscription('Netflix Subscription')">
+      Get Netflix →
+    </button>
 
-    <input
-      id="search"
-      class="search"
-      type="search"
-      placeholder="🔎 Search bundle e.g. 10GB..."
-      oninput="renderBundles()">
+  </div>
 
 
-    <div class="section-head">
+  <!-- DSTV -->
 
-      <div>
-        <h2 id="networkTitle">
-          MTN Bundles
-        </h2>
+  <div class="subscription">
 
-        <p>
-          Valid for 90 days
-        </p>
-      </div>
-
+    <div class="sub-icon dstv">
+      📺
     </div>
 
+    <h3>DStv</h3>
 
-    <div
-      class="bundle-grid"
-      id="bundleList">
+    <p>
+      DStv subscription renewal and
+      streaming/login assistance.
+    </p>
+
+    <div class="sub-price">
+      Contact for price
     </div>
 
-  </section>
+    <button
+      class="buy-sub"
+      onclick="buySubscription('DStv Subscription / Renewal')">
+      Get DStv →
+    </button>
+
+  </div>
 
 
-  <!-- ACCOUNT -->
+  <!-- APPLE MUSIC -->
 
-  <section class="section">
+  <div class="subscription">
 
-    <div class="section-head">
-
-      <div>
-        <h2>Your Number</h2>
-
-        <p>
-          Save it for faster ordering
-        </p>
-      </div>
-
+    <div class="sub-icon apple">
+      🎵
     </div>
 
+    <h3>Apple Music</h3>
 
-    <div class="account">
+    <p>
+      Apple Music subscription and
+      activation assistance.
+    </p>
 
-      <input
-        id="accountPhone"
-        class="input"
-        type="tel"
-        maxlength="10"
-        placeholder="0241518385">
-
-      <button
-        class="save"
-        onclick="saveAccount()">
-        Save Number
-      </button>
-
+    <div class="sub-price">
+      Contact for price
     </div>
 
-  </section>
+    <button
+      class="buy-sub"
+      onclick="buySubscription('Apple Music Subscription')">
+      Get Apple Music →
+    </button>
+
+  </div>
+
+</div>
 
 
-  <!-- ORDERS -->
+<!-- MORE SERVICES -->
 
-  <section
-    class="section"
-    id="ordersSection">
+<div class="section-head">
 
-    <div class="section-head">
+  <h2>More digital services</h2>
 
-      <div>
-        <h2>Order History</h2>
+  <span>Explore ›</span>
 
-        <p>
-          Your recent DGM orders
-        </p>
-      </div>
-
-    </div>
+</div>
 
 
-    <div
-      class="orders"
-      id="orders">
+<div class="service-grid">
 
-      <div class="empty">
-        📦 Your orders will appear here.
-      </div>
+  <div class="service">
+    <div class="service-icon">📱</div>
+    <h3>Airtime</h3>
+    <p>MTN, Telecel & AirtelTigo</p>
+  </div>
 
-    </div>
+  <div class="service">
+    <div class="service-icon">🎓</div>
+    <h3>Result Checkers</h3>
+    <p>WAEC / BECE services</p>
+  </div>
 
-  </section>
+  <div class="service">
+    <div class="service-icon">📲</div>
+    <h3>Social Boosting</h3>
+    <p>Social media services</p>
+  </div>
 
+  <div class="service">
+    <div class="service-icon">💻</div>
+    <h3>Digital Services</h3>
+    <p>Many more available</p>
+  </div>
 
-  <!-- SUPPORT -->
-
-  <section class="section">
-
-    <div class="section-head">
-
-      <div>
-        <h2>Need Help?</h2>
-
-        <p>
-          DHE GENIUS MEDIA support
-        </p>
-      </div>
-
-    </div>
-
-
-    <div class="support">
-
-      <a
-        href="https://wa.me/233241518385"
-        target="_blank"
-        class="support-btn"
-        style="text-decoration:none;">
-
-        <strong>💬 WhatsApp</strong>
-
-        <span>
-          0241518385
-        </span>
-
-      </a>
+</div>
 
 
-      <a
-        href="tel:0508667776"
-        class="support-btn"
-        style="text-decoration:none;">
+<!-- CHECKOUT -->
 
-        <strong>📞 Call Us</strong>
+<div class="checkout"
+     id="checkout">
 
-        <span>
-          0508667776
-        </span>
+  <h2>Quick checkout</h2>
 
-      </a>
+  <p>
+    Enter your number and select what you want to purchase.
+  </p>
 
-    </div>
+  <input
+    id="customerPhone"
+    type="tel"
+    placeholder="Ghana number e.g. 0241518385"
+    maxlength="10">
 
-  </section>
+  <select id="checkoutService">
 
+    <option value="">
+      Select a service
+    </option>
+
+    <option value="Data Bundle">
+      Data Bundle
+    </option>
+
+    <option value="Airtime">
+      Airtime
+    </option>
+
+    <option value="Netflix Subscription">
+      Netflix Subscription
+    </option>
+
+    <option value="DStv Subscription">
+      DStv Subscription / Renewal
+    </option>
+
+    <option value="Apple Music">
+      Apple Music
+    </option>
+
+    <option value="Other Digital Service">
+      Other Digital Service
+    </option>
+
+  </select>
+
+  <button
+    class="checkout-btn"
+    onclick="submitOrder()">
+    Continue Order →
+  </button>
+
+</div>
+
+
+<!-- WHY US -->
+
+<div class="section-head">
+
+  <h2>Why DHE GENIUS MEDIA?</h2>
+
+</div>
+
+
+<div class="info">
+
+  <div class="info-row">
+    <strong>Availability</strong>
+    <span>Open 24/7</span>
+  </div>
+
+  <div class="info-row">
+    <strong>Networks</strong>
+    <span>MTN • Telecel • AirtelTigo</span>
+  </div>
+
+  <div class="info-row">
+    <strong>Subscriptions</strong>
+    <span>Netflix • DStv • Apple Music</span>
+  </div>
+
+  <div class="info-row">
+    <strong>Support</strong>
+    <span>WhatsApp 0241518385</span>
+  </div>
+
+  <div class="info-row">
+    <strong>Location</strong>
+    <span>Accra - Spintex</span>
+  </div>
+
+</div>
+
+
+<!-- ORDERS -->
+
+<div class="orders">
+
+  <h2>Recent orders</h2>
+
+  <div id="ordersList">
+    <p style="color:#8992a2;font-size:12px;margin-top:10px;">
+      Your orders will appear here.
+    </p>
+  </div>
+
+</div>
 
 </main>
 
 
+<!-- FOOTER -->
+
 <footer>
 
-  <strong>
-    DHE GENIUS MEDIA (DGM)
-  </strong>
+  <strong>DHE GENIUS MEDIA (DGM)</strong>
 
   <br>
 
@@ -1189,26 +982,21 @@
 
   <br>
 
-  Data Bundles • Airtime • Digital Services
+  Data Bundles • Airtime • Netflix • DStv • Apple Music
+
+  <br>
+
+  WhatsApp: 0241518385
+
+  <br>
+
+  Call: 0508667776
 
   <br>
 
   📍 Accra - Spintex • 🟢 Open 24/7
 
-  <br>
-
-  © 2026 DHE GENIUS MEDIA
-
 </footer>
-
-
-<a
-  class="whatsapp"
-  href="https://wa.me/233241518385"
-  target="_blank"
-  aria-label="WhatsApp">
-  💬
-</a>
 
 
 <script>
@@ -1268,7 +1056,7 @@ const bundles = {
 let currentNetwork = "MTN";
 
 
-function selectNetwork(network, element) {
+function showNetwork(network,button){
 
   currentNetwork = network;
 
@@ -1278,297 +1066,123 @@ function selectNetwork(network, element) {
       btn.classList.remove("active")
     );
 
-  element.classList.add("active");
+  button.classList.add("active");
 
   document.getElementById(
-    "networkTitle"
+    "bundleTitle"
   ).textContent =
-    network + " Bundles";
+    "Popular " + network + " bundles";
 
   renderBundles();
 
 }
 
 
-function renderBundles() {
+function renderBundles(){
 
   const list =
-    document.getElementById("bundleList");
-
-  const search =
-    document
-      .getElementById("search")
-      .value
-      .toLowerCase()
-      .trim();
-
+    document.getElementById(
+      "bundleList"
+    );
 
   list.innerHTML = "";
 
-
-  const filtered =
-    bundles[currentNetwork].filter(bundle =>
-      bundle[0].toLowerCase().includes(search)
-    );
-
-
-  filtered.forEach((bundle, index) => {
-
-    const size = bundle[0];
-    const price = bundle[1];
+  let cssClass =
+    currentNetwork === "MTN"
+    ? "mtn"
+    : currentNetwork === "Telecel"
+    ? "telecel"
+    : "at";
 
 
-    const card =
-      document.createElement("div");
+  bundles[currentNetwork].forEach(
+    bundle => {
 
-    card.className = "bundle";
+      const size = bundle[0];
+      const price = bundle[1];
 
+      list.innerHTML += `
 
-    card.innerHTML = `
+        <div class="product ${cssClass}">
 
-      <div class="bundle-top">
+          <span class="tag">
+            ${currentNetwork}
+          </span>
 
-        <span class="network-mini">
-          ${currentNetwork}
-        </span>
+          <h3>${size}</h3>
 
-        ${
-          index === 4
-          ? `<span class="popular">POPULAR</span>`
-          : ""
-        }
+          <p>
+            ${currentNetwork} bundle
+          </p>
 
-      </div>
+          <div class="product-bottom">
 
-      <h3>
-        ${size}
-      </h3>
+            <div class="price">
+              GH₵${price}
+            </div>
 
-      <div class="validity">
-        90 days validity
-      </div>
+            <div
+              class="arrow"
+              onclick="selectBundle('${size}',${price})">
+              ›
+            </div>
 
-      <div class="price">
-        GH₵${price}
-      </div>
+          </div>
 
-      <button
-        class="buy"
-        onclick="buyBundle('${size}', ${price})">
+        </div>
 
-        Buy ${size}
+      `;
 
-      </button>
-
-    `;
-
-
-    list.appendChild(card);
-
-  });
-
-
-  if (!filtered.length) {
-
-    list.innerHTML = `
-
-      <div
-        style="
-          grid-column:1/-1;
-          text-align:center;
-          padding:30px;
-          color:#8d9bb0;
-        ">
-
-        No bundle found.
-
-      </div>
-
-    `;
-
-  }
+    }
+  );
 
 }
 
 
-function validPhone(phone) {
+function selectBundle(size,price){
 
-  return /^0[235679][0-9]{8}$/.test(phone);
+  document.getElementById(
+    "checkoutService"
+  ).value =
+    "Data Bundle";
+
+  document.getElementById(
+    "customerPhone"
+  ).focus();
+
+  localStorage.setItem(
+    "dgm_selected_bundle",
+    JSON.stringify({
+      network:currentNetwork,
+      size:size,
+      price:price
+    })
+  );
+
+  scrollToCheckout();
 
 }
 
 
-function getPhone() {
+function submitOrder(){
 
-  let phone =
-    localStorage.getItem(
-      "dgm_account_phone"
-    ) || "";
+  const phone =
+    document.getElementById(
+      "customerPhone"
+    ).value
+    .trim()
+    .replace(/\s+/g,"");
 
-
-  if (!phone) {
-
-    phone = prompt(
-      "Enter the Ghana number to receive the bundle:"
-    );
-
-  }
+  const service =
+    document.getElementById(
+      "checkoutService"
+    ).value;
 
 
-  if (!phone) return null;
-
-
-  phone =
-    phone
-      .replace(/\s+/g,"")
-      .trim();
-
-
-  if (!validPhone(phone)) {
+  if(!/^0[235679][0-9]{8}$/.test(phone)){
 
     alert(
       "Please enter a valid Ghana phone number.\n\nExample: 0241518385"
-    );
-
-    return null;
-
-  }
-
-
-  return phone;
-
-}
-
-
-function buyBundle(size, price) {
-
-  const phone = getPhone();
-
-  if (!phone) return;
-
-
-  const confirmOrder =
-    confirm(
-
-      "CONFIRM ORDER\n\n" +
-
-      "DHE GENIUS MEDIA (DGM)\n\n" +
-
-      "Network: " +
-      currentNetwork +
-
-      "\nBundle: " +
-      size +
-
-      "\nPrice: GH₵" +
-      price +
-
-      "\nRecipient: " +
-      phone
-
-    );
-
-
-  if (!confirmOrder) return;
-
-
-  const order = {
-
-    id:
-      "DGM-" +
-      Date.now(),
-
-    network:
-      currentNetwork,
-
-    bundle:
-      size,
-
-    phone:
-      phone,
-
-    amount:
-      price,
-
-    status:
-      "Pending",
-
-    date:
-      new Date().toLocaleString()
-
-  };
-
-
-  let orders =
-    JSON.parse(
-      localStorage.getItem(
-        "dgm_orders"
-      ) || "[]"
-    );
-
-
-  orders.unshift(order);
-
-
-  localStorage.setItem(
-    "dgm_orders",
-    JSON.stringify(orders)
-  );
-
-
-  localStorage.setItem(
-    "dgm_account_phone",
-    phone
-  );
-
-
-  showOrders();
-
-
-  alert(
-
-    "Order received! ✅\n\n" +
-
-    "Order ID: " +
-    order.id +
-
-    "\n\nNetwork: " +
-    currentNetwork +
-
-    "\nBundle: " +
-    size +
-
-    "\nAmount: GH₵" +
-    price +
-
-    "\nPhone: " +
-    phone +
-
-    "\n\nStatus: Pending"
-
-  );
-
-}
-
-
-function saveAccount() {
-
-  const input =
-    document.getElementById(
-      "accountPhone"
-    );
-
-
-  const phone =
-    input.value
-      .replace(/\s+/g,"")
-      .trim();
-
-
-  if (!validPhone(phone)) {
-
-    alert(
-      "Enter a valid Ghana phone number.\n\nExample: 0241518385"
     );
 
     return;
@@ -1576,26 +1190,114 @@ function saveAccount() {
   }
 
 
-  localStorage.setItem(
-    "dgm_account_phone",
-    phone
-  );
+  if(!service){
+
+    alert(
+      "Please select a service."
+    );
+
+    return;
+
+  }
 
 
-  alert(
-    "Number saved successfully! ✅"
+  const selected =
+    JSON.parse(
+      localStorage.getItem(
+        "dgm_selected_bundle"
+      ) || "null"
+    );
+
+
+  let message =
+    "Hello DHE GENIUS MEDIA 👋\n\n" +
+    "I want to place an order.\n\n" +
+    "Service: " + service + "\n" +
+    "Phone: " + phone;
+
+
+  if(
+    service === "Data Bundle" &&
+    selected
+  ){
+
+    message +=
+      "\nNetwork: " +
+      selected.network +
+      "\nBundle: " +
+      selected.size +
+      "\nPrice: GH₵" +
+      selected.price;
+
+  }
+
+
+  message +=
+    "\n\nPlease assist me with my order.";
+
+
+  const whatsapp =
+    "https://wa.me/233241518385?text=" +
+    encodeURIComponent(message);
+
+
+  window.open(
+    whatsapp,
+    "_blank"
   );
 
 }
 
 
-function showOrders() {
+function buySubscription(service){
 
-  const container =
-    document.getElementById(
-      "orders"
-    );
+  document.getElementById(
+    "checkoutService"
+  ).value = service;
 
+  document.getElementById(
+    "customerPhone"
+  ).focus();
+
+  scrollToCheckout();
+
+}
+
+
+function scrollToCheckout(){
+
+  document.getElementById(
+    "checkout"
+  ).scrollIntoView({
+    behavior:"smooth"
+  });
+
+}
+
+
+function scrollToBundles(){
+
+  document.getElementById(
+    "bundlesSection"
+  ).scrollIntoView({
+    behavior:"smooth"
+  });
+
+}
+
+
+function scrollToSubscriptions(){
+
+  document.getElementById(
+    "subscriptions"
+  ).scrollIntoView({
+    behavior:"smooth"
+  });
+
+}
+
+
+function loadOrders(){
 
   const orders =
     JSON.parse(
@@ -1604,58 +1306,44 @@ function showOrders() {
       ) || "[]"
     );
 
+  const list =
+    document.getElementById(
+      "ordersList"
+    );
 
-  if (!orders.length) {
 
-    container.innerHTML = `
+  if(!orders.length){
 
-      <div class="empty">
-        📦 Your orders will appear here.
-      </div>
-
-    `;
+    list.innerHTML =
+      `<p style="color:#8992a2;font-size:12px;margin-top:10px;">
+        Your orders will appear here.
+      </p>`;
 
     return;
 
   }
 
 
-  container.innerHTML =
+  list.innerHTML =
     orders
       .slice(0,10)
       .map(order => `
 
         <div class="order">
 
-          <div>
+          <strong>
+            ${order.id || "DGM ORDER"}
+          </strong>
 
-            <div class="order-id">
-              ${order.id}
-            </div>
+          <br>
 
-            <div class="order-name">
-              ${order.network}
-              ${order.bundle}
-            </div>
+          ${order.service || "Order"}
 
-            <div class="order-phone">
-              📱 ${order.phone}
-            </div>
+          <br>
 
-          </div>
-
-
-          <div class="order-right">
-
-            <div class="order-price">
-              GH₵${order.amount}
-            </div>
-
-            <span class="pending">
-              ${order.status}
-            </span>
-
-          </div>
+          <span class="pending">
+            ${order.status || "Pending"}
+          </span>
 
         </div>
 
@@ -1665,52 +1353,8 @@ function showOrders() {
 }
 
 
-function loadAccount() {
-
-  const phone =
-    localStorage.getItem(
-      "dgm_account_phone"
-    );
-
-
-  if (phone) {
-
-    document.getElementById(
-      "accountPhone"
-    ).value = phone;
-
-  }
-
-}
-
-
-function scrollToBundles() {
-
-  document
-    .getElementById("bundles")
-    .scrollIntoView({
-      behavior:"smooth"
-    });
-
-}
-
-
-function scrollToOrders() {
-
-  document
-    .getElementById("ordersSection")
-    .scrollIntoView({
-      behavior:"smooth"
-    });
-
-}
-
-
-loadAccount();
-
 renderBundles();
-
-showOrders();
+loadOrders();
 
 </script>
 
