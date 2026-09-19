@@ -1,25 +1,80 @@
-const express=require('express'),path=require('path'),Database=require('better-sqlite3'),bcrypt=require('bcryptjs'),jwt=require('jsonwebtoken'),cookieParser=require('cookie-parser');
-const app=express(),PORT=process.env.PORT||3000,SECRET=process.env.JWT_SECRET||'CHANGE_ME',ADMIN_EMAIL=process.env.ADMIN_EMAIL||'admin@dhegeniusmedia.com',ADMIN_PASSWORD=process.env.ADMIN_PASSWORD||'CHANGE_ME';
-app.use(express.json());app.use(cookieParser());app.use(express.static(path.join(__dirname,'public')));
-const db=new Database(process.env.DB_PATH||path.join(__dirname,'dgm-store.db'));db.pragma('journal_mode=WAL');
-db.exec(`CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY AUTOINCREMENT,category TEXT,network TEXT,name TEXT,price REAL,active INTEGER DEFAULT 1);
-CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,order_no TEXT UNIQUE,user_id INTEGER,total REAL,payment_method TEXT,payment_status TEXT DEFAULT 'pending',order_status TEXT DEFAULT 'pending',recipient TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY AUTOINCREMENT,order_id INTEGER,product_id INTEGER,quantity INTEGER,price REAL);`);
-const seed=[['data','MTN','MTN 1GB',5],['data','MTN','MTN 2GB',10],['data','MTN','MTN 3GB',15],['data','MTN','MTN 4GB',20],['data','MTN','MTN 5GB',24],['data','MTN','MTN 6GB',28],['data','MTN','MTN 8GB',36],['data','MTN','MTN 10GB',45],['data','MTN','MTN 15GB',64],['data','MTN','MTN 20GB',84],['data','MTN','MTN 25GB',100],['data','MTN','MTN 30GB',128],['data','MTN','MTN 40GB',168],['data','MTN','MTN 50GB',207],['data','Telecel','Telecel 10GB',45],['data','Telecel','Telecel 15GB',60],['data','Telecel','Telecel 20GB',76],['data','Telecel','Telecel 25GB',100],['data','Telecel','Telecel 30GB',115],['data','Telecel','Telecel 35GB',136],['data','Telecel','Telecel 40GB',150],['data','Telecel','Telecel 45GB',165],['data','Telecel','Telecel 50GB',185],['data','Telecel','Telecel 100GB',407]];
-if(db.prepare('SELECT COUNT(*) c FROM products').get().c===0){const s=db.prepare('INSERT INTO products(category,network,name,price) VALUES(?,?,?,?)');seed.forEach(x=>s.run(...x))}
-const token=u=>jwt.sign(u,SECRET,{expiresIn:'7d'}),auth=(req,res,next)=>{try{req.user=jwt.verify(req.cookies.dgm_token||'',SECRET);next()}catch{res.status(401).json({error:'Login required'})}},admin=(req,res,next)=>req.user?.admin?next():res.status(403).json({error:'Admin only'});
-app.get('/api/health',(q,s)=>s.json({ok:true,service:'DHE GENIUS MEDIA'}));
-app.get('/api/products',(q,s)=>s.json(db.prepare('SELECT * FROM products WHERE active=1').all()));
-app.post('/api/register',async(req,res)=>{let{name,email,password}=req.body;if(!name||!email||!password||password.length<6)return res.status(400).json({error:'Name, email and 6+ character password required'});try{let h=await bcrypt.hash(password,12),r=db.prepare('INSERT INTO users(name,email,password_hash) VALUES(?,?,?)').run(name,email.toLowerCase(),h);let u={id:r.lastInsertRowid,email:email.toLowerCase(),admin:false};res.cookie('dgm_token',token(u),{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',maxAge:604800000});res.json({ok:true,user:u})}catch{res.status(409).json({error:'Email already registered'})}});
-app.post('/api/login',async(req,res)=>{let{email,password}=req.body;if(email===ADMIN_EMAIL&&password===ADMIN_PASSWORD){let u={id:0,email,admin:true};res.cookie('dgm_token',token(u),{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',maxAge:604800000});return res.json({ok:true,user:u})}let u=db.prepare('SELECT * FROM users WHERE email=?').get((email||'').toLowerCase());if(!u||!(await bcrypt.compare(password||'',u.password_hash)))return res.status(401).json({error:'Invalid email or password'});let x={id:u.id,email:u.email,admin:false};res.cookie('dgm_token',token(x),{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',maxAge:604800000});res.json({ok:true,user:x})});
-app.post('/api/logout',(q,s)=>{s.clearCookie('dgm_token');s.json({ok:true})});
-app.get('/api/me',(q,s)=>{try{s.json({user:jwt.verify(q.cookies.dgm_token||'',SECRET)})}catch{s.json({user:null})}});
-app.post('/api/orders',auth,(req,res)=>{let{items,payment_method,recipient}=req.body||{};if(!items?.length||!recipient)return res.status(400).json({error:'Items and recipient are required'});let total=0,clean=[];for(let x of items){let p=db.prepare('SELECT * FROM products WHERE id=? AND active=1').get(x.product_id),qty=Math.max(1,Math.min(20,Number(x.quantity)||1));if(!p)return res.status(400).json({error:'Product unavailable'});total+=p.price*qty;clean.push([p,qty])}let no='DGM-'+Date.now().toString(36).toUpperCase();let tx=db.transaction(()=>{let o=db.prepare('INSERT INTO orders(order_no,user_id,total,payment_method,recipient) VALUES(?,?,?,?,?)').run(no,req.user.id,total,payment_method||'manual_momo',recipient);let i=db.prepare('INSERT INTO order_items(order_id,product_id,quantity,price) VALUES(?,?,?,?)');clean.forEach(([p,q])=>i.run(o.lastInsertRowid,p.id,q,p.price))});tx();res.json({ok:true,order_no:no,total})});
-app.get('/api/orders',auth,(req,res)=>res.json(db.prepare('SELECT * FROM orders WHERE user_id=? ORDER BY id DESC').all(req.user.id)));
-app.get('/api/admin/orders',auth,admin,(req,res)=>res.json(db.prepare('SELECT * FROM orders ORDER BY id DESC').all()));
-app.patch('/api/admin/orders/:id',auth,admin,(req,res)=>{let{payment_status,order_status}=req.body;db.prepare('UPDATE orders SET payment_status=COALESCE(?,payment_status),order_status=COALESCE(?,order_status) WHERE id=?').run(payment_status||null,order_status||null,req.params.id);res.json({ok:true})});
-app.get('/api/admin/products',auth,admin,(req,res)=>res.json(db.prepare('SELECT * FROM products ORDER BY id DESC').all()));
-app.get('/admin',(q,s)=>s.sendFile(path.join(__dirname,'public','admin.html')));
-app.use((q,s)=>s.sendFile(path.join(__dirname,'public','index.html')));
-app.listen(PORT,()=>console.log('DHE GENIUS MEDIA running on '+PORT));
+const express = require('express');
+const path = require('path');
+const app = express();
+
+const PORT = process.env.PORT || 3000;
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Mock Database (In production, replace with PostgreSQL or MongoDB)
+let userState = {
+    username: "Demo User",
+    email: "user@datamart.com",
+    walletBalance: 150.00,
+    transactions: [
+        { id: "TXN-9842", service: "MTN 5GB Data", amount: 25.00, status: "Successful", date: "2026-09-18 14:30" },
+        { id: "TXN-9841", service: "Airtime Topup ($10)", amount: 10.00, status: "Successful", date: "2026-09-17 09:15" }
+    ]
+};
+
+// API: Get user profile and dashboard data
+app.get('/api/user', (req, res) => {
+    res.json(userState);
+});
+
+// API: Simulate a purchase (Data bundles, airtime, etc.)
+app.post('/api/purchase', (req, res) => {
+    const { service, amount } = req.body;
+    
+    if (!service || !amount) {
+        return res.status(400).json({ success: false, message: "Invalid service or amount." });
+    }
+
+    const numericAmount = parseFloat(amount);
+
+    if (userState.walletBalance < numericAmount) {
+        return res.status(400).json({ success: false, message: "Insufficient wallet balance. Please fund your wallet." });
+    }
+
+    // Deduct balance and record transaction
+    userState.walletBalance -= numericAmount;
+    const newTxn = {
+        id: `TXN-${Math.floor(1000 + Math.random() * 9000)}`,
+        service: service,
+        amount: numericAmount,
+        status: "Successful",
+        date: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    };
+
+    userState.transactions.unshift(newTxn);
+
+    res.json({ success: true, message: `Successfully purchased ${service}!`, user: userState });
+});
+
+// API: Simulate wallet funding
+app.post('/api/fund-wallet', (req, res) => {
+    const { amount } = req.body;
+    const numericAmount = parseFloat(amount);
+
+    if (!numericAmount || numericAmount <= 0) {
+        return res.status(400).json({ success: false, message: "Invalid funding amount." });
+    }
+
+    userState.walletBalance += numericAmount;
+    userState.transactions.unshift({
+        id: `TXN-${Math.floor(1000 + Math.random() * 9000)}`,
+        service: "Wallet Funding",
+        amount: numericAmount,
+        status: "Successful",
+        date: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    });
+
+    res.json({ success: true, message: `Successfully added $${numericAmount.toFixed(2)} to wallet!`, user: userState });
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
