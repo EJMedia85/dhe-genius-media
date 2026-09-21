@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Buy Data | DHE GENIUS MEDIA</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #06131f;
+      --card: #0d2030;
+      --card2: #102a3d;
+      --text: #ffffff;
+      --muted: #8ea7b9;
+      --blue: #008cff;
+      --cyan: #00c6ff;
+      --green: #22d58a;
+      --red: #ff6868;
+      --border: rgba(255,255,255,0.08);
+    }
+
+    body {
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background:
+        linear-gradient(
+          180deg,
+          #06131f,
+          #081a28
+        );
+
+      color: var(--text);
+
+      min-height: 100vh;
+
+      padding-bottom: 90px;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    /* =========================
+       HEADER
+    ========================= */
+
+    header {
+      position: sticky;
+
+      top: 0;
+
+      z-index: 50;
+
+      background:
+        rgba(6,19,31,0.96);
+
+      border-bottom:
+        1px solid var(--border);
+
+      padding:
+        15px 17px;
+
+      backdrop-filter: blur(16px);
+    }
+
+    .header-inner {
+      max-width: 800px;
+
+      margin: auto;
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 13px;
+    }
+
+    .back {
+      width: 40px;
+      height: 40px;
+
+      border:
+        1px solid var(--border);
+
+      background: var(--card);
+
+      color: white;
+
+      border-radius: 12px;
+
+      font-size: 20px;
+    }
+
+    .logo {
+      width: 40px;
+      height: 40px;
+
+      border-radius: 12px;
+
+      display: flex;
+
+      align-items: center;
+      justify-content: center;
+
+      background:
+        linear-gradient(
+          135deg,
+          #00c6ff,
+          #0072ff
+        );
+
+      font-size: 12px;
+
+      font-weight: 900;
+    }
+
+    .header-title strong {
+      display: block;
+
+      font-size: 14px;
+    }
+
+    .header-title span {
+      display: block;
+
+      color: var(--muted);
+
+      font-size: 10px;
+
+      margin-top: 2px;
+    }
+
+    /* =========================
+       MAIN
+    ========================= */
+
+    main {
+      width: 100%;
+
+      max-width: 800px;
+
+      margin: auto;
+
+      padding:
+        24px 16px 40px;
+    }
+
+    .page-title {
+      margin-bottom: 20px;
+    }
+
+    .page-title h1 {
+      font-size: 26px;
+      margin-bottom: 5px;
+    }
+
+    .page-title p {
+      color: var(--muted);
+
+      font-size: 13px;
+
+      line-height: 1.5;
+    }
+
+    /* =========================
+       PHONE
+    ========================= */
+
+    .phone-card {
+      background: var(--card);
+
+      border:
+        1px solid var(--border);
+
+      border-radius: 20px;
+
+      padding: 18px;
+
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+
+      color: #d9e6ef;
+
+      font-size: 12px;
+
+      font-weight: 800;
+
+      margin-bottom: 8px;
+    }
+
+    input {
+      width: 100%;
+
+      background:
+        rgba(255,255,255,0.045);
+
+      border:
+        1px solid var(--border);
+
+      color: white;
+
+      padding: 14px;
+
+      border-radius: 12px;
+
+      outline: none;
+
+      font-size: 15px;
+    }
+
+    input:focus {
+      border-color: var(--blue);
+    }
+
+    input::placeholder {
+      color: #71899b;
+    }
+
+    /* =========================
+       NETWORKS
+    ========================= */
+
+    .section-title {
+      font-size: 16px;
+
+      margin:
+        22px 0 12px;
+    }
+
+    .networks {
+      display: grid;
+
+      grid-template-columns:
+        repeat(3, 1fr);
+
+      gap: 9px;
+
+      margin-bottom: 20px;
+    }
+
+    .network {
+      border:
+        1px solid var(--border);
+
+      background: var(--card);
+
+      color: white;
+
+      border-radius: 14px;
+
+      padding: 13px 8px;
+
+      font-size: 12px;
+
+      font-weight: 800;
+    }
+
+    .network.active {
+      border-color: var(--blue);
+
+      background:
+        rgba(0,140,255,0.13);
+
+      box-shadow:
+        0 0 0 1px
+        rgba(0,140,255,0.15);
+    }
+
+    /* =========================
+       BUNDLES
+    ========================= */
+
+    .bundle-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
+      gap: 10px;
+    }
+
+    .bundle {
+      position: relative;
+
+      border:
+        1px solid var(--border);
+
+      background: var(--card);
+
+      border-radius: 17px;
+
+      padding: 17px;
+
+      color: white;
+
+      text-align: left;
+
+      transition: 0.15s;
+    }
+
+    .bundle:active {
+      transform: scale(0.97);
+    }
+
+    .bundle.selected {
+      border-color: var(--blue);
+
+      background:
+        linear-gradient(
+          145deg,
+          rgba(0,140,255,0.16),
+          rgba(0,90,180,0.08)
+        );
+
+      box-shadow:
+        0 0 0 1px
+        rgba(0,140,255,0.15);
+    }
+
+    .bundle-name {
+      font-size: 18px;
+
+      font-weight: 900;
+
+      margin-bottom: 4px;
+    }
+
+    .bundle-price {
+      color: #65d8ff;
+
+      font-size: 15px;
+
+      font-weight: 900;
+
+      margin-bottom: 8px;
+    }
+
+    .bundle-validity {
+      color: var(--muted);
+
+      font-size: 10px;
+    }
+
+    .check {
+      display: none;
+
+      position: absolute;
+
+      top: 10px;
+      right: 10px;
+
+      width: 20px;
+      height: 20px;
+
+      border-radius: 50%;
+
+      background: var(--blue);
+
+      align-items: center;
+      justify-content: center;
+
+      font-size: 11px;
+    }
+
+    .bundle.selected .check {
+      display: flex;
+    }
+
+    /* =========================
+       ORDER BOX
+    ========================= */
+
+    .order-box {
+      margin-top: 22px;
+
+      background: var(--card);
+
+      border:
+        1px solid var(--border);
+
+      border-radius: 20px;
+
+      padding: 18px;
+
+      display: none;
+    }
+
+    .order-box.show {
+      display: block;
+    }
+
+    .summary {
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+
+      margin-bottom: 17px;
+    }
+
+    .summary small {
+      color: var(--muted);
+
+      font-size: 11px;
+    }
+
+    .summary strong {
+      font-size: 20px;
+    }
+
+    .buy-button {
+      width: 100%;
+
+      border: none;
+
+      background:
+        linear-gradient(
+          135deg,
+          #00c6ff,
+          #0072ff
+        );
+
+      color: white;
+
+      padding: 15px;
+
+      border-radius: 13px;
+
+      font-size: 14px;
+
+      font-weight: 900;
+
+      box-shadow:
+        0 12px 25px
+        rgba(0,114,255,0.22);
+    }
+
+    .buy-button:disabled {
+      opacity: 0.55;
+
+      cursor: not-allowed;
+    }
+
+    /* =========================
+       MESSAGE
+    ========================= */
+
+    .message {
+      display: none;
+
+      padding: 13px;
+
+      border-radius: 12px;
+
+      margin-bottom: 15px;
+
+      font-size: 12px;
+
+      line-height: 1.5;
+    }
+
+    .message.show {
+      display: block;
+    }
+
+    .message.error {
+      color: #ffaaaa;
+
+      background:
+        rgba(255,70,70,0.10);
+
+      border:
+        1px solid
+        rgba(255,70,70,0.20);
+    }
+
+    .message.success {
+      color: #8bf2c3;
+
+      background:
+        rgba(30,210,130,0.10);
+
+      border:
+        1px solid
+        rgba(30,210,130,0.20);
+    }
+
+    /* =========================
+       INFO
+    ========================= */
+
+    .info {
+      margin-top: 20px;
+
+      padding: 15px;
+
+      border-radius: 15px;
+
+      background:
+        rgba(0,140,255,0.06);
+
+      border:
+        1px solid
+        rgba(0,140,255,0.10);
+
+      color: var(--muted);
+
+      font-size: 11px;
+
+      line-height: 1.6;
+    }
+
+    /* =========================
+       BOTTOM NAV
+    ========================= */
+
+    .bottom-nav {
+      position: fixed;
+
+      bottom: 0;
+
+      left: 0;
+      right: 0;
+
+      height: 68px;
+
+      background:
+        rgba(6,18,30,0.98);
+
+      border-top:
+        1px solid var(--border);
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: space-around;
+
+      z-index: 100;
+    }
+
+    .bottom-nav button {
+      border: none;
+
+      background: none;
+
+      color: #70899c;
+
+      font-size: 10px;
+
+      display: flex;
+
+      flex-direction: column;
+
+      align-items: center;
+
+      gap: 4px;
+    }
+
+    .bottom-nav button.active {
+      color: #00b7ff;
+    }
+
+    .bottom-icon {
+      font-size: 19px;
+    }
+
+    @media (min-width: 650px) {
+
+      .bundle-grid {
+        grid-template-columns:
+          repeat(4, 1fr);
+      }
+
+      .bundle-name {
+        font-size: 17px;
+      }
+
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+
+  <header>
+
+    <div class="header-inner">
+
+      <button
+        class="back"
+        onclick="window.location.href='/dashboard.html'"
+      >
+        ←
+      </button>
+
+      <div class="logo">
+        DGM
+      </div>
+
+      <div class="header-title">
+
+        <strong>
+          Buy Data
+        </strong>
+
+        <span>
+          DHE GENIUS MEDIA
+        </span>
+
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <!-- MAIN -->
+
+  <main>
+
+    <section class="page-title">
+
+      <h1>
+        Buy Data 📶
+      </h1>
+
+      <p>
+        Choose your network and data bundle.
+        Your order will be securely submitted to DGM.
+      </p>
+
+    </section>
+
+
+    <!-- PHONE -->
+
+    <section class="phone-card">
+
+      <label for="phone">
+        Recipient Phone Number
+      </label>
+
+      <input
+        type="tel"
+        id="phone"
+        placeholder="0241234567"
+        autocomplete="tel"
+      >
+
+    </section>
+
+
+    <!-- NETWORK -->
+
+    <h2 class="section-title">
+      Select Network
+    </h2>
+
+    <section class="networks">
+
+      <button
+        class="network active"
+        onclick="selectNetwork('MTN', this)"
+      >
+        🟡 MTN
+      </button>
+
+      <button
+        class="network"
+        onclick="selectNetwork('AirtelTigo', this)"
+      >
+        🔴 AirtelTigo
+      </button>
+
+      <button
+        class="network"
+        onclick="selectNetwork('Telecel', this)"
+      >
+        🔵 Telecel
+      </button>
+
+    </section>
+
+
+    <!-- BUNDLES -->
+
+    <h2 class="section-title">
+      Select Bundle
+    </h2>
+
+    <section
+      class="bundle-grid"
+      id="bundleGrid"
+    ></section>
+
+
+    <!-- ORDER -->
+
+    <section
+      class="order-box"
+      id="orderBox"
+    >
+
+      <div
+        id="message"
+        class="message"
+      ></div>
+
+      <div class="summary">
+
+        <div>
+
+          <small>
+            Selected bundle
+          </small>
+
+          <strong id="selectedBundle">
+            —
+          </strong>
+
+        </div>
+
+        <div style="text-align:right">
+
+          <small>
+            Price
+          </small>
+
+          <strong id="selectedPrice">
+            GH₵0.00
+          </strong>
+
+        </div>
+
+      </div>
+
+
+      <button
+        class="buy-button"
+        id="buyButton"
+        onclick="placeOrder()"
+      >
+        Continue
+      </button>
+
+    </section>
+
+
+    <div class="info">
+
+      🔒 Your customer account and order information
+      are handled by the DGM server. Payment and
+      automatic telecom delivery will be connected
+      through legitimate providers in the integration stage.
+
+    </div>
+
+  </main>
+
+
+  <!-- BOTTOM NAV -->
+
+  <nav class="bottom-nav">
+
+    <button
+      onclick="window.location.href='/dashboard.html'"
+    >
+
+      <span class="bottom-icon">
+        🏠
+      </span>
+
+      Home
+
+    </button>
+
+
+    <button class="active">
+
+      <span class="bottom-icon">
+        📶
+      </span>
+
+      Data
+
+    </button>
+
+
+    <button
+      onclick="window.location.href='/airtime.html'"
+    >
+
+      <span class="bottom-icon">
+        📱
+      </span>
+
+      Airtime
+
+    </button>
+
+
+    <button
+      onclick="window.location.href='/orders.html'"
+    >
+
+      <span class="bottom-icon">
+        📦
+      </span>
+
+      Orders
+
+    </button>
+
+
+    <button
+      onclick="window.location.href='/account.html'"
+    >
+
+      <span class="bottom-icon">
+        👤
+      </span>
+
+      Account
+
+    </button>
+
+  </nav>
+
+
+  <script>
+
+    // =========================
+    // DGM PRICES
+    // =========================
+
+    const bundles = {
+
+      MTN: [
+        ["1GB", 5],
+        ["2GB", 10],
+        ["3GB", 15],
+        ["4GB", 20],
+        ["5GB", 24],
+        ["6GB", 28],
+        ["8GB", 36],
+        ["10GB", 45],
+        ["15GB", 64],
+        ["20GB", 84],
+        ["25GB", 100],
+        ["30GB", 128],
+        ["40GB", 168],
+        ["50GB", 207]
+      ],
+
+      AirtelTigo: [
+        ["1GB", 5],
+        ["2GB", 10],
+        ["3GB", 15],
+        ["4GB", 20],
+        ["5GB", 24],
+        ["6GB", 26],
+        ["8GB", 35],
+        ["10GB", 45],
+        ["12GB", 48],
+        ["15GB", 65],
+        ["25GB", 100],
+        ["30GB", 120],
+        ["40GB", 160],
+        ["50GB", 200]
+      ],
+
+      Telecel: [
+        ["10GB", 45],
+        ["15GB", 60],
+        ["20GB", 76],
+        ["25GB", 100],
+        ["30GB", 115],
+        ["35GB", 136],
+        ["40GB", 150],
+        ["45GB", 165],
+        ["50GB", 185],
+        ["100GB", 407]
+      ]
+
+    };
+
+
+    let selectedNetwork = "MTN";
+
+    let selectedBundle = null;
+
+
+    // =========================
+    // RENDER BUNDLES
+    // =========================
+
+    function renderBundles() {
+
+      const grid =
+        document.getElementById(
+          "bundleGrid"
+        );
+
+      grid.innerHTML = "";
+
+      selectedBundle = null;
+
+      document
+        .getElementById("orderBox")
+        .classList.remove("show");
+
+
+      bundles[selectedNetwork]
+        .forEach(function(bundle) {
+
+          const size =
+            bundle[0];
+
+          const price =
+            bundle[1];
+
+
+          const button =
+            document.createElement("button");
+
+          button.className =
+            "bundle";
+
+
+          button.innerHTML = `
+
+            <div class="check">
+              ✓
+            </div>
+
+            <div class="bundle-name">
+              ${size}
+            </div>
+
+            <div class="bundle-price">
+              GH₵${price}
+            </div>
+
+            <div class="bundle-validity">
+              Validity: 90 days
+            </div>
+
+          `;
+
+
+          button.onclick =
+            function() {
+
+              selectBundle(
+                size,
+                price,
+                button
+              );
+
+            };
+
+
+          grid.appendChild(button);
+
+        });
+
+    }
+
+
+    // =========================
+    // NETWORK
+    // =========================
+
+    function selectNetwork(
+      network,
+      button
+    ) {
+
+      selectedNetwork =
+        network;
+
+
+      document
+        .querySelectorAll(".network")
+        .forEach(function(item) {
+
+          item.classList.remove(
+            "active"
+          );
+
+        });
+
+
+      button.classList.add(
+        "active"
+      );
+
+
+      renderBundles();
+
+    }
+
+
+    // =========================
+    // BUNDLE
+    // =========================
+
+    function selectBundle(
+      size,
+      price,
+      button
+    ) {
+
+      document
+        .querySelectorAll(".bundle")
+        .forEach(function(item) {
+
+          item.classList.remove(
+            "selected"
+          );
+
+        });
+
+
+      button.classList.add(
+        "selected"
+      );
+
+
+      selectedBundle = {
+        size,
+        price
+      };
+
+
+      document
+        .getElementById("selectedBundle")
+        .textContent =
+        selectedNetwork +
+        " " +
+        size;
+
+
+      document
+        .getElementById("selectedPrice")
+        .textContent =
+        "GH₵" +
+        Number(price)
+          .toFixed(2);
+
+
+      document
+        .getElementById("orderBox")
+        .classList.add("show");
+
+
+      clearMessage();
+
+    }
+
+
+    // =========================
+    // MESSAGE
+    // =========================
+
+    function showMessage(
+      text,
+      type
+    ) {
+
+      const message =
+        document.getElementById(
+          "message"
+        );
+
+      message.textContent =
+        text;
+
+      message.className =
+        "message show " +
+        type;
+
+    }
+
+
+    function clearMessage() {
+
+      const message =
+        document.getElementById(
+          "message"
+        );
+
+      message.textContent = "";
+
+      message.className =
+        "message";
+
+    }
+
+
+    // =========================
+    // PHONE VALIDATION
+    // =========================
+
+    function validGhanaPhone(
+      phone
+    ) {
+
+      return /^(0\d{9}|\+233\d{9})$/
+        .test(phone);
+
+    }
+
+
+    // =========================
+    // PLACE ORDER
+    // =========================
+
+    async function placeOrder() {
+
+      clearMessage();
+
+
+      const phone =
+        document
+          .getElementById("phone")
+          .value
+          .trim();
+
+
+      if (!phone) {
+
+        showMessage(
+          "Please enter the recipient phone number.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      if (!validGhanaPhone(phone)) {
+
+        showMessage(
+          "Please enter a valid Ghana phone number.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      if (!selectedBundle) {
+
+        showMessage(
+          "Please select a data bundle.",
+          "error"
+        );
+
+        return;
+
+      }
+
+
+      const button =
+        document.getElementById(
+          "buyButton"
+        );
+
+
+      button.disabled = true;
+
+      button.textContent =
+        "Submitting order...";
+
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/orders",
+            {
+              method: "POST",
+
+              headers: {
+                "Content-Type":
+                  "application/json"
+              },
+
+              body:
+                JSON.stringify({
+
+                  service:
+                    "Data Bundle",
+
+                  network:
+                    selectedNetwork,
+
+                  phone:
+                    phone,
+
+                  amount:
+                    selectedBundle.price
+
+                })
+
+              }
+            );
+
+
+        const result =
+          await response.json();
+
+
+        if (
+          response.status === 401
+        ) {
+
+          window.location.href =
+            "/login.html";
+
+          return;
+
+        }
+
+
+        if (!response.ok) {
+
+          showMessage(
+            result.message ||
+            "Unable to submit order.",
+            "error"
+          );
+
+          button.disabled = false;
+
+          button.textContent =
+            "Continue";
+
+          return;
+
+        }
+
+
+        showMessage(
+          "Order received successfully. Reference: " +
+          result.orderRef +
+          ". Status: Pending.",
+          "success"
+        );
+
+
+        button.textContent =
+          "Order Submitted";
+
+
+        setTimeout(
+          function() {
+
+            window.location.href =
+              "/orders.html";
+
+          },
+          1800
+        );
+
+
+      } catch (error) {
+
+        console.error(error);
+
+        showMessage(
+          "Unable to connect to the DGM server.",
+          "error"
+        );
+
+        button.disabled = false;
+
+        button.textContent =
+          "Continue";
+
+      }
+
+    }
+
+
+    // =========================
+    // START
+    // =========================
+
+    renderBundles();
+
+  </script>
+
+</body>
+</html>
