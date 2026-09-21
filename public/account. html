@@ -47,8 +47,7 @@
       align-items: center;
       gap: 12px;
 
-      background:
-        rgba(4,12,12,.95);
+      background: rgba(4,12,12,.95);
 
       border-bottom:
         1px solid rgba(255,255,255,.08);
@@ -160,6 +159,119 @@
       font-size: 12px;
     }
 
+    /* WALLET */
+
+    .wallet {
+      padding: 22px;
+
+      border-radius: 22px;
+
+      background:
+        linear-gradient(
+          135deg,
+          rgba(37,211,102,.18),
+          rgba(18,140,126,.10),
+          rgba(255,255,255,.04)
+        );
+
+      border:
+        1px solid rgba(37,211,102,.22);
+
+      margin-bottom: 14px;
+
+      position: relative;
+
+      overflow: hidden;
+    }
+
+    .wallet::after {
+      content: "DGM";
+
+      position: absolute;
+
+      right: -10px;
+      bottom: -28px;
+
+      font-size: 90px;
+
+      font-weight: 900;
+
+      color: rgba(255,255,255,.035);
+
+      pointer-events: none;
+    }
+
+    .wallet-label {
+      color: #9db2b2;
+
+      font-size: 12px;
+
+      margin-bottom: 7px;
+    }
+
+    .wallet-balance {
+      font-size: 32px;
+
+      font-weight: 900;
+
+      color: #25d366;
+
+      margin-bottom: 17px;
+    }
+
+    .wallet-note {
+      color: #91a7a7;
+
+      font-size: 11px;
+
+      line-height: 1.5;
+
+      margin-bottom: 16px;
+    }
+
+    .wallet-actions {
+      display: grid;
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
+      gap: 10px;
+
+      position: relative;
+
+      z-index: 2;
+    }
+
+    .wallet-btn {
+      border: 0;
+
+      padding: 13px 10px;
+
+      border-radius: 12px;
+
+      font-size: 12px;
+
+      font-weight: 900;
+
+      cursor: pointer;
+
+      background:
+        rgba(255,255,255,.08);
+
+      color: #fff;
+
+      border:
+        1px solid rgba(255,255,255,.08);
+    }
+
+    .wallet-btn.primary {
+      background: #25d366;
+
+      color: #001b0b;
+
+      border-color: #25d366;
+    }
+
     .card {
       padding: 18px;
 
@@ -214,6 +326,7 @@
 
     .balance {
       color: #25d366 !important;
+
       font-size: 18px !important;
     }
 
@@ -254,6 +367,7 @@
 
     .action.primary {
       background: #25d366;
+
       color: #001b0b;
 
       border-color: #25d366;
@@ -418,8 +532,8 @@
       <h1>My Account</h1>
 
       <p>
-        Manage your DGM account information and
-        access your customer services.
+        Manage your DGM account, wallet and
+        customer services.
       </p>
 
     </section>
@@ -441,6 +555,48 @@
       <p id="member">
         DHE GENIUS MEDIA Customer
       </p>
+
+    </section>
+
+
+    <!-- WALLET -->
+
+    <section class="wallet">
+
+      <div class="wallet-label">
+        DGM WALLET BALANCE
+      </div>
+
+      <div
+        id="walletBalance"
+        class="wallet-balance"
+      >
+        GH₵0.00
+      </div>
+
+      <div class="wallet-note">
+        Your wallet will be used for eligible DGM
+        services after secure payment processing
+        is connected.
+      </div>
+
+      <div class="wallet-actions">
+
+        <button
+          class="wallet-btn primary"
+          onclick="addMoney()"
+        >
+          + Add Money
+        </button>
+
+        <button
+          class="wallet-btn"
+          onclick="walletHistory()"
+        >
+          Wallet History
+        </button>
+
+      </div>
 
     </section>
 
@@ -715,7 +871,7 @@
       if (!response.ok) {
 
         throw new Error(
-          data.error ||
+          data.message ||
           "Unable to load account."
         );
 
@@ -748,11 +904,18 @@
         customer.email || "—";
 
 
+      const balance =
+        Number(customer.balance || 0);
+
+
       document.getElementById("balance")
         .textContent =
-        "GH₵" +
-        Number(customer.balance || 0)
-          .toFixed(2);
+        "GH₵" + balance.toFixed(2);
+
+
+      document.getElementById("walletBalance")
+        .textContent =
+        "GH₵" + balance.toFixed(2);
 
 
       document.getElementById("member")
@@ -796,6 +959,24 @@
         "Something went wrong.";
 
     }
+
+  }
+
+
+  function addMoney() {
+
+    alert(
+      "Secure wallet funding will be connected through a real payment provider in the next payment stage."
+    );
+
+  }
+
+
+  function walletHistory() {
+
+    alert(
+      "Wallet history will be available after the payment and wallet transaction system is connected."
+    );
 
   }
 
