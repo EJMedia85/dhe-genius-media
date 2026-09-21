@@ -1,9 +1,9 @@
 const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
-const Database = require("better-sqlite3");
 const path = require("path");
 const crypto = require("crypto");
+const { Pool } = require("pg");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -12,55 +12,70 @@ const PORT = process.env.PORT || 10000;
 // DATABASE
 // ===============================
 
-const db = new Database("dgm.sqlite");
+if (!process.env.DATABASE_URL) {
+  console.error("DATABASE_URL is missing.");
+  process.exit(1);
+}
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS customers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    phone TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    balance REAL NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+// ===============================
+// CREATE TABLES
+// ===============================
 
-  CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_ref TEXT NOT NULL UNIQUE,
-    customer_id INTEGER NOT NULL,
-    service TEXT NOT NULL,
-    network TEXT,
-    phone TEXT NOT NULL,
-    amount REAL NOT NULL,
-    status TEXT NOT NULL DEFAULT 'Pending',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+async function initializeDatabase() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customers (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      phone TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
 
-    FOREIGN KEY (customer_id)
-      REFERENCES customers(id)
-      ON DELETE CASCADE
-  );
+    CREATE TABLE IF NOT EXISTS orders (
+      id SERIAL PRIMARY KEY,
+      order_ref TEXT NOT NULL UNIQUE,
+      customer_id INTEGER NOT NULL,
+      service TEXT NOT NULL,
+      network TEXT,
+      phone TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Pending',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-  CREATE TABLE IF NOT EXISTS wallet_transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    transaction_ref TEXT NOT NULL UNIQUE,
-    customer_id INTEGER NOT NULL,
-    type TEXT NOT NULL,
-    amount REAL NOT NULL,
-    balance_before REAL NOT NULL,
-    balance_after REAL NOT NULL,
-    description TEXT,
-    status TEXT NOT NULL DEFAULT 'Completed',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE
+    );
 
-    FOREIGN KEY (customer_id)
-      REFERENCES customers(id)
-      ON DELETE CASCADE
-  );
-`);
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id SERIAL PRIMARY KEY,
+      transaction_ref TEXT NOT NULL UNIQUE,
+      customer_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      balance_before NUMERIC(12,2) NOT NULL,
+      balance_after NUMERIC(12,2) NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'Completed',
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+      FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE
+    );
+  `);
+
+  console.log("DGM PostgreSQL database ready.");
+}
 
 // ===============================
 // APP SETTINGS
@@ -119,22 +134,23 @@ function requireLogin(req, res, next) {
   next();
 }
 
-function getCustomer(customerId) {
-  return db
-    .prepare(
-      `
-      SELECT
-        id,
-        name,
-        phone,
-        email,
-        balance,
-        created_at
-      FROM customers
-      WHERE id = ?
-      `
-    )
-    .get(customerId);
+async function getCustomer(customerId) {
+  const result = await pool.query(
+    `
+    SELECT
+      id,
+      name,
+      phone,
+      email,
+      balance,
+      created_at
+    FROM customers
+    WHERE id = $1
+    `,
+    [customerId]
+  );
+
+  return result.rows[0];
 }
 
 function publicCustomer(customer) {
@@ -172,12 +188,25 @@ function createTransactionReference() {
 // HEALTH CHECK
 // ===============================
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    success: true,
-    service: "DHE GENIUS MEDIA",
-    status: "online"
-  });
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+
+    res.json({
+      success: true,
+      service: "DHE GENIUS MEDIA",
+      status: "online",
+      database: "connected"
+    });
+  } catch (error) {
+    console.error("HEALTH ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      service: "DHE GENIUS MEDIA",
+      status: "database_error"
+    });
+  }
 });
 
 // ===============================
@@ -228,22 +257,24 @@ app.post("/api/register", async (req, res) => {
       });
     }
 
-    const existingPhone = db
-      .prepare("SELECT id FROM customers WHERE phone = ?")
-      .get(phone);
+    const existingPhone = await pool.query(
+      "SELECT id FROM customers WHERE phone = $1",
+      [phone]
+    );
 
-    if (existingPhone) {
+    if (existingPhone.rows.length > 0) {
       return res.status(409).json({
         success: false,
         message: "This phone number is already registered."
       });
     }
 
-    const existingEmail = db
-      .prepare("SELECT id FROM customers WHERE email = ?")
-      .get(email);
+    const existingEmail = await pool.query(
+      "SELECT id FROM customers WHERE email = $1",
+      [email]
+    );
 
-    if (existingEmail) {
+    if (existingEmail.rows.length > 0) {
       return res.status(409).json({
         success: false,
         message: "This email address is already registered."
@@ -252,19 +283,21 @@ app.post("/api/register", async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const result = db
-      .prepare(
-        `
-        INSERT INTO customers
-        (name, phone, email, password)
-        VALUES (?, ?, ?, ?)
-        `
-      )
-      .run(name, phone, email, hashedPassword);
+    const result = await pool.query(
+      `
+      INSERT INTO customers
+      (name, phone, email, password)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id
+      `,
+      [name, phone, email, hashedPassword]
+    );
 
-    req.session.customerId = result.lastInsertRowid;
+    const customerId = result.rows[0].id;
 
-    const customer = getCustomer(result.lastInsertRowid);
+    req.session.customerId = customerId;
+
+    const customer = await getCustomer(customerId);
 
     res.json({
       success: true,
@@ -300,16 +333,18 @@ app.post("/api/login", async (req, res) => {
       });
     }
 
-    const customer = db
-      .prepare(
-        `
-        SELECT *
-        FROM customers
-        WHERE LOWER(email) = ?
-           OR LOWER(phone) = ?
-        `
-      )
-      .get(identifier, identifier);
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM customers
+      WHERE LOWER(email) = $1
+         OR LOWER(phone) = $1
+      LIMIT 1
+      `,
+      [identifier]
+    );
+
+    const customer = result.rows[0];
 
     if (!customer) {
       return res.status(401).json({
@@ -351,22 +386,31 @@ app.post("/api/login", async (req, res) => {
 // CURRENT CUSTOMER
 // ===============================
 
-app.get("/api/me", requireLogin, (req, res) => {
-  const customer = getCustomer(req.session.customerId);
+app.get("/api/me", requireLogin, async (req, res) => {
+  try {
+    const customer = await getCustomer(req.session.customerId);
 
-  if (!customer) {
-    req.session.destroy(() => {});
+    if (!customer) {
+      req.session.destroy(() => {});
 
-    return res.status(401).json({
+      return res.status(401).json({
+        success: false,
+        message: "Account not found."
+      });
+    }
+
+    res.json({
+      success: true,
+      customer: publicCustomer(customer)
+    });
+  } catch (error) {
+    console.error("ME ERROR:", error);
+
+    res.status(500).json({
       success: false,
-      message: "Account not found."
+      message: "Unable to load account."
     });
   }
-
-  res.json({
-    success: true,
-    customer: publicCustomer(customer)
-  });
 });
 
 // ===============================
@@ -395,9 +439,9 @@ app.post("/api/logout", (req, res) => {
 // CUSTOMER ORDERS
 // ===============================
 
-app.get("/api/orders", requireLogin, (req, res) => {
-  const orders = db
-    .prepare(
+app.get("/api/orders", requireLogin, async (req, res) => {
+  try {
+    const result = await pool.query(
       `
       SELECT
         id,
@@ -409,23 +453,31 @@ app.get("/api/orders", requireLogin, (req, res) => {
         status,
         created_at
       FROM orders
-      WHERE customer_id = ?
+      WHERE customer_id = $1
       ORDER BY id DESC
-      `
-    )
-    .all(req.session.customerId);
+      `,
+      [req.session.customerId]
+    );
 
-  res.json({
-    success: true,
-    orders
-  });
+    res.json({
+      success: true,
+      orders: result.rows
+    });
+  } catch (error) {
+    console.error("ORDERS ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to load orders."
+    });
+  }
 });
 
 // ===============================
 // CREATE ORDER
 // ===============================
 
-app.post("/api/orders", requireLogin, (req, res) => {
+app.post("/api/orders", requireLogin, async (req, res) => {
   try {
     const service = String(req.body.service || "").trim();
     const network = String(req.body.network || "").trim();
@@ -480,23 +532,22 @@ app.post("/api/orders", requireLogin, (req, res) => {
 
     const orderRef = createOrderReference();
 
-    const result = db
-      .prepare(
-        `
-        INSERT INTO orders
-        (
-          order_ref,
-          customer_id,
-          service,
-          network,
-          phone,
-          amount,
-          status
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        `
+    const result = await pool.query(
+      `
+      INSERT INTO orders
+      (
+        order_ref,
+        customer_id,
+        service,
+        network,
+        phone,
+        amount,
+        status
       )
-      .run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id
+      `,
+      [
         orderRef,
         req.session.customerId,
         service,
@@ -504,30 +555,30 @@ app.post("/api/orders", requireLogin, (req, res) => {
         phone,
         amount,
         "Pending"
-      );
+      ]
+    );
 
-    const order = db
-      .prepare(
-        `
-        SELECT
-          id,
-          order_ref,
-          service,
-          network,
-          phone,
-          amount,
-          status,
-          created_at
-        FROM orders
-        WHERE id = ?
-        `
-      )
-      .get(result.lastInsertRowid);
+    const orderResult = await pool.query(
+      `
+      SELECT
+        id,
+        order_ref,
+        service,
+        network,
+        phone,
+        amount,
+        status,
+        created_at
+      FROM orders
+      WHERE id = $1
+      `,
+      [result.rows[0].id]
+    );
 
     res.json({
       success: true,
       message: "Order received successfully.",
-      order
+      order: orderResult.rows[0]
     });
   } catch (error) {
     console.error("ORDER ERROR:", error);
@@ -543,32 +594,41 @@ app.post("/api/orders", requireLogin, (req, res) => {
 // WALLET BALANCE
 // ===============================
 
-app.get("/api/wallet", requireLogin, (req, res) => {
-  const customer = getCustomer(req.session.customerId);
+app.get("/api/wallet", requireLogin, async (req, res) => {
+  try {
+    const customer = await getCustomer(req.session.customerId);
 
-  if (!customer) {
-    return res.status(404).json({
+    if (!customer) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found."
+      });
+    }
+
+    res.json({
+      success: true,
+      balance: Number(customer.balance || 0)
+    });
+  } catch (error) {
+    console.error("WALLET ERROR:", error);
+
+    res.status(500).json({
       success: false,
-      message: "Account not found."
+      message: "Unable to load wallet."
     });
   }
-
-  res.json({
-    success: true,
-    balance: Number(customer.balance || 0)
-  });
 });
 
 // ===============================
-// WALLET TRANSACTION HISTORY
+// WALLET TRANSACTIONS
 // ===============================
 
 app.get(
   "/api/wallet/transactions",
   requireLogin,
-  (req, res) => {
-    const transactions = db
-      .prepare(
+  async (req, res) => {
+    try {
+      const result = await pool.query(
         `
         SELECT
           id,
@@ -581,16 +641,24 @@ app.get(
           status,
           created_at
         FROM wallet_transactions
-        WHERE customer_id = ?
+        WHERE customer_id = $1
         ORDER BY id DESC
-        `
-      )
-      .all(req.session.customerId);
+        `,
+        [req.session.customerId]
+      );
 
-    res.json({
-      success: true,
-      transactions
-    });
+      res.json({
+        success: true,
+        transactions: result.rows
+      });
+    } catch (error) {
+      console.error("WALLET HISTORY ERROR:", error);
+
+      res.status(500).json({
+        success: false,
+        message: "Unable to load wallet transactions."
+      });
+    }
   }
 );
 
@@ -609,8 +677,15 @@ app.use("/api", (req, res) => {
 // START SERVER
 // ===============================
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(
-    `DHE GENIUS MEDIA server running on port ${PORT}`
-  );
-});
+initializeDatabase()
+  .then(() => {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(
+        `DHE GENIUS MEDIA server running on port ${PORT}`
+      );
+    });
+  })
+  .catch((error) => {
+    console.error("DATABASE INITIALIZATION ERROR:", error);
+    process.exit(1);
+  });
