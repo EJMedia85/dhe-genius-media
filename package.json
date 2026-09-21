@@ -1,15 +1,18 @@
 {
-  "name": "digital-vending-dashboard",
-  "version": "1.0.0",
-  "description": "Digital vending and user dashboard web app",
+  "name": "dhe-genius-media",
+  "version": "2.0.0",
+  "description": "DHE GENIUS MEDIA - Ghana digital services platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "dependencies": {
-    "express": "^4.19.2"
-  },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "express-session": "^1.18.1",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.8.1"
   }
 }
