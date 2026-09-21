@@ -1,1362 +1,739 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
 
-<title>DHE GENIUS MEDIA — Data & Digital Services</title>
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+  >
 
-<style>
-*{
-  box-sizing:border-box;
-  margin:0;
-  padding:0;
-}
+  <meta
+    name="description"
+    content="DHE GENIUS MEDIA — Data bundles, airtime and digital services."
+  >
 
-body{
-  font-family:Inter,Arial,sans-serif;
-  background:#f5f7fa;
-  color:#111827;
-}
+  <title>DHE GENIUS MEDIA | Stay Connected. Stay Genius.</title>
 
-button,input,select{
-  font:inherit;
-}
-
-button{
-  cursor:pointer;
-}
-
-/* HEADER */
-
-header{
-  background:#0879df;
-  color:white;
-  position:sticky;
-  top:0;
-  z-index:100;
-  box-shadow:0 2px 12px rgba(0,0,0,.12);
-}
-
-.nav{
-  max-width:1100px;
-  margin:auto;
-  height:70px;
-  padding:0 18px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-}
-
-.brand{
-  display:flex;
-  align-items:center;
-  gap:10px;
-}
-
-.logo{
-  width:40px;
-  height:40px;
-  border-radius:12px;
-  background:white;
-  color:#0879df;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-weight:900;
-}
-
-.brand strong{
-  font-size:15px;
-}
-
-.brand small{
-  display:block;
-  opacity:.8;
-  font-size:10px;
-  margin-top:2px;
-}
-
-.nav-actions{
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-
-.nav-btn{
-  border:0;
-  background:white;
-  color:#0879df;
-  padding:10px 14px;
-  border-radius:12px;
-  font-weight:700;
-}
-
-.menu{
-  border:0;
-  background:transparent;
-  color:white;
-  font-size:25px;
-}
-
-/* HERO */
-
-.hero{
-  background:linear-gradient(135deg,#0879df,#1264c4);
-  color:white;
-  padding:42px 18px 55px;
-}
-
-.hero-inner{
-  max-width:1100px;
-  margin:auto;
-}
-
-.hero h1{
-  font-size:clamp(34px,7vw,62px);
-  line-height:1;
-  font-weight:900;
-  max-width:700px;
-  letter-spacing:-2px;
-}
-
-.hero p{
-  margin-top:15px;
-  font-size:16px;
-  opacity:.9;
-}
-
-.hero-buttons{
-  display:flex;
-  flex-wrap:wrap;
-  gap:10px;
-  margin-top:25px;
-}
-
-.primary{
-  border:0;
-  background:white;
-  color:#0879df;
-  padding:13px 19px;
-  border-radius:12px;
-  font-weight:800;
-}
-
-.secondary{
-  border:1px solid rgba(255,255,255,.35);
-  background:transparent;
-  color:white;
-  padding:13px 19px;
-  border-radius:12px;
-  font-weight:700;
-}
-
-/* MAIN */
-
-.container{
-  max-width:1100px;
-  margin:auto;
-  padding:22px 15px 60px;
-}
-
-.section-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin:28px 0 13px;
-}
-
-.section-head h2{
-  font-size:18px;
-}
-
-.section-head span{
-  font-size:12px;
-  color:#8a94a6;
-}
-
-/* DELIVERY CARD */
-
-.status-card{
-  background:#fff9e8;
-  border:1px solid #eadcb2;
-  border-radius:16px;
-  padding:14px;
-  margin-bottom:25px;
-}
-
-.status-top{
-  color:#806d2d;
-  font-size:12px;
-  margin-bottom:10px;
-}
-
-.status-line{
-  background:#edf8f1;
-  border-radius:12px;
-  padding:11px;
-  font-size:12px;
-  border:1px solid #d9ebdf;
-}
-
-.status-line strong{
-  color:#237a4b;
-}
-
-.status-bottom{
-  margin-top:9px;
-  font-size:11px;
-  color:#888;
-}
-
-/* NETWORKS */
-
-.networks{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:10px;
-}
-
-.network{
-  border:0;
-  border-radius:15px;
-  padding:16px 10px;
-  background:white;
-  box-shadow:0 2px 10px rgba(0,0,0,.06);
-  font-weight:800;
-}
-
-.network.active{
-  outline:3px solid #0879df;
-}
-
-.network.mtn{
-  border-bottom:5px solid #ffcc00;
-}
-
-.network.at{
-  border-bottom:5px solid #173f7a;
-}
-
-.network.telecel{
-  border-bottom:5px solid #e71931;
-}
-
-/* BUNDLES */
-
-.products{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:12px;
-}
-
-.product{
-  border-radius:17px;
-  padding:18px;
-  min-height:155px;
-  color:white;
-  position:relative;
-  overflow:hidden;
-}
-
-.product.mtn{
-  background:#ffcc00;
-  color:#111;
-}
-
-.product.at{
-  background:#24467e;
-}
-
-.product.telecel{
-  background:#ed1b2f;
-}
-
-.tag{
-  display:inline-block;
-  background:rgba(255,255,255,.25);
-  padding:5px 8px;
-  border-radius:8px;
-  font-size:10px;
-  font-weight:800;
-}
-
-.product h3{
-  font-size:28px;
-  margin-top:14px;
-}
-
-.product p{
-  font-size:11px;
-  opacity:.85;
-  margin-top:3px;
-}
-
-.product-bottom{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-top:15px;
-}
-
-.price{
-  font-size:18px;
-  font-weight:900;
-}
-
-.arrow{
-  font-size:20px;
-}
-
-/* SUBSCRIPTIONS */
-
-.subscription-grid{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:12px;
-}
-
-.subscription{
-  background:white;
-  border-radius:18px;
-  padding:18px;
-  border:1px solid #e4e8ef;
-  box-shadow:0 3px 12px rgba(0,0,0,.05);
-}
-
-.sub-icon{
-  width:48px;
-  height:48px;
-  border-radius:14px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:24px;
-  margin-bottom:12px;
-}
-
-.netflix{
-  background:#ffe8e8;
-}
-
-.dstv{
-  background:#e7edff;
-}
-
-.apple{
-  background:#eee;
-}
-
-.subscription h3{
-  font-size:18px;
-}
-
-.subscription p{
-  color:#70798a;
-  font-size:12px;
-  margin:7px 0;
-}
-
-.sub-price{
-  font-size:18px;
-  font-weight:900;
-  margin:12px 0;
-}
-
-.buy-sub{
-  width:100%;
-  border:0;
-  padding:11px;
-  border-radius:11px;
-  background:#111827;
-  color:white;
-  font-weight:800;
-}
-
-/* SERVICES */
-
-.service-grid{
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:10px;
-}
-
-.service{
-  background:white;
-  border:1px solid #e5e9ef;
-  border-radius:15px;
-  padding:17px;
-}
-
-.service-icon{
-  font-size:25px;
-}
-
-.service h3{
-  font-size:14px;
-  margin-top:9px;
-}
-
-.service p{
-  color:#8992a2;
-  font-size:11px;
-  margin-top:4px;
-}
-
-/* CHECKOUT */
-
-.checkout{
-  background:white;
-  border-radius:20px;
-  padding:20px;
-  margin-top:28px;
-  box-shadow:0 4px 18px rgba(0,0,0,.06);
-}
-
-.checkout h2{
-  font-size:20px;
-}
-
-.checkout p{
-  color:#7a8494;
-  font-size:12px;
-  margin:5px 0 15px;
-}
-
-input,select{
-  width:100%;
-  padding:14px;
-  border:1px solid #dce1e8;
-  border-radius:11px;
-  margin-bottom:10px;
-  background:#f9fafb;
-  outline:none;
-}
-
-.checkout-btn{
-  width:100%;
-  border:0;
-  padding:14px;
-  border-radius:12px;
-  background:#0879df;
-  color:white;
-  font-weight:900;
-}
-
-/* INFO */
-
-.info{
-  background:white;
-  border-radius:18px;
-  margin-top:25px;
-  overflow:hidden;
-  border:1px solid #e5e9ef;
-}
-
-.info-row{
-  padding:15px;
-  border-bottom:1px solid #edf0f4;
-  display:grid;
-  grid-template-columns:35% 65%;
-  font-size:12px;
-}
-
-.info-row:last-child{
-  border-bottom:0;
-}
-
-.info-row strong{
-  color:#111827;
-}
-
-.info-row span{
-  color:#7d8796;
-}
-
-/* ORDERS */
-
-.orders{
-  background:white;
-  border-radius:18px;
-  padding:18px;
-  margin-top:25px;
-}
-
-.order{
-  padding:13px 0;
-  border-bottom:1px solid #edf0f4;
-  font-size:12px;
-}
-
-.order:last-child{
-  border-bottom:0;
-}
-
-.pending{
-  color:#d28a00;
-  font-weight:bold;
-}
-
-/* FOOTER */
-
-footer{
-  background:#101827;
-  color:#c9d0dc;
-  padding:35px 18px;
-  text-align:center;
-  font-size:12px;
-  line-height:1.8;
-}
-
-footer strong{
-  color:white;
-  font-size:16px;
-}
-
-/* MOBILE */
-
-@media(max-width:800px){
-
-  .products{
-    grid-template-columns:repeat(2,1fr);
-  }
-
-  .subscription-grid{
-    grid-template-columns:1fr;
-  }
-
-  .service-grid{
-    grid-template-columns:repeat(2,1fr);
-  }
-
-}
-
-@media(max-width:500px){
-
-  .hero h1{
-    font-size:38px;
-  }
-
-  .products{
-    grid-template-columns:repeat(2,1fr);
-  }
-
-  .product{
-    min-height:145px;
-    padding:15px;
-  }
-
-  .product h3{
-    font-size:25px;
-  }
-
-  .networks{
-    gap:7px;
-  }
-
-  .network{
-    padding:13px 5px;
-    font-size:12px;
-  }
-
-  .nav-actions .nav-btn{
-    display:none;
-  }
-}
-</style>
+  <link rel="stylesheet" href="store.css">
 </head>
-
 
 <body>
 
-<!-- HEADER -->
+  <!-- =========================
+       MOBILE TOP BAR
+  ========================== -->
 
-<header>
-
-  <div class="nav">
+  <header class="topbar">
 
     <div class="brand">
-
-      <div class="logo">D</div>
+      <div class="brand-logo">DGM</div>
 
       <div>
-        <strong>DHE GENIUS MEDIA</strong>
-        <small>Stay Connected. Stay Genius.</small>
+        <h1>DHE GENIUS MEDIA</h1>
+        <span>Stay Connected. Stay Genius.</span>
       </div>
-
-    </div>
-
-    <div class="nav-actions">
-
-      <button class="nav-btn"
-        onclick="scrollToCheckout()">
-        Buy Data →
-      </button>
-
-      <button class="menu"
-        onclick="alert('DHE GENIUS MEDIA\\n\\nData Bundles\\nAirtime\\nNetflix\\nDStv\\nApple Music\\nDigital Services\\n\\nWhatsApp: 0241518385')">
-        ☰
-      </button>
-
-    </div>
-
-  </div>
-
-</header>
-
-
-<!-- HERO -->
-
-<section class="hero">
-
-  <div class="hero-inner">
-
-    <h1>DHE GENIUS MEDIA</h1>
-
-    <p>
-      Affordable data, subscriptions and digital services —
-      available 24/7 across Ghana.
-    </p>
-
-    <div class="hero-buttons">
-
-      <button class="primary"
-        onclick="scrollToBundles()">
-        Buy Data →
-      </button>
-
-      <button class="secondary"
-        onclick="scrollToSubscriptions()">
-        Premium Services
-      </button>
-
-    </div>
-
-  </div>
-
-</section>
-
-
-<main class="container">
-
-
-<!-- DELIVERY STATUS -->
-
-<div class="status-card">
-
-  <div class="status-top">
-    🟢 <strong>24/7 Service</strong>
-    &nbsp; Fast processing for your orders
-  </div>
-
-  <div class="status-line">
-    ⚡ <strong>Instant order processing</strong>
-    <br>
-    Your order is received immediately after checkout.
-  </div>
-
-  <div class="status-bottom">
-    📱 Need help? WhatsApp 0241518385
-  </div>
-
-</div>
-
-
-<!-- NETWORK -->
-
-<div class="section-head">
-
-  <h2>Browse by network</h2>
-
-  <span>All prices ›</span>
-
-</div>
-
-
-<div class="networks">
-
-  <button
-    class="network mtn active"
-    onclick="showNetwork('MTN',this)">
-    🟡 MTN
-  </button>
-
-  <button
-    class="network telecel"
-    onclick="showNetwork('Telecel',this)">
-    🔴 Telecel
-  </button>
-
-  <button
-    class="network at"
-    onclick="showNetwork('AirtelTigo',this)">
-    🔵 AirtelTigo
-  </button>
-
-</div>
-
-
-<!-- BUNDLES -->
-
-<div class="section-head"
-     id="bundlesSection">
-
-  <h2 id="bundleTitle">
-    Popular MTN bundles
-  </h2>
-
-  <span>90 days</span>
-
-</div>
-
-
-<div class="products"
-     id="bundleList">
-</div>
-
-
-<!-- SUBSCRIPTIONS -->
-
-<div class="section-head"
-     id="subscriptions">
-
-  <h2>Premium subscriptions</h2>
-
-  <span>Instant activation ›</span>
-
-</div>
-
-
-<div class="subscription-grid">
-
-
-  <!-- NETFLIX -->
-
-  <div class="subscription">
-
-    <div class="sub-icon netflix">
-      🎬
-    </div>
-
-    <h3>Netflix</h3>
-
-    <p>
-      Premium entertainment subscription.
-      Choose your preferred duration.
-    </p>
-
-    <div class="sub-price">
-      Contact for price
     </div>
 
     <button
-      class="buy-sub"
-      onclick="buySubscription('Netflix Subscription')">
-      Get Netflix →
+      class="theme-btn"
+      id="themeToggle"
+      aria-label="Toggle dark mode"
+    >
+      🌙
     </button>
 
-  </div>
+  </header>
 
 
-  <!-- DSTV -->
+  <!-- =========================
+       MAIN APP
+  ========================== -->
 
-  <div class="subscription">
+  <main class="app-container">
 
-    <div class="sub-icon dstv">
-      📺
-    </div>
+    <!-- DASHBOARD -->
 
-    <h3>DStv</h3>
+    <section id="dashboardPage" class="page active">
 
-    <p>
-      DStv subscription renewal and
-      streaming/login assistance.
-    </p>
+      <div class="welcome-card">
 
-    <div class="sub-price">
-      Contact for price
-    </div>
+        <div>
+          <p class="small-text">WELCOME BACK 👋</p>
 
-    <button
-      class="buy-sub"
-      onclick="buySubscription('DStv Subscription / Renewal')">
-      Get DStv →
-    </button>
-
-  </div>
-
-
-  <!-- APPLE MUSIC -->
-
-  <div class="subscription">
-
-    <div class="sub-icon apple">
-      🎵
-    </div>
-
-    <h3>Apple Music</h3>
-
-    <p>
-      Apple Music subscription and
-      activation assistance.
-    </p>
-
-    <div class="sub-price">
-      Contact for price
-    </div>
-
-    <button
-      class="buy-sub"
-      onclick="buySubscription('Apple Music Subscription')">
-      Get Apple Music →
-    </button>
-
-  </div>
-
-</div>
-
-
-<!-- MORE SERVICES -->
-
-<div class="section-head">
-
-  <h2>More digital services</h2>
-
-  <span>Explore ›</span>
-
-</div>
-
-
-<div class="service-grid">
-
-  <div class="service">
-    <div class="service-icon">📱</div>
-    <h3>Airtime</h3>
-    <p>MTN, Telecel & AirtelTigo</p>
-  </div>
-
-  <div class="service">
-    <div class="service-icon">🎓</div>
-    <h3>Result Checkers</h3>
-    <p>WAEC / BECE services</p>
-  </div>
-
-  <div class="service">
-    <div class="service-icon">📲</div>
-    <h3>Social Boosting</h3>
-    <p>Social media services</p>
-  </div>
-
-  <div class="service">
-    <div class="service-icon">💻</div>
-    <h3>Digital Services</h3>
-    <p>Many more available</p>
-  </div>
-
-</div>
-
-
-<!-- CHECKOUT -->
-
-<div class="checkout"
-     id="checkout">
-
-  <h2>Quick checkout</h2>
-
-  <p>
-    Enter your number and select what you want to purchase.
-  </p>
-
-  <input
-    id="customerPhone"
-    type="tel"
-    placeholder="Ghana number e.g. 0241518385"
-    maxlength="10">
-
-  <select id="checkoutService">
-
-    <option value="">
-      Select a service
-    </option>
-
-    <option value="Data Bundle">
-      Data Bundle
-    </option>
-
-    <option value="Airtime">
-      Airtime
-    </option>
-
-    <option value="Netflix Subscription">
-      Netflix Subscription
-    </option>
-
-    <option value="DStv Subscription">
-      DStv Subscription / Renewal
-    </option>
-
-    <option value="Apple Music">
-      Apple Music
-    </option>
-
-    <option value="Other Digital Service">
-      Other Digital Service
-    </option>
-
-  </select>
-
-  <button
-    class="checkout-btn"
-    onclick="submitOrder()">
-    Continue Order →
-  </button>
-
-</div>
-
-
-<!-- WHY US -->
-
-<div class="section-head">
-
-  <h2>Why DHE GENIUS MEDIA?</h2>
-
-</div>
-
-
-<div class="info">
-
-  <div class="info-row">
-    <strong>Availability</strong>
-    <span>Open 24/7</span>
-  </div>
-
-  <div class="info-row">
-    <strong>Networks</strong>
-    <span>MTN • Telecel • AirtelTigo</span>
-  </div>
-
-  <div class="info-row">
-    <strong>Subscriptions</strong>
-    <span>Netflix • DStv • Apple Music</span>
-  </div>
-
-  <div class="info-row">
-    <strong>Support</strong>
-    <span>WhatsApp 0241518385</span>
-  </div>
-
-  <div class="info-row">
-    <strong>Location</strong>
-    <span>Accra - Spintex</span>
-  </div>
-
-</div>
-
-
-<!-- ORDERS -->
-
-<div class="orders">
-
-  <h2>Recent orders</h2>
-
-  <div id="ordersList">
-    <p style="color:#8992a2;font-size:12px;margin-top:10px;">
-      Your orders will appear here.
-    </p>
-  </div>
-
-</div>
-
-</main>
-
-
-<!-- FOOTER -->
-
-<footer>
-
-  <strong>DHE GENIUS MEDIA (DGM)</strong>
-
-  <br>
-
-  Stay Connected. Stay Genius.
-
-  <br>
-
-  Data Bundles • Airtime • Netflix • DStv • Apple Music
-
-  <br>
-
-  WhatsApp: 0241518385
-
-  <br>
-
-  Call: 0508667776
-
-  <br>
-
-  📍 Accra - Spintex • 🟢 Open 24/7
-
-</footer>
-
-
-<script>
-
-const bundles = {
-
-  MTN: [
-    ["1GB",5],
-    ["2GB",10],
-    ["3GB",15],
-    ["4GB",20],
-    ["5GB",24],
-    ["6GB",28],
-    ["8GB",36],
-    ["10GB",45],
-    ["15GB",64],
-    ["20GB",84],
-    ["25GB",100],
-    ["30GB",128],
-    ["40GB",168],
-    ["50GB",207]
-  ],
-
-  AirtelTigo: [
-    ["1GB",5],
-    ["2GB",10],
-    ["3GB",15],
-    ["4GB",20],
-    ["5GB",24],
-    ["6GB",26],
-    ["8GB",35],
-    ["10GB",45],
-    ["12GB",48],
-    ["15GB",65],
-    ["25GB",100],
-    ["30GB",120],
-    ["40GB",160],
-    ["50GB",200]
-  ],
-
-  Telecel: [
-    ["10GB",45],
-    ["15GB",60],
-    ["20GB",76],
-    ["25GB",100],
-    ["30GB",115],
-    ["35GB",136],
-    ["40GB",150],
-    ["45GB",165],
-    ["50GB",185],
-    ["100GB",407]
-  ]
-
-};
-
-
-let currentNetwork = "MTN";
-
-
-function showNetwork(network,button){
-
-  currentNetwork = network;
-
-  document
-    .querySelectorAll(".network")
-    .forEach(btn =>
-      btn.classList.remove("active")
-    );
-
-  button.classList.add("active");
-
-  document.getElementById(
-    "bundleTitle"
-  ).textContent =
-    "Popular " + network + " bundles";
-
-  renderBundles();
-
-}
-
-
-function renderBundles(){
-
-  const list =
-    document.getElementById(
-      "bundleList"
-    );
-
-  list.innerHTML = "";
-
-  let cssClass =
-    currentNetwork === "MTN"
-    ? "mtn"
-    : currentNetwork === "Telecel"
-    ? "telecel"
-    : "at";
-
-
-  bundles[currentNetwork].forEach(
-    bundle => {
-
-      const size = bundle[0];
-      const price = bundle[1];
-
-      list.innerHTML += `
-
-        <div class="product ${cssClass}">
-
-          <span class="tag">
-            ${currentNetwork}
-          </span>
-
-          <h3>${size}</h3>
+          <h2>
+            Hello, <span id="customerName">Genius</span>
+          </h2>
 
           <p>
-            ${currentNetwork} bundle
+            Your digital services are just a tap away.
+          </p>
+        </div>
+
+        <div class="balance-box">
+          <span>ACCOUNT BALANCE</span>
+          <strong id="accountBalance">GH₵0.00</strong>
+        </div>
+
+      </div>
+
+
+      <!-- QUICK ACTIONS -->
+
+      <div class="section-heading">
+        <h3>Quick Actions</h3>
+      </div>
+
+      <div class="quick-grid">
+
+        <button onclick="showPage('dataPage')">
+          <div class="quick-icon">📶</div>
+          <strong>Buy Data</strong>
+          <span>MTN • AT • Telecel</span>
+        </button>
+
+        <button onclick="showPage('airtimePage')">
+          <div class="quick-icon">📱</div>
+          <strong>Buy Airtime</strong>
+          <span>All Networks</span>
+        </button>
+
+        <button onclick="showPage('servicesPage')">
+          <div class="quick-icon">🛍️</div>
+          <strong>More Services</strong>
+          <span>Digital Services</span>
+        </button>
+
+        <button onclick="showPage('ordersPage')">
+          <div class="quick-icon">📦</div>
+          <strong>My Orders</strong>
+          <span>Track Orders</span>
+        </button>
+
+      </div>
+
+
+      <!-- SERVICE STATUS -->
+
+      <div class="section-heading">
+        <h3>Service Status</h3>
+      </div>
+
+      <div class="status-card">
+
+        <div class="status-icon">✓</div>
+
+        <div>
+          <strong>All Systems Operational</strong>
+          <p>Data and digital services are available.</p>
+        </div>
+
+        <span class="online-dot"></span>
+
+      </div>
+
+
+      <!-- RECENT TRANSACTIONS -->
+
+      <div class="section-heading">
+        <h3>Recent Transactions</h3>
+
+        <button onclick="showPage('ordersPage')">
+          View All
+        </button>
+      </div>
+
+      <div id="recentTransactions" class="transactions-list">
+
+        <div class="empty-state">
+          <div>📦</div>
+          <strong>No transactions yet</strong>
+          <p>Your recent orders will appear here.</p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         BUY DATA
+    ========================== -->
+
+    <section id="dataPage" class="page">
+
+      <div class="page-header">
+
+        <button class="back-btn" onclick="showPage('dashboardPage')">
+          ←
+        </button>
+
+        <div>
+          <h2>Buy Data</h2>
+          <p>Choose your network and bundle.</p>
+        </div>
+
+      </div>
+
+
+      <div class="network-tabs">
+
+        <button
+          class="network-tab active"
+          data-network="MTN"
+          onclick="selectNetwork('MTN')"
+        >
+          <span>MTN</span>
+        </button>
+
+        <button
+          class="network-tab"
+          data-network="AirtelTigo"
+          onclick="selectNetwork('AirtelTigo')"
+        >
+          <span>AirtelTigo</span>
+        </button>
+
+        <button
+          class="network-tab"
+          data-network="Telecel"
+          onclick="selectNetwork('Telecel')"
+        >
+          <span>Telecel</span>
+        </button>
+
+      </div>
+
+
+      <div class="input-card">
+
+        <label for="dataPhone">
+          Recipient Phone Number
+        </label>
+
+        <input
+          type="tel"
+          id="dataPhone"
+          placeholder="024 XXX XXXX"
+          maxlength="10"
+        >
+
+        <small>
+          Enter the Ghanaian number receiving the bundle.
+        </small>
+
+      </div>
+
+
+      <div class="section-heading">
+        <h3 id="bundleTitle">MTN Bundles</h3>
+      </div>
+
+      <div id="bundleGrid" class="bundle-grid"></div>
+
+    </section>
+
+
+    <!-- =========================
+         BUY AIRTIME
+    ========================== -->
+
+    <section id="airtimePage" class="page">
+
+      <div class="page-header">
+
+        <button class="back-btn" onclick="showPage('dashboardPage')">
+          ←
+        </button>
+
+        <div>
+          <h2>Buy Airtime</h2>
+          <p>Fast airtime orders.</p>
+        </div>
+
+      </div>
+
+
+      <div class="form-card">
+
+        <label>Network</label>
+
+        <div class="airtime-networks">
+
+          <button
+            class="airtime-network active"
+            onclick="selectAirtimeNetwork('MTN', this)"
+          >
+            MTN
+          </button>
+
+          <button
+            class="airtime-network"
+            onclick="selectAirtimeNetwork('AirtelTigo', this)"
+          >
+            AirtelTigo
+          </button>
+
+          <button
+            class="airtime-network"
+            onclick="selectAirtimeNetwork('Telecel', this)"
+          >
+            Telecel
+          </button>
+
+        </div>
+
+
+        <label for="airtimePhone">
+          Phone Number
+        </label>
+
+        <input
+          type="tel"
+          id="airtimePhone"
+          placeholder="024 XXX XXXX"
+          maxlength="10"
+        >
+
+
+        <label for="airtimeAmount">
+          Airtime Amount
+        </label>
+
+        <div class="amount-input">
+
+          <span>GH₵</span>
+
+          <input
+            type="number"
+            id="airtimeAmount"
+            placeholder="10"
+            min="1"
+          >
+
+        </div>
+
+
+        <button
+          class="primary-btn"
+          onclick="placeAirtimeOrder()"
+        >
+          Continue
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         MORE SERVICES
+    ========================== -->
+
+    <section id="servicesPage" class="page">
+
+      <div class="page-header">
+
+        <button class="back-btn" onclick="showPage('dashboardPage')">
+          ←
+        </button>
+
+        <div>
+          <h2>More Services</h2>
+          <p>Explore DGM digital services.</p>
+        </div>
+
+      </div>
+
+
+      <div class="services-grid">
+
+        <button onclick="serviceMessage('Netflix')">
+          <span>🎬</span>
+          <strong>Netflix</strong>
+          <small>Subscriptions</small>
+        </button>
+
+        <button onclick="serviceMessage('DSTV')">
+          <span>📺</span>
+          <strong>DSTV</strong>
+          <small>Login & Renewal</small>
+        </button>
+
+        <button onclick="serviceMessage('WhatsApp Bot')">
+          <span>🤖</span>
+          <strong>WhatsApp Bot</strong>
+          <small>Purchase & Setup</small>
+        </button>
+
+        <button onclick="serviceMessage('Social Media')">
+          <span>📈</span>
+          <strong>Social Media</strong>
+          <small>Boosting Services</small>
+        </button>
+
+        <button onclick="serviceMessage('USA Numbers')">
+          <span>🇺🇸</span>
+          <strong>USA Numbers</strong>
+          <small>WhatsApp & Verification</small>
+        </button>
+
+        <button onclick="serviceMessage('Certificates')">
+          <span>📜</span>
+          <strong>Certificates</strong>
+          <small>Various Services</small>
+        </button>
+
+        <button onclick="serviceMessage('Mobile Phones')">
+          <span>📱</span>
+          <strong>Mobile Phones</strong>
+          <small>Installment & Direct</small>
+        </button>
+
+        <button onclick="serviceMessage('Other Services')">
+          <span>✨</span>
+          <strong>More</strong>
+          <small>Ask DGM</small>
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         ORDERS
+    ========================== -->
+
+    <section id="ordersPage" class="page">
+
+      <div class="page-header">
+
+        <button class="back-btn" onclick="showPage('dashboardPage')">
+          ←
+        </button>
+
+        <div>
+          <h2>My Orders</h2>
+          <p>Track your transactions.</p>
+        </div>
+
+      </div>
+
+
+      <div class="order-filter">
+
+        <button class="active" onclick="filterOrders('all', this)">
+          All
+        </button>
+
+        <button onclick="filterOrders('Pending', this)">
+          Pending
+        </button>
+
+        <button onclick="filterOrders('Processing', this)">
+          Processing
+        </button>
+
+        <button onclick="filterOrders('Completed', this)">
+          Completed
+        </button>
+
+        <button onclick="filterOrders('Failed', this)">
+          Failed
+        </button>
+
+      </div>
+
+
+      <div id="ordersList" class="orders-list">
+
+        <div class="empty-state">
+
+          <div>📦</div>
+
+          <strong>No orders yet</strong>
+
+          <p>
+            Your orders and references will appear here.
           </p>
 
-          <div class="product-bottom">
-
-            <div class="price">
-              GH₵${price}
-            </div>
-
-            <div
-              class="arrow"
-              onclick="selectBundle('${size}',${price})">
-              ›
-            </div>
-
-          </div>
-
         </div>
 
-      `;
+      </div>
 
-    }
-  );
+    </section>
 
-}
 
+    <!-- =========================
+         ACCOUNT
+    ========================== -->
 
-function selectBundle(size,price){
+    <section id="accountPage" class="page">
 
-  document.getElementById(
-    "checkoutService"
-  ).value =
-    "Data Bundle";
+      <div class="page-header">
 
-  document.getElementById(
-    "customerPhone"
-  ).focus();
-
-  localStorage.setItem(
-    "dgm_selected_bundle",
-    JSON.stringify({
-      network:currentNetwork,
-      size:size,
-      price:price
-    })
-  );
-
-  scrollToCheckout();
-
-}
-
-
-function submitOrder(){
-
-  const phone =
-    document.getElementById(
-      "customerPhone"
-    ).value
-    .trim()
-    .replace(/\s+/g,"");
-
-  const service =
-    document.getElementById(
-      "checkoutService"
-    ).value;
-
-
-  if(!/^0[235679][0-9]{8}$/.test(phone)){
-
-    alert(
-      "Please enter a valid Ghana phone number.\n\nExample: 0241518385"
-    );
-
-    return;
-
-  }
-
-
-  if(!service){
-
-    alert(
-      "Please select a service."
-    );
-
-    return;
-
-  }
-
-
-  const selected =
-    JSON.parse(
-      localStorage.getItem(
-        "dgm_selected_bundle"
-      ) || "null"
-    );
-
-
-  let message =
-    "Hello DHE GENIUS MEDIA 👋\n\n" +
-    "I want to place an order.\n\n" +
-    "Service: " + service + "\n" +
-    "Phone: " + phone;
-
-
-  if(
-    service === "Data Bundle" &&
-    selected
-  ){
-
-    message +=
-      "\nNetwork: " +
-      selected.network +
-      "\nBundle: " +
-      selected.size +
-      "\nPrice: GH₵" +
-      selected.price;
-
-  }
-
-
-  message +=
-    "\n\nPlease assist me with my order.";
-
-
-  const whatsapp =
-    "https://wa.me/233241518385?text=" +
-    encodeURIComponent(message);
-
-
-  window.open(
-    whatsapp,
-    "_blank"
-  );
-
-}
-
-
-function buySubscription(service){
-
-  document.getElementById(
-    "checkoutService"
-  ).value = service;
-
-  document.getElementById(
-    "customerPhone"
-  ).focus();
-
-  scrollToCheckout();
-
-}
-
-
-function scrollToCheckout(){
-
-  document.getElementById(
-    "checkout"
-  ).scrollIntoView({
-    behavior:"smooth"
-  });
-
-}
-
-
-function scrollToBundles(){
-
-  document.getElementById(
-    "bundlesSection"
-  ).scrollIntoView({
-    behavior:"smooth"
-  });
-
-}
-
-
-function scrollToSubscriptions(){
-
-  document.getElementById(
-    "subscriptions"
-  ).scrollIntoView({
-    behavior:"smooth"
-  });
-
-}
-
-
-function loadOrders(){
-
-  const orders =
-    JSON.parse(
-      localStorage.getItem(
-        "dgm_orders"
-      ) || "[]"
-    );
-
-  const list =
-    document.getElementById(
-      "ordersList"
-    );
-
-
-  if(!orders.length){
-
-    list.innerHTML =
-      `<p style="color:#8992a2;font-size:12px;margin-top:10px;">
-        Your orders will appear here.
-      </p>`;
-
-    return;
-
-  }
-
-
-  list.innerHTML =
-    orders
-      .slice(0,10)
-      .map(order => `
-
-        <div class="order">
-
-          <strong>
-            ${order.id || "DGM ORDER"}
-          </strong>
-
-          <br>
-
-          ${order.service || "Order"}
-
-          <br>
-
-          <span class="pending">
-            ${order.status || "Pending"}
-          </span>
-
+        <div>
+          <h2>My Account</h2>
+          <p>Manage your DGM account.</p>
         </div>
 
-      `)
-      .join("");
-
-}
+      </div>
 
 
-renderBundles();
-loadOrders();
+      <div class="profile-card">
 
-</script>
+        <div class="profile-avatar">
+          DGM
+        </div>
+
+        <div>
+          <h3 id="profileName">
+            Genius Customer
+          </h3>
+
+          <p id="profilePhone">
+            No phone number saved
+          </p>
+        </div>
+
+      </div>
+
+
+      <div class="form-card">
+
+        <label for="customerNameInput">
+          Customer Name
+        </label>
+
+        <input
+          type="text"
+          id="customerNameInput"
+          placeholder="Enter your name"
+        >
+
+
+        <label for="accountPhone">
+          Phone Number
+        </label>
+
+        <input
+          type="tel"
+          id="accountPhone"
+          placeholder="024 XXX XXXX"
+          maxlength="10"
+        >
+
+
+        <button
+          class="primary-btn"
+          onclick="saveAccount()"
+        >
+          Save Account
+        </button>
+
+      </div>
+
+
+      <div class="settings-card">
+
+        <div>
+          <strong>Dark Mode</strong>
+          <p>Change the appearance of DGM.</p>
+        </div>
+
+        <button
+          class="switch"
+          id="darkModeSwitch"
+          onclick="toggleDarkMode()"
+        >
+          <span></span>
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- =========================
+         SUPPORT
+    ========================== -->
+
+    <section id="supportPage" class="page">
+
+      <div class="page-header">
+
+        <div>
+          <h2>Support</h2>
+          <p>We're here to help.</p>
+        </div>
+
+      </div>
+
+
+      <div class="support-card">
+
+        <div class="support-icon">
+          💬
+        </div>
+
+        <h3>DHE GENIUS MEDIA Support</h3>
+
+        <p>
+          Need help with an order, data bundle,
+          subscription or another service?
+        </p>
+
+
+        <a
+          class="support-btn whatsapp"
+          href="https://wa.me/233241518385"
+          target="_blank"
+        >
+          💬 Chat on WhatsApp
+        </a>
+
+
+        <a
+          class="support-btn call"
+          href="tel:+233508667776"
+        >
+          📞 Call DGM
+        </a>
+
+      </div>
+
+
+      <div class="contact-card">
+
+        <strong>DHE GENIUS MEDIA</strong>
+
+        <p>📍 Accra — Spintex</p>
+
+        <p>🕐 Available 24/7</p>
+
+        <p>📱 WhatsApp: 0241518385</p>
+
+        <p>☎️ Call: 0508667776</p>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- =========================
+       BOTTOM NAVIGATION
+  ========================== -->
+
+  <nav class="bottom-nav">
+
+    <button
+      class="nav-item active"
+      data-page="dashboardPage"
+      onclick="showPage('dashboardPage')"
+    >
+      <span>⌂</span>
+      <small>Home</small>
+    </button>
+
+
+    <button
+      class="nav-item"
+      data-page="dataPage"
+      onclick="showPage('dataPage')"
+    >
+      <span>📶</span>
+      <small>Data</small>
+    </button>
+
+
+    <button
+      class="nav-item"
+      data-page="ordersPage"
+      onclick="showPage('ordersPage')"
+    >
+      <span>📦</span>
+      <small>Orders</small>
+    </button>
+
+
+    <button
+      class="nav-item"
+      data-page="servicesPage"
+      onclick="showPage('servicesPage')"
+    >
+      <span>🛍️</span>
+      <small>Services</small>
+    </button>
+
+
+    <button
+      class="nav-item"
+      data-page="accountPage"
+      onclick="showPage('accountPage')"
+    >
+      <span>👤</span>
+      <small>Account</small>
+    </button>
+
+  </nav>
+
+
+  <!-- =========================
+       ORDER MODAL
+  ========================== -->
+
+  <div
+    id="orderModal"
+    class="modal"
+  >
+
+    <div class="modal-content">
+
+      <button
+        class="modal-close"
+        onclick="closeModal()"
+      >
+        ×
+      </button>
+
+      <div class="success-icon">
+        ✓
+      </div>
+
+      <h2>Order Received</h2>
+
+      <p id="modalMessage">
+        Your order has been received.
+      </p>
+
+      <div class="reference-box">
+
+        <span>ORDER REFERENCE</span>
+
+        <strong id="modalOrderId">
+          DGM-000000
+        </strong>
+
+      </div>
+
+      <button
+        class="primary-btn"
+        onclick="closeModal(); showPage('ordersPage')"
+      >
+        View My Orders
+      </button>
+
+    </div>
+
+  </div>
+
+
+  <!-- JAVASCRIPT -->
+
+  <script src="app.js"></script>
 
 </body>
 </html>
