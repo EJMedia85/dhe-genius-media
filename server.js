@@ -43,6 +43,23 @@ db.exec(`
       REFERENCES customers(id)
       ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaction_ref TEXT NOT NULL UNIQUE,
+    customer_id INTEGER NOT NULL,
+    type TEXT NOT NULL,
+    amount REAL NOT NULL,
+    balance_before REAL NOT NULL,
+    balance_after REAL NOT NULL,
+    description TEXT,
+    status TEXT NOT NULL DEFAULT 'Completed',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (customer_id)
+      REFERENCES customers(id)
+      ON DELETE CASCADE
+  );
 `);
 
 // ===============================
@@ -136,6 +153,15 @@ function publicCustomer(customer) {
 function createOrderReference() {
   return (
     "DGM-" +
+    Date.now() +
+    "-" +
+    crypto.randomBytes(3).toString("hex").toUpperCase()
+  );
+}
+
+function createTransactionReference() {
+  return (
+    "DGM-WALLET-" +
     Date.now() +
     "-" +
     crypto.randomBytes(3).toString("hex").toUpperCase()
@@ -512,6 +538,61 @@ app.post("/api/orders", requireLogin, (req, res) => {
     });
   }
 });
+
+// ===============================
+// WALLET BALANCE
+// ===============================
+
+app.get("/api/wallet", requireLogin, (req, res) => {
+  const customer = getCustomer(req.session.customerId);
+
+  if (!customer) {
+    return res.status(404).json({
+      success: false,
+      message: "Account not found."
+    });
+  }
+
+  res.json({
+    success: true,
+    balance: Number(customer.balance || 0)
+  });
+});
+
+// ===============================
+// WALLET TRANSACTION HISTORY
+// ===============================
+
+app.get(
+  "/api/wallet/transactions",
+  requireLogin,
+  (req, res) => {
+    const transactions = db
+      .prepare(
+        `
+        SELECT
+          id,
+          transaction_ref,
+          type,
+          amount,
+          balance_before,
+          balance_after,
+          description,
+          status,
+          created_at
+        FROM wallet_transactions
+        WHERE customer_id = ?
+        ORDER BY id DESC
+        `
+      )
+      .all(req.session.customerId);
+
+    res.json({
+      success: true,
+      transactions
+    });
+  }
+);
 
 // ===============================
 // API 404
