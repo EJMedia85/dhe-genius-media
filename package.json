@@ -1,6 +1,6 @@
 {
   "name": "dhe-genius-media",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "DHE GENIUS MEDIA - Ghana digital services platform",
   "main": "server.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.10.0"
+    "better-sqlite3": "^11.10.0",
+    "pg": "^8.16.3"
   }
 }
