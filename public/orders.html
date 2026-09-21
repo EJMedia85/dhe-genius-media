@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>My Orders • DHE GENIUS MEDIA</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top right, #123c3c, transparent 35%),
+        linear-gradient(160deg, #071111, #020606);
+      color: #fff;
+      min-height: 100vh;
+      padding-bottom: 85px;
+    }
+
+    header {
+      padding: 18px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(4,12,12,.95);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .back {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: rgba(255,255,255,.08);
+      color: #fff;
+      text-decoration: none;
+      font-size: 23px;
+    }
+
+    .brand {
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .subtitle {
+      color: #91a7a7;
+      font-size: 11px;
+      margin-top: 3px;
+    }
+
+    main {
+      max-width: 700px;
+      margin: auto;
+      padding: 24px 16px;
+    }
+
+    .hero {
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-size: 30px;
+      margin-bottom: 8px;
+    }
+
+    .hero p {
+      color: #96aaaa;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 45px 15px;
+      color: #91a7a7;
+    }
+
+    .empty {
+      display: none;
+      text-align: center;
+      padding: 45px 20px;
+      background: rgba(255,255,255,.045);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+    }
+
+    .empty-icon {
+      font-size: 42px;
+      margin-bottom: 15px;
+    }
+
+    .empty h2 {
+      font-size: 19px;
+      margin-bottom: 8px;
+    }
+
+    .empty p {
+      color: #91a7a7;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .empty a {
+      display: inline-block;
+      text-decoration: none;
+      background: #25d366;
+      color: #001b0b;
+      padding: 13px 18px;
+      border-radius: 12px;
+      font-weight: 900;
+      font-size: 13px;
+    }
+
+    .orders {
+      display: none;
+    }
+
+    .order {
+      background:
+        linear-gradient(
+          145deg,
+          rgba(255,255,255,.075),
+          rgba(255,255,255,.025)
+        );
+
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      padding: 17px;
+      margin-bottom: 13px;
+      box-shadow: 0 15px 35px rgba(0,0,0,.18);
+    }
+
+    .order-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+
+    .service-name {
+      font-weight: 900;
+      font-size: 16px;
+    }
+
+    .order-ref {
+      color: #809797;
+      font-size: 10px;
+      margin-top: 5px;
+      word-break: break-all;
+    }
+
+    .status {
+      padding: 7px 10px;
+      border-radius: 9px;
+      font-size: 10px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .pending {
+      color: #ffc44d;
+      background: rgba(255,196,77,.1);
+      border: 1px solid rgba(255,196,77,.18);
+    }
+
+    .processing {
+      color: #60b9ff;
+      background: rgba(96,185,255,.1);
+      border: 1px solid rgba(96,185,255,.18);
+    }
+
+    .completed {
+      color: #25d366;
+      background: rgba(37,211,102,.1);
+      border: 1px solid rgba(37,211,102,.18);
+    }
+
+    .failed,
+    .cancelled {
+      color: #ff7777;
+      background: rgba(255,80,80,.1);
+      border: 1px solid rgba(255,80,80,.18);
+    }
+
+    .order-details {
+      border-top: 1px solid rgba(255,255,255,.07);
+      padding-top: 12px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+
+    .row span:first-child {
+      color: #819797;
+    }
+
+    .row span:last-child {
+      color: #fff;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    .amount {
+      color: #25d366 !important;
+      font-size: 17px;
+      font-weight: 900 !important;
+    }
+
+    .date {
+      color: #738888 !important;
+      font-size: 11px;
+      font-weight: 500 !important;
+    }
+
+    .refresh {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.09);
+      background: rgba(255,255,255,.05);
+      color: #fff;
+      padding: 13px;
+      border-radius: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+
+    .refresh:active {
+      transform: scale(.98);
+    }
+
+    .error {
+      display: none;
+      padding: 18px;
+      border-radius: 16px;
+      background: rgba(255,70,70,.08);
+      border: 1px solid rgba(255,70,70,.2);
+      color: #ff9292;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      background: rgba(3,10,10,.97);
+      border-top: 1px solid rgba(255,255,255,.08);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      z-index: 30;
+    }
+
+    .bottom-nav a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: #829696;
+      text-decoration: none;
+      font-size: 11px;
+    }
+
+    .bottom-nav a.active {
+      color: #25d366;
+      font-weight: 700;
+    }
+
+    .bottom-icon {
+      font-size: 20px;
+    }
+
+  </style>
+
+</head>
+
+<body>
+
+<header>
+
+  <a class="back" href="/dashboard.html">‹</a>
+
+  <div>
+    <div class="brand">DHE GENIUS MEDIA</div>
+
+    <div class="subtitle">
+      My Orders • Stay Connected. Stay Genius.
+    </div>
+  </div>
+
+</header>
+
+
+<main>
+
+  <section class="hero">
+
+    <h1>My Orders</h1>
+
+    <p>
+      View your recent DGM purchases and track their status.
+    </p>
+
+  </section>
+
+
+  <button class="refresh" onclick="loadOrders()">
+    ↻ Refresh Orders
+  </button>
+
+
+  <div id="loading" class="loading">
+    Loading your orders...
+  </div>
+
+
+  <div id="error" class="error"></div>
+
+
+  <div id="empty" class="empty">
+
+    <div class="empty-icon">📦</div>
+
+    <h2>No orders yet</h2>
+
+    <p>
+      Your data and airtime purchases will appear here
+      after you place an order.
+    </p>
+
+    <a href="/data.html">
+      Buy Data
+    </a>
+
+  </div>
+
+
+  <div id="orders" class="orders"></div>
+
+</main>
+
+
+<nav class="bottom-nav">
+
+  <a href="/dashboard.html">
+    <span class="bottom-icon">⌂</span>
+    Dashboard
+  </a>
+
+  <a href="/data.html">
+    <span class="bottom-icon">▣</span>
+    Data
+  </a>
+
+  <a href="/airtime.html">
+    <span class="bottom-icon">₵</span>
+    Airtime
+  </a>
+
+  <a class="active" href="/orders.html">
+    <span class="bottom-icon">☰</span>
+    Orders
+  </a>
+
+</nav>
+
+
+<script>
+
+  function escapeHtml(value) {
+
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  }
+
+
+  function statusClass(status) {
+
+    const value =
+      String(status || "").toLowerCase();
+
+    if (value === "completed") {
+      return "completed";
+    }
+
+    if (value === "processing") {
+      return "processing";
+    }
+
+    if (
+      value === "failed" ||
+      value === "cancelled"
+    ) {
+      return value;
+    }
+
+    return "pending";
+
+  }
+
+
+  function formatDate(dateString) {
+
+    if (!dateString) {
+      return "—";
+    }
+
+    const date =
+      new Date(
+        dateString.replace(" ", "T") + "Z"
+      );
+
+    if (Number.isNaN(date.getTime())) {
+      return dateString;
+    }
+
+    return date.toLocaleString(
+      "en-GH",
+      {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }
+    );
+
+  }
+
+
+  function renderOrders(orders) {
+
+    const container =
+      document.getElementById("orders");
+
+    const empty =
+      document.getElementById("empty");
+
+    container.innerHTML = "";
+
+    if (!orders || orders.length === 0) {
+
+      container.style.display = "none";
+      empty.style.display = "block";
+
+      return;
+
+    }
+
+    empty.style.display = "none";
+    container.style.display = "block";
+
+
+    orders.forEach(order => {
+
+      const card =
+        document.createElement("div");
+
+      card.className = "order";
+
+      const status =
+        escapeHtml(order.status || "Pending");
+
+      const statusStyle =
+        statusClass(order.status);
+
+      const service =
+        escapeHtml(order.service || "Service");
+
+      const network =
+        escapeHtml(order.network || "—");
+
+      const phone =
+        escapeHtml(order.phone || "—");
+
+      const ref =
+        escapeHtml(order.order_ref || "—");
+
+      const amount =
+        Number(order.amount || 0).toFixed(2);
+
+      const date =
+        escapeHtml(
+          formatDate(order.created_at)
+        );
+
+
+      card.innerHTML = `
+
+        <div class="order-top">
+
+          <div>
+
+            <div class="service-name">
+              ${service}
+            </div>
+
+            <div class="order-ref">
+              ${ref}
+            </div>
+
+          </div>
+
+          <span class="status ${statusStyle}">
+            ${status}
+          </span>
+
+        </div>
+
+
+        <div class="order-details">
+
+          <div class="row">
+            <span>Network</span>
+            <span>${network}</span>
+          </div>
+
+          <div class="row">
+            <span>Recipient</span>
+            <span>${phone}</span>
+          </div>
+
+          <div class="row">
+            <span>Amount</span>
+            <span class="amount">
+              GH₵${amount}
+            </span>
+          </div>
+
+          <div class="row">
+            <span>Date</span>
+            <span class="date">
+              ${date}
+            </span>
+          </div>
+
+        </div>
+
+      `;
+
+      container.appendChild(card);
+
+    });
+
+  }
+
+
+  async function loadOrders() {
+
+    const loading =
+      document.getElementById("loading");
+
+    const error =
+      document.getElementById("error");
+
+    const container =
+      document.getElementById("orders");
+
+    const empty =
+      document.getElementById("empty");
+
+
+    loading.style.display = "block";
+    error.style.display = "none";
+
+    container.style.display = "none";
+    empty.style.display = "none";
+
+
+    try {
+
+      const response =
+        await fetch("/api/orders", {
+          credentials: "same-origin"
+        });
+
+
+      if (response.status === 401) {
+
+        window.location.href =
+          "/login.html";
+
+        return;
+
+      }
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.error ||
+          "Unable to load orders."
+        );
+
+      }
+
+
+      renderOrders(data.orders || []);
+
+
+    } catch (err) {
+
+      loading.style.display = "none";
+
+      error.style.display = "block";
+
+      error.textContent =
+        err.message ||
+        "Something went wrong while loading your orders.";
+
+      return;
+
+    }
+
+
+    loading.style.display = "none";
+
+  }
+
+
+  loadOrders();
+
+</script>
+
+</body>
+</html>
