@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>Dashboard | DHE GENIUS MEDIA</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #07131f;
+      --card: #0d2030;
+      --card2: #10283b;
+      --text: #ffffff;
+      --muted: #8da5b8;
+      --blue: #008cff;
+      --blue2: #00c6ff;
+      --green: #20d889;
+      --red: #ff6262;
+      --border: rgba(255,255,255,0.08);
+    }
+
+    body {
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background:
+        linear-gradient(
+          180deg,
+          #06121e 0%,
+          #081725 100%
+        );
+
+      color: var(--text);
+
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    /* =========================
+       MOBILE HEADER
+    ========================= */
+
+    .mobile-header {
+      display: flex;
+
+      align-items: center;
+      justify-content: space-between;
+
+      padding: 16px 18px;
+
+      background: rgba(7,19,31,0.96);
+
+      border-bottom:
+        1px solid var(--border);
+
+      position: sticky;
+
+      top: 0;
+
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+
+      align-items: center;
+
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+
+      border-radius: 13px;
+
+      display: flex;
+
+      align-items: center;
+      justify-content: center;
+
+      background:
+        linear-gradient(
+          135deg,
+          #00c6ff,
+          #0072ff
+        );
+
+      font-size: 14px;
+
+      font-weight: 900;
+    }
+
+    .brand-name {
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .brand-tagline {
+      font-size: 9px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .menu-btn {
+      width: 42px;
+      height: 42px;
+
+      border: 1px solid var(--border);
+
+      background: var(--card);
+
+      color: white;
+
+      border-radius: 12px;
+
+      font-size: 20px;
+    }
+
+    /* =========================
+       SIDEBAR
+    ========================= */
+
+    .sidebar {
+      position: fixed;
+
+      top: 0;
+      left: -280px;
+
+      width: 270px;
+
+      height: 100vh;
+
+      background:
+        #091a29;
+
+      border-right:
+        1px solid var(--border);
+
+      z-index: 200;
+
+      padding: 22px;
+
+      transition: 0.25s;
+
+      overflow-y: auto;
+    }
+
+    .sidebar.open {
+      left: 0;
+    }
+
+    .sidebar-header {
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+
+      margin-bottom: 30px;
+    }
+
+    .close-btn {
+      background: none;
+
+      border: none;
+
+      color: white;
+
+      font-size: 24px;
+    }
+
+    .nav-title {
+      color: #617b8e;
+
+      font-size: 10px;
+
+      text-transform: uppercase;
+
+      letter-spacing: 1px;
+
+      margin:
+        20px 0 9px;
+    }
+
+    .nav-item {
+      width: 100%;
+
+      border: none;
+
+      background: transparent;
+
+      color: #c9d9e4;
+
+      padding: 13px 12px;
+
+      text-align: left;
+
+      border-radius: 12px;
+
+      margin-bottom: 4px;
+
+      display: flex;
+
+      align-items: center;
+
+      gap: 12px;
+
+      font-size: 14px;
+    }
+
+    .nav-item:hover {
+      background: var(--card);
+
+      color: white;
+    }
+
+    .logout {
+      color: #ff7777;
+    }
+
+    .overlay {
+      display: none;
+
+      position: fixed;
+
+      inset: 0;
+
+      background:
+        rgba(0,0,0,0.65);
+
+      z-index: 150;
+    }
+
+    .overlay.show {
+      display: block;
+    }
+
+    /* =========================
+       MAIN
+    ========================= */
+
+    .main {
+      width: 100%;
+
+      max-width: 1200px;
+
+      margin: auto;
+
+      padding: 20px 16px 100px;
+    }
+
+    .welcome {
+      margin:
+        8px 0 20px;
+    }
+
+    .welcome small {
+      color: var(--muted);
+
+      font-size: 13px;
+    }
+
+    .welcome h1 {
+      font-size: 25px;
+
+      margin-top: 4px;
+    }
+
+    /* =========================
+       BALANCE
+    ========================= */
+
+    .balance-card {
+      padding: 22px;
+
+      border-radius: 22px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #087fe8,
+          #004fba
+        );
+
+      box-shadow:
+        0 18px 40px
+        rgba(0,100,220,0.22);
+
+      position: relative;
+
+      overflow: hidden;
+
+      margin-bottom: 20px;
+    }
+
+    .balance-card::after {
+      content: "";
+
+      position: absolute;
+
+      width: 160px;
+      height: 160px;
+
+      border-radius: 50%;
+
+      border:
+        30px solid
+        rgba(255,255,255,0.06);
+
+      right: -55px;
+      top: -55px;
+    }
+
+    .balance-label {
+      font-size: 12px;
+
+      opacity: 0.8;
+    }
+
+    .balance {
+      font-size: 34px;
+
+      font-weight: 900;
+
+      margin:
+        8px 0 18px;
+    }
+
+    .balance-actions {
+      display: flex;
+
+      gap: 10px;
+    }
+
+    .balance-btn {
+      border: none;
+
+      background:
+        rgba(255,255,255,0.15);
+
+      color: white;
+
+      padding: 10px 15px;
+
+      border-radius: 10px;
+
+      font-size: 12px;
+
+      font-weight: 700;
+    }
+
+    /* =========================
+       QUICK ACTIONS
+    ========================= */
+
+    .section-title {
+      font-size: 17px;
+
+      margin:
+        24px 0 12px;
+    }
+
+    .quick-grid {
+      display: grid;
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
+      gap: 10px;
+    }
+
+    .quick-card {
+      border:
+        1px solid var(--border);
+
+      background:
+        var(--card);
+
+      border-radius: 17px;
+
+      padding: 17px;
+
+      color: white;
+
+      text-align: left;
+
+      min-height: 105px;
+
+      transition: 0.2s;
+    }
+
+    .quick-card:active {
+      transform: scale(0.97);
+    }
+
+    .quick-icon {
+      width: 40px;
+      height: 40px;
+
+      border-radius: 12px;
+
+      display: flex;
+
+      align-items: center;
+      justify-content: center;
+
+      background:
+        rgba(0,140,255,0.12);
+
+      font-size: 20px;
+
+      margin-bottom: 10px;
+    }
+
+    .quick-card strong {
+      display: block;
+
+      font-size: 14px;
+    }
+
+    .quick-card span {
+      display: block;
+
+      color: var(--muted);
+
+      font-size: 11px;
+
+      margin-top: 4px;
+    }
+
+    /* =========================
+       SERVICE STATUS
+    ========================= */
+
+    .status-card {
+      background: var(--card);
+
+      border:
+        1px solid var(--border);
+
+      border-radius: 18px;
+
+      padding: 17px;
+
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+    }
+
+    .status-left {
+      display: flex;
+
+      align-items: center;
+
+      gap: 12px;
+    }
+
+    .status-dot {
+      width: 11px;
+      height: 11px;
+
+      border-radius: 50%;
+
+      background: var(--green);
+
+      box-shadow:
+        0 0 12px
+        rgba(32,216,137,0.7);
+    }
+
+    .status-left strong {
+      font-size: 14px;
+    }
+
+    .status-left small {
+      display: block;
+
+      color: var(--muted);
+
+      margin-top: 3px;
+
+      font-size: 11px;
+    }
+
+    .online {
+      color: var(--green);
+
+      font-size: 11px;
+
+      font-weight: 800;
+    }
+
+    /* =========================
+       ORDERS
+    ========================= */
+
+    .orders-card {
+      background: var(--card);
+
+      border:
+        1px solid var(--border);
+
+      border-radius: 18px;
+
+      overflow: hidden;
+    }
+
+    .empty-orders {
+      text-align: center;
+
+      padding: 30px 20px;
+
+      color: var(--muted);
+
+      font-size: 13px;
+    }
+
+    .empty-orders div {
+      font-size: 30px;
+
+      margin-bottom: 10px;
+    }
+
+    .order {
+      padding: 15px;
+
+      border-bottom:
+        1px solid var(--border);
+
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 10px;
+    }
+
+    .order:last-child {
+      border-bottom: none;
+    }
+
+    .order strong {
+      font-size: 13px;
+    }
+
+    .order small {
+      display: block;
+
+      color: var(--muted);
+
+      font-size: 10px;
+
+      margin-top: 5px;
+    }
+
+    .order-right {
+      text-align: right;
+    }
+
+    .order-amount {
+      font-size: 13px;
+
+      font-weight: 800;
+    }
+
+    .order-status {
+      display: inline-block;
+
+      margin-top: 5px;
+
+      padding: 4px 8px;
+
+      border-radius: 20px;
+
+      background:
+        rgba(255,190,70,0.10);
+
+      color: #ffc45e;
+
+      font-size: 9px;
+
+      font-weight: 800;
+    }
+
+    /* =========================
+       BOTTOM NAV
+    ========================= */
+
+    .bottom-nav {
+      position: fixed;
+
+      bottom: 0;
+      left: 0;
+      right: 0;
+
+      height: 68px;
+
+      background:
+        rgba(6,18,30,0.97);
+
+      border-top:
+        1px solid var(--border);
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: space-around;
+
+      z-index: 100;
+    }
+
+    .bottom-nav button {
+      background: none;
+
+      border: none;
+
+      color: #70899c;
+
+      font-size: 10px;
+
+      display: flex;
+
+      flex-direction: column;
+
+      align-items: center;
+
+      gap: 5px;
+    }
+
+    .bottom-nav button:first-child {
+      color: #00aaff;
+    }
+
+    .bottom-icon {
+      font-size: 20px;
+    }
+
+    /* =========================
+       DESKTOP
+    ========================= */
+
+    @media (min-width: 800px) {
+
+      .mobile-header {
+        display: none;
+      }
+
+      .sidebar {
+        left: 0;
+      }
+
+      .close-btn {
+        display: none;
+      }
+
+      .main {
+        margin-left: 270px;
+
+        max-width:
+          calc(1200px - 270px);
+
+        padding:
+          40px 35px 60px;
+      }
+
+      .overlay {
+        display: none !important;
+      }
+
+      .quick-grid {
+        grid-template-columns:
+          repeat(4, 1fr);
+      }
+
+      .balance-card {
+        max-width: 600px;
+      }
+
+      .bottom-nav {
+        display: none;
+      }
+
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <!-- MOBILE HEADER -->
+
+  <header class="mobile-header">
+
+    <div class="brand">
+
+      <div class="brand-logo">
+        DGM
+      </div>
+
+      <div>
+
+        <div class="brand-name">
+          DHE GENIUS MEDIA
+        </div>
+
+        <div class="brand-tagline">
+          Stay Connected. Stay Genius.
+        </div>
+
+      </div>
+
+    </div>
+
+    <button
+      class="menu-btn"
+      onclick="openMenu()"
+    >
+      ☰
+    </button>
+
+  </header>
+
+
+  <!-- SIDEBAR -->
+
+  <aside
+    class="sidebar"
+    id="sidebar"
+  >
+
+    <div class="sidebar-header">
+
+      <div class="brand">
+
+        <div class="brand-logo">
+          DGM
+        </div>
+
+        <div>
+
+          <div class="brand-name">
+            DHE GENIUS MEDIA
+          </div>
+
+          <div class="brand-tagline">
+            Customer Portal
+          </div>
+
+        </div>
+
+      </div>
+
+      <button
+        class="close-btn"
+        onclick="closeMenu()"
+      >
+        ×
+      </button>
+
+    </div>
+
+
+    <div class="nav-title">
+      Main
+    </div>
+
+    <button
+      class="nav-item"
+      onclick="goTo('/dashboard.html')"
+    >
+      🏠
+      Dashboard
+    </button>
+
+    <button
+      class="nav-item"
+      onclick="goTo('/data.html')"
+    >
+      📶
+      Buy Data
+    </button>
+
+    <button
+      class="nav-item"
+      onclick="goTo('/airtime.html')"
+    >
+      📱
+      Buy Airtime
+    </button>
+
+
+    <div class="nav-title">
+      Account
+    </div>
+
+    <button
+      class="nav-item"
+      onclick="goTo('/orders.html')"
+    >
+      📦
+      My Orders
+    </button>
+
+    <button
+      class="nav-item"
+      onclick="goTo('/account.html')"
+    >
+      👤
+      Account
+    </button>
+
+    <button
+      class="nav-item"
+      onclick="goTo('/account.html')"
+    >
+      🔐
+      Security
+    </button>
+
+
+    <div class="nav-title">
+      Services
+    </div>
+
+    <button
+      class="nav-item"
+      onclick="goTo('/services.html')"
+    >
+      🛍️
+      More Services
+    </button>
+
+
+    <div class="nav-title">
+      Support
+    </div>
+
+    <button
+      class="nav-item"
+      onclick="openWhatsApp()"
+    >
+      💬
+      WhatsApp Support
+    </button>
+
+
+    <button
+      class="nav-item logout"
+      onclick="logout()"
+    >
+      🚪
+      Sign Out
+    </button>
+
+  </aside>
+
+
+  <div
+    class="overlay"
+    id="overlay"
+    onclick="closeMenu()"
+  ></div>
+
+
+  <!-- MAIN -->
+
+  <main class="main">
+
+    <section class="welcome">
+
+      <small>
+        Welcome back 👋
+      </small>
+
+      <h1 id="customerName">
+        DGM Customer
+      </h1>
+
+    </section>
+
+
+    <!-- BALANCE -->
+
+    <section class="balance-card">
+
+      <div class="balance-label">
+        Available Balance
+      </div>
+
+      <div
+        class="balance"
+        id="balance"
+      >
+        GH₵0.00
+      </div>
+
+      <div class="balance-actions">
+
+        <button
+          class="balance-btn"
+          onclick="alert('Wallet funding will be connected in the payment stage.')"
+        >
+          + Add Money
+        </button>
+
+        <button
+          class="balance-btn"
+          onclick="goTo('/orders.html')"
+        >
+          Transactions
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- QUICK ACTIONS -->
+
+    <h2 class="section-title">
+      Quick Actions
+    </h2>
+
+    <section class="quick-grid">
+
+      <button
+        class="quick-card"
+        onclick="goTo('/data.html')"
+      >
+
+        <div class="quick-icon">
+          📶
+        </div>
+
+        <strong>
+          Buy Data
+        </strong>
+
+        <span>
+          MTN • AT • Telecel
+        </span>
+
+      </button>
+
+
+      <button
+        class="quick-card"
+        onclick="goTo('/airtime.html')"
+      >
+
+        <div class="quick-icon">
+          📱
+        </div>
+
+        <strong>
+          Buy Airtime
+        </strong>
+
+        <span>
+          Fast airtime orders
+        </span>
+
+      </button>
+
+
+      <button
+        class="quick-card"
+        onclick="goTo('/services.html')"
+      >
+
+        <div class="quick-icon">
+          🛍️
+        </div>
+
+        <strong>
+          More Services
+        </strong>
+
+        <span>
+          Netflix • DSTV • More
+        </span>
+
+      </button>
+
+
+      <button
+        class="quick-card"
+        onclick="goTo('/orders.html')"
+      >
+
+        <div class="quick-icon">
+          📦
+        </div>
+
+        <strong>
+          My Orders
+        </strong>
+
+        <span>
+          Track your orders
+        </span>
+
+      </button>
+
+    </section>
+
+
+    <!-- SERVICE STATUS -->
+
+    <h2 class="section-title">
+      Service Status
+    </h2>
+
+    <section class="status-card">
+
+      <div class="status-left">
+
+        <div class="status-dot"></div>
+
+        <div>
+
+          <strong>
+            DGM Services
+          </strong>
+
+          <small>
+            Data and digital services
+          </small>
+
+        </div>
+
+      </div>
+
+      <div class="online">
+        ONLINE
+      </div>
+
+    </section>
+
+
+    <!-- RECENT ORDERS -->
+
+    <h2 class="section-title">
+      Recent Orders
+    </h2>
+
+    <section
+      class="orders-card"
+      id="orders"
+    >
+
+      <div class="empty-orders">
+
+        <div>
+          📦
+        </div>
+
+        No orders yet.
+
+        <br>
+
+        Your recent transactions will appear here.
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- BOTTOM NAV -->
+
+  <nav class="bottom-nav">
+
+    <button
+      onclick="goTo('/dashboard.html')"
+    >
+
+      <span class="bottom-icon">
+        🏠
+      </span>
+
+      Home
+
+    </button>
+
+
+    <button
+      onclick="goTo('/data.html')"
+    >
+
+      <span class="bottom-icon">
+        📶
+      </span>
+
+      Data
+
+    </button>
+
+
+    <button
+      onclick="goTo('/airtime.html')"
+    >
+
+      <span class="bottom-icon">
+        📱
+      </span>
+
+      Airtime
+
+    </button>
+
+
+    <button
+      onclick="goTo('/orders.html')"
+    >
+
+      <span class="bottom-icon">
+        📦
+      </span>
+
+      Orders
+
+    </button>
+
+
+    <button
+      onclick="goTo('/account.html')"
+    >
+
+      <span class="bottom-icon">
+        👤
+      </span>
+
+      Account
+
+    </button>
+
+  </nav>
+
+
+  <script>
+
+    // =========================
+    // NAVIGATION
+    // =========================
+
+    function goTo(page) {
+      window.location.href = page;
+    }
+
+
+    // =========================
+    // MOBILE MENU
+    // =========================
+
+    function openMenu() {
+
+      document
+        .getElementById("sidebar")
+        .classList.add("open");
+
+      document
+        .getElementById("overlay")
+        .classList.add("show");
+
+    }
+
+
+    function closeMenu() {
+
+      document
+        .getElementById("sidebar")
+        .classList.remove("open");
+
+      document
+        .getElementById("overlay")
+        .classList.remove("show");
+
+    }
+
+
+    // =========================
+    // WHATSAPP
+    // =========================
+
+    function openWhatsApp() {
+
+      window.open(
+        "https://wa.me/233241518385",
+        "_blank"
+      );
+
+    }
+
+
+    // =========================
+    // LOGOUT
+    // =========================
+
+    async function logout() {
+
+      try {
+
+        await fetch(
+          "/api/logout",
+          {
+            method: "POST"
+          }
+        );
+
+      } catch (error) {
+
+        console.error(error);
+
+      }
+
+      window.location.href =
+        "/login.html";
+
+    }
+
+
+    // =========================
+    // LOAD CUSTOMER
+    // =========================
+
+    async function loadCustomer() {
+
+      try {
+
+        const response =
+          await fetch("/api/me");
+
+
+        if (!response.ok) {
+
+          window.location.href =
+            "/login.html";
+
+          return;
+
+        }
+
+
+        const result =
+          await response.json();
+
+
+        if (!result.success) {
+
+          window.location.href =
+            "/login.html";
+
+          return;
+
+        }
+
+
+        const customer =
+          result.customer;
+
+
+        document
+          .getElementById("customerName")
+          .textContent =
+          customer.name;
+
+
+        document
+          .getElementById("balance")
+          .textContent =
+          "GH₵" +
+          Number(customer.balance || 0)
+            .toFixed(2);
+
+
+      } catch (error) {
+
+        console.error(error);
+
+        window.location.href =
+          "/login.html";
+
+      }
+
+    }
+
+
+    // =========================
+    // LOAD ORDERS
+    // =========================
+
+    async function loadOrders() {
+
+      try {
+
+        const response =
+          await fetch("/api/orders");
+
+
+        if (!response.ok) {
+          return;
+        }
+
+
+        const result =
+          await response.json();
+
+
+        if (
+          !result.success ||
+          !result.orders.length
+        ) {
+          return;
+        }
+
+
+        const container =
+          document.getElementById(
+            "orders"
+          );
+
+
+        container.innerHTML = "";
+
+
+        result.orders
+          .slice(0, 5)
+          .forEach(function(order) {
+
+            const item =
+              document.createElement("div");
+
+            item.className =
+              "order";
+
+
+            item.innerHTML = `
+
+              <div>
+
+                <strong>
+                  ${escapeHTML(
+                    order.service
+                  )}
+                </strong>
+
+                <small>
+                  ${escapeHTML(
+                    order.order_ref
+                  )}
+                </small>
+
+              </div>
+
+              <div class="order-right">
+
+                <div class="order-amount">
+                  GH₵${Number(
+                    order.amount
+                  ).toFixed(2)}
+                </div>
+
+                <span class="order-status">
+                  ${escapeHTML(
+                    order.status
+                  )}
+                </span>
+
+              </div>
+
+            `;
+
+
+            container.appendChild(item);
+
+          });
+
+
+      } catch (error) {
+
+        console.error(error);
+
+      }
+
+    }
+
+
+    // =========================
+    // BASIC HTML ESCAPE
+    // =========================
+
+    function escapeHTML(value) {
+
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    }
+
+
+    // =========================
+    // START
+    // =========================
+
+    loadCustomer();
+
+    loadOrders();
+
+  </script>
+
+</body>
+</html>
