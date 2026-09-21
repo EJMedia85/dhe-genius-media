@@ -3,6 +3,7 @@ const session = require("express-session");
 const bcrypt = require("bcryptjs");
 const Database = require("better-sqlite3");
 const path = require("path");
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -14,6 +15,7 @@ const PORT = process.env.PORT || 10000;
 const db = new Database("dgm.sqlite");
 
 db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS customers (
@@ -22,7 +24,7 @@ db.exec(`
     phone TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    balance REAL DEFAULT 0,
+    balance REAL NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -32,16 +34,19 @@ db.exec(`
     customer_id INTEGER NOT NULL,
     service TEXT NOT NULL,
     network TEXT,
-    phone TEXT,
+    phone TEXT NOT NULL,
     amount REAL NOT NULL,
-    status TEXT DEFAULT 'Pending',
+    status TEXT NOT NULL DEFAULT 'Pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (customer_id) REFERENCES customers(id)
+
+    FOREIGN KEY (customer_id)
+      REFERENCES customers(id)
+      ON DELETE CASCADE
   );
 `);
 
 // ===============================
-// EXPRESS SETTINGS
+// APP SETTINGS
 // ===============================
 
 app.use(express.json());
@@ -52,12 +57,14 @@ app.use(
     secret:
       process.env.SESSION_SECRET ||
       "DGM_CHANGE_THIS_SECRET_BEFORE_PRODUCTION",
+
     resave: false,
     saveUninitialized: false,
+
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      maxAge: 1000 * 60 * 60 * 24 * 7
+      maxAge: 7 * 24 * 60 * 60 * 1000
     }
   })
 );
@@ -69,22 +76,26 @@ app.use(
 app.use(express.static(path.join(__dirname, "public")));
 
 // ===============================
-// HELPER FUNCTIONS
+// HELPERS
 // ===============================
 
 function cleanPhone(phone) {
-  return String(phone || "").replace(/\s+/g, "").trim();
+  return String(phone || "").trim();
 }
 
 function validGhanaPhone(phone) {
   return /^(0\d{9}|\+233\d{9})$/.test(phone);
 }
 
+function cleanEmail(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
 function requireLogin(req, res, next) {
   if (!req.session.customerId) {
     return res.status(401).json({
       success: false,
-      message: "Please log in to continue."
+      message: "Please log in first."
     });
   }
 
@@ -104,9 +115,31 @@ function getCustomer(customerId) {
         created_at
       FROM customers
       WHERE id = ?
-    `
+      `
     )
     .get(customerId);
+}
+
+function publicCustomer(customer) {
+  if (!customer) return null;
+
+  return {
+    id: customer.id,
+    name: customer.name,
+    phone: customer.phone,
+    email: customer.email,
+    balance: Number(customer.balance || 0),
+    created_at: customer.created_at
+  };
+}
+
+function createOrderReference() {
+  return (
+    "DGM-" +
+    Date.now() +
+    "-" +
+    crypto.randomBytes(3).toString("hex").toUpperCase()
+  );
 }
 
 // ===============================
@@ -129,18 +162,14 @@ app.post("/api/register", async (req, res) => {
   try {
     const name = String(req.body.name || "").trim();
     const phone = cleanPhone(req.body.phone);
-    const email = String(req.body.email || "")
-      .trim()
-      .toLowerCase();
+    const email = cleanEmail(req.body.email);
     const password = String(req.body.password || "");
-    const confirmPassword = String(
-      req.body.confirmPassword || ""
-    );
+    const confirmPassword = String(req.body.confirmPassword || "");
 
-    if (!name || !phone || !email || !password || !confirmPassword) {
+    if (!name || name.length < 2) {
       return res.status(400).json({
         success: false,
-        message: "Please fill in all required fields."
+        message: "Please enter your full name."
       });
     }
 
@@ -148,11 +177,11 @@ app.post("/api/register", async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          "Please enter a valid Ghana phone number."
+          "Enter a valid Ghana phone number, e.g. 0241234567 or +233241234567."
       });
     }
 
-    if (!email.includes("@")) {
+    if (!email || !email.includes("@") || !email.includes(".")) {
       return res.status(400).json({
         success: false,
         message: "Please enter a valid email address."
@@ -162,8 +191,7 @@ app.post("/api/register", async (req, res) => {
     if (password.length < 8) {
       return res.status(400).json({
         success: false,
-        message:
-          "Password must contain at least 8 characters."
+        message: "Password must contain at least 8 characters."
       });
     }
 
@@ -181,8 +209,7 @@ app.post("/api/register", async (req, res) => {
     if (existingPhone) {
       return res.status(409).json({
         success: false,
-        message:
-          "An account already exists with this phone number."
+        message: "This phone number is already registered."
       });
     }
 
@@ -193,8 +220,7 @@ app.post("/api/register", async (req, res) => {
     if (existingEmail) {
       return res.status(409).json({
         success: false,
-        message:
-          "An account already exists with this email."
+        message: "This email address is already registered."
       });
     }
 
@@ -206,25 +232,18 @@ app.post("/api/register", async (req, res) => {
         INSERT INTO customers
         (name, phone, email, password)
         VALUES (?, ?, ?, ?)
-      `
+        `
       )
-      .run(
-        name,
-        phone,
-        email,
-        hashedPassword
-      );
+      .run(name, phone, email, hashedPassword);
 
     req.session.customerId = result.lastInsertRowid;
 
-    const customer = getCustomer(
-      result.lastInsertRowid
-    );
+    const customer = getCustomer(result.lastInsertRowid);
 
-    res.status(201).json({
+    res.json({
       success: true,
       message: "Account created successfully.",
-      customer
+      customer: publicCustomer(customer)
     });
   } catch (error) {
     console.error("REGISTER ERROR:", error);
@@ -242,21 +261,16 @@ app.post("/api/register", async (req, res) => {
 
 app.post("/api/login", async (req, res) => {
   try {
-    const identifier = String(
-      req.body.identifier || ""
-    )
+    const identifier = String(req.body.identifier || "")
       .trim()
       .toLowerCase();
 
-    const password = String(
-      req.body.password || ""
-    );
+    const password = String(req.body.password || "");
 
     if (!identifier || !password) {
       return res.status(400).json({
         success: false,
-        message:
-          "Please enter your phone/email and password."
+        message: "Enter your phone/email and password."
       });
     }
 
@@ -265,9 +279,9 @@ app.post("/api/login", async (req, res) => {
         `
         SELECT *
         FROM customers
-        WHERE phone = ?
-           OR email = ?
-      `
+        WHERE LOWER(email) = ?
+           OR LOWER(phone) = ?
+        `
       )
       .get(identifier, identifier);
 
@@ -278,12 +292,12 @@ app.post("/api/login", async (req, res) => {
       });
     }
 
-    const passwordMatch = await bcrypt.compare(
+    const passwordCorrect = await bcrypt.compare(
       password,
       customer.password
     );
 
-    if (!passwordMatch) {
+    if (!passwordCorrect) {
       return res.status(401).json({
         success: false,
         message: "Invalid login details."
@@ -292,14 +306,10 @@ app.post("/api/login", async (req, res) => {
 
     req.session.customerId = customer.id;
 
-    const safeCustomer = getCustomer(
-      customer.id
-    );
-
     res.json({
       success: true,
       message: "Login successful.",
-      customer: safeCustomer
+      customer: publicCustomer(customer)
     });
   } catch (error) {
     console.error("LOGIN ERROR:", error);
@@ -315,29 +325,23 @@ app.post("/api/login", async (req, res) => {
 // CURRENT CUSTOMER
 // ===============================
 
-app.get(
-  "/api/me",
-  requireLogin,
-  (req, res) => {
-    const customer = getCustomer(
-      req.session.customerId
-    );
+app.get("/api/me", requireLogin, (req, res) => {
+  const customer = getCustomer(req.session.customerId);
 
-    if (!customer) {
-      req.session.destroy(() => {});
+  if (!customer) {
+    req.session.destroy(() => {});
 
-      return res.status(401).json({
-        success: false,
-        message: "Account not found."
-      });
-    }
-
-    res.json({
-      success: true,
-      customer
+    return res.status(401).json({
+      success: false,
+      message: "Account not found."
     });
   }
-);
+
+  res.json({
+    success: true,
+    customer: publicCustomer(customer)
+  });
+});
 
 // ===============================
 // LOGOUT
@@ -348,7 +352,7 @@ app.post("/api/logout", (req, res) => {
     if (error) {
       return res.status(500).json({
         success: false,
-        message: "Unable to log out."
+        message: "Unable to sign out."
       });
     }
 
@@ -356,7 +360,7 @@ app.post("/api/logout", (req, res) => {
 
     res.json({
       success: true,
-      message: "Logged out successfully."
+      message: "Signed out successfully."
     });
   });
 });
@@ -365,93 +369,93 @@ app.post("/api/logout", (req, res) => {
 // CUSTOMER ORDERS
 // ===============================
 
-app.get(
-  "/api/orders",
-  requireLogin,
-  (req, res) => {
-    const orders = db
-      .prepare(
-        `
-        SELECT
-          order_ref,
-          service,
-          network,
-          phone,
-          amount,
-          status,
-          created_at
-        FROM orders
-        WHERE customer_id = ?
-        ORDER BY created_at DESC
+app.get("/api/orders", requireLogin, (req, res) => {
+  const orders = db
+    .prepare(
       `
-      )
-      .all(req.session.customerId);
+      SELECT
+        id,
+        order_ref,
+        service,
+        network,
+        phone,
+        amount,
+        status,
+        created_at
+      FROM orders
+      WHERE customer_id = ?
+      ORDER BY id DESC
+      `
+    )
+    .all(req.session.customerId);
 
-    res.json({
-      success: true,
-      orders
-    });
-  }
-);
+  res.json({
+    success: true,
+    orders
+  });
+});
 
 // ===============================
 // CREATE ORDER
 // ===============================
 
-app.post(
-  "/api/orders",
-  requireLogin,
-  (req, res) => {
-    try {
-      const service = String(
-        req.body.service || ""
-      ).trim();
+app.post("/api/orders", requireLogin, (req, res) => {
+  try {
+    const service = String(req.body.service || "").trim();
+    const network = String(req.body.network || "").trim();
+    const phone = cleanPhone(req.body.phone);
+    const amount = Number(req.body.amount);
 
-      const network = String(
-        req.body.network || ""
-      ).trim();
+    const allowedServices = [
+      "Data Bundle",
+      "Airtime"
+    ];
 
-      const phone = cleanPhone(
-        req.body.phone
-      );
+    const allowedNetworks = [
+      "MTN",
+      "AirtelTigo",
+      "Telecel"
+    ];
 
-      const amount = Number(
-        req.body.amount
-      );
+    if (!allowedServices.includes(service)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid service."
+      });
+    }
 
-      if (!service || !phone || !amount) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Missing order information."
-        });
-      }
+    if (!allowedNetworks.includes(network)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please select a valid network."
+      });
+    }
 
-      if (!validGhanaPhone(phone)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Please enter a valid Ghana phone number."
-        });
-      }
+    if (!validGhanaPhone(phone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid Ghana phone number."
+      });
+    }
 
-      if (amount <= 0) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Invalid order amount."
-        });
-      }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid amount."
+      });
+    }
 
-      const orderRef =
-        "DGM-" +
-        Date.now() +
-        "-" +
-        Math.floor(
-          Math.random() * 1000
-        );
+    if (amount > 10000) {
+      return res.status(400).json({
+        success: false,
+        message: "Order amount is too high."
+      });
+    }
 
-      db.prepare(
+    const orderRef = createOrderReference();
+
+    const result = db
+      .prepare(
         `
         INSERT INTO orders
         (
@@ -460,39 +464,57 @@ app.post(
           service,
           network,
           phone,
-          amount
+          amount,
+          status
         )
-        VALUES (?, ?, ?, ?, ?, ?)
-      `
-      ).run(
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        `
+      )
+      .run(
         orderRef,
         req.session.customerId,
         service,
         network,
         phone,
-        amount
+        amount,
+        "Pending"
       );
 
-      res.status(201).json({
-        success: true,
-        message: "Order received.",
-        orderRef,
-        status: "Pending"
-      });
-    } catch (error) {
-      console.error("ORDER ERROR:", error);
+    const order = db
+      .prepare(
+        `
+        SELECT
+          id,
+          order_ref,
+          service,
+          network,
+          phone,
+          amount,
+          status,
+          created_at
+        FROM orders
+        WHERE id = ?
+        `
+      )
+      .get(result.lastInsertRowid);
 
-      res.status(500).json({
-        success: false,
-        message:
-          "Unable to create order."
-      });
-    }
+    res.json({
+      success: true,
+      message: "Order received successfully.",
+      order
+    });
+  } catch (error) {
+    console.error("ORDER ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Unable to create order."
+    });
   }
-);
+});
 
 // ===============================
-// 404 API RESPONSE
+// API 404
 // ===============================
 
 app.use("/api", (req, res) => {
@@ -506,7 +528,7 @@ app.use("/api", (req, res) => {
 // START SERVER
 // ===============================
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(
     `DHE GENIUS MEDIA server running on port ${PORT}`
   );
