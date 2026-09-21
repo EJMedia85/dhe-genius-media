@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Buy Airtime • DHE GENIUS MEDIA</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background:
+        radial-gradient(circle at top left, #123c3c, transparent 35%),
+        linear-gradient(160deg, #071111, #020606);
+      color: #fff;
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    header {
+      padding: 18px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(4,12,12,.9);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .back {
+      text-decoration: none;
+      color: #fff;
+      font-size: 22px;
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: rgba(255,255,255,.08);
+    }
+
+    .brand {
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    .sub {
+      font-size: 11px;
+      color: #9fb5b5;
+      margin-top: 3px;
+    }
+
+    main {
+      padding: 22px 16px;
+      max-width: 650px;
+      margin: auto;
+    }
+
+    .hero {
+      margin-bottom: 22px;
+    }
+
+    .hero h1 {
+      font-size: 30px;
+      margin-bottom: 8px;
+    }
+
+    .hero p {
+      color: #9fb5b5;
+      line-height: 1.5;
+      font-size: 14px;
+    }
+
+    .card {
+      background: rgba(255,255,255,.055);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 15px 40px rgba(0,0,0,.18);
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #b8caca;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    input {
+      width: 100%;
+      padding: 15px;
+      border-radius: 13px;
+      border: 1px solid rgba(255,255,255,.1);
+      background: #0d1a1a;
+      color: #fff;
+      outline: none;
+      font-size: 15px;
+    }
+
+    input:focus {
+      border-color: #25d366;
+    }
+
+    .networks {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      margin-top: 10px;
+    }
+
+    .network {
+      padding: 13px 5px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.1);
+      background: #0d1a1a;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .network.active {
+      background: #25d366;
+      color: #001b0b;
+      border-color: #25d366;
+    }
+
+    .amount-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .amount {
+      padding: 15px 5px;
+      border-radius: 13px;
+      background: #0d1a1a;
+      border: 1px solid rgba(255,255,255,.1);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .amount.active {
+      background: #25d366;
+      color: #001b0b;
+      border-color: #25d366;
+    }
+
+    .custom {
+      margin-top: 14px;
+    }
+
+    .summary {
+      background: linear-gradient(135deg, rgba(37,211,102,.12), rgba(255,255,255,.04));
+      border: 1px solid rgba(37,211,102,.2);
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      color: #b8caca;
+      font-size: 14px;
+    }
+
+    .summary-row strong {
+      color: #fff;
+    }
+
+    .total {
+      font-size: 22px;
+      color: #25d366;
+      font-weight: 900;
+    }
+
+    .continue {
+      width: 100%;
+      border: 0;
+      padding: 16px;
+      border-radius: 14px;
+      margin-top: 15px;
+      background: linear-gradient(135deg, #25d366, #19a653);
+      color: #001b0b;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .continue:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .notice {
+      color: #8fa6a6;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-top: 13px;
+      text-align: center;
+    }
+
+    #result {
+      display: none;
+      margin-top: 15px;
+      padding: 16px;
+      border-radius: 14px;
+      background: rgba(37,211,102,.12);
+      border: 1px solid rgba(37,211,102,.3);
+    }
+
+    #result strong {
+      color: #25d366;
+    }
+
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      background: rgba(3,10,10,.96);
+      border-top: 1px solid rgba(255,255,255,.08);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      z-index: 20;
+    }
+
+    .bottom-nav a {
+      text-decoration: none;
+      color: #829696;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-size: 11px;
+    }
+
+    .bottom-nav a.active {
+      color: #25d366;
+      font-weight: 700;
+    }
+
+    .icon {
+      font-size: 20px;
+    }
+
+    @media (min-width: 600px) {
+      main {
+        padding-top: 35px;
+      }
+
+      .amount-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<header>
+  <a class="back" href="/dashboard.html">‹</a>
+
+  <div>
+    <div class="brand">DHE GENIUS MEDIA</div>
+    <div class="sub">Buy Airtime • Stay Connected. Stay Genius.</div>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero">
+    <h1>Buy Airtime</h1>
+    <p>
+      Purchase airtime quickly using your DGM account.
+      Select your network, enter the recipient number and choose an amount.
+    </p>
+  </section>
+
+  <div class="card">
+
+    <label>Recipient Phone Number</label>
+    <input
+      id="phone"
+      type="tel"
+      inputmode="numeric"
+      placeholder="e.g. 0241234567"
+      maxlength="13"
+    >
+
+  </div>
+
+  <div class="card">
+
+    <label>Select Network</label>
+
+    <div class="networks">
+      <button class="network active" onclick="selectNetwork('MTN', this)">
+        MTN
+      </button>
+
+      <button class="network" onclick="selectNetwork('AirtelTigo', this)">
+        AirtelTigo
+      </button>
+
+      <button class="network" onclick="selectNetwork('Telecel', this)">
+        Telecel
+      </button>
+    </div>
+
+  </div>
+
+  <div class="card">
+
+    <label>Select Amount</label>
+
+    <div class="amount-grid">
+
+      <button class="amount" onclick="selectAmount(1, this)">GH₵1</button>
+      <button class="amount" onclick="selectAmount(2, this)">GH₵2</button>
+      <button class="amount" onclick="selectAmount(5, this)">GH₵5</button>
+      <button class="amount" onclick="selectAmount(10, this)">GH₵10</button>
+      <button class="amount" onclick="selectAmount(20, this)">GH₵20</button>
+      <button class="amount" onclick="selectAmount(30, this)">GH₵30</button>
+      <button class="amount" onclick="selectAmount(50, this)">GH₵50</button>
+      <button class="amount" onclick="selectAmount(100, this)">GH₵100</button>
+
+    </div>
+
+    <div class="custom">
+      <label>Or enter custom amount</label>
+
+      <input
+        id="customAmount"
+        type="number"
+        min="1"
+        max="500"
+        placeholder="Enter amount e.g. 15"
+        oninput="customAmountChanged()"
+      >
+    </div>
+
+  </div>
+
+  <div class="card summary">
+
+    <div class="summary-row">
+      <span>Network</span>
+      <strong id="summaryNetwork">MTN</strong>
+    </div>
+
+    <div class="summary-row">
+      <span>Recipient</span>
+      <strong id="summaryPhone">Not entered</strong>
+    </div>
+
+    <div class="summary-row">
+      <span>Amount</span>
+      <strong class="total" id="summaryAmount">GH₵0</strong>
+    </div>
+
+    <button
+      class="continue"
+      id="continueBtn"
+      onclick="placeOrder()"
+      disabled
+    >
+      Continue
+    </button>
+
+    <div class="notice">
+      Your order will be saved to your DGM account.
+      Payment and automatic airtime delivery will be connected
+      through legitimate providers in the next stage.
+    </div>
+
+    <div id="result"></div>
+
+  </div>
+
+</main>
+
+<nav class="bottom-nav">
+
+  <a href="/dashboard.html">
+    <span class="icon">⌂</span>
+    Dashboard
+  </a>
+
+  <a href="/data.html">
+    <span class="icon">▣</span>
+    Data
+  </a>
+
+  <a class="active" href="/airtime.html">
+    <span class="icon">₵</span>
+    Airtime
+  </a>
+
+  <a href="/orders.html">
+    <span class="icon">☰</span>
+    Orders
+  </a>
+
+</nav>
+
+<script>
+
+  let selectedNetwork = "MTN";
+  let selectedAmount = 0;
+
+  function selectNetwork(network, button) {
+
+    selectedNetwork = network;
+
+    document.querySelectorAll(".network").forEach(btn => {
+      btn.classList.remove("active");
+    });
+
+    button.classList.add("active");
+
+    document.getElementById("summaryNetwork").textContent = network;
+
+  }
+
+  function selectAmount(amount, button) {
+
+    selectedAmount = amount;
+
+    document.querySelectorAll(".amount").forEach(btn => {
+      btn.classList.remove("active");
+    });
+
+    button.classList.add("active");
+
+    document.getElementById("customAmount").value = "";
+
+    updateSummary();
+
+  }
+
+  function customAmountChanged() {
+
+    const value = Number(
+      document.getElementById("customAmount").value
+    );
+
+    if (value > 0) {
+
+      selectedAmount = value;
+
+      document.querySelectorAll(".amount").forEach(btn => {
+        btn.classList.remove("active");
+      });
+
+    } else {
+
+      selectedAmount = 0;
+
+    }
+
+    updateSummary();
+
+  }
+
+  function updateSummary() {
+
+    const phone =
+      document.getElementById("phone").value.trim();
+
+    document.getElementById("summaryPhone").textContent =
+      phone || "Not entered";
+
+    document.getElementById("summaryAmount").textContent =
+      "GH₵" + selectedAmount;
+
+    document.getElementById("continueBtn").disabled =
+      !phone || selectedAmount <= 0;
+
+  }
+
+  document.getElementById("phone").addEventListener(
+    "input",
+    updateSummary
+  );
+
+  async function placeOrder() {
+
+    const phone =
+      document.getElementById("phone").value.trim();
+
+    if (!phone) {
+      alert("Please enter the recipient phone number.");
+      return;
+    }
+
+    if (!selectedAmount || selectedAmount <= 0) {
+      alert("Please select or enter an airtime amount.");
+      return;
+    }
+
+    const button =
+      document.getElementById("continueBtn");
+
+    button.disabled = true;
+    button.textContent = "Processing...";
+
+    try {
+
+      const response = await fetch("/api/orders", {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+
+          service: "Airtime",
+          network: selectedNetwork,
+          phone: phone,
+          amount: selectedAmount
+
+        })
+
+      });
+
+      const data = await response.json();
+
+      if (response.status === 401) {
+
+        window.location.href = "/login.html";
+        return;
+
+      }
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.error || "Unable to create order."
+        );
+
+      }
+
+      const result =
+        document.getElementById("result");
+
+      result.style.display = "block";
+
+      result.innerHTML = `
+        <strong>Order received!</strong><br><br>
+        Network: ${escapeHtml(selectedNetwork)}<br>
+        Phone: ${escapeHtml(phone)}<br>
+        Amount: GH₵${selectedAmount}<br><br>
+        Order Reference:<br>
+        <strong>${escapeHtml(data.orderRef)}</strong><br><br>
+        Status:
+        <strong>${escapeHtml(data.status)}</strong>
+      `;
+
+      button.textContent = "Order Created";
+
+      setTimeout(() => {
+
+        window.location.href = "/orders.html";
+
+      }, 2500);
+
+    } catch (error) {
+
+      alert(error.message);
+
+      button.disabled = false;
+      button.textContent = "Continue";
+
+    }
+
+  }
+
+  function escapeHtml(value) {
+
+    return String(value)
+
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  }
+
+</script>
+
+</body>
+</html>
