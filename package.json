@@ -7,12 +7,12 @@
     "start": "node server.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": "22.x"
   },
   "dependencies": {
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.8.1"
+    "better-sqlite3": "^11.10.0"
   }
 }
