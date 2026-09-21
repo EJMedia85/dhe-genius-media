@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>My Account • DHE GENIUS MEDIA</title>
+
+  <style>
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+
+      background:
+        radial-gradient(
+          circle at top right,
+          #123c3c,
+          transparent 35%
+        ),
+        linear-gradient(
+          160deg,
+          #071111,
+          #020606
+        );
+
+      color: #fff;
+
+      min-height: 100vh;
+
+      padding-bottom: 85px;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+
+      padding: 17px 16px;
+
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      background:
+        rgba(4,12,12,.95);
+
+      border-bottom:
+        1px solid rgba(255,255,255,.08);
+    }
+
+    .back {
+      width: 40px;
+      height: 40px;
+
+      display: grid;
+      place-items: center;
+
+      border-radius: 12px;
+
+      background:
+        rgba(255,255,255,.08);
+
+      color: #fff;
+
+      text-decoration: none;
+
+      font-size: 23px;
+    }
+
+    .brand {
+      font-size: 16px;
+      font-weight: 900;
+    }
+
+    .subtitle {
+      margin-top: 3px;
+      color: #91a7a7;
+      font-size: 11px;
+    }
+
+    main {
+      width: 100%;
+      max-width: 650px;
+
+      margin: auto;
+
+      padding: 24px 16px;
+    }
+
+    .hero {
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-size: 30px;
+      margin-bottom: 7px;
+    }
+
+    .hero p {
+      color: #96aaaa;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .profile {
+      padding: 22px;
+
+      border-radius: 22px;
+
+      background:
+        linear-gradient(
+          145deg,
+          rgba(37,211,102,.12),
+          rgba(255,255,255,.04)
+        );
+
+      border:
+        1px solid rgba(37,211,102,.16);
+
+      margin-bottom: 14px;
+    }
+
+    .avatar {
+      width: 72px;
+      height: 72px;
+
+      border-radius: 50%;
+
+      display: grid;
+      place-items: center;
+
+      background:
+        linear-gradient(
+          135deg,
+          #25d366,
+          #128c7e
+        );
+
+      color: #001b0b;
+
+      font-size: 28px;
+      font-weight: 900;
+
+      margin-bottom: 14px;
+    }
+
+    .profile h2 {
+      font-size: 21px;
+      margin-bottom: 5px;
+    }
+
+    .profile p {
+      color: #8fa5a5;
+      font-size: 12px;
+    }
+
+    .card {
+      padding: 18px;
+
+      border-radius: 19px;
+
+      background:
+        rgba(255,255,255,.05);
+
+      border:
+        1px solid rgba(255,255,255,.08);
+
+      margin-bottom: 13px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 900;
+
+      margin-bottom: 14px;
+    }
+
+    .info-row {
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 15px;
+
+      padding: 12px 0;
+
+      border-bottom:
+        1px solid rgba(255,255,255,.055);
+    }
+
+    .info-row:last-child {
+      border-bottom: 0;
+    }
+
+    .info-label {
+      color: #829696;
+      font-size: 12px;
+    }
+
+    .info-value {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: right;
+
+      word-break: break-word;
+    }
+
+    .balance {
+      color: #25d366 !important;
+      font-size: 18px !important;
+    }
+
+    .actions {
+      display: grid;
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
+      gap: 10px;
+
+      margin-top: 4px;
+    }
+
+    .action {
+      display: block;
+
+      text-align: center;
+
+      text-decoration: none;
+
+      padding: 14px 8px;
+
+      border-radius: 13px;
+
+      background:
+        rgba(255,255,255,.06);
+
+      border:
+        1px solid rgba(255,255,255,.08);
+
+      color: #fff;
+
+      font-size: 12px;
+
+      font-weight: 800;
+    }
+
+    .action.primary {
+      background: #25d366;
+      color: #001b0b;
+
+      border-color: #25d366;
+    }
+
+    .logout {
+      width: 100%;
+
+      border: 1px solid
+        rgba(255,90,90,.2);
+
+      background:
+        rgba(255,70,70,.08);
+
+      color: #ff8585;
+
+      padding: 15px;
+
+      border-radius: 13px;
+
+      font-size: 13px;
+
+      font-weight: 900;
+
+      cursor: pointer;
+
+      margin-top: 4px;
+    }
+
+    .loading {
+      padding: 30px;
+
+      text-align: center;
+
+      color: #8fa5a5;
+    }
+
+    .error {
+      display: none;
+
+      padding: 20px;
+
+      border-radius: 17px;
+
+      background:
+        rgba(255,70,70,.08);
+
+      border:
+        1px solid rgba(255,70,70,.15);
+
+      color: #ff9999;
+
+      font-size: 13px;
+
+      text-align: center;
+    }
+
+    .bottom-nav {
+      position: fixed;
+
+      left: 0;
+      right: 0;
+      bottom: 0;
+
+      height: 68px;
+
+      background:
+        rgba(3,10,10,.97);
+
+      border-top:
+        1px solid rgba(255,255,255,.08);
+
+      display: grid;
+
+      grid-template-columns:
+        repeat(4, 1fr);
+
+      z-index: 30;
+    }
+
+    .bottom-nav a {
+      display: flex;
+
+      flex-direction: column;
+
+      align-items: center;
+
+      justify-content: center;
+
+      gap: 4px;
+
+      color: #829696;
+
+      text-decoration: none;
+
+      font-size: 11px;
+    }
+
+    .bottom-nav a.active {
+      color: #25d366;
+      font-weight: 700;
+    }
+
+    .icon {
+      font-size: 20px;
+    }
+
+    @media (min-width: 650px) {
+
+      main {
+        padding-top: 35px;
+      }
+
+    }
+
+  </style>
+</head>
+
+<body>
+
+<header>
+
+  <a
+    class="back"
+    href="/dashboard.html"
+  >
+    ‹
+  </a>
+
+  <div>
+
+    <div class="brand">
+      DHE GENIUS MEDIA
+    </div>
+
+    <div class="subtitle">
+      My Account • Stay Connected. Stay Genius.
+    </div>
+
+  </div>
+
+</header>
+
+
+<main>
+
+  <div
+    id="loading"
+    class="loading"
+  >
+    Loading account...
+  </div>
+
+
+  <div
+    id="content"
+    style="display:none;"
+  >
+
+    <section class="hero">
+
+      <h1>My Account</h1>
+
+      <p>
+        Manage your DGM account information and
+        access your customer services.
+      </p>
+
+    </section>
+
+
+    <section class="profile">
+
+      <div
+        id="avatar"
+        class="avatar"
+      >
+        D
+      </div>
+
+      <h2 id="name">
+        Customer
+      </h2>
+
+      <p id="member">
+        DHE GENIUS MEDIA Customer
+      </p>
+
+    </section>
+
+
+    <section class="card">
+
+      <div class="card-title">
+        Account Information
+      </div>
+
+
+      <div class="info-row">
+
+        <span class="info-label">
+          Full Name
+        </span>
+
+        <strong
+          id="fullName"
+          class="info-value"
+        >
+          —
+        </strong>
+
+      </div>
+
+
+      <div class="info-row">
+
+        <span class="info-label">
+          Phone
+        </span>
+
+        <strong
+          id="phone"
+          class="info-value"
+        >
+          —
+        </strong>
+
+      </div>
+
+
+      <div class="info-row">
+
+        <span class="info-label">
+          Email
+        </span>
+
+        <strong
+          id="email"
+          class="info-value"
+        >
+          —
+        </strong>
+
+      </div>
+
+
+      <div class="info-row">
+
+        <span class="info-label">
+          Account Balance
+        </span>
+
+        <strong
+          id="balance"
+          class="info-value balance"
+        >
+          GH₵0.00
+        </strong>
+
+      </div>
+
+    </section>
+
+
+    <section class="card">
+
+      <div class="card-title">
+        Quick Actions
+      </div>
+
+
+      <div class="actions">
+
+        <a
+          class="action primary"
+          href="/data.html"
+        >
+          Buy Data
+        </a>
+
+
+        <a
+          class="action primary"
+          href="/airtime.html"
+        >
+          Buy Airtime
+        </a>
+
+
+        <a
+          class="action"
+          href="/orders.html"
+        >
+          My Orders
+        </a>
+
+
+        <a
+          class="action"
+          href="/services.html"
+        >
+          More Services
+        </a>
+
+      </div>
+
+    </section>
+
+
+    <section class="card">
+
+      <div class="card-title">
+        Security
+      </div>
+
+      <div class="actions">
+
+        <a
+          class="action"
+          href="#"
+          onclick="comingSoon('Password change')"
+        >
+          Change Password
+        </a>
+
+        <a
+          class="action"
+          href="#"
+          onclick="comingSoon('Login security')"
+        >
+          Login Security
+        </a>
+
+      </div>
+
+    </section>
+
+
+    <button
+      class="logout"
+      onclick="logout()"
+    >
+      Sign Out
+    </button>
+
+  </div>
+
+
+  <div
+    id="error"
+    class="error"
+  ></div>
+
+</main>
+
+
+<nav class="bottom-nav">
+
+  <a href="/dashboard.html">
+
+    <span class="icon">
+      ⌂
+    </span>
+
+    Dashboard
+
+  </a>
+
+
+  <a href="/data.html">
+
+    <span class="icon">
+      ▣
+    </span>
+
+    Data
+
+  </a>
+
+
+  <a href="/airtime.html">
+
+    <span class="icon">
+      ₵
+    </span>
+
+    Airtime
+
+  </a>
+
+
+  <a
+    class="active"
+    href="/account.html"
+  >
+
+    <span class="icon">
+      ●
+    </span>
+
+    Account
+
+  </a>
+
+</nav>
+
+
+<script>
+
+  function escapeHtml(value) {
+
+    return String(value ?? "")
+
+      .replace(/&/g, "&amp;")
+
+      .replace(/</g, "&lt;")
+
+      .replace(/>/g, "&gt;")
+
+      .replace(/"/g, "&quot;")
+
+      .replace(/'/g, "&#039;");
+
+  }
+
+
+  async function loadAccount() {
+
+    const loading =
+      document.getElementById("loading");
+
+    const content =
+      document.getElementById("content");
+
+    const error =
+      document.getElementById("error");
+
+
+    try {
+
+      const response =
+        await fetch("/api/me");
+
+
+      if (response.status === 401) {
+
+        window.location.href =
+          "/login.html";
+
+        return;
+
+      }
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.error ||
+          "Unable to load account."
+        );
+
+      }
+
+
+      const customer =
+        data.customer;
+
+
+      const name =
+        customer.name || "Customer";
+
+
+      document.getElementById("name")
+        .textContent = name;
+
+
+      document.getElementById("fullName")
+        .textContent = name;
+
+
+      document.getElementById("phone")
+        .textContent =
+        customer.phone || "—";
+
+
+      document.getElementById("email")
+        .textContent =
+        customer.email || "—";
+
+
+      document.getElementById("balance")
+        .textContent =
+        "GH₵" +
+        Number(customer.balance || 0)
+          .toFixed(2);
+
+
+      document.getElementById("member")
+        .textContent =
+        "DGM Customer • Member since " +
+        (
+          customer.created_at
+            ? new Date(
+                customer.created_at
+              ).toLocaleDateString("en-GH")
+            : "2026"
+        );
+
+
+      const firstLetter =
+        name
+          .trim()
+          .charAt(0)
+          .toUpperCase();
+
+
+      document.getElementById("avatar")
+        .textContent =
+        firstLetter || "D";
+
+
+      loading.style.display = "none";
+
+      content.style.display = "block";
+
+    }
+
+    catch (err) {
+
+      loading.style.display = "none";
+
+      error.style.display = "block";
+
+      error.textContent =
+        err.message ||
+        "Something went wrong.";
+
+    }
+
+  }
+
+
+  async function logout() {
+
+    const confirmed =
+      confirm(
+        "Are you sure you want to sign out?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    try {
+
+      await fetch(
+        "/api/logout",
+        {
+          method: "POST"
+        }
+      );
+
+    }
+
+    finally {
+
+      window.location.href =
+        "/login.html";
+
+    }
+
+  }
+
+
+  function comingSoon(service) {
+
+    alert(
+      service +
+      " will be added in the next security stage."
+    );
+
+  }
+
+
+  loadAccount();
+
+</script>
+
+</body>
+</html>
