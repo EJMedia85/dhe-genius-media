@@ -272,6 +272,11 @@
       border-color: #25d366;
     }
 
+    .wallet-btn:disabled {
+      opacity: .65;
+      cursor: not-allowed;
+    }
+
     .card {
       padding: 18px;
 
@@ -371,6 +376,142 @@
       color: #001b0b;
 
       border-color: #25d366;
+    }
+
+    /* WALLET HISTORY */
+
+    .history {
+      display: none;
+
+      margin-bottom: 13px;
+    }
+
+    .history-header {
+      display: flex;
+
+      justify-content: space-between;
+
+      align-items: center;
+
+      gap: 10px;
+
+      margin-bottom: 12px;
+    }
+
+    .history-title {
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .refresh-btn {
+      border: 0;
+
+      background:
+        rgba(37,211,102,.12);
+
+      color: #25d366;
+
+      border:
+        1px solid rgba(37,211,102,.18);
+
+      border-radius: 9px;
+
+      padding: 7px 10px;
+
+      font-size: 11px;
+
+      font-weight: 800;
+
+      cursor: pointer;
+    }
+
+    .transaction {
+      padding: 13px 0;
+
+      border-bottom:
+        1px solid rgba(255,255,255,.055);
+    }
+
+    .transaction:last-child {
+      border-bottom: 0;
+    }
+
+    .transaction-top {
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 10px;
+
+      align-items: flex-start;
+    }
+
+    .transaction-name {
+      font-size: 12px;
+
+      font-weight: 800;
+
+      margin-bottom: 4px;
+    }
+
+    .transaction-ref {
+      color: #718787;
+
+      font-size: 10px;
+
+      word-break: break-all;
+    }
+
+    .transaction-amount {
+      font-size: 13px;
+
+      font-weight: 900;
+
+      white-space: nowrap;
+    }
+
+    .transaction-amount.credit {
+      color: #25d366;
+    }
+
+    .transaction-amount.debit {
+      color: #ff8585;
+    }
+
+    .transaction-amount.refund {
+      color: #62c7ff;
+    }
+
+    .transaction-bottom {
+      display: flex;
+
+      justify-content: space-between;
+
+      gap: 10px;
+
+      margin-top: 8px;
+
+      color: #788d8d;
+
+      font-size: 10px;
+    }
+
+    .transaction-status {
+      color: #25d366;
+
+      font-weight: 700;
+    }
+
+    .empty-history {
+      padding: 18px 5px;
+
+      text-align: center;
+
+      color: #819595;
+
+      font-size: 12px;
+
+      line-height: 1.5;
     }
 
     .logout {
@@ -575,9 +716,9 @@
       </div>
 
       <div class="wallet-note">
-        Your wallet will be used for eligible DGM
-        services after secure payment processing
-        is connected.
+        Your wallet balance is securely stored
+        on your DGM account. Wallet funding will
+        only be completed after verified payment.
       </div>
 
       <div class="wallet-actions">
@@ -597,6 +738,35 @@
         </button>
 
       </div>
+
+    </section>
+
+
+    <!-- WALLET HISTORY -->
+
+    <section
+      id="history"
+      class="card history"
+    >
+
+      <div class="history-header">
+
+        <div class="history-title">
+          Wallet Transactions
+        </div>
+
+        <button
+          class="refresh-btn"
+          onclick="loadWalletHistory()"
+        >
+          Refresh
+        </button>
+
+      </div>
+
+      <div
+        id="transactions"
+      ></div>
 
     </section>
 
@@ -836,6 +1006,37 @@
   }
 
 
+  function formatMoney(amount) {
+
+    return "GH₵" +
+      Number(amount || 0).toFixed(2);
+
+  }
+
+
+  function formatDate(dateValue) {
+
+    if (!dateValue) {
+      return "—";
+    }
+
+    const date =
+      new Date(
+        String(dateValue).replace(" ", "T") + "Z"
+      );
+
+    if (Number.isNaN(date.getTime())) {
+      return String(dateValue);
+    }
+
+    return date.toLocaleString("en-GH", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    });
+
+  }
+
+
   async function loadAccount() {
 
     const loading =
@@ -910,12 +1111,12 @@
 
       document.getElementById("balance")
         .textContent =
-        "GH₵" + balance.toFixed(2);
+        formatMoney(balance);
 
 
       document.getElementById("walletBalance")
         .textContent =
-        "GH₵" + balance.toFixed(2);
+        formatMoney(balance);
 
 
       document.getElementById("member")
@@ -924,7 +1125,8 @@
         (
           customer.created_at
             ? new Date(
-                customer.created_at
+                String(customer.created_at)
+                  .replace(" ", "T") + "Z"
               ).toLocaleDateString("en-GH")
             : "2026"
         );
@@ -963,10 +1165,196 @@
   }
 
 
+  async function loadWalletHistory() {
+
+    const history =
+      document.getElementById("history");
+
+    const transactions =
+      document.getElementById("transactions");
+
+
+    history.style.display = "block";
+
+    transactions.innerHTML =
+      `
+        <div class="empty-history">
+          Loading wallet transactions...
+        </div>
+      `;
+
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/wallet/transactions"
+        );
+
+
+      if (response.status === 401) {
+
+        window.location.href =
+          "/login.html";
+
+        return;
+
+      }
+
+
+      const data =
+        await response.json();
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.message ||
+          "Unable to load wallet history."
+        );
+
+      }
+
+
+      const list =
+        Array.isArray(data.transactions)
+          ? data.transactions
+          : [];
+
+
+      if (list.length === 0) {
+
+        transactions.innerHTML =
+          `
+            <div class="empty-history">
+              No wallet transactions yet.
+              <br>
+              Your verified wallet activity
+              will appear here.
+            </div>
+          `;
+
+        return;
+
+      }
+
+
+      transactions.innerHTML =
+        list.map(transaction => {
+
+          const type =
+            String(
+              transaction.type || ""
+            ).toLowerCase();
+
+
+          let amountClass = "credit";
+
+          let sign = "+";
+
+
+          if (type === "debit") {
+
+            amountClass = "debit";
+
+            sign = "-";
+
+          }
+
+
+          if (type === "refund") {
+
+            amountClass = "refund";
+
+            sign = "+";
+
+          }
+
+
+          const description =
+            transaction.description ||
+            transaction.type ||
+            "Wallet transaction";
+
+
+          return `
+            <div class="transaction">
+
+              <div class="transaction-top">
+
+                <div>
+
+                  <div class="transaction-name">
+                    ${escapeHtml(description)}
+                  </div>
+
+                  <div class="transaction-ref">
+                    ${escapeHtml(
+                      transaction.transaction_ref
+                    )}
+                  </div>
+
+                </div>
+
+                <div
+                  class="transaction-amount ${amountClass}"
+                >
+                  ${sign}${formatMoney(
+                    transaction.amount
+                  )}
+                </div>
+
+              </div>
+
+              <div class="transaction-bottom">
+
+                <span>
+                  ${escapeHtml(
+                    formatDate(
+                      transaction.created_at
+                    )
+                  )}
+                </span>
+
+                <span class="transaction-status">
+                  ${escapeHtml(
+                    transaction.status ||
+                    "Completed"
+                  )}
+                </span>
+
+              </div>
+
+            </div>
+          `;
+
+        }).join("");
+
+    }
+
+    catch (error) {
+
+      transactions.innerHTML =
+        `
+          <div class="empty-history">
+            ${escapeHtml(
+              error.message ||
+              "Unable to load wallet history."
+            )}
+          </div>
+        `;
+
+    }
+
+  }
+
+
   function addMoney() {
 
     alert(
-      "Secure wallet funding will be connected through a real payment provider in the next payment stage."
+      "Wallet funding is not active yet. " +
+      "We will connect secure verified payments " +
+      "before allowing money to be added."
     );
 
   }
@@ -974,9 +1362,22 @@
 
   function walletHistory() {
 
-    alert(
-      "Wallet history will be available after the payment and wallet transaction system is connected."
-    );
+    const history =
+      document.getElementById("history");
+
+
+    if (
+      history.style.display === "block"
+    ) {
+
+      history.style.display = "none";
+
+      return;
+
+    }
+
+
+    loadWalletHistory();
 
   }
 
