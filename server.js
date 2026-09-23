@@ -26,10 +26,15 @@ const SESSION_SECRET =
   process.env.SESSION_SECRET ||
   "dgm-change-this-secret";
 
-// DataMart purchase endpoint from their API example
+// =====================================================
+// DATAMART API
+// =====================================================
+
 const DATAMART_BASE =
   "https://api.datamartgh.shop/api";
 
+const DATAMART_DEVELOPER_BASE =
+  "https://api.datamartgh.shop/api/developer";
 
 // =====================================================
 // DATABASE
@@ -47,7 +52,6 @@ const pool = new Pool({
   }
 });
 
-
 // =====================================================
 // HELPERS
 // =====================================================
@@ -58,7 +62,6 @@ function cleanPhone(phone) {
     .replace(/\s+/g, "");
 }
 
-
 function validGhanaPhone(phone) {
   const value = cleanPhone(phone);
 
@@ -68,13 +71,11 @@ function validGhanaPhone(phone) {
   );
 }
 
-
 function cleanEmail(email) {
   return String(email || "")
     .trim()
     .toLowerCase();
 }
-
 
 function createOrderReference() {
   return (
@@ -85,7 +86,6 @@ function createOrderReference() {
   );
 }
 
-
 function createTransactionReference() {
   return (
     "DGM-TXN-" +
@@ -94,7 +94,6 @@ function createTransactionReference() {
     crypto.randomBytes(4).toString("hex")
   );
 }
-
 
 function requireLogin(req, res, next) {
   if (!req.session.customerId) {
@@ -105,7 +104,6 @@ function requireLogin(req, res, next) {
 
   next();
 }
-
 
 async function getCustomer(customerId) {
   const result = await pool.query(
@@ -127,7 +125,6 @@ async function getCustomer(customerId) {
   return result.rows[0] || null;
 }
 
-
 function publicCustomer(customer) {
   if (!customer) {
     return null;
@@ -143,7 +140,6 @@ function publicCustomer(customer) {
   };
 }
 
-
 // =====================================================
 // NETWORK MAPPING
 // =====================================================
@@ -153,7 +149,6 @@ const networkMap = {
   AirtelTigo: "AT_PREMIUM",
   Telecel: "TELECEL"
 };
-
 
 // =====================================================
 // DATAMART REQUEST
@@ -176,68 +171,216 @@ async function datamartRequest(
     "Content-Type": "application/json"
   };
 
-  // IMPORTANT:
-  // DataMart requires the idempotency key
-  // as a request HEADER.
   if (idempotencyKey) {
     headers["X-Idempotency-Key"] =
       idempotencyKey;
   }
 
-  const url =
-    `${DATAMART_BASE}${endpoint}`;
+  async function makeRequest(url) {
+    console.log(
+      "DATAMART REQUEST:",
+      {
+        url,
+        method,
+        idempotencyKey:
+          idempotencyKey || null,
+        body
+      }
+    );
 
-  console.log(
-    "DATAMART REQUEST:",
-    {
+    const response = await fetch(
       url,
-      method,
-      idempotencyKey:
-        idempotencyKey || null,
-      body
+      {
+        method,
+        headers,
+        body:
+          body !== null
+            ? JSON.stringify(body)
+            : undefined
+      }
+    );
+
+    const text =
+      await response.text();
+
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = {
+        raw: text
+      };
     }
-  );
 
-  const response = await fetch(
-    url,
-    {
-      method,
-      headers,
-      body:
-        body !== null
-          ? JSON.stringify(body)
-          : undefined
-    }
-  );
+    console.log(
+      "DATAMART RESPONSE:",
+      {
+        url,
+        statusCode:
+          response.status,
+        ok:
+          response.ok,
+        data
+      }
+    );
 
-  const text =
-    await response.text();
-
-  let data;
-
-  try {
-    data = JSON.parse(text);
-  } catch {
-    data = {
-      raw: text
+    return {
+      response,
+      data
     };
   }
 
-  console.log(
-    "DATAMART RESPONSE:",
-    {
-      statusCode: response.status,
-      ok: response.ok,
-      data
-    }
-  );
+  // ===================================================
+  // PURCHASE
+  // ===================================================
 
-  if (!response.ok) {
+  if (
+    endpoint === "/purchase" &&
+    method === "POST"
+  ) {
+    const primaryUrl =
+      `${DATAMART_BASE}${endpoint}`;
+
+    const primary =
+      await makeRequest(
+        primaryUrl
+      );
+
+    // If documented endpoint returns 404,
+    // test the developer path as fallback.
+    if (
+      primary.response.status === 404
+    ) {
+      console.log(
+        "DATAMART PRIMARY PURCHASE ROUTE RETURNED 404."
+      );
+
+      console.log(
+        "TRYING DATAMART DEVELOPER PURCHASE ROUTE..."
+      );
+
+      const developerUrl =
+        `${DATAMART_DEVELOPER_BASE}${endpoint}`;
+
+      const developer =
+        await makeRequest(
+          developerUrl
+        );
+
+      if (
+        !developer.response.ok
+      ) {
+        const data =
+          developer.data || {};
+
+        let message =
+          data.message ||
+          data.error ||
+          data.raw ||
+          `DataMart request failed (${developer.response.status})`;
+
+        if (
+          data.currentBalance !== undefined &&
+          data.requiredAmount !== undefined
+        ) {
+          message +=
+            ` Current wallet balance: GH₵${data.currentBalance}.` +
+            ` Required: GH₵${data.requiredAmount}.`;
+        }
+
+        throw new Error(message);
+      }
+
+      if (
+        developer.data &&
+        developer.data.status === "error"
+      ) {
+        let message =
+          developer.data.message ||
+          "DataMart purchase failed.";
+
+        if (
+          developer.data.currentBalance !== undefined &&
+          developer.data.requiredAmount !== undefined
+        ) {
+          message +=
+            ` Current wallet balance: GH₵${developer.data.currentBalance}.` +
+            ` Required: GH₵${developer.data.requiredAmount}.`;
+        }
+
+        throw new Error(message);
+      }
+
+      return developer.data;
+    }
+
+    // Primary route returned something
+    // other than 404.
+    if (!primary.response.ok) {
+      const data =
+        primary.data || {};
+
+      let message =
+        data.message ||
+        data.error ||
+        data.raw ||
+        `DataMart request failed (${primary.response.status})`;
+
+      if (
+        data.currentBalance !== undefined &&
+        data.requiredAmount !== undefined
+      ) {
+        message +=
+          ` Current wallet balance: GH₵${data.currentBalance}.` +
+          ` Required: GH₵${data.requiredAmount}.`;
+      }
+
+      throw new Error(message);
+    }
+
+    if (
+      primary.data &&
+      primary.data.status === "error"
+    ) {
+      let message =
+        primary.data.message ||
+        "DataMart purchase failed.";
+
+      if (
+        primary.data.currentBalance !== undefined &&
+        primary.data.requiredAmount !== undefined
+      ) {
+        message +=
+          ` Current wallet balance: GH₵${primary.data.currentBalance}.` +
+          ` Required: GH₵${primary.data.requiredAmount}.`;
+      }
+
+      throw new Error(message);
+    }
+
+    return primary.data;
+  }
+
+  // ===================================================
+  // OTHER DATAMART ENDPOINTS
+  // ===================================================
+
+  const url =
+    `${DATAMART_BASE}${endpoint}`;
+
+  const result =
+    await makeRequest(url);
+
+  if (!result.response.ok) {
+    const data =
+      result.data || {};
+
     let message =
       data.message ||
       data.error ||
       data.raw ||
-      `DataMart request failed (${response.status})`;
+      `DataMart request failed (${result.response.status})`;
 
     if (
       data.currentBalance !== undefined &&
@@ -252,27 +395,17 @@ async function datamartRequest(
   }
 
   if (
-    data.status === "error"
+    result.data &&
+    result.data.status === "error"
   ) {
-    let message =
-      data.message ||
-      "DataMart request failed.";
-
-    if (
-      data.currentBalance !== undefined &&
-      data.requiredAmount !== undefined
-    ) {
-      message +=
-        ` Current wallet balance: GH₵${data.currentBalance}.` +
-        ` Required: GH₵${data.requiredAmount}.`;
-    }
-
-    throw new Error(message);
+    throw new Error(
+      result.data.message ||
+      "DataMart request failed."
+    );
   }
 
-  return data;
+  return result.data;
 }
-
 
 // =====================================================
 // DATABASE INITIALIZATION
@@ -292,7 +425,6 @@ async function initializeDatabase() {
     );
   `);
 
-
   await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
@@ -309,7 +441,6 @@ async function initializeDatabase() {
     );
   `);
 
-
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wallet_transactions (
       id SERIAL PRIMARY KEY,
@@ -324,42 +455,35 @@ async function initializeDatabase() {
     );
   `);
 
-
   await pool.query(`
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS datamart_purchase_id TEXT;
   `);
-
 
   await pool.query(`
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS datamart_reference TEXT;
   `);
 
-
   await pool.query(`
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS datamart_transaction_reference TEXT;
   `);
-
 
   await pool.query(`
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS datamart_status TEXT;
   `);
 
-
   await pool.query(`
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS capacity TEXT;
   `);
 
-
   await pool.query(`
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS paystack_reference TEXT;
   `);
-
 
   await pool.query(`
     ALTER TABLE orders
@@ -367,18 +491,15 @@ async function initializeDatabase() {
     DEFAULT 'Pending';
   `);
 
-
   await pool.query(`
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
   `);
 
-
   console.log(
     "Database initialized successfully."
   );
 }
-
 
 // =====================================================
 // PAYSTACK WEBHOOK
@@ -402,12 +523,10 @@ app.post(
           .send("Paystack key missing");
       }
 
-
       const signature =
         req.headers[
           "x-paystack-signature"
         ];
-
 
       const hash =
         crypto
@@ -418,12 +537,10 @@ app.post(
           .update(req.body)
           .digest("hex");
 
-
       if (
         !signature ||
         signature !== hash
       ) {
-
         console.error(
           "INVALID PAYSTACK WEBHOOK SIGNATURE"
         );
@@ -433,18 +550,15 @@ app.post(
           .send("Invalid signature");
       }
 
-
       const event =
         JSON.parse(
           req.body.toString()
         );
 
-
       console.log(
         "PAYSTACK WEBHOOK EVENT:",
         event.event
       );
-
 
       if (
         event.event !==
@@ -453,19 +567,15 @@ app.post(
         return res.sendStatus(200);
       }
 
-
       const payment =
         event.data || {};
-
 
       const reference =
         payment.reference;
 
-
       if (!reference) {
         return res.sendStatus(200);
       }
-
 
       const orderResult =
         await pool.query(
@@ -479,11 +589,9 @@ app.post(
           [reference]
         );
 
-
       if (
         !orderResult.rows.length
       ) {
-
         console.error(
           "PAYSTACK ORDER NOT FOUND:",
           reference
@@ -492,32 +600,26 @@ app.post(
         return res.sendStatus(200);
       }
 
-
       const order =
         orderResult.rows[0];
-
 
       const expectedAmount =
         Math.round(
           Number(order.amount) * 100
         );
 
-
       const paidAmount =
         Number(payment.amount);
-
 
       const currency =
         String(
           payment.currency || ""
         ).toUpperCase();
 
-
       if (
         paidAmount !== expectedAmount ||
         currency !== "GHS"
       ) {
-
         console.error(
           "PAYSTACK PAYMENT MISMATCH:",
           {
@@ -530,14 +632,12 @@ app.post(
         return res.sendStatus(200);
       }
 
-
       if (
         String(
           order.payment_status || ""
         ).toLowerCase() === "paid" &&
         order.datamart_purchase_id
       ) {
-
         console.log(
           "PAYMENT ALREADY PROCESSED:",
           order.order_ref
@@ -545,7 +645,6 @@ app.post(
 
         return res.sendStatus(200);
       }
-
 
       await pool.query(
         `
@@ -566,7 +665,6 @@ app.post(
         ]
       );
 
-
       const updatedResult =
         await pool.query(
           `
@@ -578,10 +676,8 @@ app.post(
           [order.id]
         );
 
-
       const updatedOrder =
         updatedResult.rows[0];
-
 
       if (
         String(
@@ -589,13 +685,10 @@ app.post(
         ).toLowerCase() ===
         "data bundle"
       ) {
-
         await fulfillDataOrder(
           updatedOrder
         );
-
       }
-
 
       return res.sendStatus(200);
 
@@ -606,13 +699,10 @@ app.post(
         error
       );
 
-      // Paystack should receive 200
-      // after we have received the webhook.
       return res.sendStatus(200);
     }
   }
 );
-
 
 // =====================================================
 // MIDDLEWARE
@@ -628,13 +718,10 @@ app.use(
   })
 );
 
-
 app.use(
   session({
     secret: SESSION_SECRET,
-
     resave: false,
-
     saveUninitialized: false,
 
     cookie: {
@@ -644,7 +731,6 @@ app.use(
     }
   })
 );
-
 
 // =====================================================
 // STATIC WEBSITE
@@ -658,7 +744,6 @@ app.use(
     )
   )
 );
-
 
 // =====================================================
 // HEALTH
@@ -674,7 +759,6 @@ app.get(
       await pool.query(
         "SELECT 1"
       );
-
 
       res.json({
 
@@ -719,7 +803,6 @@ app.get(
   }
 );
 
-
 // =====================================================
 // DATAMART BALANCE
 // =====================================================
@@ -755,7 +838,6 @@ app.get(
     }
   }
 );
-
 
 // =====================================================
 // DATAMART PACKAGES
@@ -793,7 +875,6 @@ app.get(
   }
 );
 
-
 // =====================================================
 // REGISTER
 // =====================================================
@@ -810,30 +891,25 @@ app.post(
           req.body.name || ""
         ).trim();
 
-
       const phone =
         cleanPhone(
           req.body.phone
         );
-
 
       const email =
         cleanEmail(
           req.body.email
         );
 
-
       const password =
         String(
           req.body.password || ""
         );
 
-
       const confirmPassword =
         String(
           req.body.confirmPassword || ""
         );
-
 
       if (!name) {
         return res.status(400).json({
@@ -842,67 +918,51 @@ app.post(
         });
       }
 
-
       if (
         !validGhanaPhone(phone)
       ) {
-
         return res.status(400).json({
           error:
             "Please enter a valid Ghana phone number."
         });
-
       }
 
-
       if (!email) {
-
         return res.status(400).json({
           error:
             "Email address is required."
         });
-
       }
-
 
       if (
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
           email
         )
       ) {
-
         return res.status(400).json({
           error:
             "Please enter a valid email address."
         });
-
       }
-
 
       if (
         password.length < 6
       ) {
-
         return res.status(400).json({
           error:
             "Password must be at least 6 characters."
         });
-
       }
-
 
       if (
         password !==
         confirmPassword
       ) {
-
         return res.status(400).json({
           error:
             "Passwords do not match."
         });
-
       }
-
 
       const existing =
         await pool.query(
@@ -919,25 +979,20 @@ app.post(
           ]
         );
 
-
       if (
         existing.rows.length
       ) {
-
         return res.status(400).json({
           error:
             "An account with this phone or email already exists."
         });
-
       }
-
 
       const hashedPassword =
         await bcrypt.hash(
           password,
           12
         );
-
 
       const result =
         await pool.query(
@@ -974,14 +1029,11 @@ app.post(
           ]
         );
 
-
       const customer =
         result.rows[0];
 
-
       req.session.customerId =
         customer.id;
-
 
       res.status(201).json({
 
@@ -1010,7 +1062,6 @@ app.post(
   }
 );
 
-
 // =====================================================
 // LOGIN
 // =====================================================
@@ -1027,37 +1078,30 @@ app.post(
           req.body.identifier || ""
         ).trim();
 
-
       const password =
         String(
           req.body.password || ""
         );
 
-
       if (
         !identifier ||
         !password
       ) {
-
         return res.status(400).json({
           error:
             "Phone/email and password are required."
         });
-
       }
-
 
       const email =
         cleanEmail(
           identifier
         );
 
-
       const phone =
         cleanPhone(
           identifier
         );
-
 
       const result =
         await pool.query(
@@ -1074,22 +1118,17 @@ app.post(
           ]
         );
 
-
       if (
         !result.rows.length
       ) {
-
         return res.status(401).json({
           error:
             "Invalid login details."
         });
-
       }
-
 
       const customer =
         result.rows[0];
-
 
       const valid =
         await bcrypt.compare(
@@ -1097,20 +1136,15 @@ app.post(
           customer.password
         );
 
-
       if (!valid) {
-
         return res.status(401).json({
           error:
             "Invalid login details."
         });
-
       }
-
 
       req.session.customerId =
         customer.id;
-
 
       res.json({
 
@@ -1139,7 +1173,6 @@ app.post(
   }
 );
 
-
 // =====================================================
 // CURRENT CUSTOMER
 // =====================================================
@@ -1154,30 +1187,23 @@ app.get(
       if (
         !req.session.customerId
       ) {
-
         return res.status(401).json({
           error:
             "Not logged in."
         });
-
       }
-
 
       const customer =
         await getCustomer(
           req.session.customerId
         );
 
-
       if (!customer) {
-
         return res.status(401).json({
           error:
             "Customer account not found."
         });
-
       }
-
 
       res.json({
 
@@ -1206,7 +1232,6 @@ app.get(
   }
 );
 
-
 // =====================================================
 // LOGOUT
 // =====================================================
@@ -1229,7 +1254,6 @@ app.post(
   }
 );
 
-
 // =====================================================
 // CREATE ORDER
 // =====================================================
@@ -1248,34 +1272,27 @@ app.post(
           req.session.customerId
         );
 
-
       if (!customer) {
-
         return res.status(401).json({
           error:
             "Customer account not found."
         });
-
       }
-
 
       const service =
         String(
           req.body.service || ""
         ).trim();
 
-
       const network =
         String(
           req.body.network || ""
         ).trim();
 
-
       const phone =
         cleanPhone(
           req.body.phone
         );
-
 
       const capacity =
         String(
@@ -1285,12 +1302,10 @@ app.post(
           ""
         ).trim();
 
-
       const amount =
         Number(
           req.body.amount
         );
-
 
       console.log(
         "NEW ORDER REQUEST:",
@@ -1303,16 +1318,12 @@ app.post(
         }
       );
 
-
       if (!service) {
-
         return res.status(400).json({
           error:
             "Service is required."
         });
-
       }
-
 
       if (
         service.toLowerCase() ===
@@ -1320,65 +1331,48 @@ app.post(
       ) {
 
         if (!network) {
-
           return res.status(400).json({
             error:
               "Network is required."
           });
-
         }
 
-
         if (!capacity) {
-
           return res.status(400).json({
             error:
               "Data capacity is required."
           });
-
         }
 
-
         if (!phone) {
-
           return res.status(400).json({
             error:
               "Phone number is required."
           });
-
         }
-
 
         if (
           !validGhanaPhone(phone)
         ) {
-
           return res.status(400).json({
             error:
               "Please enter a valid Ghana phone number."
           });
-
         }
-
 
         if (
           !Number.isFinite(amount) ||
           amount <= 0
         ) {
-
           return res.status(400).json({
             error:
               "Valid amount is required."
           });
-
         }
-
       }
-
 
       const orderRef =
         createOrderReference();
-
 
       const result =
         await pool.query(
@@ -1420,16 +1414,13 @@ app.post(
           ]
         );
 
-
       const order =
         result.rows[0];
-
 
       console.log(
         "ORDER CREATED:",
         order
       );
-
 
       return res.status(201).json({
 
@@ -1465,7 +1456,6 @@ app.post(
     }
   }
 );
-
 
 // =====================================================
 // CUSTOMER ORDERS
@@ -1509,7 +1499,6 @@ app.get(
           ]
         );
 
-
       res.json({
 
         success: true,
@@ -1535,7 +1524,6 @@ app.get(
   }
 );
 
-
 // =====================================================
 // PAYSTACK REQUEST
 // =====================================================
@@ -1547,13 +1535,10 @@ async function paystackRequest(
 ) {
 
   if (!PAYSTACK_SECRET_KEY) {
-
     throw new Error(
       "PAYSTACK_SECRET_KEY is not configured."
     );
-
   }
-
 
   const response =
     await fetch(
@@ -1580,7 +1565,6 @@ async function paystackRequest(
       }
     );
 
-
   const data =
     await response
       .json()
@@ -1588,32 +1572,24 @@ async function paystackRequest(
         () => ({})
       );
 
-
   if (!response.ok) {
-
     throw new Error(
       data.message ||
       "Paystack request failed."
     );
-
   }
-
 
   if (
     data.status === false
   ) {
-
     throw new Error(
       data.message ||
       "Paystack request failed."
     );
-
   }
-
 
   return data;
 }
-
 
 // =====================================================
 // PAYSTACK INITIALIZE
@@ -1629,7 +1605,6 @@ app.post(
     try {
 
       if (!PAYSTACK_SECRET_KEY) {
-
         return res.status(500).json({
 
           success: false,
@@ -1638,18 +1613,14 @@ app.post(
             "Paystack is not configured on the server."
 
         });
-
       }
-
 
       const orderRef =
         String(
           req.body.orderRef || ""
         ).trim();
 
-
       if (!orderRef) {
-
         return res.status(400).json({
 
           success: false,
@@ -1658,18 +1629,14 @@ app.post(
             "Order reference is required."
 
         });
-
       }
-
 
       const customer =
         await getCustomer(
           req.session.customerId
         );
 
-
       if (!customer) {
-
         return res.status(401).json({
 
           success: false,
@@ -1678,15 +1645,12 @@ app.post(
             "Customer account not found."
 
         });
-
       }
-
 
       const email =
         cleanEmail(
           customer.email
         );
-
 
       if (
         !email ||
@@ -1694,7 +1658,6 @@ app.post(
           email
         )
       ) {
-
         return res.status(400).json({
 
           success: false,
@@ -1703,9 +1666,7 @@ app.post(
             "Please add a valid email address to your account before making payment."
 
         });
-
       }
-
 
       const result =
         await pool.query(
@@ -1722,9 +1683,7 @@ app.post(
           ]
         );
 
-
       if (!result.rows.length) {
-
         return res.status(404).json({
 
           success: false,
@@ -1733,20 +1692,16 @@ app.post(
             "Order not found."
 
         });
-
       }
-
 
       const order =
         result.rows[0];
-
 
       if (
         String(
           order.payment_status || ""
         ).toLowerCase() === "paid"
       ) {
-
         return res.status(400).json({
 
           success: false,
@@ -1755,21 +1710,17 @@ app.post(
             "This order has already been paid."
 
         });
-
       }
-
 
       const amountGHS =
         Number(
           order.amount
         );
 
-
       if (
         !Number.isFinite(amountGHS) ||
         amountGHS <= 0
       ) {
-
         return res.status(400).json({
 
           success: false,
@@ -1778,15 +1729,12 @@ app.post(
             "Invalid order amount."
 
         });
-
       }
-
 
       const amountPesewas =
         Math.round(
           amountGHS * 100
         );
-
 
       const reference =
         String(
@@ -1794,10 +1742,8 @@ app.post(
         ).trim() ||
         createTransactionReference();
 
-
       const callbackUrl =
         `${req.protocol}://${req.get("host")}/`;
-
 
       console.log(
         "PAYSTACK INITIALIZING:",
@@ -1814,7 +1760,6 @@ app.post(
           reference
         }
       );
-
 
       const payment =
         await paystackRequest(
@@ -1865,13 +1810,11 @@ app.post(
           }
         );
 
-
       if (
         !payment ||
         payment.status !== true ||
         !payment.data
       ) {
-
         return res.status(502).json({
 
           success: false,
@@ -1881,25 +1824,19 @@ app.post(
             "Paystack failed to initialize the payment."
 
         });
-
       }
-
 
       const authorizationUrl =
         payment.data.authorization_url;
 
-
       const accessCode =
         payment.data.access_code;
-
 
       const paystackReference =
         payment.data.reference ||
         reference;
 
-
       if (!authorizationUrl) {
-
         return res.status(502).json({
 
           success: false,
@@ -1908,9 +1845,7 @@ app.post(
             "Paystack did not return a checkout URL."
 
         });
-
       }
-
 
       await pool.query(
         `
@@ -1925,7 +1860,6 @@ app.post(
         ]
       );
 
-
       console.log(
         "PAYSTACK CHECKOUT READY:",
         {
@@ -1936,7 +1870,6 @@ app.post(
             paystackReference
         }
       );
-
 
       return res.json({
 
@@ -1963,7 +1896,6 @@ app.post(
         error
       );
 
-
       return res.status(500).json({
 
         success: false,
@@ -1978,7 +1910,6 @@ app.post(
   }
 );
 
-
 // =====================================================
 // DATAMART DATA FULFILLMENT
 // =====================================================
@@ -1986,18 +1917,12 @@ app.post(
 async function fulfillDataOrder(order) {
 
   if (!order) {
-
     throw new Error(
       "Order not found."
     );
-
   }
 
-
-  // ===================================================
-  // PREVENT DUPLICATE PURCHASE
-  // ===================================================
-
+  // Prevent duplicate purchase
   if (
     order.datamart_purchase_id
   ) {
@@ -2006,7 +1931,6 @@ async function fulfillDataOrder(order) {
       "DATAMART ALREADY FULFILLED:",
       order.order_ref
     );
-
 
     return {
 
@@ -2018,86 +1942,59 @@ async function fulfillDataOrder(order) {
         order.datamart_purchase_id
 
     };
-
   }
-
 
   try {
 
-    // -----------------------------------------------
+    // =================================================
     // NETWORK
-    // -----------------------------------------------
+    // =================================================
 
     const network =
       networkMap[
         order.network
       ];
 
-
     if (!network) {
-
       throw new Error(
         `Unsupported network: ${order.network}`
       );
-
     }
 
-
-    // -----------------------------------------------
+    // =================================================
     // PHONE
-    // -----------------------------------------------
+    // =================================================
 
     const phoneNumber =
       cleanPhone(
         order.phone
       );
 
-
     if (
       !validGhanaPhone(
         phoneNumber
       )
     ) {
-
       throw new Error(
         "Invalid Ghana delivery phone number."
       );
-
     }
 
-
-    // -----------------------------------------------
+    // =================================================
     // CAPACITY
-    // -----------------------------------------------
-
-    /*
-      DGM sends:
-      1GB
-      2GB
-      5GB
-      10GB
-
-      DataMart requires:
-      1
-      2
-      5
-      10
-    */
+    // =================================================
 
     const rawCapacity =
       String(
         order.capacity || ""
       ).trim();
 
-
     let capacity = "";
-
 
     const capacityMatch =
       rawCapacity.match(
         /^(\d+(?:\.\d+)?)\s*GB$/i
       );
-
 
     if (capacityMatch) {
 
@@ -2110,7 +2007,6 @@ async function fulfillDataOrder(order) {
       )
     ) {
 
-      // Also accept "1", "2", "5", etc.
       capacity =
         rawCapacity;
 
@@ -2122,18 +2018,16 @@ async function fulfillDataOrder(order) {
 
     }
 
-
-    // -----------------------------------------------
-    // IDEMPOTENCY KEY
-    // -----------------------------------------------
+    // =================================================
+    // IDEMPOTENCY
+    // =================================================
 
     const idempotencyKey =
       `dgm-${order.order_ref}`;
 
-
-    // -----------------------------------------------
-    // DATAMART BODY
-    // -----------------------------------------------
+    // =================================================
+    // DATAMART PAYLOAD
+    // =================================================
 
     const payload = {
 
@@ -2147,7 +2041,6 @@ async function fulfillDataOrder(order) {
         "wallet"
 
     };
-
 
     console.log(
       "DATAMART PURCHASE:",
@@ -2168,10 +2061,9 @@ async function fulfillDataOrder(order) {
       }
     );
 
-
-    // -----------------------------------------------
+    // =================================================
     // PURCHASE
-    // -----------------------------------------------
+    // =================================================
 
     const data =
       await datamartRequest(
@@ -2181,16 +2073,14 @@ async function fulfillDataOrder(order) {
         idempotencyKey
       );
 
-
     console.log(
       "DATAMART PURCHASE RESPONSE:",
       data
     );
 
-
-    // -----------------------------------------------
+    // =================================================
     // VALIDATE RESPONSE
-    // -----------------------------------------------
+    // =================================================
 
     if (
       !data ||
@@ -2205,25 +2095,20 @@ async function fulfillDataOrder(order) {
 
     }
 
-
     const purchase =
       data.data;
-
 
     const purchaseId =
       purchase.purchaseId ||
       null;
 
-
     const datamartReference =
       purchase.orderReference ||
       null;
 
-
     const datamartTransactionReference =
       purchase.transactionReference ||
       null;
-
 
     const datamartStatus =
       String(
@@ -2231,14 +2116,11 @@ async function fulfillDataOrder(order) {
         "completed"
       );
 
-
     const lowerStatus =
       datamartStatus.toLowerCase();
 
-
     let finalStatus =
       "Processing";
-
 
     if (
       lowerStatus === "completed" ||
@@ -2250,10 +2132,9 @@ async function fulfillDataOrder(order) {
 
     }
 
-
-    // -----------------------------------------------
+    // =================================================
     // SAVE DATAMART RESULT
-    // -----------------------------------------------
+    // =================================================
 
     await pool.query(
       `
@@ -2281,7 +2162,6 @@ async function fulfillDataOrder(order) {
       ]
     );
 
-
     console.log(
       "DATAMART FULFILLMENT SUCCESS:",
       {
@@ -2299,7 +2179,6 @@ async function fulfillDataOrder(order) {
         finalStatus
       }
     );
-
 
     return {
 
@@ -2324,7 +2203,6 @@ async function fulfillDataOrder(order) {
       "DATAMART FULFILLMENT ERROR:",
       error
     );
-
 
     try {
 
@@ -2354,7 +2232,6 @@ async function fulfillDataOrder(order) {
 
     }
 
-
     return {
 
       success: false,
@@ -2363,10 +2240,8 @@ async function fulfillDataOrder(order) {
         error.message
 
     };
-
   }
 }
-
 
 // =====================================================
 // PAYSTACK VERIFY
@@ -2386,16 +2261,12 @@ app.get(
           req.params.reference || ""
         ).trim();
 
-
       if (!reference) {
-
         return res.status(400).json({
           error:
             "Payment reference is required."
         });
-
       }
-
 
       const result =
         await pool.query(
@@ -2415,22 +2286,17 @@ app.get(
           ]
         );
 
-
       if (
         !result.rows.length
       ) {
-
         return res.status(404).json({
           error:
             "Order for this payment was not found."
         });
-
       }
-
 
       const order =
         result.rows[0];
-
 
       const verification =
         await paystackRequest(
@@ -2439,33 +2305,27 @@ app.get(
           )}`
         );
 
-
       const payment =
         verification.data || {};
-
 
       const expectedAmount =
         Math.round(
           Number(order.amount) * 100
         );
 
-
       const paidAmount =
         Number(
           payment.amount
         );
-
 
       const currency =
         String(
           payment.currency || ""
         ).toUpperCase();
 
-
       if (
         payment.status !== "success"
       ) {
-
         return res.json({
 
           success: false,
@@ -2481,34 +2341,26 @@ app.get(
             "Payment has not been completed."
 
         });
-
       }
-
 
       if (
         currency !== "GHS"
       ) {
-
         return res.status(400).json({
           error:
             "Payment currency is invalid."
         });
-
       }
-
 
       if (
         paidAmount !==
         expectedAmount
       ) {
-
         return res.status(400).json({
           error:
             "Payment amount does not match the order."
         });
-
       }
-
 
       await pool.query(
         `
@@ -2529,7 +2381,6 @@ app.get(
         ]
       );
 
-
       const updatedResult =
         await pool.query(
           `
@@ -2541,14 +2392,11 @@ app.get(
           [order.id]
         );
 
-
       const updatedOrder =
         updatedResult.rows[0];
 
-
       let fulfillment =
         null;
-
 
       if (
         String(
@@ -2564,7 +2412,6 @@ app.get(
 
       }
 
-
       const finalResult =
         await pool.query(
           `
@@ -2576,10 +2423,8 @@ app.get(
           [order.id]
         );
 
-
       const finalOrder =
         finalResult.rows[0];
-
 
       return res.json({
 
@@ -2605,7 +2450,6 @@ app.get(
         error
       );
 
-
       res.status(500).json({
         error:
           error.message ||
@@ -2615,7 +2459,6 @@ app.get(
     }
   }
 );
-
 
 // =====================================================
 // MANUAL DATAMART PURCHASE
@@ -2645,22 +2488,17 @@ app.post(
           ]
         );
 
-
       if (
         !result.rows.length
       ) {
-
         return res.status(404).json({
           error:
             "Order not found."
         });
-
       }
-
 
       const order =
         result.rows[0];
-
 
       if (
         String(
@@ -2668,32 +2506,25 @@ app.post(
         ).toLowerCase() !==
         "paid"
       ) {
-
         return res.status(400).json({
           error:
             "Payment is required before data delivery."
         });
-
       }
-
 
       const resultData =
         await fulfillDataOrder(
           order
         );
 
-
       if (
         !resultData.success
       ) {
-
         return res.status(500).json({
           error:
             resultData.error
         });
-
       }
-
 
       res.json(
         resultData
@@ -2706,7 +2537,6 @@ app.post(
         error
       );
 
-
       res.status(500).json({
         error:
           error.message
@@ -2715,7 +2545,6 @@ app.post(
     }
   }
 );
-
 
 // =====================================================
 // WALLET
@@ -2735,16 +2564,12 @@ app.get(
           req.session.customerId
         );
 
-
       if (!customer) {
-
         return res.status(404).json({
           error:
             "Customer not found."
         });
-
       }
-
 
       res.json({
 
@@ -2767,7 +2592,6 @@ app.get(
     }
   }
 );
-
 
 // =====================================================
 // WALLET TRANSACTIONS
@@ -2801,7 +2625,6 @@ app.get(
           ]
         );
 
-
       res.json({
 
         success: true,
@@ -2822,7 +2645,6 @@ app.get(
   }
 );
 
-
 // =====================================================
 // API 404
 // =====================================================
@@ -2839,7 +2661,6 @@ app.use(
 
   }
 );
-
 
 // =====================================================
 // FRONTEND FALLBACK
@@ -2860,7 +2681,6 @@ app.get(
 
   }
 );
-
 
 // =====================================================
 // START SERVER
