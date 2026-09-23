@@ -20,11 +20,9 @@
     :root {
       --bg: #06131f;
       --card: #0d2030;
-      --card2: #102a3d;
       --text: #ffffff;
       --muted: #8ea7b9;
       --blue: #008cff;
-      --cyan: #00c6ff;
       --green: #22d58a;
       --red: #ff6868;
       --border: rgba(255,255,255,0.08);
@@ -130,11 +128,8 @@
     main {
       width: 100%;
       max-width: 800px;
-
       margin: auto;
-
-      padding:
-        24px 16px 40px;
+      padding: 24px 16px 40px;
     }
 
     .page-title {
@@ -154,10 +149,7 @@
 
     .phone-card {
       background: var(--card);
-
-      border:
-        1px solid var(--border);
-
+      border: 1px solid var(--border);
       border-radius: 20px;
       padding: 18px;
       margin-bottom: 20px;
@@ -165,11 +157,9 @@
 
     label {
       display: block;
-
       color: #d9e6ef;
       font-size: 12px;
       font-weight: 800;
-
       margin-bottom: 8px;
     }
 
@@ -207,12 +197,8 @@
 
     .networks {
       display: grid;
-
-      grid-template-columns:
-        repeat(3, 1fr);
-
+      grid-template-columns: repeat(3, 1fr);
       gap: 9px;
-
       margin-bottom: 20px;
     }
 
@@ -244,10 +230,7 @@
 
     .bundle-grid {
       display: grid;
-
-      grid-template-columns:
-        repeat(2, 1fr);
-
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
     }
 
@@ -283,10 +266,6 @@
           rgba(0,140,255,0.16),
           rgba(0,90,180,0.08)
         );
-
-      box-shadow:
-        0 0 0 1px
-        rgba(0,140,255,0.15);
     }
 
     .bundle-name {
@@ -297,10 +276,8 @@
 
     .bundle-price {
       color: #65d8ff;
-
       font-size: 15px;
       font-weight: 900;
-
       margin-bottom: 8px;
     }
 
@@ -355,20 +332,20 @@
 
     .summary {
       display: flex;
-
       justify-content: space-between;
       align-items: center;
-
       margin-bottom: 17px;
     }
 
     .summary small {
+      display: block;
       color: var(--muted);
       font-size: 11px;
+      margin-bottom: 4px;
     }
 
     .summary strong {
-      font-size: 20px;
+      font-size: 19px;
     }
 
     .buy-button {
@@ -399,7 +376,6 @@
 
     .buy-button:disabled {
       opacity: 0.55;
-      cursor: not-allowed;
     }
 
     .message {
@@ -466,7 +442,6 @@
       position: fixed;
 
       bottom: 0;
-
       left: 0;
       right: 0;
 
@@ -488,7 +463,6 @@
 
     .bottom-nav button {
       border: none;
-
       background: none;
 
       color: #70899c;
@@ -496,7 +470,6 @@
       font-size: 10px;
 
       display: flex;
-
       flex-direction: column;
 
       align-items: center;
@@ -519,937 +492,907 @@
           repeat(4, 1fr);
       }
 
-      .bundle-name {
-        font-size: 17px;
-      }
-
     }
   </style>
 </head>
 
 <body>
 
-  <!-- HEADER -->
+<header>
 
-  <header>
-
-    <div class="header-inner">
-
-      <button
-        class="back"
-        onclick="window.location.href='/dashboard.html'"
-      >
-        ←
-      </button>
-
-      <div class="logo">
-        DGM
-      </div>
-
-      <div class="header-title">
-
-        <strong>
-          Buy Data
-        </strong>
-
-        <span>
-          DHE GENIUS MEDIA
-        </span>
-
-      </div>
-
-    </div>
-
-  </header>
-
-
-  <!-- MAIN -->
-
-  <main>
-
-    <section class="page-title">
-
-      <h1>
-        Buy Data 📶
-      </h1>
-
-      <p>
-        Choose your network and data bundle.
-        Your order will be securely submitted to DGM.
-      </p>
-
-    </section>
-
-
-    <!-- PHONE -->
-
-    <section class="phone-card">
-
-      <label for="phone">
-        Recipient Phone Number
-      </label>
-
-      <input
-        type="tel"
-        id="phone"
-        placeholder="0241234567"
-        autocomplete="tel"
-      >
-
-    </section>
-
-
-    <!-- NETWORKS -->
-
-    <h2 class="section-title">
-      Select Network
-    </h2>
-
-    <section class="networks">
-
-      <button
-        class="network active"
-        onclick="selectNetwork('MTN', this)"
-      >
-        🟡 MTN
-      </button>
-
-      <button
-        class="network"
-        onclick="selectNetwork('AirtelTigo', this)"
-      >
-        🔴 AirtelTigo
-      </button>
-
-      <button
-        class="network"
-        onclick="selectNetwork('Telecel', this)"
-      >
-        🔵 Telecel
-      </button>
-
-    </section>
-
-
-    <!-- BUNDLES -->
-
-    <h2 class="section-title">
-      Select Bundle
-    </h2>
-
-    <section
-      class="bundle-grid"
-      id="bundleGrid"
-    ></section>
-
-
-    <!-- ORDER -->
-
-    <section
-      class="order-box"
-      id="orderBox"
-    >
-
-      <div
-        id="message"
-        class="message"
-      ></div>
-
-      <div class="summary">
-
-        <div>
-
-          <small>
-            Selected bundle
-          </small>
-
-          <strong id="selectedBundle">
-            —
-          </strong>
-
-        </div>
-
-        <div style="text-align:right">
-
-          <small>
-            Price
-          </small>
-
-          <strong id="selectedPrice">
-            GH₵0.00
-          </strong>
-
-        </div>
-
-      </div>
-
-
-      <button
-        class="buy-button"
-        id="buyButton"
-        onclick="placeOrder()"
-      >
-        Continue
-      </button>
-
-    </section>
-
-
-    <div class="info">
-
-      🔒 Your customer account and order information
-      are handled by the DGM server.
-
-      Payment and automatic telecom delivery
-      are processed through the configured
-      payment and service providers.
-
-    </div>
-
-  </main>
-
-
-  <!-- BOTTOM NAV -->
-
-  <nav class="bottom-nav">
+  <div class="header-inner">
 
     <button
+      class="back"
       onclick="window.location.href='/dashboard.html'"
     >
-
-      <span class="bottom-icon">
-        🏠
-      </span>
-
-      Home
-
+      ←
     </button>
 
+    <div class="logo">
+      DGM
+    </div>
 
-    <button class="active">
+    <div class="header-title">
 
-      <span class="bottom-icon">
-        📶
+      <strong>
+        Buy Data
+      </strong>
+
+      <span>
+        DHE GENIUS MEDIA • 24/7
       </span>
 
-      Data
+    </div>
 
+  </div>
+
+</header>
+
+
+<main>
+
+  <section class="page-title">
+
+    <h1>
+      Buy Data 📶
+    </h1>
+
+    <p>
+      Select your network, choose a bundle,
+      enter the recipient number and continue
+      to secure Paystack payment.
+    </p>
+
+  </section>
+
+
+  <section class="phone-card">
+
+    <label for="phone">
+      Recipient Phone Number
+    </label>
+
+    <input
+      id="phone"
+      type="tel"
+      placeholder="0241234567"
+      autocomplete="tel"
+    >
+
+  </section>
+
+
+  <h2 class="section-title">
+    Select Network
+  </h2>
+
+
+  <section class="networks">
+
+    <button
+      class="network active"
+      onclick="selectNetwork('MTN', this)"
+    >
+      🟡 MTN
     </button>
+
+    <button
+      class="network"
+      onclick="selectNetwork('AirtelTigo', this)"
+    >
+      🔴 AirtelTigo
+    </button>
+
+    <button
+      class="network"
+      onclick="selectNetwork('Telecel', this)"
+    >
+      🔵 Telecel
+    </button>
+
+  </section>
+
+
+  <h2 class="section-title">
+    Select Bundle
+  </h2>
+
+
+  <section
+    id="bundleGrid"
+    class="bundle-grid"
+  ></section>
+
+
+  <section
+    id="orderBox"
+    class="order-box"
+  >
+
+    <div
+      id="message"
+      class="message"
+    ></div>
+
+
+    <div class="summary">
+
+      <div>
+
+        <small>
+          Selected bundle
+        </small>
+
+        <strong id="selectedBundle">
+          —
+        </strong>
+
+      </div>
+
+
+      <div style="text-align:right">
+
+        <small>
+          Amount
+        </small>
+
+        <strong id="selectedPrice">
+          GH₵0.00
+        </strong>
+
+      </div>
+
+    </div>
 
 
     <button
-      onclick="window.location.href='/airtime.html'"
+      id="buyButton"
+      class="buy-button"
+      onclick="placeOrder()"
     >
-
-      <span class="bottom-icon">
-        📱
-      </span>
-
-      Airtime
-
+      Continue to Payment
     </button>
 
-
-    <button
-      onclick="window.location.href='/orders.html'"
-    >
-
-      <span class="bottom-icon">
-        📦
-      </span>
-
-      Orders
-
-    </button>
+  </section>
 
 
-    <button
-      onclick="window.location.href='/account.html'"
-    >
+  <div class="info">
 
-      <span class="bottom-icon">
-        👤
-      </span>
+    🔒 Secure payment powered by Paystack.
 
-      Account
+    After successful payment, DGM will verify
+    the transaction and continue processing
+    the data order.
 
-    </button>
+  </div>
 
-  </nav>
+</main>
 
 
-  <script>
+<nav class="bottom-nav">
 
-    // =====================================================
-    // DHE GENIUS MEDIA
-    // DATA BUNDLE STORE
-    // =====================================================
+  <button
+    onclick="window.location.href='/dashboard.html'"
+  >
+    <span class="bottom-icon">🏠</span>
+    Home
+  </button>
 
+  <button class="active">
+    <span class="bottom-icon">📶</span>
+    Data
+  </button>
 
-    const bundles = {
+  <button
+    onclick="window.location.href='/airtime.html'"
+  >
+    <span class="bottom-icon">📱</span>
+    Airtime
+  </button>
 
-      MTN: [
+  <button
+    onclick="window.location.href='/orders.html'"
+  >
+    <span class="bottom-icon">📦</span>
+    Orders
+  </button>
 
-        ["1GB", 5],
-        ["2GB", 10],
-        ["3GB", 15],
-        ["4GB", 20],
-        ["5GB", 24],
-        ["6GB", 28],
-        ["8GB", 36],
-        ["10GB", 45],
-        ["15GB", 64],
-        ["20GB", 84],
-        ["25GB", 100],
-        ["30GB", 128],
-        ["40GB", 168],
-        ["50GB", 207]
+  <button
+    onclick="window.location.href='/account.html'"
+  >
+    <span class="bottom-icon">👤</span>
+    Account
+  </button>
 
-      ],
-
-
-      AirtelTigo: [
-
-        ["1GB", 5],
-        ["2GB", 10],
-        ["3GB", 15],
-        ["4GB", 20],
-        ["5GB", 24],
-        ["6GB", 26],
-        ["8GB", 35],
-        ["10GB", 45],
-        ["12GB", 48],
-        ["15GB", 65],
-        ["25GB", 100],
-        ["30GB", 120],
-        ["40GB", 160],
-        ["50GB", 200]
-
-      ],
+</nav>
 
 
-      Telecel: [
+<script>
 
-        ["10GB", 45],
-        ["15GB", 60],
-        ["20GB", 76],
-        ["25GB", 100],
-        ["30GB", 115],
-        ["35GB", 136],
-        ["40GB", 150],
-        ["45GB", 165],
-        ["50GB", 185],
-        ["100GB", 407]
+  // =====================================================
+  // DHE GENIUS MEDIA
+  // DATA + PAYSTACK
+  // =====================================================
 
-      ]
+
+  const bundles = {
+
+    MTN: [
+      ["1GB", 5],
+      ["2GB", 10],
+      ["3GB", 15],
+      ["4GB", 20],
+      ["5GB", 24],
+      ["6GB", 28],
+      ["8GB", 36],
+      ["10GB", 45],
+      ["15GB", 64],
+      ["20GB", 84],
+      ["25GB", 100],
+      ["30GB", 128],
+      ["40GB", 168],
+      ["50GB", 207]
+    ],
+
+    AirtelTigo: [
+      ["1GB", 5],
+      ["2GB", 10],
+      ["3GB", 15],
+      ["4GB", 20],
+      ["5GB", 24],
+      ["6GB", 26],
+      ["8GB", 35],
+      ["10GB", 45],
+      ["12GB", 48],
+      ["15GB", 65],
+      ["25GB", 100],
+      ["30GB", 120],
+      ["40GB", 160],
+      ["50GB", 200]
+    ],
+
+    Telecel: [
+      ["10GB", 45],
+      ["15GB", 60],
+      ["20GB", 76],
+      ["25GB", 100],
+      ["30GB", 115],
+      ["35GB", 136],
+      ["40GB", 150],
+      ["45GB", 165],
+      ["50GB", 185],
+      ["100GB", 407]
+    ]
+
+  };
+
+
+  let selectedNetwork = "MTN";
+
+  let selectedBundle = null;
+
+
+  // =====================================================
+  // RENDER
+  // =====================================================
+
+  function renderBundles() {
+
+    const grid =
+      document.getElementById(
+        "bundleGrid"
+      );
+
+    grid.innerHTML = "";
+
+    selectedBundle = null;
+
+    document
+      .getElementById("orderBox")
+      .classList.remove("show");
+
+
+    bundles[selectedNetwork]
+      .forEach(function(item) {
+
+        const size = item[0];
+
+        const price = Number(item[1]);
+
+
+        const button =
+          document.createElement("button");
+
+        button.type = "button";
+
+        button.className = "bundle";
+
+
+        button.innerHTML = `
+
+          <div class="check">
+            ✓
+          </div>
+
+          <div class="bundle-name">
+            ${size}
+          </div>
+
+          <div class="bundle-price">
+            GH₵${price.toFixed(2)}
+          </div>
+
+          <div class="bundle-validity">
+            Validity: 90 days
+          </div>
+
+        `;
+
+
+        button.onclick =
+          function() {
+
+            selectBundle(
+              size,
+              price,
+              button
+            );
+
+          };
+
+
+        grid.appendChild(button);
+
+      });
+
+  }
+
+
+  // =====================================================
+  // NETWORK
+  // =====================================================
+
+  function selectNetwork(
+    network,
+    button
+  ) {
+
+    selectedNetwork =
+      network;
+
+
+    document
+      .querySelectorAll(".network")
+      .forEach(function(btn) {
+
+        btn.classList.remove(
+          "active"
+        );
+
+      });
+
+
+    button.classList.add(
+      "active"
+    );
+
+
+    renderBundles();
+
+  }
+
+
+  // =====================================================
+  // BUNDLE
+  // =====================================================
+
+  function selectBundle(
+    size,
+    price,
+    button
+  ) {
+
+    document
+      .querySelectorAll(".bundle")
+      .forEach(function(item) {
+
+        item.classList.remove(
+          "selected"
+        );
+
+      });
+
+
+    button.classList.add(
+      "selected"
+    );
+
+
+    selectedBundle = {
+
+      size:
+        String(size),
+
+      price:
+        Number(price)
 
     };
 
 
-    let selectedNetwork = "MTN";
+    document
+      .getElementById(
+        "selectedBundle"
+      )
+      .textContent =
+        selectedNetwork +
+        " " +
+        selectedBundle.size;
 
-    let selectedBundle = null;
+
+    document
+      .getElementById(
+        "selectedPrice"
+      )
+      .textContent =
+        "GH₵" +
+        selectedBundle.price
+          .toFixed(2);
 
 
-    // =====================================================
-    // RENDER BUNDLES
-    // =====================================================
+    document
+      .getElementById(
+        "orderBox"
+      )
+      .classList.add("show");
 
-    function renderBundles() {
 
-      const grid =
-        document.getElementById(
-          "bundleGrid"
-        );
+    clearMessage();
 
-      grid.innerHTML = "";
+  }
 
-      selectedBundle = null;
 
+  // =====================================================
+  // MESSAGE
+  // =====================================================
+
+  function showMessage(
+    message,
+    type
+  ) {
+
+    const element =
+      document.getElementById(
+        "message"
+      );
+
+
+    element.textContent =
+      message;
+
+
+    element.className =
+      "message show " +
+      type;
+
+  }
+
+
+  function clearMessage() {
+
+    const element =
+      document.getElementById(
+        "message"
+      );
+
+
+    element.textContent = "";
+
+    element.className =
+      "message";
+
+  }
+
+
+  // =====================================================
+  // PHONE VALIDATION
+  // =====================================================
+
+  function validGhanaPhone(
+    phone
+  ) {
+
+    return /^(0\d{9}|\+233\d{9})$/
+      .test(phone);
+
+  }
+
+
+  // =====================================================
+  // PLACE ORDER + PAYSTACK
+  // =====================================================
+
+  async function placeOrder() {
+
+    clearMessage();
+
+
+    const phone =
       document
-        .getElementById("orderBox")
-        .classList.remove("show");
+        .getElementById("phone")
+        .value
+        .trim();
 
 
-      bundles[selectedNetwork]
-        .forEach(function(bundle) {
+    if (!phone) {
 
-          const size =
-            bundle[0];
+      showMessage(
+        "Please enter the recipient phone number.",
+        "error"
+      );
 
-          const price =
-            bundle[1];
-
-
-          const button =
-            document.createElement(
-              "button"
-            );
-
-          button.type = "button";
-
-          button.className =
-            "bundle";
-
-
-          button.innerHTML = `
-
-            <div class="check">
-              ✓
-            </div>
-
-            <div class="bundle-name">
-              ${size}
-            </div>
-
-            <div class="bundle-price">
-              GH₵${Number(price).toFixed(2)}
-            </div>
-
-            <div class="bundle-validity">
-              Validity: 90 days
-            </div>
-
-          `;
-
-
-          button.onclick =
-            function() {
-
-              selectBundle(
-                size,
-                price,
-                button
-              );
-
-            };
-
-
-          grid.appendChild(
-            button
-          );
-
-        });
+      return;
 
     }
 
 
-    // =====================================================
-    // NETWORK
-    // =====================================================
+    if (!validGhanaPhone(phone)) {
 
-    function selectNetwork(
-      network,
-      button
-    ) {
-
-      if (!bundles[network]) {
-
-        showMessage(
-          "This network is currently unavailable.",
-          "error"
-        );
-
-        return;
-      }
-
-
-      selectedNetwork =
-        network;
-
-
-      document
-        .querySelectorAll(".network")
-        .forEach(function(item) {
-
-          item.classList.remove(
-            "active"
-          );
-
-        });
-
-
-      button.classList.add(
-        "active"
+      showMessage(
+        "Please enter a valid Ghana phone number.",
+        "error"
       );
 
-
-      renderBundles();
+      return;
 
     }
 
 
-    // =====================================================
-    // SELECT BUNDLE
-    // =====================================================
+    if (!selectedBundle) {
 
-    function selectBundle(
-      size,
-      price,
-      button
-    ) {
+      showMessage(
+        "Please select a data bundle.",
+        "error"
+      );
 
-      document
-        .querySelectorAll(".bundle")
-        .forEach(function(item) {
+      return;
 
-          item.classList.remove(
-            "selected"
-          );
-
-        });
+    }
 
 
-      button.classList.add(
-        "selected"
+    if (!selectedBundle.size) {
+
+      showMessage(
+        "Please select the bundle again.",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    const button =
+      document.getElementById(
+        "buyButton"
       );
 
 
-      // IMPORTANT:
-      // Keep the bundle SIZE here.
-      // This is what was missing from
-      // the previous order request.
+    button.disabled = true;
 
-      selectedBundle = {
-
-        size: String(size),
-
-        price: Number(price)
-
-      };
+    button.textContent =
+      "Creating order...";
 
 
-      document
-        .getElementById(
-          "selectedBundle"
-        )
-        .textContent =
-          selectedNetwork +
-          " " +
-          selectedBundle.size;
+    // =================================================
+    // ORDER PAYLOAD
+    // =================================================
 
+    const orderData = {
 
-      document
-        .getElementById(
-          "selectedPrice"
-        )
-        .textContent =
-          "GH₵" +
+      service:
+        "Data Bundle",
+
+      network:
+        selectedNetwork,
+
+      phone:
+        phone,
+
+      capacity:
+        selectedBundle.size,
+
+      data_capacity:
+        selectedBundle.size,
+
+      bundle:
+        selectedBundle.size,
+
+      amount:
+        Number(
           selectedBundle.price
-            .toFixed(2);
-
-
-      document
-        .getElementById(
-          "orderBox"
         )
-        .classList.add("show");
 
+    };
 
-      clearMessage();
 
-    }
+    console.log(
+      "DGM ORDER DATA:",
+      orderData
+    );
 
 
-    // =====================================================
-    // MESSAGE
-    // =====================================================
-
-    function showMessage(
-      text,
-      type
-    ) {
-
-      const message =
-        document.getElementById(
-          "message"
-        );
-
-
-      message.textContent =
-        text;
-
-
-      message.className =
-        "message show " +
-        type;
-
-    }
-
-
-    function clearMessage() {
-
-      const message =
-        document.getElementById(
-          "message"
-        );
-
-
-      message.textContent = "";
-
-      message.className =
-        "message";
-
-    }
-
-
-    // =====================================================
-    // PHONE VALIDATION
-    // =====================================================
-
-    function validGhanaPhone(
-      phone
-    ) {
-
-      return /^(0\d{9}|\+233\d{9})$/
-        .test(phone);
-
-    }
-
-
-    // =====================================================
-    // PLACE ORDER
-    // =====================================================
-
-    async function placeOrder() {
-
-      clearMessage();
-
-
-      const phone =
-        document
-          .getElementById("phone")
-          .value
-          .trim();
-
-
-      // -----------------------------------------
-      // PHONE CHECK
-      // -----------------------------------------
-
-      if (!phone) {
-
-        showMessage(
-          "Please enter the recipient phone number.",
-          "error"
-        );
-
-        return;
-
-      }
-
-
-      if (!validGhanaPhone(phone)) {
-
-        showMessage(
-          "Please enter a valid Ghana phone number.",
-          "error"
-        );
-
-        return;
-
-      }
-
-
-      // -----------------------------------------
-      // BUNDLE CHECK
-      // -----------------------------------------
-
-      if (!selectedBundle) {
-
-        showMessage(
-          "Please select a data bundle.",
-          "error"
-        );
-
-        return;
-
-      }
-
-
-      // -----------------------------------------
-      // CAPACITY CHECK
-      // -----------------------------------------
-
-      if (
-        !selectedBundle.size ||
-        String(
-          selectedBundle.size
-        ).trim() === ""
-      ) {
-
-        showMessage(
-          "The selected data bundle is missing its capacity. Please select the bundle again.",
-          "error"
-        );
-
-        return;
-
-      }
-
-
-      // -----------------------------------------
-      // PRICE CHECK
-      // -----------------------------------------
-
-      if (
-        !Number.isFinite(
-          Number(selectedBundle.price)
-        ) ||
-        Number(selectedBundle.price) <= 0
-      ) {
-
-        showMessage(
-          "Invalid bundle price.",
-          "error"
-        );
-
-        return;
-
-      }
-
-
-      const button =
-        document.getElementById(
-          "buyButton"
-        );
-
-
-      button.disabled = true;
-
-      button.textContent =
-        "Submitting order...";
-
+    try {
 
       // =================================================
-      // IMPORTANT ORDER PAYLOAD
+      // STEP 1
+      // CREATE ORDER
       // =================================================
 
-      const orderData = {
+      const response =
+        await fetch(
+          "/api/orders",
+          {
 
-        service:
-          "Data Bundle",
+            method:
+              "POST",
 
-        network:
-          selectedNetwork,
+            credentials:
+              "include",
 
-        phone:
-          phone,
+            headers: {
 
-        // THIS FIXES THE PROBLEM
-        capacity:
-          selectedBundle.size,
+              "Content-Type":
+                "application/json",
 
-        // Additional compatibility fields
-        data_capacity:
-          selectedBundle.size,
+              "Accept":
+                "application/json"
 
-        bundle:
-          selectedBundle.size,
+            },
 
-        amount:
-          Number(
-            selectedBundle.price
-          )
+            body:
+              JSON.stringify(
+                orderData
+              )
 
-      };
-
-
-      // Show exactly what is being sent
-      // in the browser console.
-
-      console.log(
-        "DGM ORDER DATA:",
-        orderData
-      );
+          }
+        );
 
 
-      try {
-
-        const response =
-          await fetch(
-            "/api/orders",
-            {
-
-              method:
-                "POST",
-
-              credentials:
-                "include",
-
-              headers: {
-
-                "Content-Type":
-                  "application/json",
-
-                "Accept":
-                  "application/json"
-
-              },
-
-              body:
-                JSON.stringify(
-                  orderData
-                )
-
+      const result =
+        await response
+          .json()
+          .catch(
+            function() {
+              return {};
             }
           );
 
 
-        let result = {};
-
-        try {
-
-          result =
-            await response.json();
-
-        } catch {
-
-          result = {};
-
-        }
+      console.log(
+        "DGM ORDER RESPONSE:",
+        result
+      );
 
 
-        console.log(
-          "DGM SERVER RESPONSE:",
-          result
-        );
+      // =================================================
+      // LOGIN
+      // =================================================
 
-
-        // -----------------------------------------
-        // LOGIN REQUIRED
-        // -----------------------------------------
-
-        if (
-          response.status === 401
-        ) {
-
-          showMessage(
-            "Please log in to your DGM customer account first.",
-            "error"
-          );
-
-
-          setTimeout(
-            function() {
-
-              window.location.href =
-                "/login.html";
-
-            },
-            1200
-          );
-
-
-          return;
-
-        }
-
-
-        // -----------------------------------------
-        // SERVER ERROR
-        // -----------------------------------------
-
-        if (!response.ok) {
-
-          const errorMessage =
-            result.message ||
-            result.error ||
-            "Unable to submit order.";
-
-
-          showMessage(
-            errorMessage,
-            "error"
-          );
-
-
-          button.disabled = false;
-
-          button.textContent =
-            "Continue";
-
-
-          return;
-
-        }
-
-
-        // -----------------------------------------
-        // SUCCESS
-        // -----------------------------------------
-
-        const orderRef =
-          result.orderRef ||
-          (
-            result.order &&
-            result.order.order_ref
-          ) ||
-          "Pending";
-
+      if (
+        response.status === 401
+      ) {
 
         showMessage(
-
-          "Order received successfully. " +
-          "Reference: " +
-          orderRef +
-          ". Status: Pending.",
-
-          "success"
-
+          "Please log in to your DGM account first.",
+          "error"
         );
 
-
-        button.textContent =
-          "Order Submitted";
-
-
-        // -----------------------------------------
-        // GO TO ORDERS
-        // -----------------------------------------
 
         setTimeout(
           function() {
 
             window.location.href =
-              "/orders.html";
+              "/login.html";
 
           },
-          1800
+          1200
         );
 
 
-      } catch (error) {
-
-        console.error(
-          "DGM ORDER ERROR:",
-          error
-        );
-
-
-        showMessage(
-          "Unable to connect to the DGM server. Please try again.",
-          "error"
-        );
-
-
-        button.disabled = false;
-
-        button.textContent =
-          "Continue";
+        return;
 
       }
+
+
+      // =================================================
+      // ORDER ERROR
+      // =================================================
+
+      if (!response.ok) {
+
+        throw new Error(
+          result.message ||
+          result.error ||
+          "Unable to create order."
+        );
+
+      }
+
+
+      // =================================================
+      // GET ORDER
+      // =================================================
+
+      const order =
+        result.order;
+
+
+      if (!order) {
+
+        throw new Error(
+          "Order was created but no order information was returned."
+        );
+
+      }
+
+
+      const orderRef =
+        order.order_ref;
+
+
+      if (!orderRef) {
+
+        throw new Error(
+          "Order reference was not returned by the server."
+        );
+
+      }
+
+
+      console.log(
+        "DGM ORDER CREATED:",
+        orderRef
+      );
+
+
+      // =================================================
+      // STEP 2
+      // INITIALIZE PAYSTACK
+      // =================================================
+
+      button.textContent =
+        "Opening Paystack...";
+
+
+      const paymentResponse =
+        await fetch(
+          "/api/payments/initialize",
+          {
+
+            method:
+              "POST",
+
+            credentials:
+              "include",
+
+            headers: {
+
+              "Content-Type":
+                "application/json",
+
+              "Accept":
+                "application/json"
+
+            },
+
+            body:
+              JSON.stringify({
+
+                orderRef:
+                  orderRef
+
+              })
+
+          }
+        );
+
+
+      const payment =
+        await paymentResponse
+          .json()
+          .catch(
+            function() {
+              return {};
+            }
+          );
+
+
+      console.log(
+        "DGM PAYSTACK RESPONSE:",
+        payment
+      );
+
+
+      // =================================================
+      // PAYSTACK ERROR
+      // =================================================
+
+      if (!paymentResponse.ok) {
+
+        throw new Error(
+          payment.message ||
+          payment.error ||
+          "Unable to initialize Paystack payment."
+        );
+
+      }
+
+
+      // =================================================
+      // PAYSTACK URL
+      // =================================================
+
+      if (
+        !payment.authorization_url
+      ) {
+
+        throw new Error(
+          "Paystack did not return a payment link. Check your Paystack configuration on Render."
+        );
+
+      }
+
+
+      console.log(
+        "PAYSTACK AUTHORIZATION URL:",
+        payment.authorization_url
+      );
+
+
+      // =================================================
+      // STEP 3
+      // REDIRECT
+      // =================================================
+
+      window.location.href =
+        payment.authorization_url;
 
     }
 
 
-    // =====================================================
-    // START
-    // =====================================================
+    catch (error) {
 
-    renderBundles();
+      console.error(
+        "DGM PAYMENT ERROR:",
+        error
+      );
 
-  </script>
+
+      showMessage(
+        error.message ||
+        "Unable to start payment.",
+        "error"
+      );
+
+
+      button.disabled = false;
+
+      button.textContent =
+        "Continue to Payment";
+
+    }
+
+  }
+
+
+  // =====================================================
+  // START
+  // =====================================================
+
+  renderBundles();
+
+</script>
 
 </body>
 </html>
