@@ -34,6 +34,7 @@
       position: sticky;
       top: 0;
       z-index: 20;
+      backdrop-filter: blur(12px);
     }
 
     .back {
@@ -138,8 +139,9 @@
       border: 1px solid rgba(255,255,255,.08);
       border-radius: 20px;
       padding: 17px;
-      margin-bottom: 13px;
+      margin-bottom: 15px;
       box-shadow: 0 15px 35px rgba(0,0,0,.18);
+      overflow: hidden;
     }
 
     .order-top {
@@ -195,27 +197,71 @@
       border: 1px solid rgba(255,80,80,.18);
     }
 
+    .status-message {
+      padding: 11px 12px;
+      border-radius: 12px;
+      margin-bottom: 13px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .status-message.processing-message {
+      color: #9bd4ff;
+      background: rgba(96,185,255,.07);
+      border: 1px solid rgba(96,185,255,.12);
+    }
+
+    .status-message.completed-message {
+      color: #75e69e;
+      background: rgba(37,211,102,.07);
+      border: 1px solid rgba(37,211,102,.12);
+    }
+
+    .status-message.failed-message {
+      color: #ff9999;
+      background: rgba(255,80,80,.07);
+      border: 1px solid rgba(255,80,80,.12);
+    }
+
+    .status-message.pending-message {
+      color: #ffd36b;
+      background: rgba(255,196,77,.07);
+      border: 1px solid rgba(255,196,77,.12);
+    }
+
+    .section-title {
+      color: #6f8585;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      margin: 15px 0 5px;
+    }
+
     .order-details {
       border-top: 1px solid rgba(255,255,255,.07);
-      padding-top: 12px;
+      padding-top: 10px;
     }
 
     .row {
       display: flex;
       justify-content: space-between;
+      align-items: flex-start;
       gap: 15px;
-      padding: 6px 0;
+      padding: 7px 0;
       font-size: 13px;
     }
 
     .row span:first-child {
       color: #819797;
+      flex-shrink: 0;
     }
 
     .row span:last-child {
       color: #fff;
       font-weight: 700;
       text-align: right;
+      word-break: break-word;
     }
 
     .amount {
@@ -225,9 +271,28 @@
     }
 
     .date {
-      color: #738888 !important;
+      color: #c7d2d2 !important;
       font-size: 11px;
-      font-weight: 500 !important;
+      font-weight: 600 !important;
+    }
+
+    .reference {
+      font-family: monospace;
+      color: #b8dede !important;
+      font-size: 10px;
+      max-width: 65%;
+    }
+
+    .payment-paid {
+      color: #25d366 !important;
+    }
+
+    .payment-pending {
+      color: #ffc44d !important;
+    }
+
+    .payment-failed {
+      color: #ff7777 !important;
     }
 
     .refresh {
@@ -290,6 +355,32 @@
       font-size: 20px;
     }
 
+    @media (max-width: 480px) {
+
+      .order {
+        padding: 15px;
+      }
+
+      .order-top {
+        align-items: flex-start;
+      }
+
+      .status {
+        font-size: 9px;
+        padding: 6px 8px;
+      }
+
+      .row {
+        font-size: 12px;
+      }
+
+      .reference {
+        max-width: 60%;
+        font-size: 9px;
+      }
+
+    }
+
   </style>
 
 </head>
@@ -318,7 +409,7 @@
     <h1>My Orders</h1>
 
     <p>
-      View your recent DGM purchases and track their status.
+      View your purchases, payment status and DataMart fulfillment details.
     </p>
 
   </section>
@@ -399,10 +490,53 @@
   }
 
 
-  function statusClass(status) {
+  function normalizeStatus(status) {
 
     const value =
-      String(status || "").toLowerCase();
+      String(status || "Pending")
+        .trim()
+        .toLowerCase();
+
+    if (
+      value === "completed" ||
+      value === "complete" ||
+      value === "success" ||
+      value === "successful"
+    ) {
+      return "Completed";
+    }
+
+    if (
+      value === "processing" ||
+      value === "in progress" ||
+      value === "in_progress"
+    ) {
+      return "Processing";
+    }
+
+    if (
+      value === "failed" ||
+      value === "cancelled" ||
+      value === "canceled"
+    ) {
+      return value === "cancelled" || value === "canceled"
+        ? "Cancelled"
+        : "Failed";
+    }
+
+    if (
+      value === "paid"
+    ) {
+      return "Processing";
+    }
+
+    return "Pending";
+  }
+
+
+  function statusClass(status) {
+
+    const value = normalizeStatus(status).toLowerCase();
 
     if (value === "completed") {
       return "completed";
@@ -416,10 +550,65 @@
       value === "failed" ||
       value === "cancelled"
     ) {
-      return value;
+      return "failed";
     }
 
     return "pending";
+
+  }
+
+
+  function paymentClass(paymentStatus) {
+
+    const value =
+      String(paymentStatus || "")
+        .toLowerCase();
+
+    if (
+      value === "paid" ||
+      value === "success" ||
+      value === "successful" ||
+      value === "completed"
+    ) {
+      return "payment-paid";
+    }
+
+    if (
+      value === "failed" ||
+      value === "cancelled"
+    ) {
+      return "payment-failed";
+    }
+
+    return "payment-pending";
+
+  }
+
+
+  function formatPaymentStatus(paymentStatus) {
+
+    const value =
+      String(paymentStatus || "")
+        .trim()
+        .toLowerCase();
+
+    if (
+      value === "paid" ||
+      value === "success" ||
+      value === "successful" ||
+      value === "completed"
+    ) {
+      return "Paid";
+    }
+
+    if (
+      value === "failed" ||
+      value === "cancelled"
+    ) {
+      return "Failed";
+    }
+
+    return "Pending";
 
   }
 
@@ -430,13 +619,29 @@
       return "—";
     }
 
-    const date =
-      new Date(
-        dateString.replace(" ", "T") + "Z"
+    let date;
+
+    const raw =
+      String(dateString);
+
+    if (
+      raw.includes("T") ||
+      raw.endsWith("Z") ||
+      raw.includes("+")
+    ) {
+
+      date = new Date(raw);
+
+    } else {
+
+      date = new Date(
+        raw.replace(" ", "T") + "Z"
       );
 
+    }
+
     if (Number.isNaN(date.getTime())) {
-      return dateString;
+      return escapeHtml(raw);
     }
 
     return date.toLocaleString(
@@ -446,6 +651,60 @@
         timeStyle: "short"
       }
     );
+
+  }
+
+
+  function getStatusMessage(status) {
+
+    const normalized =
+      normalizeStatus(status);
+
+    if (normalized === "Completed") {
+
+      return {
+        className: "completed-message",
+        icon: "✓",
+        text: "Your order has been completed successfully."
+      };
+
+    }
+
+    if (normalized === "Processing") {
+
+      return {
+        className: "processing-message",
+        icon: "⏳",
+        text: "Your payment has been confirmed and your order is being processed."
+      };
+
+    }
+
+    if (normalized === "Failed") {
+
+      return {
+        className: "failed-message",
+        icon: "!",
+        text: "This order could not be completed. Please contact DHE GENIUS MEDIA if you need assistance."
+      };
+
+    }
+
+    if (normalized === "Cancelled") {
+
+      return {
+        className: "failed-message",
+        icon: "×",
+        text: "This order has been cancelled."
+      };
+
+    }
+
+    return {
+      className: "pending-message",
+      icon: "⌛",
+      text: "Waiting for payment confirmation."
+    };
 
   }
 
@@ -460,6 +719,7 @@
 
     container.innerHTML = "";
 
+
     if (!orders || orders.length === 0) {
 
       container.style.display = "none";
@@ -468,6 +728,7 @@
       return;
 
     }
+
 
     empty.style.display = "none";
     container.style.display = "block";
@@ -480,26 +741,82 @@
 
       card.className = "order";
 
-      const status =
-        escapeHtml(order.status || "Pending");
+
+      const normalizedStatus =
+        normalizeStatus(order.status);
 
       const statusStyle =
         statusClass(order.status);
 
+      const statusMessage =
+        getStatusMessage(order.status);
+
+
       const service =
-        escapeHtml(order.service || "Service");
+        escapeHtml(
+          order.service || "Service"
+        );
 
       const network =
-        escapeHtml(order.network || "—");
+        escapeHtml(
+          order.network || "—"
+        );
 
       const phone =
-        escapeHtml(order.phone || "—");
+        escapeHtml(
+          order.phone || "—"
+        );
+
+      const capacity =
+        escapeHtml(
+          order.capacity ||
+          order.data_capacity ||
+          order.bundle ||
+          "—"
+        );
 
       const ref =
-        escapeHtml(order.order_ref || "—");
+        escapeHtml(
+          order.order_ref || "—"
+        );
+
+
+      const datamartReference =
+        escapeHtml(
+          order.datamart_reference ||
+          "Not available yet"
+        );
+
+
+      const datamartTransaction =
+        escapeHtml(
+          order.datamart_transaction_reference ||
+          "Not available yet"
+        );
+
+
+      const datamartPurchaseId =
+        escapeHtml(
+          order.datamart_purchase_id ||
+          "Not available yet"
+        );
+
+
+      const paymentStatus =
+        formatPaymentStatus(
+          order.payment_status
+        );
+
+
+      const amountNumber =
+        Number(order.amount || 0);
+
 
       const amount =
-        Number(order.amount || 0).toFixed(2);
+        Number.isFinite(amountNumber)
+          ? amountNumber.toFixed(2)
+          : "0.00";
+
 
       const date =
         escapeHtml(
@@ -518,23 +835,39 @@
             </div>
 
             <div class="order-ref">
-              ${ref}
+              Order: ${ref}
             </div>
 
           </div>
 
           <span class="status ${statusStyle}">
-            ${status}
+            ${escapeHtml(normalizedStatus)}
           </span>
 
         </div>
 
+
+        <div class="status-message ${statusMessage.className}">
+          ${statusMessage.icon}
+          &nbsp;
+          ${statusMessage.text}
+        </div>
+
+
+        <div class="section-title">
+          Order Details
+        </div>
 
         <div class="order-details">
 
           <div class="row">
             <span>Network</span>
             <span>${network}</span>
+          </div>
+
+          <div class="row">
+            <span>Bundle</span>
+            <span>${capacity}</span>
           </div>
 
           <div class="row">
@@ -550,7 +883,14 @@
           </div>
 
           <div class="row">
-            <span>Date</span>
+            <span>Payment</span>
+            <span class="${paymentClass(order.payment_status)}">
+              ${escapeHtml(paymentStatus)}
+            </span>
+          </div>
+
+          <div class="row">
+            <span>Order Date</span>
             <span class="date">
               ${date}
             </span>
@@ -558,7 +898,43 @@
 
         </div>
 
+
+        <div class="section-title">
+          DataMart Information
+        </div>
+
+        <div class="order-details">
+
+          <div class="row">
+            <span>DataMart Reference</span>
+
+            <span class="reference">
+              ${datamartReference}
+            </span>
+          </div>
+
+
+          <div class="row">
+            <span>Transaction Reference</span>
+
+            <span class="reference">
+              ${datamartTransaction}
+            </span>
+          </div>
+
+
+          <div class="row">
+            <span>Purchase ID</span>
+
+            <span class="reference">
+              ${datamartPurchaseId}
+            </span>
+          </div>
+
+        </div>
+
       `;
+
 
       container.appendChild(card);
 
@@ -583,18 +959,24 @@
 
 
     loading.style.display = "block";
+
     error.style.display = "none";
 
     container.style.display = "none";
+
     empty.style.display = "none";
 
 
     try {
 
       const response =
-        await fetch("/api/orders", {
-          credentials: "same-origin"
-        });
+        await fetch(
+          "/api/orders",
+          {
+            credentials: "same-origin",
+            cache: "no-store"
+          }
+        );
 
 
       if (response.status === 401) {
@@ -621,12 +1003,16 @@
       }
 
 
-      renderOrders(data.orders || []);
+      renderOrders(
+        data.orders || []
+      );
 
 
     } catch (err) {
 
-      loading.style.display = "none";
+      container.style.display = "none";
+
+      empty.style.display = "none";
 
       error.style.display = "block";
 
