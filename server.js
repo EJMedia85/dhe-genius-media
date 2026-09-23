@@ -8,22 +8,25 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// ===============================
-// DATAMARTGH API
-// ===============================
+// =====================================================
+// ENVIRONMENT
+// =====================================================
+
+const PAYSTACK_SECRET_KEY =
+  process.env.PAYSTACK_SECRET_KEY || "";
 
 const DATAMART_BASE_URL =
   "https://api.datamartgh.shop/api/developer";
 
 const DATAMART_API_KEY =
-  process.env.DATAMART_API_KEY;
+  process.env.DATAMART_API_KEY || "";
 
 const DATAMART_API_SECRET =
   process.env.DATAMART_API_SECRET || "";
 
-// ===============================
+// =====================================================
 // DATABASE
-// ===============================
+// =====================================================
 
 if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL is missing.");
@@ -37,9 +40,9 @@ const pool = new Pool({
   }
 });
 
-// ===============================
-// CREATE TABLES
-// ===============================
+// =====================================================
+// DATABASE INITIALIZATION
+// =====================================================
 
 async function initializeDatabase() {
   await pool.query(`
@@ -97,14 +100,26 @@ async function initializeDatabase() {
 
     ALTER TABLE orders
     ADD COLUMN IF NOT EXISTS datamart_status TEXT;
+
+    ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS capacity TEXT;
+
+    ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS paystack_reference TEXT;
+
+    ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'Pending';
+
+    ALTER TABLE orders
+    ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP;
   `);
 
   console.log("DGM PostgreSQL database ready.");
 }
 
-// ===============================
-// APP SETTINGS
-// ===============================
+// =====================================================
+// MIDDLEWARE
+// =====================================================
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -127,15 +142,15 @@ app.use(
   })
 );
 
-// ===============================
+// =====================================================
 // STATIC WEBSITE
-// ===============================
+// =====================================================
 
 app.use(express.static(path.join(__dirname, "public")));
 
-// ===============================
+// =====================================================
 // HELPERS
-// ===============================
+// =====================================================
 
 function cleanPhone(phone) {
   return String(phone || "").trim();
@@ -210,9 +225,9 @@ function createTransactionReference() {
   );
 }
 
-// ===============================
-// DATAMARTGH REQUEST HELPER
-// ===============================
+// =====================================================
+// DATAMARTGH REQUEST
+// =====================================================
 
 async function datamartRequest(endpoint, options = {}) {
   if (!DATAMART_API_KEY) {
@@ -261,9 +276,52 @@ async function datamartRequest(endpoint, options = {}) {
   return data;
 }
 
-// ===============================
+// =====================================================
+// PAYSTACK REQUEST
+// =====================================================
+
+async function paystackRequest(endpoint, options = {}) {
+  if (!PAYSTACK_SECRET_KEY) {
+    throw new Error(
+      "PAYSTACK_SECRET_KEY is not configured on Render."
+    );
+  }
+
+  const response = await fetch(
+    "https://api.paystack.co" + endpoint,
+    {
+      ...options,
+      headers: {
+        Authorization:
+          `Bearer ${PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      }
+    }
+  );
+
+  const data = await response
+    .json()
+    .catch(() => ({}));
+
+  if (!response.ok || data.status === false) {
+    const error = new Error(
+      data.message ||
+        "Paystack request failed."
+    );
+
+    error.status = response.status;
+    error.data = data;
+
+    throw error;
+  }
+
+  return data;
+}
+
+// =====================================================
 // NETWORK CONVERSION
-// ===============================
+// =====================================================
 
 function datamartNetwork(network) {
   const networks = {
@@ -275,9 +333,9 @@ function datamartNetwork(network) {
   return networks[network] || null;
 }
 
-// ===============================
+// =====================================================
 // HEALTH CHECK
-// ===============================
+// =====================================================
 
 app.get("/api/health", async (req, res) => {
   try {
@@ -290,6 +348,10 @@ app.get("/api/health", async (req, res) => {
       database: "connected",
       datamart:
         DATAMART_API_KEY
+          ? "configured"
+          : "not_configured",
+      paystack:
+        PAYSTACK_SECRET_KEY
           ? "configured"
           : "not_configured"
     });
@@ -307,9 +369,9 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
-// ===============================
+// =====================================================
 // DATAMARTGH BALANCE
-// ===============================
+// =====================================================
 
 app.get(
   "/api/datamart/balance",
@@ -336,9 +398,9 @@ app.get(
   }
 );
 
-// ===============================
-// DATAMARTGH DATA PACKAGES
-// ===============================
+// =====================================================
+// DATAMARTGH PACKAGES
+// =====================================================
 
 app.get(
   "/api/datamart/packages",
@@ -386,9 +448,9 @@ app.get(
   }
 );
 
-// ===============================
+// =====================================================
 // REGISTER
-// ===============================
+// =====================================================
 
 app.post(
   "/api/register",
@@ -533,9 +595,9 @@ app.post(
   }
 );
 
-// ===============================
+// =====================================================
 // LOGIN
-// ===============================
+// =====================================================
 
 app.post(
   "/api/login",
@@ -623,9 +685,9 @@ app.post(
   }
 );
 
-// ===============================
+// =====================================================
 // CURRENT CUSTOMER
-// ===============================
+// =====================================================
 
 app.get(
   "/api/me",
@@ -667,9 +729,9 @@ app.get(
   }
 );
 
-// ===============================
+// =====================================================
 // LOGOUT
-// ===============================
+// =====================================================
 
 app.post(
   "/api/logout",
@@ -698,9 +760,9 @@ app.post(
   }
 );
 
-// ===============================
+// =====================================================
 // CUSTOMER ORDERS
-// ===============================
+// =====================================================
 
 app.get(
   "/api/orders",
@@ -717,7 +779,11 @@ app.get(
             network,
             phone,
             amount,
+            capacity,
             status,
+            payment_status,
+            paystack_reference,
+            paid_at,
             datamart_purchase_id,
             datamart_reference,
             datamart_transaction_reference,
@@ -750,15 +816,9 @@ app.get(
   }
 );
 
-// ===============================
+// =====================================================
 // CREATE ORDER
-// ===============================
-//
-// IMPORTANT:
-// This creates a DGM order only.
-// It DOES NOT purchase from DataMartGH.
-// Payment confirmation must happen first.
-//
+// =====================================================
 
 app.post(
   "/api/orders",
@@ -777,6 +837,11 @@ app.post(
 
       const phone =
         cleanPhone(req.body.phone);
+
+      const capacity =
+        String(
+          req.body.capacity || ""
+        ).trim();
 
       const amount =
         Number(req.body.amount);
@@ -843,6 +908,17 @@ app.post(
         });
       }
 
+      if (
+        service === "Data Bundle" &&
+        !capacity
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Data capacity is required."
+        });
+      }
+
       const orderRef =
         createOrderReference();
 
@@ -857,10 +933,12 @@ app.post(
             network,
             phone,
             amount,
-            status
+            capacity,
+            status,
+            payment_status
           )
           VALUES
-          ($1, $2, $3, $4, $5, $6, $7)
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9)
           RETURNING id
           `,
           [
@@ -870,7 +948,9 @@ app.post(
             network,
             phone,
             amount,
-            "Pending Payment"
+            capacity || null,
+            "Pending Payment",
+            "Pending"
           ]
         );
 
@@ -884,7 +964,9 @@ app.post(
             network,
             phone,
             amount,
+            capacity,
             status,
+            payment_status,
             created_at
           FROM orders
           WHERE id = $1
@@ -895,7 +977,7 @@ app.post(
       res.json({
         success: true,
         message:
-          "Order created. Payment is required before fulfillment.",
+          "Order created. Proceed to payment.",
         order:
           orderResult.rows[0]
       });
@@ -914,40 +996,36 @@ app.post(
   }
 );
 
-// ===============================
-// DATAMARTGH PURCHASE
-// ===============================
-//
-// This endpoint is intentionally protected.
-// A real payment-confirmation system
-// should call this after payment succeeds.
-//
+// =====================================================
+// PAYSTACK INITIALIZE PAYMENT
+// =====================================================
 
 app.post(
-  "/api/orders/:orderRef/datamart-purchase",
+  "/api/payments/initialize",
   requireLogin,
   async (req, res) => {
-    const client =
-      await pool.connect();
-
     try {
       const orderRef =
         String(
-          req.params.orderRef || ""
+          req.body.orderRef || ""
         ).trim();
 
-      await client.query(
-        "BEGIN"
-      );
+      if (!orderRef) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Order reference is required."
+        });
+      }
 
       const orderResult =
-        await client.query(
+        await pool.query(
           `
           SELECT *
           FROM orders
           WHERE order_ref = $1
             AND customer_id = $2
-          FOR UPDATE
+          LIMIT 1
           `,
           [
             orderRef,
@@ -959,10 +1037,6 @@ app.post(
         orderResult.rows[0];
 
       if (!order) {
-        await client.query(
-          "ROLLBACK"
-        );
-
         return res.status(404).json({
           success: false,
           message:
@@ -971,162 +1045,93 @@ app.post(
       }
 
       if (
-        order.service !==
-        "Data Bundle"
+        order.payment_status ===
+        "Paid"
       ) {
-        await client.query(
-          "ROLLBACK"
-        );
-
         return res.status(400).json({
           success: false,
           message:
-            "This order is not a data bundle order."
+            "This order has already been paid."
         });
       }
 
-      if (
-        order.status !==
-          "Paid" &&
-        order.status !==
-          "Processing"
-      ) {
-        await client.query(
-          "ROLLBACK"
+      const customer =
+        await getCustomer(
+          req.session.customerId
         );
 
-        return res.status(400).json({
+      if (!customer) {
+        return res.status(404).json({
           success: false,
           message:
-            "Order has not been confirmed as paid."
+            "Customer account not found."
         });
       }
 
-      if (
-        order.datamart_purchase_id
-      ) {
-        await client.query(
-          "ROLLBACK"
+      /*
+       * Paystack amount is in pesewas.
+       * Example:
+       * GH₵5.00 = 500
+       */
+
+      const amountPesewas =
+        Math.round(
+          Number(order.amount) * 100
         );
 
-        return res.json({
-          success: true,
-          message:
-            "DataMartGH purchase already exists.",
-          purchaseId:
-            order.datamart_purchase_id,
-          orderReference:
-            order.datamart_reference
-        });
-      }
-
-      const dmNetwork =
-        datamartNetwork(
-          order.network
-        );
-
-      if (!dmNetwork) {
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Unsupported network."
-        });
-      }
-
-      const capacity =
-        String(
-          req.body.capacity || ""
-        ).trim();
-
-      if (!capacity) {
-        await client.query(
-          "ROLLBACK"
-        );
-
-        return res.status(400).json({
-          success: false,
-          message:
-            "Data capacity is required."
-        });
-      }
-
-      await client.query(
-        `
-        UPDATE orders
-        SET status = 'Processing'
-        WHERE id = $1
-        `,
-        [order.id]
-      );
-
-      await client.query(
-        "COMMIT"
-      );
-
-      const idempotencyKey =
-        `dgm-${order.order_ref}`;
-
-      const purchase =
-        await datamartRequest(
-          "/purchase",
+      const payment =
+        await paystackRequest(
+          "/transaction/initialize",
           {
             method: "POST",
-            headers: {
-              "X-Idempotency-Key":
-                idempotencyKey
-            },
             body: JSON.stringify({
-              phoneNumber:
-                order.phone,
-              network:
-                dmNetwork,
-              capacity:
-                capacity,
-              gateway:
-                "wallet",
-              ref:
-                order.order_ref
+              email: customer.email,
+
+              amount:
+                amountPesewas,
+
+              currency: "GHS",
+
+              reference:
+                order.order_ref,
+
+              metadata: {
+                order_ref:
+                  order.order_ref,
+
+                customer_id:
+                  customer.id,
+
+                service:
+                  order.service,
+
+                network:
+                  order.network,
+
+                phone:
+                  order.phone,
+
+                capacity:
+                  order.capacity || ""
+              }
             })
           }
         );
 
-      const purchaseData =
-        purchase?.data || {};
+      const paystackReference =
+        payment.data?.reference ||
+        order.order_ref;
 
       await pool.query(
         `
         UPDATE orders
         SET
-          status = $1,
-          datamart_purchase_id = $2,
-          datamart_reference = $3,
-          datamart_transaction_reference = $4,
-          datamart_status = $5
-        WHERE id = $6
+          paystack_reference = $1,
+          payment_status = 'Pending'
+        WHERE id = $2
         `,
         [
-          purchaseData.orderStatus ===
-          "completed"
-            ? "Completed"
-            : "Processing",
-
-          purchaseData.purchaseId ||
-            null,
-
-          purchaseData.orderReference ||
-            null,
-
-          purchaseData.transactionReference ||
-            null,
-
-          purchaseData.orderStatus ||
-            purchase.status ||
-            null,
-
+          paystackReference,
           order.id
         ]
       );
@@ -1134,21 +1139,19 @@ app.post(
       res.json({
         success: true,
         message:
-          purchase.message ||
-          "Data purchase submitted successfully.",
-        purchase
+          "Paystack payment initialized.",
+        authorization_url:
+          payment.data?.authorization_url,
+        access_code:
+          payment.data?.access_code,
+        reference:
+          paystackReference
       });
     } catch (error) {
       console.error(
-        "DATAMART PURCHASE ERROR:",
+        "PAYSTACK INITIALIZE ERROR:",
         error
       );
-
-      try {
-        await client.query(
-          "ROLLBACK"
-        );
-      } catch (_) {}
 
       res.status(
         error.status || 500
@@ -1156,19 +1159,608 @@ app.post(
         success: false,
         message:
           error.data?.message ||
-          "DataMartGH purchase failed.",
-        code:
-          error.data?.code || null
+          error.message ||
+          "Unable to initialize Paystack payment."
       });
-    } finally {
-      client.release();
     }
   }
 );
 
-// ===============================
+// =====================================================
+// FULFILL DATA ORDER
+// =====================================================
+
+async function fulfillDataOrder(order) {
+  if (
+    !order ||
+    order.service !== "Data Bundle"
+  ) {
+    return {
+      success: false,
+      message:
+        "Order is not a data bundle order."
+    };
+  }
+
+  if (
+    order.datamart_purchase_id
+  ) {
+    return {
+      success: true,
+      alreadyProcessed: true,
+      purchaseId:
+        order.datamart_purchase_id,
+      orderReference:
+        order.datamart_reference
+    };
+  }
+
+  const dmNetwork =
+    datamartNetwork(
+      order.network
+    );
+
+  if (!dmNetwork) {
+    throw new Error(
+      "Unsupported network."
+    );
+  }
+
+  if (!order.capacity) {
+    throw new Error(
+      "Data capacity is missing from this order."
+    );
+  }
+
+  await pool.query(
+    `
+    UPDATE orders
+    SET status = 'Processing'
+    WHERE id = $1
+      AND payment_status = 'Paid'
+    `,
+    [order.id]
+  );
+
+  const idempotencyKey =
+    `dgm-${order.order_ref}`;
+
+  const purchase =
+    await datamartRequest(
+      "/purchase",
+      {
+        method: "POST",
+
+        headers: {
+          "X-Idempotency-Key":
+            idempotencyKey
+        },
+
+        body: JSON.stringify({
+          phoneNumber:
+            order.phone,
+
+          network:
+            dmNetwork,
+
+          capacity:
+            order.capacity,
+
+          gateway:
+            "wallet",
+
+          ref:
+            order.order_ref
+        })
+      }
+    );
+
+  const purchaseData =
+    purchase?.data || {};
+
+  await pool.query(
+    `
+    UPDATE orders
+    SET
+      status = $1,
+      datamart_purchase_id = $2,
+      datamart_reference = $3,
+      datamart_transaction_reference = $4,
+      datamart_status = $5
+    WHERE id = $6
+    `,
+    [
+      purchaseData.orderStatus ===
+      "completed"
+        ? "Completed"
+        : "Processing",
+
+      purchaseData.purchaseId ||
+        null,
+
+      purchaseData.orderReference ||
+        null,
+
+      purchaseData.transactionReference ||
+        null,
+
+      purchaseData.orderStatus ||
+        purchase.status ||
+        null,
+
+      order.id
+    ]
+  );
+
+  return {
+    success: true,
+    purchase
+  };
+}
+
+// =====================================================
+// VERIFY PAYSTACK PAYMENT
+// =====================================================
+
+app.get(
+  "/api/payments/verify/:reference",
+  requireLogin,
+  async (req, res) => {
+    try {
+      const reference =
+        String(
+          req.params.reference || ""
+        ).trim();
+
+      if (!reference) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Payment reference is required."
+        });
+      }
+
+      const orderResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE
+            customer_id = $1
+            AND (
+              order_ref = $2
+              OR paystack_reference = $2
+            )
+          LIMIT 1
+          `,
+          [
+            req.session.customerId,
+            reference
+          ]
+        );
+
+      const order =
+        orderResult.rows[0];
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Order not found."
+        });
+      }
+
+      const payment =
+        await paystackRequest(
+          `/transaction/verify/${encodeURIComponent(reference)}`,
+          {
+            method: "GET"
+          }
+        );
+
+      const paymentData =
+        payment.data || {};
+
+      const paid =
+        paymentData.status ===
+          "success" &&
+        paymentData.currency ===
+          "GHS" &&
+        Number(
+          paymentData.amount
+        ) ===
+          Math.round(
+            Number(order.amount) * 100
+          );
+
+      if (!paid) {
+        await pool.query(
+          `
+          UPDATE orders
+          SET payment_status = 'Failed',
+              status = 'Payment Failed'
+          WHERE id = $1
+            AND payment_status <> 'Paid'
+          `,
+          [order.id]
+        );
+
+        return res.status(400).json({
+          success: false,
+          message:
+            "Paystack payment was not successful.",
+          payment_status:
+            paymentData.status || "failed"
+        });
+      }
+
+      /*
+       * Idempotency protection:
+       * Never process the same paid order twice.
+       */
+
+      if (
+        order.payment_status !==
+        "Paid"
+      ) {
+        await pool.query(
+          `
+          UPDATE orders
+          SET
+            payment_status = 'Paid',
+            status = 'Paid',
+            paystack_reference = $1,
+            paid_at = CURRENT_TIMESTAMP
+          WHERE id = $2
+            AND payment_status <> 'Paid'
+          `,
+          [
+            paymentData.reference ||
+              reference,
+            order.id
+          ]
+        );
+      }
+
+      const freshOrderResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE id = $1
+          `,
+          [order.id]
+        );
+
+      const freshOrder =
+        freshOrderResult.rows[0];
+
+      /*
+       * Automatically fulfill data bundles
+       * after successful payment.
+       */
+
+      let fulfillment = null;
+
+      if (
+        freshOrder.service ===
+        "Data Bundle"
+      ) {
+        try {
+          fulfillment =
+            await fulfillDataOrder(
+              freshOrder
+            );
+        } catch (fulfillmentError) {
+          console.error(
+            "AUTOMATIC FULFILLMENT ERROR:",
+            fulfillmentError
+          );
+
+          return res.json({
+            success: true,
+            payment_status:
+              "Paid",
+            order_status:
+              "Processing",
+            message:
+              "Payment confirmed. Your order is being processed.",
+            reference:
+              paymentData.reference ||
+              reference
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        payment_status:
+          "Paid",
+        order_status:
+          fulfillment?.purchase?.data
+            ?.orderStatus ===
+            "completed"
+            ? "Completed"
+            : freshOrder.status,
+        message:
+          "Payment confirmed successfully.",
+        reference:
+          paymentData.reference ||
+          reference,
+        fulfillment
+      });
+    } catch (error) {
+      console.error(
+        "PAYSTACK VERIFY ERROR:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+        success: false,
+        message:
+          error.data?.message ||
+          error.message ||
+          "Unable to verify payment."
+      });
+    }
+  }
+);
+
+// =====================================================
+// PAYSTACK WEBHOOK
+// =====================================================
+//
+// Paystack sends events here.
+// Secret key remains server-side.
+//
+
+app.post(
+  "/api/paystack/webhook",
+  express.raw({
+    type: "application/json"
+  }),
+  async (req, res) => {
+    try {
+      if (!PAYSTACK_SECRET_KEY) {
+        return res.sendStatus(500);
+      }
+
+      const signature =
+        req.headers[
+          "x-paystack-signature"
+        ];
+
+      if (!signature) {
+        return res.sendStatus(401);
+      }
+
+      const hash =
+        crypto
+          .createHmac(
+            "sha512",
+            PAYSTACK_SECRET_KEY
+          )
+          .update(req.body)
+          .digest("hex");
+
+      if (
+        hash !== signature
+      ) {
+        console.error(
+          "Invalid Paystack webhook signature."
+        );
+
+        return res.sendStatus(401);
+      }
+
+      const event =
+        JSON.parse(
+          req.body.toString()
+        );
+
+      console.log(
+        "PAYSTACK WEBHOOK:",
+        event.event
+      );
+
+      if (
+        event.event ===
+        "charge.success"
+      ) {
+        const payment =
+          event.data || {};
+
+        const reference =
+          payment.reference;
+
+        if (!reference) {
+          return res.sendStatus(200);
+        }
+
+        const orderResult =
+          await pool.query(
+            `
+            SELECT *
+            FROM orders
+            WHERE
+              order_ref = $1
+              OR paystack_reference = $1
+            LIMIT 1
+            `,
+            [reference]
+          );
+
+        const order =
+          orderResult.rows[0];
+
+        if (!order) {
+          console.log(
+            "Webhook order not found:",
+            reference
+          );
+
+          return res.sendStatus(200);
+        }
+
+        const correctAmount =
+          Number(payment.amount) ===
+          Math.round(
+            Number(order.amount) * 100
+          );
+
+        const correctCurrency =
+          payment.currency === "GHS";
+
+        if (
+          correctAmount &&
+          correctCurrency
+        ) {
+          if (
+            order.payment_status !==
+            "Paid"
+          ) {
+            await pool.query(
+              `
+              UPDATE orders
+              SET
+                payment_status = 'Paid',
+                status = 'Paid',
+                paystack_reference = $1,
+                paid_at = CURRENT_TIMESTAMP
+              WHERE id = $2
+              `,
+              [
+                reference,
+                order.id
+              ]
+            );
+          }
+
+          /*
+           * Data bundle fulfillment.
+           */
+
+          if (
+            order.service ===
+            "Data Bundle"
+          ) {
+            try {
+              const updatedResult =
+                await pool.query(
+                  `
+                  SELECT *
+                  FROM orders
+                  WHERE id = $1
+                  `,
+                  [order.id]
+                );
+
+              await fulfillDataOrder(
+                updatedResult.rows[0]
+              );
+            } catch (fulfillmentError) {
+              console.error(
+                "WEBHOOK FULFILLMENT ERROR:",
+                fulfillmentError
+              );
+            }
+          }
+        }
+      }
+
+      return res.sendStatus(200);
+    } catch (error) {
+      console.error(
+        "PAYSTACK WEBHOOK ERROR:",
+        error
+      );
+
+      return res.sendStatus(500);
+    }
+  }
+);
+
+// =====================================================
+// OLD DATAMART PURCHASE ENDPOINT
+// =====================================================
+
+app.post(
+  "/api/orders/:orderRef/datamart-purchase",
+  requireLogin,
+  async (req, res) => {
+    try {
+      const orderRef =
+        String(
+          req.params.orderRef || ""
+        ).trim();
+
+      const orderResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE order_ref = $1
+            AND customer_id = $2
+          LIMIT 1
+          `,
+          [
+            orderRef,
+            req.session.customerId
+          ]
+        );
+
+      const order =
+        orderResult.rows[0];
+
+      if (!order) {
+        return res.status(404).json({
+          success: false,
+          message:
+            "Order not found."
+        });
+      }
+
+      if (
+        order.payment_status !==
+        "Paid"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Payment must be confirmed before fulfillment."
+        });
+      }
+
+      const result =
+        await fulfillDataOrder(
+          order
+        );
+
+      res.json(result);
+    } catch (error) {
+      console.error(
+        "DATAMART PURCHASE ERROR:",
+        error
+      );
+
+      res.status(
+        error.status || 500
+      ).json({
+        success: false,
+        message:
+          error.data?.message ||
+          error.message ||
+          "DataMartGH purchase failed."
+      });
+    }
+  }
+);
+
+// =====================================================
 // WALLET BALANCE
-// ===============================
+// =====================================================
 
 app.get(
   "/api/wallet",
@@ -1210,9 +1802,9 @@ app.get(
   }
 );
 
-// ===============================
+// =====================================================
 // WALLET TRANSACTIONS
-// ===============================
+// =====================================================
 
 app.get(
   "/api/wallet/transactions",
@@ -1259,9 +1851,9 @@ app.get(
   }
 );
 
-// ===============================
+// =====================================================
 // API 404
-// ===============================
+// =====================================================
 
 app.use(
   "/api",
@@ -1274,9 +1866,9 @@ app.use(
   }
 );
 
-// ===============================
+// =====================================================
 // START SERVER
-// ===============================
+// =====================================================
 
 initializeDatabase()
   .then(() => {
