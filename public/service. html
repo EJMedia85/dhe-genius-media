@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#071111">
+
   <title>More Services • DHE GENIUS MEDIA</title>
 
   <style>
@@ -19,36 +21,39 @@
         linear-gradient(160deg, #071111, #020606);
       color: #fff;
       min-height: 100vh;
-      padding-bottom: 85px;
+      padding-bottom: 90px;
     }
 
     header {
-      padding: 18px 16px;
+      padding: 15px 16px;
       display: flex;
       align-items: center;
       gap: 12px;
-      background: rgba(4,12,12,.94);
+      background: rgba(4,12,12,.96);
       border-bottom: 1px solid rgba(255,255,255,.08);
       position: sticky;
       top: 0;
       z-index: 20;
+      backdrop-filter: blur(14px);
     }
 
     .back {
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
       display: grid;
       place-items: center;
-      border-radius: 12px;
+      border-radius: 13px;
       background: rgba(255,255,255,.08);
       color: #fff;
       text-decoration: none;
-      font-size: 23px;
+      font-size: 25px;
+      flex-shrink: 0;
     }
 
     .brand {
       font-weight: 900;
       font-size: 16px;
+      letter-spacing: .2px;
     }
 
     .subtitle {
@@ -58,7 +63,7 @@
     }
 
     main {
-      max-width: 700px;
+      max-width: 760px;
       margin: auto;
       padding: 24px 16px;
     }
@@ -69,6 +74,7 @@
 
     .hero h1 {
       font-size: 30px;
+      line-height: 1.15;
       margin-bottom: 8px;
     }
 
@@ -86,7 +92,7 @@
 
     .service {
       position: relative;
-      min-height: 165px;
+      min-height: 175px;
       padding: 18px;
       border-radius: 20px;
       background:
@@ -98,17 +104,23 @@
       border: 1px solid rgba(255,255,255,.08);
       box-shadow: 0 15px 35px rgba(0,0,0,.18);
       overflow: hidden;
+      transition: transform .2s ease, border-color .2s ease;
+    }
+
+    .service:active {
+      transform: scale(.98);
     }
 
     .service::after {
       content: "";
       position: absolute;
-      width: 80px;
-      height: 80px;
-      right: -30px;
-      bottom: -30px;
+      width: 90px;
+      height: 90px;
+      right: -35px;
+      bottom: -35px;
       background: rgba(37,211,102,.12);
       border-radius: 50%;
+      pointer-events: none;
     }
 
     .icon {
@@ -126,23 +138,29 @@
     .service h3 {
       font-size: 16px;
       margin-bottom: 7px;
+      position: relative;
+      z-index: 2;
     }
 
     .service p {
       color: #8fa5a5;
       font-size: 12px;
       line-height: 1.45;
+      position: relative;
+      z-index: 2;
     }
 
     .status {
       display: inline-block;
       margin-top: 12px;
-      padding: 5px 8px;
+      padding: 5px 9px;
       border-radius: 8px;
       background: rgba(255,190,60,.1);
       color: #ffc44d;
       font-size: 10px;
       font-weight: 700;
+      position: relative;
+      z-index: 2;
     }
 
     .available {
@@ -152,13 +170,14 @@
 
     .support {
       margin-top: 18px;
-      padding: 19px;
+      padding: 20px;
       border-radius: 20px;
-      background: linear-gradient(
-        135deg,
-        rgba(37,211,102,.12),
-        rgba(255,255,255,.04)
-      );
+      background:
+        linear-gradient(
+          135deg,
+          rgba(37,211,102,.12),
+          rgba(255,255,255,.04)
+        );
       border: 1px solid rgba(37,211,102,.18);
     }
 
@@ -171,11 +190,13 @@
       color: #9aafaf;
       font-size: 13px;
       line-height: 1.5;
-      margin-bottom: 14px;
+      margin-bottom: 15px;
     }
 
     .whatsapp {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       text-decoration: none;
       padding: 13px 17px;
       border-radius: 12px;
@@ -190,12 +211,13 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 68px;
-      background: rgba(3,10,10,.97);
+      height: 70px;
+      background: rgba(3,10,10,.98);
       border-top: 1px solid rgba(255,255,255,.08);
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       z-index: 30;
+      backdrop-filter: blur(14px);
     }
 
     .bottom-nav a {
@@ -207,6 +229,7 @@
       color: #829696;
       text-decoration: none;
       font-size: 11px;
+      transition: .2s;
     }
 
     .bottom-nav a.active {
@@ -216,6 +239,7 @@
 
     .bottom-icon {
       font-size: 20px;
+      line-height: 1;
     }
 
     @media (max-width: 380px) {
@@ -225,11 +249,15 @@
 
       .service {
         padding: 14px;
-        min-height: 155px;
+        min-height: 165px;
       }
 
       .service h3 {
         font-size: 14px;
+      }
+
+      .service p {
+        font-size: 11px;
       }
     }
 
@@ -245,16 +273,22 @@
 
 <header>
 
-  <a class="back" href="/dashboard.html">‹</a>
+  <a class="back" href="/dashboard.html" aria-label="Back to dashboard">
+    ‹
+  </a>
 
   <div>
-    <div class="brand">DHE GENIUS MEDIA</div>
+    <div class="brand">
+      DHE GENIUS MEDIA
+    </div>
+
     <div class="subtitle">
       Digital Services • Stay Connected. Stay Genius.
     </div>
   </div>
 
 </header>
+
 
 <main>
 
@@ -269,7 +303,11 @@
 
   </section>
 
+
   <section class="service-grid">
+
+
+    <!-- NETFLIX -->
 
     <div class="service">
 
@@ -278,7 +316,8 @@
       <h3>Netflix</h3>
 
       <p>
-        Netflix subscription and account offers.
+        Netflix subscriptions and account offers
+        available instantly.
       </p>
 
       <span class="status available">
@@ -287,6 +326,8 @@
 
     </div>
 
+
+    <!-- DSTV -->
 
     <div class="service">
 
@@ -305,6 +346,8 @@
     </div>
 
 
+    <!-- APPLE MUSIC -->
+
     <div class="service">
 
       <div class="icon">🎵</div>
@@ -312,7 +355,8 @@
       <h3>Apple Music</h3>
 
       <p>
-        Apple Music subscription options.
+        Apple Music subscription options for
+        selected periods.
       </p>
 
       <span class="status">
@@ -321,6 +365,8 @@
 
     </div>
 
+
+    <!-- WHATSAPP BOT -->
 
     <div class="service">
 
@@ -339,6 +385,8 @@
     </div>
 
 
+    <!-- USA NUMBERS -->
+
     <div class="service">
 
       <div class="icon">🌎</div>
@@ -346,7 +394,8 @@
       <h3>USA Numbers</h3>
 
       <p>
-        USA numbers and verification services.
+        USA numbers and verification services
+        for supported platforms.
       </p>
 
       <span class="status">
@@ -355,6 +404,8 @@
 
     </div>
 
+
+    <!-- SOCIAL MEDIA -->
 
     <div class="service">
 
@@ -363,7 +414,8 @@
       <h3>Social Media</h3>
 
       <p>
-        Social media promotion and digital services.
+        Social media promotion and digital
+        marketing services.
       </p>
 
       <span class="status">
@@ -372,6 +424,8 @@
 
     </div>
 
+
+    <!-- CERTIFICATES -->
 
     <div class="service">
 
@@ -390,6 +444,8 @@
     </div>
 
 
+    <!-- SIM SERVICES -->
+
     <div class="service">
 
       <div class="icon">📲</div>
@@ -406,6 +462,8 @@
 
     </div>
 
+
+    <!-- MOBILE PHONES -->
 
     <div class="service">
 
@@ -432,14 +490,15 @@
     <h2>Need Something Else?</h2>
 
     <p>
-      DGM offers many digital services. Contact our support
-      team if the service you need isn't listed.
+      DGM offers many digital services. Contact our
+      support team if the service you need isn't listed.
     </p>
 
     <a
       class="whatsapp"
       href="https://wa.me/233241518385"
       target="_blank"
+      rel="noopener noreferrer"
     >
       💬 Chat on WhatsApp
     </a>
@@ -466,12 +525,15 @@
     Airtime
   </a>
 
-  <a class="active" href="/services.html">
+  <!-- FIXED: service.html, NOT services.html -->
+
+  <a class="active" href="/service.html">
     <span class="bottom-icon">☰</span>
     Services
   </a>
 
 </nav>
+
 
 </body>
 </html>
