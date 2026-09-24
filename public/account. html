@@ -7,7 +7,6 @@
   <title>My Account • DHE GENIUS MEDIA</title>
 
   <style>
-
     * {
       box-sizing: border-box;
       margin: 0;
@@ -30,9 +29,7 @@
         );
 
       color: #fff;
-
       min-height: 100vh;
-
       padding-bottom: 85px;
     }
 
@@ -86,9 +83,7 @@
     main {
       width: 100%;
       max-width: 650px;
-
       margin: auto;
-
       padding: 24px 16px;
     }
 
@@ -180,7 +175,6 @@
       margin-bottom: 14px;
 
       position: relative;
-
       overflow: hidden;
     }
 
@@ -203,42 +197,30 @@
 
     .wallet-label {
       color: #9db2b2;
-
       font-size: 12px;
-
       margin-bottom: 7px;
     }
 
     .wallet-balance {
       font-size: 32px;
-
       font-weight: 900;
-
       color: #25d366;
-
       margin-bottom: 17px;
     }
 
     .wallet-note {
       color: #91a7a7;
-
       font-size: 11px;
-
       line-height: 1.5;
-
       margin-bottom: 16px;
     }
 
     .wallet-actions {
       display: grid;
-
-      grid-template-columns:
-        repeat(2, 1fr);
-
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
 
       position: relative;
-
       z-index: 2;
     }
 
@@ -250,7 +232,6 @@
       border-radius: 12px;
 
       font-size: 12px;
-
       font-weight: 900;
 
       cursor: pointer;
@@ -266,9 +247,7 @@
 
     .wallet-btn.primary {
       background: #25d366;
-
       color: #001b0b;
-
       border-color: #25d366;
     }
 
@@ -276,6 +255,8 @@
       opacity: .65;
       cursor: not-allowed;
     }
+
+    /* CARDS */
 
     .card {
       padding: 18px;
@@ -294,7 +275,6 @@
     .card-title {
       font-size: 14px;
       font-weight: 900;
-
       margin-bottom: 14px;
     }
 
@@ -325,15 +305,15 @@
       font-size: 13px;
       font-weight: 700;
       text-align: right;
-
       word-break: break-word;
     }
 
     .balance {
       color: #25d366 !important;
-
       font-size: 18px !important;
     }
+
+    /* ACTIONS */
 
     .actions {
       display: grid;
@@ -368,6 +348,17 @@
       font-size: 12px;
 
       font-weight: 800;
+
+      cursor: pointer;
+
+      transition: .2s;
+    }
+
+    .action:hover {
+      transform: translateY(-1px);
+
+      background:
+        rgba(255,255,255,.10);
     }
 
     .action.primary {
@@ -382,7 +373,6 @@
 
     .history {
       display: none;
-
       margin-bottom: 13px;
     }
 
@@ -498,7 +488,6 @@
 
     .transaction-status {
       color: #25d366;
-
       font-weight: 700;
     }
 
@@ -514,11 +503,13 @@
       line-height: 1.5;
     }
 
+    /* LOGOUT */
+
     .logout {
       width: 100%;
 
-      border: 1px solid
-        rgba(255,90,90,.2);
+      border:
+        1px solid rgba(255,90,90,.2);
 
       background:
         rgba(255,70,70,.08);
@@ -538,11 +529,11 @@
       margin-top: 4px;
     }
 
+    /* STATUS */
+
     .loading {
       padding: 30px;
-
       text-align: center;
-
       color: #8fa5a5;
     }
 
@@ -565,6 +556,8 @@
 
       text-align: center;
     }
+
+    /* BOTTOM NAV */
 
     .bottom-nav {
       position: fixed;
@@ -617,13 +610,10 @@
     }
 
     @media (min-width: 650px) {
-
       main {
         padding-top: 35px;
       }
-
     }
-
   </style>
 </head>
 
@@ -670,7 +660,9 @@
 
     <section class="hero">
 
-      <h1>My Account</h1>
+      <h1>
+        My Account
+      </h1>
 
       <p>
         Manage your DGM account, wallet and
@@ -679,6 +671,8 @@
 
     </section>
 
+
+    <!-- PROFILE -->
 
     <section class="profile">
 
@@ -764,19 +758,18 @@
 
       </div>
 
-      <div
-        id="transactions"
-      ></div>
+      <div id="transactions"></div>
 
     </section>
 
+
+    <!-- ACCOUNT INFORMATION -->
 
     <section class="card">
 
       <div class="card-title">
         Account Information
       </div>
-
 
       <div class="info-row">
 
@@ -844,12 +837,13 @@
     </section>
 
 
+    <!-- QUICK ACTIONS -->
+
     <section class="card">
 
       <div class="card-title">
         Quick Actions
       </div>
-
 
       <div class="actions">
 
@@ -860,14 +854,12 @@
           Buy Data
         </a>
 
-
         <a
           class="action primary"
           href="/airtime.html"
         >
           Buy Airtime
         </a>
-
 
         <a
           class="action"
@@ -876,10 +868,10 @@
           My Orders
         </a>
 
-
+        <!-- FIXED: actual file is service.html -->
         <a
           class="action"
-          href="/services.html"
+          href="/service.html"
         >
           More Services
         </a>
@@ -889,29 +881,31 @@
     </section>
 
 
+    <!-- SECURITY -->
+
     <section class="card">
 
       <div class="card-title">
-        Security
+        🔐 Security
       </div>
 
       <div class="actions">
 
-        <a
+        <button
           class="action"
-          href="#"
+          type="button"
           onclick="comingSoon('Password change')"
         >
-          Change Password
-        </a>
+          🔑 Change Password
+        </button>
 
-        <a
+        <button
           class="action"
-          href="#"
+          type="button"
           onclick="comingSoon('Login security')"
         >
-          Login Security
-        </a>
+          🛡️ Login Security
+        </button>
 
       </div>
 
@@ -920,6 +914,7 @@
 
     <button
       class="logout"
+      type="button"
       onclick="logout()"
     >
       Sign Out
@@ -935,6 +930,8 @@
 
 </main>
 
+
+<!-- BOTTOM NAV -->
 
 <nav class="bottom-nav">
 
@@ -989,18 +986,17 @@
 
 <script>
 
+  // ==========================================
+  // HELPERS
+  // ==========================================
+
   function escapeHtml(value) {
 
     return String(value ?? "")
-
       .replace(/&/g, "&amp;")
-
       .replace(/</g, "&lt;")
-
       .replace(/>/g, "&gt;")
-
       .replace(/"/g, "&quot;")
-
       .replace(/'/g, "&#039;");
 
   }
@@ -1008,8 +1004,11 @@
 
   function formatMoney(amount) {
 
+    const number =
+      Number(amount || 0);
+
     return "GH₵" +
-      Number(amount || 0).toFixed(2);
+      number.toFixed(2);
 
   }
 
@@ -1020,22 +1019,40 @@
       return "—";
     }
 
+    const raw =
+      String(dateValue);
+
     const date =
       new Date(
-        String(dateValue).replace(" ", "T") + "Z"
+        raw.includes("T")
+          ? raw
+          : raw.replace(" ", "T") + "Z"
       );
 
-    if (Number.isNaN(date.getTime())) {
-      return String(dateValue);
+    if (
+      Number.isNaN(
+        date.getTime()
+      )
+    ) {
+
+      return raw;
+
     }
 
-    return date.toLocaleString("en-GH", {
-      dateStyle: "medium",
-      timeStyle: "short"
-    });
+    return date.toLocaleString(
+      "en-GH",
+      {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }
+    );
 
   }
 
+
+  // ==========================================
+  // LOAD CUSTOMER
+  // ==========================================
 
   async function loadAccount() {
 
@@ -1052,13 +1069,21 @@
     try {
 
       const response =
-        await fetch("/api/me");
+        await fetch(
+          "/api/me",
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store"
+          }
+        );
 
 
       if (response.status === 401) {
 
-        window.location.href =
-          "/login.html";
+        window.location.replace(
+          "/login.html"
+        );
 
         return;
 
@@ -1069,7 +1094,11 @@
         await response.json();
 
 
-      if (!response.ok) {
+      if (
+        !response.ok ||
+        !data.success ||
+        !data.customer
+      ) {
 
         throw new Error(
           data.message ||
@@ -1084,52 +1113,91 @@
 
 
       const name =
-        customer.name || "Customer";
+        customer.name ||
+        "Customer";
 
 
-      document.getElementById("name")
-        .textContent = name;
-
-
-      document.getElementById("fullName")
-        .textContent = name;
-
-
-      document.getElementById("phone")
+      document
+        .getElementById("name")
         .textContent =
-        customer.phone || "—";
+        name;
 
 
-      document.getElementById("email")
+      document
+        .getElementById("fullName")
         .textContent =
-        customer.email || "—";
+        name;
+
+
+      document
+        .getElementById("phone")
+        .textContent =
+        customer.phone ||
+        "—";
+
+
+      document
+        .getElementById("email")
+        .textContent =
+        customer.email ||
+        "—";
 
 
       const balance =
-        Number(customer.balance || 0);
+        Number(
+          customer.balance || 0
+        );
 
 
-      document.getElementById("balance")
+      document
+        .getElementById("balance")
         .textContent =
         formatMoney(balance);
 
 
-      document.getElementById("walletBalance")
+      document
+        .getElementById("walletBalance")
         .textContent =
         formatMoney(balance);
 
 
-      document.getElementById("member")
+      let memberDate =
+        "2026";
+
+
+      if (
+        customer.created_at
+      ) {
+
+        const date =
+          new Date(
+            String(
+              customer.created_at
+            ).replace(" ", "T") + "Z"
+          );
+
+
+        if (
+          !Number.isNaN(
+            date.getTime()
+          )
+        ) {
+
+          memberDate =
+            date.toLocaleDateString(
+              "en-GH"
+            );
+
+        }
+
+      }
+
+
+      document
+        .getElementById("member")
         .textContent =
         "DGM Customer • Member since " +
-        (
-          customer.created_at
-            ? new Date(
-                String(customer.created_at)
-                  .replace(" ", "T") + "Z"
-              ).toLocaleDateString("en-GH")
-            : "2026"
-        );
+        memberDate;
 
 
       const firstLetter =
@@ -1139,22 +1207,34 @@
           .toUpperCase();
 
 
-      document.getElementById("avatar")
+      document
+        .getElementById("avatar")
         .textContent =
-        firstLetter || "D";
+        firstLetter ||
+        "D";
 
 
-      loading.style.display = "none";
+      loading.style.display =
+        "none";
 
-      content.style.display = "block";
+      content.style.display =
+        "block";
 
     }
 
     catch (err) {
 
-      loading.style.display = "none";
+      console.error(
+        "Account loading error:",
+        err
+      );
 
-      error.style.display = "block";
+
+      loading.style.display =
+        "none";
+
+      error.style.display =
+        "block";
 
       error.textContent =
         err.message ||
@@ -1165,37 +1245,50 @@
   }
 
 
+  // ==========================================
+  // WALLET HISTORY
+  // ==========================================
+
   async function loadWalletHistory() {
 
     const history =
       document.getElementById("history");
 
     const transactions =
-      document.getElementById("transactions");
+      document.getElementById(
+        "transactions"
+      );
 
 
-    history.style.display = "block";
+    history.style.display =
+      "block";
 
-    transactions.innerHTML =
-      `
-        <div class="empty-history">
-          Loading wallet transactions...
-        </div>
-      `;
+
+    transactions.innerHTML = `
+      <div class="empty-history">
+        Loading wallet transactions...
+      </div>
+    `;
 
 
     try {
 
       const response =
         await fetch(
-          "/api/wallet/transactions"
+          "/api/wallet/transactions",
+          {
+            method: "GET",
+            credentials: "include",
+            cache: "no-store"
+          }
         );
 
 
       if (response.status === 401) {
 
-        window.location.href =
-          "/login.html";
+        window.location.replace(
+          "/login.html"
+        );
 
         return;
 
@@ -1217,22 +1310,25 @@
 
 
       const list =
-        Array.isArray(data.transactions)
+        Array.isArray(
+          data.transactions
+        )
           ? data.transactions
           : [];
 
 
-      if (list.length === 0) {
+      if (
+        list.length === 0
+      ) {
 
-        transactions.innerHTML =
-          `
-            <div class="empty-history">
-              No wallet transactions yet.
-              <br>
-              Your verified wallet activity
-              will appear here.
-            </div>
-          `;
+        transactions.innerHTML = `
+          <div class="empty-history">
+            No wallet transactions yet.
+            <br>
+            Your verified wallet activity
+            will appear here.
+          </div>
+        `;
 
         return;
 
@@ -1240,121 +1336,145 @@
 
 
       transactions.innerHTML =
-        list.map(transaction => {
+        list.map(
+          transaction => {
 
-          const type =
-            String(
-              transaction.type || ""
-            ).toLowerCase();
-
-
-          let amountClass = "credit";
-
-          let sign = "+";
+            const type =
+              String(
+                transaction.type || ""
+              ).toLowerCase();
 
 
-          if (type === "debit") {
+            let amountClass =
+              "credit";
 
-            amountClass = "debit";
-
-            sign = "-";
-
-          }
+            let sign =
+              "+";
 
 
-          if (type === "refund") {
+            if (
+              type === "debit"
+            ) {
 
-            amountClass = "refund";
+              amountClass =
+                "debit";
 
-            sign = "+";
+              sign =
+                "-";
 
-          }
-
-
-          const description =
-            transaction.description ||
-            transaction.type ||
-            "Wallet transaction";
+            }
 
 
-          return `
-            <div class="transaction">
+            if (
+              type === "refund"
+            ) {
 
-              <div class="transaction-top">
+              amountClass =
+                "refund";
 
-                <div>
+              sign =
+                "+";
 
-                  <div class="transaction-name">
-                    ${escapeHtml(description)}
+            }
+
+
+            const description =
+              transaction.description ||
+              transaction.type ||
+              "Wallet transaction";
+
+
+            return `
+              <div class="transaction">
+
+                <div class="transaction-top">
+
+                  <div>
+
+                    <div class="transaction-name">
+                      ${escapeHtml(
+                        description
+                      )}
+                    </div>
+
+                    <div class="transaction-ref">
+                      ${escapeHtml(
+                        transaction.transaction_ref ||
+                        ""
+                      )}
+                    </div>
+
                   </div>
 
-                  <div class="transaction-ref">
-                    ${escapeHtml(
-                      transaction.transaction_ref
+                  <div
+                    class="transaction-amount ${amountClass}"
+                  >
+                    ${sign}${formatMoney(
+                      transaction.amount
                     )}
                   </div>
 
                 </div>
 
-                <div
-                  class="transaction-amount ${amountClass}"
-                >
-                  ${sign}${formatMoney(
-                    transaction.amount
-                  )}
+                <div class="transaction-bottom">
+
+                  <span>
+                    ${escapeHtml(
+                      formatDate(
+                        transaction.created_at
+                      )
+                    )}
+                  </span>
+
+                  <span class="transaction-status">
+                    ${escapeHtml(
+                      transaction.status ||
+                      "Completed"
+                    )}
+                  </span>
+
                 </div>
 
               </div>
+            `;
 
-              <div class="transaction-bottom">
-
-                <span>
-                  ${escapeHtml(
-                    formatDate(
-                      transaction.created_at
-                    )
-                  )}
-                </span>
-
-                <span class="transaction-status">
-                  ${escapeHtml(
-                    transaction.status ||
-                    "Completed"
-                  )}
-                </span>
-
-              </div>
-
-            </div>
-          `;
-
-        }).join("");
+          }
+        ).join("");
 
     }
 
     catch (error) {
 
-      transactions.innerHTML =
-        `
-          <div class="empty-history">
-            ${escapeHtml(
-              error.message ||
-              "Unable to load wallet history."
-            )}
-          </div>
-        `;
+      console.error(
+        "Wallet history error:",
+        error
+      );
+
+
+      transactions.innerHTML = `
+        <div class="empty-history">
+          ${escapeHtml(
+            error.message ||
+            "Unable to load wallet history."
+          )}
+        </div>
+      `;
 
     }
 
   }
 
 
+  // ==========================================
+  // WALLET
+  // ==========================================
+
   function addMoney() {
 
     alert(
-      "Wallet funding is not active yet. " +
-      "We will connect secure verified payments " +
-      "before allowing money to be added."
+      "Wallet funding is not active yet.\n\n" +
+      "Secure verified payments will be connected " +
+      "before wallet funding is enabled."
     );
 
   }
@@ -1363,14 +1483,18 @@
   function walletHistory() {
 
     const history =
-      document.getElementById("history");
+      document.getElementById(
+        "history"
+      );
 
 
     if (
-      history.style.display === "block"
+      history.style.display ===
+      "block"
     ) {
 
-      history.style.display = "none";
+      history.style.display =
+        "none";
 
       return;
 
@@ -1381,6 +1505,10 @@
 
   }
 
+
+  // ==========================================
+  // LOGOUT
+  // ==========================================
 
   async function logout() {
 
@@ -1400,21 +1528,36 @@
       await fetch(
         "/api/logout",
         {
-          method: "POST"
+          method: "POST",
+          credentials: "include"
         }
+      );
+
+    }
+
+    catch (error) {
+
+      console.error(
+        "Logout error:",
+        error
       );
 
     }
 
     finally {
 
-      window.location.href =
-        "/login.html";
+      window.location.replace(
+        "/login.html"
+      );
 
     }
 
   }
 
+
+  // ==========================================
+  // SECURITY PLACEHOLDER
+  // ==========================================
 
   function comingSoon(service) {
 
@@ -1425,6 +1568,10 @@
 
   }
 
+
+  // ==========================================
+  // START
+  // ==========================================
 
   loadAccount();
 
