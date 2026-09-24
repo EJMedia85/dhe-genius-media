@@ -48,9 +48,7 @@ app.disable("x-powered-by");
 // =====================================================
 
 if (!DATABASE_URL) {
-  console.error(
-    "ERROR: DATABASE_URL is missing."
-  );
+  console.error("ERROR: DATABASE_URL is missing.");
 }
 
 const pool = new Pool({
@@ -128,7 +126,29 @@ async function initDatabase() {
     );
   `);
 
-  const columns = [
+  /*
+   * Dedicated wallet top-up table.
+   *
+   * This is important because Paystack may retry
+   * webhooks. The unique Paystack reference prevents
+   * the same payment from crediting the wallet twice.
+   */
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wallet_topups (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+      reference TEXT UNIQUE NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Pending',
+      payment_status TEXT NOT NULL DEFAULT 'Pending',
+      paid_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  const orderColumns = [
     ["datamart_purchase_id", "TEXT"],
     ["datamart_reference", "TEXT"],
     ["datamart_transaction_reference", "TEXT"],
@@ -139,13 +159,24 @@ async function initDatabase() {
     ["paid_at", "TIMESTAMPTZ"]
   ];
 
-  for (const [column, definition] of columns) {
+  for (const [column, definition] of orderColumns) {
     await pool.query(`
       ALTER TABLE orders
       ADD COLUMN IF NOT EXISTS
       ${column} ${definition}
     `);
   }
+
+  /*
+   * Clean up old duplicate references if necessary before
+   * creating the unique index.
+   */
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS
+    wallet_transactions_reference_unique
+    ON wallet_transactions(reference)
+    WHERE reference IS NOT NULL
+  `);
 
   console.log(
     "Database initialized successfully."
@@ -160,15 +191,16 @@ class PostgresSessionStore extends session.Store {
 
   async get(sid, callback) {
     try {
-      const result = await pool.query(
-        `
-        SELECT sess
-        FROM user_sessions
-        WHERE sid = $1
-          AND expire > NOW()
-        `,
-        [sid]
-      );
+      const result =
+        await pool.query(
+          `
+          SELECT sess
+          FROM user_sessions
+          WHERE sid = $1
+            AND expire > NOW()
+          `,
+          [sid]
+        );
 
       if (!result.rows.length) {
         return callback(null, null);
@@ -180,7 +212,6 @@ class PostgresSessionStore extends session.Store {
       );
 
     } catch (error) {
-
       console.error(
         "Session GET error:",
         error
@@ -192,16 +223,16 @@ class PostgresSessionStore extends session.Store {
 
   async set(sid, sess, callback) {
     try {
-
       const maxAge =
         sess.cookie &&
         sess.cookie.maxAge
           ? sess.cookie.maxAge
           : 1000 * 60 * 60 * 24 * 7;
 
-      const expire = new Date(
-        Date.now() + maxAge
-      );
+      const expire =
+        new Date(
+          Date.now() + maxAge
+        );
 
       await pool.query(
         `
@@ -226,7 +257,6 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
-
       console.error(
         "Session SET error:",
         error
@@ -240,7 +270,6 @@ class PostgresSessionStore extends session.Store {
 
   async destroy(sid, callback) {
     try {
-
       await pool.query(
         `
         DELETE FROM user_sessions
@@ -254,7 +283,6 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
-
       console.error(
         "Session DESTROY error:",
         error
@@ -268,16 +296,16 @@ class PostgresSessionStore extends session.Store {
 
   async touch(sid, sess, callback) {
     try {
-
       const maxAge =
         sess.cookie &&
         sess.cookie.maxAge
           ? sess.cookie.maxAge
           : 1000 * 60 * 60 * 24 * 7;
 
-      const expire = new Date(
-        Date.now() + maxAge
-      );
+      const expire =
+        new Date(
+          Date.now() + maxAge
+        );
 
       await pool.query(
         `
@@ -299,7 +327,6 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
-
       console.error(
         "Session TOUCH error:",
         error
@@ -355,8 +382,9 @@ app.use(
 
 // =====================================================
 // PAYSTACK WEBHOOK
+//
 // IMPORTANT:
-// RAW BODY MUST BE READ BEFORE express.json()
+// This route MUST come before express.json()
 // =====================================================
 
 app.post(
@@ -405,9 +433,7 @@ app.post(
       const valid =
         crypto.timingSafeEqual(
           Buffer.from(signature),
-          Buffer.from(
-            expectedSignature
-          )
+          Buffer.from(expectedSignature)
         );
 
       if (!valid) {
@@ -432,6 +458,67 @@ app.post(
       if (!reference) {
         return res.sendStatus(200);
       }
+
+      // =================================================
+      // FIRST: CHECK IF THIS IS A WALLET TOP-UP
+      // =================================================
+
+      const walletResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM wallet_topups
+          WHERE reference = $1
+          LIMIT 1
+          `,
+          [reference]
+        );
+
+      if (walletResult.rows.length) {
+
+        const topup =
+          walletResult.rows[0];
+
+        const amountFromPaystack =
+          Number(
+            event?.data?.amount || 0
+          ) / 100;
+
+        const currency =
+          String(
+            event?.data?.currency || ""
+          ).toUpperCase();
+
+        if (currency !== "GHS") {
+          return res.sendStatus(400);
+        }
+
+        if (
+          Math.round(
+            amountFromPaystack * 100
+          ) !==
+          Math.round(
+            Number(topup.amount) * 100
+          )
+        ) {
+          console.error(
+            "Wallet top-up amount mismatch:",
+            reference
+          );
+
+          return res.sendStatus(400);
+        }
+
+        await creditWalletFromTopup(
+          reference
+        );
+
+        return res.sendStatus(200);
+      }
+
+      // =================================================
+      // OTHERWISE CHECK NORMAL ORDER
+      // =================================================
 
       const result =
         await pool.query(
@@ -622,6 +709,21 @@ function createTransactionReference() {
     "-" +
     crypto
       .randomBytes(3)
+      .toString("hex")
+      .toUpperCase()
+  );
+}
+
+function createWalletReference() {
+
+  return (
+    "DGM-WALLET-" +
+    Date.now()
+      .toString(36)
+      .toUpperCase() +
+    "-" +
+    crypto
+      .randomBytes(4)
       .toString("hex")
       .toUpperCase()
   );
@@ -877,7 +979,6 @@ async function datamartRequest(
     return data;
 
   } finally {
-
     clearTimeout(timeout);
   }
 }
@@ -1144,6 +1245,229 @@ async function fulfillDataOrder(
 }
 
 // =====================================================
+// WALLET CREDIT
+//
+// This function is deliberately transactional.
+// It prevents one Paystack payment from being
+// credited more than once.
+// =====================================================
+
+async function creditWalletFromTopup(
+  reference
+) {
+
+  const client =
+    await pool.connect();
+
+  try {
+
+    await client.query(
+      "BEGIN"
+    );
+
+    const topupResult =
+      await client.query(
+        `
+        SELECT *
+        FROM wallet_topups
+        WHERE reference = $1
+        FOR UPDATE
+        `,
+        [reference]
+      );
+
+    if (
+      !topupResult.rows.length
+    ) {
+      await client.query(
+        "ROLLBACK"
+      );
+
+      return {
+        success: false,
+        message:
+          "Wallet top-up not found."
+      };
+    }
+
+    const topup =
+      topupResult.rows[0];
+
+    /*
+     * Already credited.
+     */
+    if (
+      String(
+        topup.payment_status
+      ).toLowerCase() ===
+      "paid"
+    ) {
+
+      await client.query(
+        "COMMIT"
+      );
+
+      return {
+        success: true,
+        alreadyCredited: true,
+        amount:
+          Number(topup.amount)
+      };
+    }
+
+    const customerResult =
+      await client.query(
+        `
+        SELECT
+          id,
+          balance
+        FROM customers
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [topup.customer_id]
+      );
+
+    if (
+      !customerResult.rows.length
+    ) {
+
+      await client.query(
+        "ROLLBACK"
+      );
+
+      throw new Error(
+        "Customer account not found."
+      );
+    }
+
+    const amount =
+      Number(topup.amount);
+
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+
+      await client.query(
+        "ROLLBACK"
+      );
+
+      throw new Error(
+        "Invalid wallet top-up amount."
+      );
+    }
+
+    /*
+     * Credit wallet.
+     */
+    await client.query(
+      `
+      UPDATE customers
+      SET balance =
+        balance + $1
+      WHERE id = $2
+      `,
+      [
+        amount,
+        topup.customer_id
+      ]
+    );
+
+    /*
+     * Mark top-up as paid.
+     */
+    await client.query(
+      `
+      UPDATE wallet_topups
+      SET
+        status = 'Completed',
+        payment_status = 'Paid',
+        paid_at =
+          COALESCE(
+            paid_at,
+            NOW()
+          )
+      WHERE id = $1
+      `,
+      [topup.id]
+    );
+
+    /*
+     * Record wallet transaction.
+     *
+     * ON CONFLICT protects against duplicate
+     * transaction records.
+     */
+    await client.query(
+      `
+      INSERT INTO wallet_transactions
+        (
+          customer_id,
+          type,
+          amount,
+          description,
+          reference
+        )
+      VALUES
+        (
+          $1,
+          'Credit',
+          $2,
+          'Wallet top-up via Paystack',
+          $3
+        )
+      ON CONFLICT (reference)
+      DO NOTHING
+      `,
+      [
+        topup.customer_id,
+        amount,
+        reference
+      ]
+    );
+
+    await client.query(
+      "COMMIT"
+    );
+
+    console.log(
+      `WALLET CREDITED: ${reference} GH₵${amount}`
+    );
+
+    return {
+      success: true,
+
+      alreadyCredited: false,
+
+      amount,
+
+      customerId:
+        topup.customer_id
+    };
+
+  } catch (error) {
+
+    try {
+      await client.query(
+        "ROLLBACK"
+      );
+    } catch {}
+
+    console.error(
+      "Wallet credit error:",
+      error
+    );
+
+    throw error;
+
+  } finally {
+
+    client.release();
+  }
+}
+
+// =====================================================
 // AUTH - REGISTER
 // =====================================================
 
@@ -1343,8 +1667,11 @@ app.post(
 
 // =====================================================
 // AUTH - LOGIN
-// FIXED:
-// Accepts BOTH "identifier" and "login"
+//
+// Accepts both:
+// { identifier, password }
+// and
+// { login, password }
 // =====================================================
 
 app.post(
@@ -1410,10 +1737,6 @@ app.post(
         !result.rows.length
       ) {
 
-        console.log(
-          "DGM LOGIN: CUSTOMER NOT FOUND"
-        );
-
         return sendError(
           res,
           401,
@@ -1424,21 +1747,6 @@ app.post(
       const customer =
         result.rows[0];
 
-      if (
-        !customer.password
-      ) {
-
-        console.error(
-          "DGM LOGIN: Customer has no password hash."
-        );
-
-        return sendError(
-          res,
-          500,
-          "This account has an invalid password record."
-        );
-      }
-
       const passwordMatches =
         await bcrypt.compare(
           password,
@@ -1447,20 +1755,12 @@ app.post(
 
       if (!passwordMatches) {
 
-        console.log(
-          "DGM LOGIN: INCORRECT PASSWORD"
-        );
-
         return sendError(
           res,
           401,
           "Invalid login details."
         );
       }
-
-      // ===============================================
-      // CREATE NEW SESSION
-      // ===============================================
 
       await new Promise(
         (resolve, reject) => {
@@ -1499,8 +1799,7 @@ app.post(
 
       console.log(
         "DGM LOGIN SUCCESS:",
-        customer.id,
-        customer.phone
+        customer.id
       );
 
       return res.json({
@@ -1545,7 +1844,6 @@ app.get(
         !req.session ||
         !req.session.customerId
       ) {
-
         return sendError(
           res,
           401,
@@ -1938,7 +2236,7 @@ app.get(
 );
 
 // =====================================================
-// PAYSTACK INITIALIZE
+// PAYSTACK - INITIALIZE DATA ORDER
 // =====================================================
 
 app.post(
@@ -2006,7 +2304,6 @@ app.post(
         ).toLowerCase() ===
         "paid"
       ) {
-
         return res.json({
           success: true,
           alreadyPaid: true,
@@ -2066,6 +2363,9 @@ app.post(
                   callbackUrl,
 
                 metadata: {
+                  type:
+                    "data_order",
+
                   order_ref:
                     order.order_ref,
 
@@ -2144,7 +2444,7 @@ app.post(
 );
 
 // =====================================================
-// PAYSTACK VERIFY
+// PAYSTACK - VERIFY DATA ORDER
 // =====================================================
 
 app.get(
@@ -2260,15 +2560,26 @@ app.get(
           amount * 100
         ) !==
         Math.round(
-          Number(
-            order.amount
-          ) * 100
+          Number(order.amount) * 100
         )
       ) {
         return sendError(
           res,
           400,
           "Payment amount does not match the order."
+        );
+      }
+
+      const currency =
+        String(
+          transaction.currency || ""
+        ).toUpperCase();
+
+      if (currency !== "GHS") {
+        return sendError(
+          res,
+          400,
+          "Payment currency is invalid."
         );
       }
 
@@ -2368,6 +2679,557 @@ app.get(
 );
 
 // =====================================================
+// WALLET - INITIALIZE TOP-UP
+// =====================================================
+
+app.post(
+  "/api/wallet/deposit",
+  requireLogin,
+  async (req, res) => {
+
+    try {
+
+      if (
+        !PAYSTACK_SECRET_KEY
+      ) {
+        return sendError(
+          res,
+          500,
+          "Paystack is not configured."
+        );
+      }
+
+      const amount =
+        Number(
+          req.body.amount
+        );
+
+      if (
+        !Number.isFinite(amount)
+      ) {
+        return sendError(
+          res,
+          400,
+          "Enter a valid amount."
+        );
+      }
+
+      if (amount < 1) {
+        return sendError(
+          res,
+          400,
+          "Minimum wallet top-up is GH₵1.00."
+        );
+      }
+
+      if (amount > 10000) {
+        return sendError(
+          res,
+          400,
+          "Maximum wallet top-up is GH₵10,000.00."
+        );
+      }
+
+      const roundedAmount =
+        Math.round(
+          amount * 100
+        ) / 100;
+
+      const customer =
+        await getCustomer(
+          req.session.customerId
+        );
+
+      if (!customer) {
+        return sendError(
+          res,
+          401,
+          "Customer account not found."
+        );
+      }
+
+      const reference =
+        createWalletReference();
+
+      /*
+       * Create the top-up BEFORE sending the customer
+       * to Paystack.
+       */
+      await pool.query(
+        `
+        INSERT INTO wallet_topups
+          (
+            customer_id,
+            reference,
+            amount,
+            status,
+            payment_status
+          )
+        VALUES
+          (
+            $1,
+            $2,
+            $3,
+            'Pending',
+            'Pending'
+          )
+        `,
+        [
+          customer.id,
+          reference,
+          roundedAmount
+        ]
+      );
+
+      const amountPesewas =
+        Math.round(
+          roundedAmount * 100
+        );
+
+      const callbackUrl =
+        `${BASE_URL}/payment-success?type=wallet&reference=${encodeURIComponent(
+          reference
+        )}`;
+
+      const paystackResponse =
+        await fetch(
+          "https://api.paystack.co/transaction/initialize",
+          {
+            method: "POST",
+
+            headers: {
+              Authorization:
+                `Bearer ${PAYSTACK_SECRET_KEY}`,
+
+              "Content-Type":
+                "application/json"
+            },
+
+            body:
+              JSON.stringify({
+                email:
+                  customer.email,
+
+                amount:
+                  amountPesewas,
+
+                currency:
+                  "GHS",
+
+                reference,
+
+                callback_url:
+                  callbackUrl,
+
+                metadata: {
+                  type:
+                    "wallet_topup",
+
+                  wallet_reference:
+                    reference,
+
+                  customer_id:
+                    customer.id,
+
+                  customer_email:
+                    customer.email
+                }
+              })
+          }
+        );
+
+      const data =
+        await paystackResponse.json();
+
+      if (
+        !paystackResponse.ok ||
+        !data.status
+      ) {
+
+        console.error(
+          "Wallet Paystack initialize failed:",
+          data
+        );
+
+        await pool.query(
+          `
+          UPDATE wallet_topups
+          SET status = 'Failed'
+          WHERE reference = $1
+          `,
+          [reference]
+        );
+
+        return sendError(
+          res,
+          502,
+          data.message ||
+            "Could not initialize wallet payment."
+        );
+      }
+
+      return res.json({
+        success: true,
+
+        amount:
+          roundedAmount,
+
+        reference,
+
+        authorization_url:
+          data.data.authorization_url,
+
+        access_code:
+          data.data.access_code
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Wallet deposit initialize error:",
+        error
+      );
+
+      return sendError(
+        res,
+        500,
+        "Wallet payment initialization failed."
+      );
+    }
+  }
+);
+
+// =====================================================
+// WALLET - VERIFY TOP-UP
+// =====================================================
+
+app.get(
+  "/api/wallet/deposit/verify/:reference",
+  requireLogin,
+  async (req, res) => {
+
+    try {
+
+      if (
+        !PAYSTACK_SECRET_KEY
+      ) {
+        return sendError(
+          res,
+          500,
+          "Paystack is not configured."
+        );
+      }
+
+      const reference =
+        String(
+          req.params.reference ||
+          ""
+        ).trim();
+
+      if (!reference) {
+        return sendError(
+          res,
+          400,
+          "Payment reference is required."
+        );
+      }
+
+      const topupResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM wallet_topups
+          WHERE reference = $1
+            AND customer_id = $2
+          LIMIT 1
+          `,
+          [
+            reference,
+            req.session.customerId
+          ]
+        );
+
+      if (
+        !topupResult.rows.length
+      ) {
+        return sendError(
+          res,
+          404,
+          "Wallet top-up not found."
+        );
+      }
+
+      let topup =
+        topupResult.rows[0];
+
+      /*
+       * Already credited.
+       */
+      if (
+        String(
+          topup.payment_status
+        ).toLowerCase() ===
+        "paid"
+      ) {
+
+        const customer =
+          await getCustomer(
+            req.session.customerId
+          );
+
+        return res.json({
+          success: true,
+          paid: true,
+          alreadyCredited: true,
+          amount:
+            Number(topup.amount),
+          balance:
+            Number(
+              customer?.balance || 0
+            ),
+          reference
+        });
+      }
+
+      const verifyResponse =
+        await fetch(
+          `https://api.paystack.co/transaction/verify/${encodeURIComponent(
+            reference
+          )}`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${PAYSTACK_SECRET_KEY}`
+            }
+          }
+        );
+
+      const data =
+        await verifyResponse.json();
+
+      if (
+        !verifyResponse.ok ||
+        !data.status
+      ) {
+        return sendError(
+          res,
+          502,
+          data.message ||
+            "Could not verify wallet payment."
+        );
+      }
+
+      const transaction =
+        data.data;
+
+      const paid =
+        transaction.status ===
+        "success";
+
+      if (!paid) {
+
+        return res.json({
+          success: true,
+
+          paid: false,
+
+          status:
+            transaction.status,
+
+          reference
+        });
+      }
+
+      const amount =
+        Number(
+          transaction.amount || 0
+        ) / 100;
+
+      const expectedAmount =
+        Number(topup.amount);
+
+      if (
+        Math.round(
+          amount * 100
+        ) !==
+        Math.round(
+          expectedAmount * 100
+        )
+      ) {
+
+        return sendError(
+          res,
+          400,
+          "Payment amount does not match wallet top-up."
+        );
+      }
+
+      const currency =
+        String(
+          transaction.currency || ""
+        ).toUpperCase();
+
+      if (currency !== "GHS") {
+        return sendError(
+          res,
+          400,
+          "Payment currency is invalid."
+        );
+      }
+
+      /*
+       * Credit wallet only after Paystack confirms
+       * the transaction.
+       */
+      const creditResult =
+        await creditWalletFromTopup(
+          reference
+        );
+
+      const customer =
+        await getCustomer(
+          req.session.customerId
+        );
+
+      return res.json({
+        success: true,
+
+        paid: true,
+
+        credited:
+          !creditResult.alreadyCredited,
+
+        amount:
+          expectedAmount,
+
+        balance:
+          Number(
+            customer?.balance || 0
+          ),
+
+        reference
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Wallet verify error:",
+        error
+      );
+
+      return sendError(
+        res,
+        500,
+        "Wallet payment verification failed."
+      );
+    }
+  }
+);
+
+// =====================================================
+// WALLET BALANCE
+// =====================================================
+
+app.get(
+  "/api/wallet",
+  requireLogin,
+  async (req, res) => {
+
+    try {
+
+      const customer =
+        await getCustomer(
+          req.session.customerId
+        );
+
+      if (!customer) {
+        return sendError(
+          res,
+          404,
+          "Customer account not found."
+        );
+      }
+
+      return res.json({
+        success: true,
+
+        balance:
+          Number(
+            customer.balance || 0
+          )
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Wallet balance error:",
+        error
+      );
+
+      return sendError(
+        res,
+        500,
+        "Could not load wallet balance."
+      );
+    }
+  }
+);
+
+// =====================================================
+// WALLET TRANSACTIONS
+// =====================================================
+
+app.get(
+  "/api/wallet/transactions",
+  requireLogin,
+  async (req, res) => {
+
+    try {
+
+      const result =
+        await pool.query(
+          `
+          SELECT
+            id,
+            type,
+            amount,
+            description,
+            reference,
+            created_at
+          FROM wallet_transactions
+          WHERE customer_id = $1
+          ORDER BY created_at DESC
+          LIMIT 50
+          `,
+          [
+            req.session.customerId
+          ]
+        );
+
+      return res.json({
+        success: true,
+
+        transactions:
+          result.rows
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Wallet transactions error:",
+        error
+      );
+
+      return sendError(
+        res,
+        500,
+        "Could not load wallet transactions."
+      );
+    }
+  }
+);
+
+// =====================================================
 // PAYMENT SUCCESS PAGE
 // =====================================================
 
@@ -2375,9 +3237,24 @@ app.get(
   "/payment-success",
   (req, res) => {
 
+    const type =
+      String(
+        req.query.type || ""
+      ).toLowerCase();
+
+    const reference =
+      String(
+        req.query.reference || ""
+      );
+
+    const isWallet =
+      type === "wallet";
+
     res.send(`
       <!DOCTYPE html>
+
       <html lang="en">
+
       <head>
 
         <meta charset="UTF-8">
@@ -2457,13 +3334,18 @@ app.get(
 
           a {
             display: block;
-            margin-top: 25px;
+            margin-top: 15px;
             padding: 14px;
             border-radius: 13px;
             background: #25d366;
             color: #06110b;
             text-decoration: none;
             font-weight: 900;
+          }
+
+          .secondary {
+            background: #17251e;
+            color: white;
           }
 
         </style>
@@ -2483,20 +3365,41 @@ app.get(
           </h1>
 
           <p>
-            Your payment has been received.
-            Your order is being processed.
+            ${
+              isWallet
+                ? "Your wallet payment has been received. Your balance is being updated."
+                : "Your payment has been received. Your order is being processed."
+            }
           </p>
 
-          <a href="/orders.html">
-            View My Orders
-          </a>
+          ${
+            reference
+              ? `
+                <p style="font-size:13px;">
+                  Reference:<br>
+                  <strong>${escapeHtml(reference)}</strong>
+                </p>
+              `
+              : ""
+          }
+
+          ${
+            isWallet
+              ? `
+                <a href="/account.html">
+                  View My Wallet
+                </a>
+              `
+              : `
+                <a href="/orders.html">
+                  View My Orders
+                </a>
+              `
+          }
 
           <a
             href="/dashboard.html"
-            style="
-              background:#17251e;
-              color:#ffffff;
-            "
+            class="secondary"
           >
             Back to Dashboard
           </a>
@@ -2504,64 +3407,21 @@ app.get(
         </div>
 
       </body>
+
       </html>
     `);
   }
 );
 
-// =====================================================
-// WALLET TRANSACTIONS
-// =====================================================
+function escapeHtml(value) {
 
-app.get(
-  "/api/wallet/transactions",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      const result =
-        await pool.query(
-          `
-          SELECT
-            id,
-            type,
-            amount,
-            description,
-            reference,
-            created_at
-          FROM wallet_transactions
-          WHERE customer_id = $1
-          ORDER BY created_at DESC
-          LIMIT 50
-          `,
-          [
-            req.session.customerId
-          ]
-        );
-
-      return res.json({
-        success: true,
-
-        transactions:
-          result.rows
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Wallet transactions error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Could not load wallet transactions."
-      );
-    }
-  }
-);
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 // =====================================================
 // HEALTH CHECK
@@ -2667,90 +3527,65 @@ function servePage(
   };
 }
 
-// Home
 app.get(
   ["/", "/index.html"],
-  servePage(
-    "index.html"
-  )
+  servePage("index.html")
 );
 
-// Login
 app.get(
   ["/login", "/login.html"],
-  servePage(
-    "login.html"
-  )
+  servePage("login.html")
 );
 
-// Register
 app.get(
   [
     "/register",
     "/register.html"
   ],
-  servePage(
-    "register.html"
-  )
+  servePage("register.html")
 );
 
-// Dashboard
 app.get(
   [
     "/dashboard",
     "/dashboard.html"
   ],
-  servePage(
-    "dashboard.html"
-  )
+  servePage("dashboard.html")
 );
 
-// Data
 app.get(
   [
     "/data",
     "/buy-data",
     "/data.html"
   ],
-  servePage(
-    "data.html"
-  )
+  servePage("data.html")
 );
 
-// Airtime
 app.get(
   [
     "/airtime",
     "/airtime.html"
   ],
-  servePage(
-    "airtime.html"
-  )
+  servePage("airtime.html")
 );
 
-// Orders
 app.get(
   [
     "/orders",
     "/orders.html"
   ],
-  servePage(
-    "orders.html"
-  )
+  servePage("orders.html")
 );
 
-// Account
 app.get(
   [
     "/account",
     "/account.html"
   ],
-  servePage(
-    "account.html"
-  )
+  servePage("account.html")
 );
 
-// More Services
 app.get(
   [
     "/service",
@@ -2758,9 +3593,7 @@ app.get(
     "/services",
     "/services.html"
   ],
-  servePage(
-    "service.html"
-  )
+  servePage("service.html")
 );
 
 // =====================================================
@@ -2789,9 +3622,7 @@ app.use(
   (req, res) => {
 
     if (
-      req.path.endsWith(
-        ".html"
-      ) ||
+      req.path.endsWith(".html") ||
       req.path.includes(".")
     ) {
 
