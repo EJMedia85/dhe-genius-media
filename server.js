@@ -160,15 +160,28 @@ async function initDatabase() {
   ];
 
   for (const [column, definition] of orderColumns) {
+
     await pool.query(`
       ALTER TABLE orders
       ADD COLUMN IF NOT EXISTS
       ${column} ${definition}
     `);
+
   }
 
   // ===================================================
-  // WALLET TRANSACTION INDEX
+  // WALLET TRANSACTION MIGRATION
+  // IMPORTANT:
+  // Add reference BEFORE using reference in queries.
+  // ===================================================
+
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ADD COLUMN IF NOT EXISTS reference TEXT
+  `);
+
+  // ===================================================
+  // CLEAN DUPLICATE WALLET REFERENCES
   // ===================================================
 
   await pool.query(`
@@ -178,6 +191,10 @@ async function initDatabase() {
       AND a.reference = b.reference
       AND a.id < b.id
   `);
+
+  // ===================================================
+  // WALLET TRANSACTION UNIQUE INDEX
+  // ===================================================
 
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS
@@ -1144,7 +1161,6 @@ async function creditWalletFromTopup(
     const topup =
       topupResult.rows[0];
 
-    // Prevent double credit
     if (
       String(
         topup.payment_status
@@ -1212,7 +1228,6 @@ async function creditWalletFromTopup(
       );
     }
 
-    // Credit balance
     await client.query(
       `
       UPDATE customers
@@ -1226,7 +1241,6 @@ async function creditWalletFromTopup(
       ]
     );
 
-    // Mark top-up paid
     await client.query(
       `
       UPDATE wallet_topups
@@ -1243,7 +1257,6 @@ async function creditWalletFromTopup(
       [topup.id]
     );
 
-    // Add transaction
     await client.query(
       `
       INSERT INTO wallet_transactions
@@ -3141,7 +3154,6 @@ app.get(
       const topup =
         topupResult.rows[0];
 
-      // Already credited
       if (
         String(
           topup.payment_status
