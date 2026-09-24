@@ -48,7 +48,9 @@ app.disable("x-powered-by");
 // =====================================================
 
 if (!DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL is missing.");
+  console.error(
+    "ERROR: DATABASE_URL is missing."
+  );
 }
 
 const pool = new Pool({
@@ -187,9 +189,7 @@ async function initDatabase() {
   }
 
   // ===================================================
-  // WALLET TRANSACTION MIGRATION
-  // IMPORTANT:
-  // Add reference BEFORE using it.
+  // WALLET TRANSACTION REFERENCE
   // ===================================================
 
   await pool.query(`
@@ -240,6 +240,12 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS
     wallet_topups_customer_created_idx
     ON wallet_topups(customer_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS
+    orders_datamart_processing_idx
+    ON orders(status, payment_status, created_at)
   `);
 
   console.log(
@@ -597,9 +603,14 @@ function normalizeCapacity(
 
   const number = Number(cleaned);
 
-  return Number.isFinite(number)
-    ? number
-    : null;
+  if (
+    !Number.isFinite(number) ||
+    number <= 0
+  ) {
+    return null;
+  }
+
+  return number;
 }
 
 function escapeHtml(value) {
@@ -824,13 +835,6 @@ async function datamartPurchase(
 // =====================================================
 // DATAMART ORDER STATUS
 // =====================================================
-// Official documented endpoint:
-//
-// GET /order-status/:reference
-//
-// Example:
-// /api/developer/order-status/MN-ED2026CH
-// =====================================================
 
 async function datamartOrderStatus(
   reference
@@ -854,7 +858,7 @@ async function datamartOrderStatus(
 }
 
 // =====================================================
-// MAP DATAMART STATUS TO DGM STATUS
+// MAP DATAMART STATUS
 // =====================================================
 
 function mapDataMartStatus(
@@ -867,14 +871,19 @@ function mapDataMartStatus(
     .toLowerCase();
 
   if (
-    status === "completed"
+    status === "completed" ||
+    status === "complete" ||
+    status === "success" ||
+    status === "successful"
   ) {
     return "Completed";
   }
 
   if (
     status === "failed" ||
-    status === "refunded"
+    status === "refunded" ||
+    status === "cancelled" ||
+    status === "canceled"
   ) {
     return "Failed";
   }
@@ -882,17 +891,17 @@ function mapDataMartStatus(
   if (
     status === "pending" ||
     status === "waiting" ||
-    status === "processing"
+    status === "processing" ||
+    status === "queued"
   ) {
     return "Processing";
   }
 
-  // Never treat an unknown status as completed.
   return "Processing";
 }
 
 // =====================================================
-// SYNCHRONIZE EXISTING DATAMART ORDER
+// SYNCHRONIZE DATAMART ORDER
 // =====================================================
 
 async function syncDataMartOrder(
@@ -955,6 +964,7 @@ async function syncDataMartOrder(
     const datamartStatus =
       String(
         data.orderStatus ||
+        data.order_status ||
         data.status ||
         ""
       )
@@ -1055,12 +1065,8 @@ async function fulfillDataOrder(
   }
 
   // ===================================================
-  // VERY IMPORTANT
-  //
-  // If DataMart already gave this order a reference,
-  // NEVER purchase the data again.
-  //
-  // Instead, check the existing DataMart order.
+  // EXISTING DATAMART ORDER
+  // NEVER PURCHASE AGAIN
   // ===================================================
 
   if (
@@ -1089,8 +1095,8 @@ async function fulfillDataOrder(
   }
 
   // ===================================================
-  // If there is a purchase ID but somehow no reference,
-  // do NOT create another purchase.
+  // EXISTING PURCHASE ID
+  // DO NOT PURCHASE AGAIN
   // ===================================================
 
   if (
@@ -1112,7 +1118,7 @@ async function fulfillDataOrder(
   }
 
   // ===================================================
-  // VALIDATE ORDER
+  // VALIDATE
   // ===================================================
 
   const capacity =
@@ -1154,7 +1160,49 @@ async function fulfillDataOrder(
   }
 
   // ===================================================
-  // DATAMART PURCHASE PAYLOAD
+  // VERIFY DGM PRICE AGAIN
+  // ===================================================
+
+  const networkPrices =
+    DGM_PRICES[
+      order.network
+    ];
+
+  if (!networkPrices) {
+    throw new Error(
+      "Invalid DGM network."
+    );
+  }
+
+  const expectedAmount =
+    networkPrices[
+      capacity
+    ];
+
+  if (
+    typeof expectedAmount !==
+    "number"
+  ) {
+    throw new Error(
+      "Selected data bundle is not available."
+    );
+  }
+
+  if (
+    Math.round(
+      Number(order.amount) * 100
+    ) !==
+    Math.round(
+      expectedAmount * 100
+    )
+  ) {
+    throw new Error(
+      "Order price does not match the current DGM price."
+    );
+  }
+
+  // ===================================================
+  // DATAMART PAYLOAD
   // ===================================================
 
   const payload = {
@@ -1187,7 +1235,7 @@ async function fulfillDataOrder(
       );
 
     // =================================================
-    // EXTRACT DATAMART IDs
+    // EXTRACT DATAMART INFORMATION
     // =================================================
 
     const purchaseId =
@@ -1217,21 +1265,19 @@ async function fulfillDataOrder(
 
     const externalStatus =
       String(
+        result?.orderStatus ||
         result?.status ||
+        result?.data?.orderStatus ||
         result?.data?.status ||
         "processing"
       )
         .trim()
         .toLowerCase();
 
-    let localStatus =
+    const localStatus =
       mapDataMartStatus(
         externalStatus
       );
-
-    // =================================================
-    // SAVE DATAMART INFORMATION
-    // =================================================
 
     await pool.query(
       `
@@ -1260,17 +1306,13 @@ async function fulfillDataOrder(
     );
 
     console.log(
-      `DataMart purchase created: ${
-        order.order_ref
-      } | reference: ${
+      `DataMart purchase created: ${order.order_ref} | reference: ${
         reference || "none"
-      } | status: ${
-        externalStatus
-      }`
+      } | status: ${externalStatus}`
     );
 
     // =================================================
-    // IMMEDIATELY CHECK REAL ORDER STATUS
+    // IMMEDIATE REAL STATUS CHECK
     // =================================================
 
     if (reference) {
@@ -1336,9 +1378,6 @@ async function fulfillDataOrder(
       error
     );
 
-    // Keep the order Processing because
-    // the purchase may have been accepted
-    // even if the status request failed.
     await pool.query(
       `
       UPDATE orders
@@ -1381,6 +1420,8 @@ async function creditWalletFromTopup(
       "BEGIN"
     );
 
+    // Lock this top-up so two Paystack
+    // requests cannot credit it twice.
     const topupResult =
       await client.query(
         `
@@ -1410,6 +1451,7 @@ async function creditWalletFromTopup(
     const topup =
       topupResult.rows[0];
 
+    // Already paid = already credited.
     if (
       String(
         topup.payment_status
@@ -1474,6 +1516,10 @@ async function creditWalletFromTopup(
       );
     }
 
+    // =================================================
+    // CREDIT CUSTOMER
+    // =================================================
+
     await client.query(
       `
       UPDATE customers
@@ -1486,6 +1532,10 @@ async function creditWalletFromTopup(
         topup.customer_id
       ]
     );
+
+    // =================================================
+    // MARK TOPUP PAID
+    // =================================================
 
     await client.query(
       `
@@ -1502,6 +1552,17 @@ async function creditWalletFromTopup(
       `,
       [topup.id]
     );
+
+    // =================================================
+    // IMPORTANT POSTGRES FIX
+    //
+    // The unique index is partial:
+    //
+    // WHERE reference IS NOT NULL
+    //
+    // Therefore the conflict clause MUST include
+    // the same predicate.
+    // =================================================
 
     await client.query(
       `
@@ -1522,6 +1583,7 @@ async function creditWalletFromTopup(
           $3
         )
       ON CONFLICT (reference)
+      WHERE reference IS NOT NULL
       DO NOTHING
       `,
       [
@@ -1628,10 +1690,12 @@ app.post(
       const valid =
         crypto.timingSafeEqual(
           Buffer.from(
-            signature
+            signature,
+            "utf8"
           ),
           Buffer.from(
-            expectedSignature
+            expectedSignature,
+            "utf8"
           )
         );
 
@@ -1666,7 +1730,10 @@ app.post(
       }
 
       const reference =
-        event?.data?.reference;
+        String(
+          event?.data?.reference ||
+            ""
+        ).trim();
 
       if (!reference) {
         return res.sendStatus(
@@ -1675,7 +1742,7 @@ app.post(
       }
 
       // =================================================
-      // WALLET
+      // WALLET PAYMENT
       // =================================================
 
       const walletResult =
@@ -2604,8 +2671,6 @@ app.get(
       let order =
         result.rows[0];
 
-      // If DataMart already has the order,
-      // refresh its status before returning it.
       if (
         order.datamart_reference &&
         isDataService(
@@ -3056,6 +3121,21 @@ app.get(
       const transaction =
         data.data;
 
+      // Make sure Paystack returned the same
+      // reference that was requested.
+      if (
+        String(
+          transaction.reference ||
+            ""
+        ) !== reference
+      ) {
+        return sendError(
+          res,
+          400,
+          "Payment reference mismatch."
+        );
+      }
+
       const paid =
         transaction.status ===
         "success";
@@ -3154,17 +3234,6 @@ app.get(
 
       order =
         updated.rows[0];
-
-      // =================================================
-      // IMPORTANT:
-      // Always run fulfillment for a paid data order.
-      //
-      // If there is no DataMart reference:
-      // create the purchase.
-      //
-      // If a DataMart reference already exists:
-      // check its current status.
-      // =================================================
 
       if (
         String(
@@ -3558,6 +3627,19 @@ app.get(
         data.data;
 
       if (
+        String(
+          transaction.reference ||
+            ""
+        ) !== reference
+      ) {
+        return sendError(
+          res,
+          400,
+          "Payment reference mismatch."
+        );
+      }
+
+      if (
         transaction.status !==
         "success"
       ) {
@@ -3779,14 +3861,15 @@ app.get(
     const safeReference =
       escapeHtml(reference);
 
+    const encodedReference =
+      encodeURIComponent(
+        reference
+      );
+
     const verifyEndpoint =
       isWallet
-        ? `/api/wallet/deposit/verify/${encodeURIComponent(
-            reference
-          )}`
-        : `/api/payments/verify/${encodeURIComponent(
-            reference
-          )}`;
+        ? `/api/wallet/deposit/verify/${encodedReference}`
+        : `/api/payments/verify/${encodedReference}`;
 
     const destination =
       isWallet
@@ -3907,7 +3990,7 @@ app.get(
           <p>
             Please wait while we securely
             confirm your payment and update
-            your order.
+            your account.
           </p>
 
           ${
@@ -3923,9 +4006,7 @@ app.get(
               : ""
           }
 
-          <a
-            href="${destination}"
-          >
+          <a href="${destination}">
             ${
               isWallet
                 ? "View My Wallet"
@@ -3957,7 +4038,10 @@ app.get(
               const data =
                 await response.json();
 
-              if (data && data.success) {
+              if (
+                data &&
+                data.success
+              ) {
                 setTimeout(() => {
                   window.location.href =
                     "${destination}";
@@ -3982,14 +4066,18 @@ app.get(
 // DATAMART BACKGROUND STATUS SYNC
 // =====================================================
 
-let datamartSyncRunning = false;
+let datamartSyncRunning =
+  false;
 
 async function syncProcessingDataOrders() {
-  if (datamartSyncRunning) {
+  if (
+    datamartSyncRunning
+  ) {
     return;
   }
 
-  datamartSyncRunning = true;
+  datamartSyncRunning =
+    true;
 
   try {
     const result =
@@ -4039,6 +4127,41 @@ async function syncProcessingDataOrders() {
     );
   } finally {
     datamartSyncRunning =
+      false;
+  }
+}
+
+// =====================================================
+// SESSION CLEANUP
+// =====================================================
+
+let sessionCleanupRunning =
+  false;
+
+async function cleanupExpiredSessions() {
+  if (
+    sessionCleanupRunning
+  ) {
+    return;
+  }
+
+  sessionCleanupRunning =
+    true;
+
+  try {
+    await pool.query(
+      `
+      DELETE FROM user_sessions
+      WHERE expire <= NOW()
+      `
+    );
+  } catch (error) {
+    console.error(
+      "Session cleanup error:",
+      error.message
+    );
+  } finally {
+    sessionCleanupRunning =
       false;
   }
 }
@@ -4282,6 +4405,7 @@ app.use(
               name="viewport"
               content="width=device-width, initial-scale=1"
             >
+
             <title>
               Page Not Found
             </title>
@@ -4400,9 +4524,6 @@ async function startServer() {
 
         // =================================================
         // DATAMART AUTOMATIC STATUS CHECK
-        //
-        // First check after 5 seconds.
-        // Then every 15 seconds.
         // =================================================
 
         setTimeout(() => {
@@ -4413,6 +4534,19 @@ async function startServer() {
             15000
           );
         }, 5000);
+
+        // =================================================
+        // EXPIRED SESSION CLEANUP
+        // =================================================
+
+        setTimeout(() => {
+          cleanupExpiredSessions();
+
+          setInterval(
+            cleanupExpiredSessions,
+            60 * 60 * 1000
+          );
+        }, 10000);
       }
     );
   } catch (error) {
