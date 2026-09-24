@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <title>Add Money • DHE GENIUS MEDIA</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #07110d;
+      color: #ffffff;
+      min-height: 100vh;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* =========================
+       HEADER
+    ========================== */
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px;
+      background: rgba(7, 17, 13, 0.96);
+      border-bottom: 1px solid rgba(37, 211, 102, 0.12);
+      backdrop-filter: blur(12px);
+    }
+
+    .back-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #101d17;
+      border: 1px solid #1d3327;
+      color: #ffffff;
+      font-size: 25px;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle {
+      margin-top: 4px;
+      color: #8ca298;
+      font-size: 12px;
+    }
+
+    /* =========================
+       PAGE
+    ========================== */
+
+    .container {
+      width: 100%;
+      max-width: 620px;
+      margin: auto;
+      padding: 22px 16px 40px;
+    }
+
+    .page-title {
+      font-size: 27px;
+      font-weight: 800;
+      margin-bottom: 7px;
+    }
+
+    .page-description {
+      color: #8fa198;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 22px;
+    }
+
+    /* =========================
+       WALLET CARD
+    ========================== */
+
+    .wallet-card {
+      position: relative;
+      overflow: hidden;
+      padding: 22px;
+      border-radius: 22px;
+      background:
+        linear-gradient(
+          135deg,
+          rgba(37, 211, 102, 0.18),
+          rgba(18, 140, 126, 0.08)
+        ),
+        #0c1812;
+      border: 1px solid rgba(37, 211, 102, 0.25);
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+      margin-bottom: 22px;
+    }
+
+    .wallet-card::after {
+      content: "";
+      position: absolute;
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      right: -65px;
+      top: -65px;
+      background: rgba(37, 211, 102, 0.08);
+    }
+
+    .wallet-label {
+      color: #93a79c;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .wallet-balance {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: -1px;
+    }
+
+    .wallet-status {
+      margin-top: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: #8fe3ad;
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #25d366;
+      box-shadow: 0 0 10px rgba(37, 211, 102, 0.8);
+    }
+
+    /* =========================
+       SECTION
+    ========================== */
+
+    .section {
+      background: #0b1711;
+      border: 1px solid #17281f;
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .section-subtitle {
+      color: #82968a;
+      font-size: 12px;
+      margin-bottom: 16px;
+    }
+
+    /* =========================
+       QUICK AMOUNTS
+    ========================== */
+
+    .amount-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 11px;
+    }
+
+    .amount-btn {
+      min-height: 58px;
+      border-radius: 14px;
+      border: 1px solid #21382b;
+      background: #0e1c15;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.2s ease;
+    }
+
+    .amount-btn:hover {
+      border-color: #25d366;
+    }
+
+    .amount-btn.active {
+      background: rgba(37, 211, 102, 0.13);
+      border-color: #25d366;
+      color: #25d366;
+      box-shadow: 0 0 0 1px rgba(37, 211, 102, 0.08);
+    }
+
+    /* =========================
+       CUSTOM AMOUNT
+    ========================== */
+
+    .input-label {
+      display: block;
+      color: #a4b4ab;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .currency {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #25d366;
+      font-weight: 800;
+    }
+
+    .amount-input {
+      width: 100%;
+      height: 55px;
+      border-radius: 14px;
+      border: 1px solid #24392d;
+      background: #07110d;
+      color: #ffffff;
+      padding: 0 15px 0 50px;
+      outline: none;
+      font-size: 17px;
+      font-weight: 700;
+    }
+
+    .amount-input:focus {
+      border-color: #25d366;
+      box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.08);
+    }
+
+    .amount-hint {
+      margin-top: 8px;
+      color: #667a6f;
+      font-size: 11px;
+    }
+
+    /* =========================
+       PAYMENT BUTTON
+    ========================== */
+
+    .pay-btn {
+      width: 100%;
+      height: 58px;
+      margin-top: 18px;
+      border: none;
+      border-radius: 15px;
+      background: linear-gradient(135deg, #25d366, #128c7e);
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(37, 211, 102, 0.18);
+      transition: 0.2s ease;
+    }
+
+    .pay-btn:active {
+      transform: scale(0.98);
+    }
+
+    .pay-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* =========================
+       SECURITY NOTE
+    ========================== */
+
+    .security {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-top: 15px;
+      padding: 13px;
+      border-radius: 13px;
+      background: #08130e;
+      border: 1px solid #15271e;
+    }
+
+    .security-icon {
+      font-size: 17px;
+    }
+
+    .security-text {
+      color: #75887d;
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    /* =========================
+       MESSAGE
+    ========================== */
+
+    .message {
+      display: none;
+      margin-bottom: 18px;
+      padding: 13px 15px;
+      border-radius: 13px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .message.show {
+      display: block;
+    }
+
+    .message.error {
+      color: #ffb4b4;
+      background: rgba(255, 70, 70, 0.08);
+      border: 1px solid rgba(255, 70, 70, 0.2);
+    }
+
+    .message.success {
+      color: #9af0b7;
+      background: rgba(37, 211, 102, 0.08);
+      border: 1px solid rgba(37, 211, 102, 0.2);
+    }
+
+    .message.info {
+      color: #a9c8bb;
+      background: rgba(100, 180, 160, 0.07);
+      border: 1px solid rgba(100, 180, 160, 0.15);
+    }
+
+    /* =========================
+       RECENT TRANSACTIONS
+    ========================== */
+
+    .transactions {
+      margin-top: 5px;
+    }
+
+    .transaction {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 0;
+      border-bottom: 1px solid #15251d;
+    }
+
+    .transaction:last-child {
+      border-bottom: none;
+    }
+
+    .transaction-left {
+      min-width: 0;
+    }
+
+    .transaction-title {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .transaction-date {
+      color: #687a70;
+      font-size: 10px;
+      margin-top: 4px;
+    }
+
+    .transaction-amount {
+      color: #25d366;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .empty {
+      color: #65786d;
+      font-size: 12px;
+      text-align: center;
+      padding: 18px 0 5px;
+    }
+
+    /* =========================
+       LOADING
+    ========================== */
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #ffffff;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* =========================
+       MOBILE
+    ========================== */
+
+    @media (min-width: 600px) {
+      .container {
+        padding-top: 35px;
+      }
+
+      .amount-grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <a href="/account.html" class="back-btn" aria-label="Back">
+      ‹
+    </a>
+
+    <div>
+      <div class="brand">DHE GENIUS MEDIA</div>
+      <div class="subtitle">
+        Add Money • Stay Connected. Stay Genius.
+      </div>
+    </div>
+  </header>
+
+
+  <main class="container">
+
+    <h1 class="page-title">Add Money</h1>
+
+    <p class="page-description">
+      Fund your DGM wallet securely and use your balance to pay for
+      data bundles, airtime and other digital services.
+    </p>
+
+
+    <!-- MESSAGE -->
+    <div id="message" class="message"></div>
+
+
+    <!-- WALLET -->
+    <div class="wallet-card">
+
+      <div class="wallet-label">
+        Current Wallet Balance
+      </div>
+
+      <div class="wallet-balance" id="walletBalance">
+        GH₵0.00
+      </div>
+
+      <div class="wallet-status">
+        <span class="status-dot"></span>
+        Wallet ready
+      </div>
+
+    </div>
+
+
+    <!-- ADD MONEY -->
+    <div class="section">
+
+      <div class="section-title">
+        Choose Amount
+      </div>
+
+      <div class="section-subtitle">
+        Select an amount or enter your own amount.
+      </div>
+
+
+      <div class="amount-grid">
+
+        <button
+          type="button"
+          class="amount-btn"
+          data-amount="10">
+          GH₵10
+        </button>
+
+        <button
+          type="button"
+          class="amount-btn"
+          data-amount="20">
+          GH₵20
+        </button>
+
+        <button
+          type="button"
+          class="amount-btn"
+          data-amount="50">
+          GH₵50
+        </button>
+
+        <button
+          type="button"
+          class="amount-btn"
+          data-amount="100">
+          GH₵100
+        </button>
+
+      </div>
+
+
+      <div style="height:20px;"></div>
+
+
+      <label class="input-label" for="amount">
+        Custom Amount
+      </label>
+
+      <div class="input-wrapper">
+
+        <span class="currency">GH₵</span>
+
+        <input
+          id="amount"
+          class="amount-input"
+          type="number"
+          inputmode="decimal"
+          min="1"
+          max="10000"
+          step="0.01"
+          placeholder="Enter amount"
+          autocomplete="off">
+
+      </div>
+
+      <div class="amount-hint">
+        Minimum GH₵1.00 • Maximum GH₵10,000.00
+      </div>
+
+
+      <button
+        type="button"
+        class="pay-btn"
+        id="payButton">
+        Continue to Payment
+      </button>
+
+
+      <div class="security">
+
+        <div class="security-icon">
+          🔒
+        </div>
+
+        <div class="security-text">
+          Your payment is processed securely through Paystack.
+          DHE GENIUS MEDIA does not store your card details.
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- RECENT TRANSACTIONS -->
+    <div class="section">
+
+      <div class="section-title">
+        Recent Wallet Activity
+      </div>
+
+      <div class="section-subtitle">
+        Your latest wallet transactions.
+      </div>
+
+      <div id="transactions" class="transactions">
+        <div class="empty">
+          Loading transactions...
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+
+  <script>
+
+    let selectedAmount = null;
+
+
+    /* =========================
+       ELEMENTS
+    ========================== */
+
+    const amountInput =
+      document.getElementById("amount");
+
+    const payButton =
+      document.getElementById("payButton");
+
+    const walletBalance =
+      document.getElementById("walletBalance");
+
+    const message =
+      document.getElementById("message");
+
+    const transactions =
+      document.getElementById("transactions");
+
+
+    /* =========================
+       MESSAGE
+    ========================== */
+
+    function showMessage(text, type = "info") {
+
+      message.textContent = text;
+
+      message.className =
+        "message show " + type;
+
+    }
+
+
+    function hideMessage() {
+
+      message.className = "message";
+
+      message.textContent = "";
+
+    }
+
+
+    /* =========================
+       FORMAT MONEY
+    ========================== */
+
+    function formatMoney(amount) {
+
+      const number = Number(amount || 0);
+
+      return "GH₵" +
+        number.toLocaleString("en-GH", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+
+    }
+
+
+    /* =========================
+       LOAD ACCOUNT
+    ========================== */
+
+    async function loadAccount() {
+
+      try {
+
+        const response =
+          await fetch("/api/me", {
+            credentials: "include"
+          });
+
+        if (response.status === 401) {
+
+          window.location.href =
+            "/login.html";
+
+          return;
+        }
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+            "Unable to load wallet."
+          );
+        }
+
+        const user =
+          data.user || data;
+
+        const balance =
+          user.balance ??
+          data.balance ??
+          0;
+
+        walletBalance.textContent =
+          formatMoney(balance);
+
+      } catch (error) {
+
+        console.error(
+          "Account error:",
+          error
+        );
+
+        showMessage(
+          "Unable to load your wallet balance.",
+          "error"
+        );
+
+      }
+
+    }
+
+
+    /* =========================
+       QUICK AMOUNTS
+    ========================== */
+
+    document
+      .querySelectorAll(".amount-btn")
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          function () {
+
+            document
+              .querySelectorAll(".amount-btn")
+              .forEach(btn => {
+                btn.classList.remove("active");
+              });
+
+            this.classList.add("active");
+
+            selectedAmount =
+              Number(
+                this.dataset.amount
+              );
+
+            amountInput.value =
+              selectedAmount;
+
+            hideMessage();
+
+          }
+        );
+
+      });
+
+
+    /* =========================
+       CUSTOM INPUT
+    ========================== */
+
+    amountInput.addEventListener(
+      "input",
+      function () {
+
+        selectedAmount =
+          Number(this.value);
+
+        document
+          .querySelectorAll(".amount-btn")
+          .forEach(btn => {
+
+            if (
+              Number(btn.dataset.amount) ===
+              selectedAmount
+            ) {
+
+              btn.classList.add("active");
+
+            } else {
+
+              btn.classList.remove("active");
+
+            }
+
+          });
+
+      }
+    );
+
+
+    /* =========================
+       PAY
+    ========================== */
+
+    payButton.addEventListener(
+      "click",
+      async function () {
+
+        hideMessage();
+
+        const amount =
+          Number(amountInput.value);
+
+        if (!amount || amount < 1) {
+
+          showMessage(
+            "Please enter an amount of at least GH₵1.00.",
+            "error"
+          );
+
+          amountInput.focus();
+
+          return;
+        }
+
+
+        if (amount > 10000) {
+
+          showMessage(
+            "The maximum amount is GH₵10,000.00.",
+            "error"
+          );
+
+          amountInput.focus();
+
+          return;
+        }
+
+
+        if (!Number.isFinite(amount)) {
+
+          showMessage(
+            "Please enter a valid amount.",
+            "error"
+          );
+
+          return;
+        }
+
+
+        payButton.disabled = true;
+
+        payButton.innerHTML =
+          '<span class="spinner"></span> Preparing Payment...';
+
+
+        try {
+
+          const response =
+            await fetch(
+              "/api/wallet/deposit",
+              {
+                method: "POST",
+
+                credentials: "include",
+
+                headers: {
+                  "Content-Type":
+                    "application/json"
+                },
+
+                body: JSON.stringify({
+                  amount: amount
+                })
+              }
+            );
+
+
+          let data = {};
+
+          try {
+            data = await response.json();
+          } catch (_) {
+            data = {};
+          }
+
+
+          if (response.status === 401) {
+
+            window.location.href =
+              "/login.html";
+
+            return;
+          }
+
+
+          if (!response.ok) {
+
+            throw new Error(
+              data.message ||
+              data.error ||
+              "Unable to start payment."
+            );
+
+          }
+
+
+          const paymentUrl =
+            data.authorization_url ||
+            data.authorizationUrl ||
+            data.url;
+
+
+          if (!paymentUrl) {
+
+            throw new Error(
+              "Payment link was not returned by the server."
+            );
+
+          }
+
+
+          showMessage(
+            "Redirecting you to secure Paystack payment...",
+            "info"
+          );
+
+
+          window.location.href =
+            paymentUrl;
+
+
+        } catch (error) {
+
+          console.error(
+            "Payment error:",
+            error
+          );
+
+          showMessage(
+            error.message ||
+            "Unable to start payment. Please try again.",
+            "error"
+          );
+
+
+          payButton.disabled = false;
+
+          payButton.textContent =
+            "Continue to Payment";
+
+        }
+
+      }
+    );
+
+
+    /* =========================
+       LOAD TRANSACTIONS
+    ========================== */
+
+    async function loadTransactions() {
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/wallet/transactions",
+            {
+              credentials: "include"
+            }
+          );
+
+
+        if (response.status === 401) {
+
+          window.location.href =
+            "/login.html";
+
+          return;
+        }
+
+
+        if (!response.ok) {
+          throw new Error(
+            "Unable to load transactions."
+          );
+        }
+
+
+        const data =
+          await response.json();
+
+
+        const list =
+          Array.isArray(data)
+            ? data
+            : (
+                data.transactions ||
+                data.data ||
+                []
+              );
+
+
+        if (!list.length) {
+
+          transactions.innerHTML =
+            '<div class="empty">' +
+            'No wallet transactions yet.' +
+            '</div>';
+
+          return;
+        }
+
+
+        transactions.innerHTML =
+          list
+            .slice(0, 5)
+            .map(transaction => {
+
+              const amount =
+                Number(
+                  transaction.amount || 0
+                );
+
+              const type =
+                transaction.type ||
+                transaction.transaction_type ||
+                "Wallet transaction";
+
+              const date =
+                transaction.created_at ||
+                transaction.createdAt ||
+                transaction.date ||
+                "";
+
+
+              let formattedDate = "";
+
+              if (date) {
+
+                const parsed =
+                  new Date(date);
+
+                if (!isNaN(parsed)) {
+
+                  formattedDate =
+                    parsed.toLocaleString(
+                      "en-GH",
+                      {
+                        dateStyle: "medium",
+                        timeStyle: "short"
+                      }
+                    );
+
+                }
+
+              }
+
+
+              return `
+                <div class="transaction">
+
+                  <div class="transaction-left">
+
+                    <div class="transaction-title">
+                      ${escapeHtml(type)}
+                    </div>
+
+                    <div class="transaction-date">
+                      ${escapeHtml(formattedDate)}
+                    </div>
+
+                  </div>
+
+                  <div class="transaction-amount">
+                    +${formatMoney(amount)}
+                  </div>
+
+                </div>
+              `;
+
+            })
+            .join("");
+
+
+      } catch (error) {
+
+        console.error(
+          "Transaction error:",
+          error
+        );
+
+        transactions.innerHTML =
+          '<div class="empty">' +
+          'No recent transactions available.' +
+          '</div>';
+
+      }
+
+    }
+
+
+    /* =========================
+       ESCAPE HTML
+    ========================== */
+
+    function escapeHtml(value) {
+
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+    }
+
+
+    /* =========================
+       PAYMENT RETURN
+    ========================== */
+
+    function handlePaymentReturn() {
+
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+      const reference =
+        params.get("reference") ||
+        params.get("trxref");
+
+
+      if (!reference) {
+        return;
+      }
+
+
+      /*
+        Do not assume payment succeeded
+        just because Paystack returned here.
+
+        The server should verify the transaction
+        before crediting the wallet.
+      */
+
+      showMessage(
+        "Payment returned successfully. Your wallet will update after payment verification.",
+        "success"
+      );
+
+
+      /*
+        Remove Paystack parameters from
+        the visible browser URL.
+      */
+
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+      );
+
+
+      /*
+        Refresh wallet information.
+      */
+
+      setTimeout(() => {
+
+        loadAccount();
+        loadTransactions();
+
+      }, 1200);
+
+    }
+
+
+    /* =========================
+       INITIALIZE
+    ========================== */
+
+    async function initialize() {
+
+      await loadAccount();
+
+      await loadTransactions();
+
+      handlePaymentReturn();
+
+    }
+
+
+    initialize();
+
+  </script>
+
+</body>
+</html>
