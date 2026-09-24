@@ -32,9 +32,20 @@
     }
 
     body {
-      font-family: Inter, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", sans-serif;
-      background: linear-gradient(180deg, #06121e 0%, #081725 100%);
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+      background:
+        linear-gradient(
+          180deg,
+          #06121e 0%,
+          #081725 100%
+        );
+
       color: var(--text);
       min-height: 100vh;
     }
@@ -57,12 +68,19 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+
       padding: 16px 18px;
-      background: rgba(7,19,31,0.96);
-      border-bottom: 1px solid var(--border);
+
+      background:
+        rgba(7,19,31,0.96);
+
+      border-bottom:
+        1px solid var(--border);
+
       position: sticky;
       top: 0;
       z-index: 100;
+
       backdrop-filter: blur(15px);
     }
 
@@ -75,16 +93,30 @@
     .brand-logo {
       width: 42px;
       height: 42px;
+
       flex-shrink: 0;
+
       border-radius: 13px;
+
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, #00c6ff, #0072ff);
+
+      background:
+        linear-gradient(
+          135deg,
+          #00c6ff,
+          #0072ff
+        );
+
       color: white;
+
       font-size: 13px;
       font-weight: 900;
-      box-shadow: 0 8px 22px rgba(0,114,255,0.25);
+
+      box-shadow:
+        0 8px 22px
+        rgba(0,114,255,0.25);
     }
 
     .brand-name {
@@ -101,11 +133,18 @@
     .menu-btn {
       width: 42px;
       height: 42px;
-      border: 1px solid var(--border);
+
+      border:
+        1px solid var(--border);
+
       background: var(--card);
+
       color: white;
+
       border-radius: 12px;
+
       font-size: 20px;
+
       display: flex;
       align-items: center;
       justify-content: center;
@@ -117,17 +156,30 @@
 
     .sidebar {
       position: fixed;
+
       top: 0;
       left: -290px;
+
       width: 280px;
       height: 100vh;
+
       background: #091a29;
-      border-right: 1px solid var(--border);
+
+      border-right:
+        1px solid var(--border);
+
       z-index: 200;
+
       padding: 22px;
-      transition: left 0.25s ease;
+
+      transition:
+        left 0.25s ease;
+
       overflow-y: auto;
-      box-shadow: 15px 0 40px rgba(0,0,0,0.18);
+
+      box-shadow:
+        15px 0 40px
+        rgba(0,0,0,0.18);
     }
 
     .sidebar.open {
@@ -138,6 +190,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
+
       margin-bottom: 30px;
     }
 
@@ -150,24 +203,39 @@
 
     .nav-title {
       color: #617b8e;
+
       font-size: 10px;
+
       text-transform: uppercase;
+
       letter-spacing: 1px;
-      margin: 20px 0 9px;
+
+      margin:
+        20px 0 9px;
     }
 
     .nav-item {
       width: 100%;
+
       border: none;
+
       background: transparent;
+
       color: #c9d9e4;
+
       padding: 13px 12px;
+
       text-align: left;
+
       border-radius: 12px;
+
       margin-bottom: 4px;
+
       display: flex;
       align-items: center;
+
       gap: 12px;
+
       font-size: 14px;
     }
 
@@ -182,10 +250,16 @@
 
     .overlay {
       display: none;
+
       position: fixed;
+
       inset: 0;
-      background: rgba(0,0,0,0.65);
+
+      background:
+        rgba(0,0,0,0.65);
+
       z-index: 150;
+
       backdrop-filter: blur(2px);
     }
 
@@ -199,13 +273,18 @@
 
     .main {
       width: 100%;
+
       max-width: 1200px;
+
       margin: auto;
-      padding: 20px 16px 100px;
+
+      padding:
+        20px 16px 100px;
     }
 
     .welcome {
-      margin: 8px 0 20px;
+      margin:
+        8px 0 20px;
     }
 
     .welcome small {
@@ -215,7 +294,9 @@
 
     .welcome h1 {
       font-size: 25px;
+
       margin-top: 4px;
+
       word-break: break-word;
     }
 
@@ -225,11 +306,24 @@
 
     .balance-card {
       padding: 22px;
+
       border-radius: 22px;
-      background: linear-gradient(135deg, #087fe8, #004fba);
-      box-shadow: 0 18px 40px rgba(0,100,220,0.22);
+
+      background:
+        linear-gradient(
+          135deg,
+          #087fe8,
+          #004fba
+        );
+
+      box-shadow:
+        0 18px 40px
+        rgba(0,100,220,0.22);
+
       position: relative;
+
       overflow: hidden;
+
       margin-bottom: 20px;
     }
 
@@ -241,28 +335,40 @@
     .balance {
       font-size: 34px;
       font-weight: 900;
-      margin: 8px 0 18px;
+
+      margin:
+        8px 0 18px;
     }
 
     .balance-actions {
       display: flex;
       gap: 10px;
+
       position: relative;
       z-index: 2;
     }
 
     .balance-btn {
       border: none;
-      background: rgba(255,255,255,0.15);
+
+      background:
+        rgba(255,255,255,0.15);
+
       color: white;
-      padding: 10px 15px;
+
+      padding:
+        10px 15px;
+
       border-radius: 10px;
+
       font-size: 12px;
+
       font-weight: 700;
     }
 
     .balance-btn:hover {
-      background: rgba(255,255,255,0.23);
+      background:
+        rgba(255,255,255,0.23);
     }
 
     /* =========================
@@ -271,7 +377,9 @@
 
     .section-title {
       font-size: 17px;
-      margin: 24px 0 12px;
+
+      margin:
+        24px 0 12px;
     }
 
     /* =========================
@@ -280,46 +388,68 @@
 
     .quick-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
       gap: 10px;
     }
 
     .quick-card {
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
+
       background: var(--card);
+
       border-radius: 17px;
+
       padding: 17px;
+
       color: white;
+
       text-align: left;
+
       min-height: 105px;
     }
 
     .quick-card:hover {
       background: var(--card2);
-      border-color: rgba(0,140,255,0.25);
+
+      border-color:
+        rgba(0,140,255,0.25);
     }
 
     .quick-icon {
       width: 40px;
       height: 40px;
+
       border-radius: 12px;
+
       display: flex;
       align-items: center;
       justify-content: center;
-      background: rgba(0,140,255,0.12);
+
+      background:
+        rgba(0,140,255,0.12);
+
       font-size: 20px;
+
       margin-bottom: 10px;
     }
 
     .quick-card strong {
       display: block;
+
       font-size: 14px;
     }
 
     .quick-card span {
       display: block;
+
       color: var(--muted);
+
       font-size: 11px;
+
       margin-top: 4px;
     }
 
@@ -329,27 +459,43 @@
 
     .status-card {
       background: var(--card);
-      border: 1px solid var(--border);
+
+      border:
+        1px solid var(--border);
+
       border-radius: 18px;
+
       padding: 17px;
+
       display: flex;
-      justify-content: space-between;
+
+      justify-content:
+        space-between;
+
       align-items: center;
     }
 
     .status-left {
       display: flex;
+
       align-items: center;
+
       gap: 12px;
     }
 
     .status-dot {
       width: 11px;
       height: 11px;
+
       flex-shrink: 0;
+
       border-radius: 50%;
+
       background: var(--green);
-      box-shadow: 0 0 12px rgba(32,216,137,0.7);
+
+      box-shadow:
+        0 0 12px
+        rgba(32,216,137,0.7);
     }
 
     .status-left strong {
@@ -358,14 +504,19 @@
 
     .status-left small {
       display: block;
+
       color: var(--muted);
+
       margin-top: 3px;
+
       font-size: 11px;
     }
 
     .online {
       color: var(--green);
+
       font-size: 11px;
+
       font-weight: 800;
     }
 
@@ -375,29 +526,45 @@
 
     .orders-card {
       background: var(--card);
-      border: 1px solid var(--border);
+
+      border:
+        1px solid var(--border);
+
       border-radius: 18px;
+
       overflow: hidden;
     }
 
     .empty-orders {
       text-align: center;
-      padding: 30px 20px;
+
+      padding:
+        30px 20px;
+
       color: var(--muted);
+
       font-size: 13px;
+
       line-height: 1.6;
     }
 
     .empty-orders div {
       font-size: 30px;
+
       margin-bottom: 10px;
     }
 
     .order {
       padding: 15px;
-      border-bottom: 1px solid var(--border);
+
+      border-bottom:
+        1px solid var(--border);
+
       display: flex;
-      justify-content: space-between;
+
+      justify-content:
+        space-between;
+
       gap: 10px;
     }
 
@@ -411,29 +578,43 @@
 
     .order small {
       display: block;
+
       color: var(--muted);
+
       font-size: 10px;
+
       margin-top: 5px;
     }
 
     .order-right {
       text-align: right;
+
       flex-shrink: 0;
     }
 
     .order-amount {
       font-size: 13px;
+
       font-weight: 800;
     }
 
     .order-status {
       display: inline-block;
+
       margin-top: 5px;
-      padding: 4px 8px;
+
+      padding:
+        4px 8px;
+
       border-radius: 20px;
-      background: rgba(255,190,70,0.10);
+
+      background:
+        rgba(255,190,70,0.10);
+
       color: var(--yellow);
+
       font-size: 9px;
+
       font-weight: 800;
     }
 
@@ -443,28 +624,49 @@
 
     .bottom-nav {
       position: fixed;
+
       bottom: 0;
+
       left: 0;
       right: 0;
+
       height: 68px;
-      background: rgba(6,18,30,0.97);
-      border-top: 1px solid var(--border);
+
+      background:
+        rgba(6,18,30,0.97);
+
+      border-top:
+        1px solid var(--border);
+
       display: flex;
+
       align-items: center;
-      justify-content: space-around;
+
+      justify-content:
+        space-around;
+
       z-index: 100;
+
       backdrop-filter: blur(15px);
     }
 
     .bottom-nav button {
       background: none;
+
       border: none;
+
       color: #70899c;
+
       font-size: 10px;
+
       display: flex;
+
       flex-direction: column;
+
       align-items: center;
+
       gap: 5px;
+
       min-width: 55px;
     }
 
@@ -496,8 +698,12 @@
 
       .main {
         margin-left: 280px;
-        max-width: calc(1200px - 280px);
-        padding: 40px 35px 60px;
+
+        max-width:
+          calc(1200px - 280px);
+
+        padding:
+          40px 35px 60px;
       }
 
       .overlay {
@@ -505,7 +711,8 @@
       }
 
       .quick-grid {
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns:
+          repeat(4, 1fr);
       }
 
       .balance-card {
@@ -515,6 +722,7 @@
       .bottom-nav {
         display: none;
       }
+
     }
   </style>
 </head>
@@ -522,6 +730,7 @@
 <body>
 
   <!-- MOBILE HEADER -->
+
   <header class="mobile-header">
 
     <div class="brand">
@@ -556,6 +765,7 @@
 
 
   <!-- SIDEBAR -->
+
   <aside
     class="sidebar"
     id="sidebar"
@@ -598,28 +808,34 @@
       Main
     </div>
 
+
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/dashboard.html')"
     >
-      🏠 <span>Dashboard</span>
+      🏠
+      <span>Dashboard</span>
     </button>
+
 
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/data.html')"
     >
-      📶 <span>Buy Data</span>
+      📶
+      <span>Buy Data</span>
     </button>
+
 
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/airtime.html')"
     >
-      📱 <span>Buy Airtime</span>
+      📱
+      <span>Buy Airtime</span>
     </button>
 
 
@@ -627,28 +843,34 @@
       Account
     </div>
 
+
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/orders.html')"
     >
-      📦 <span>My Orders</span>
+      📦
+      <span>My Orders</span>
     </button>
+
 
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/account.html')"
     >
-      👤 <span>Account</span>
+      👤
+      <span>Account</span>
     </button>
+
 
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/account.html#security')"
     >
-      🔐 <span>Security</span>
+      🔐
+      <span>Security</span>
     </button>
 
 
@@ -656,12 +878,14 @@
       Services
     </div>
 
+
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/service.html')"
     >
-      🛍️ <span>More Services</span>
+      🛍️
+      <span>More Services</span>
     </button>
 
 
@@ -669,12 +893,14 @@
       Support
     </div>
 
+
     <button
       class="nav-item"
       type="button"
       onclick="openWhatsApp()"
     >
-      💬 <span>WhatsApp Support</span>
+      💬
+      <span>WhatsApp Support</span>
     </button>
 
 
@@ -683,13 +909,15 @@
       type="button"
       onclick="logout()"
     >
-      🚪 <span>Sign Out</span>
+      🚪
+      <span>Sign Out</span>
     </button>
 
   </aside>
 
 
   <!-- OVERLAY -->
+
   <div
     class="overlay"
     id="overlay"
@@ -698,6 +926,7 @@
 
 
   <!-- MAIN -->
+
   <main class="main">
 
     <section class="welcome">
@@ -714,6 +943,7 @@
 
 
     <!-- BALANCE -->
+
     <section class="balance-card">
 
       <div class="balance-label">
@@ -729,14 +959,16 @@
 
       <div class="balance-actions">
 
-        <!-- FIXED: ADD MONEY -->
+        <!-- DEDICATED ADD MONEY PAGE -->
+
         <button
           class="balance-btn"
           type="button"
-          onclick="goTo('/account.html#add-money')"
+          onclick="goTo('/add-money.html')"
         >
           + Add Money
         </button>
+
 
         <button
           class="balance-btn"
@@ -752,9 +984,11 @@
 
 
     <!-- QUICK ACTIONS -->
+
     <h2 class="section-title">
       Quick Actions
     </h2>
+
 
     <section class="quick-grid">
 
@@ -845,9 +1079,11 @@
 
 
     <!-- SERVICE STATUS -->
+
     <h2 class="section-title">
       Service Status
     </h2>
+
 
     <section class="status-card">
 
@@ -877,9 +1113,11 @@
 
 
     <!-- RECENT ORDERS -->
+
     <h2 class="section-title">
       Recent Orders
     </h2>
+
 
     <section
       class="orders-card"
@@ -902,45 +1140,65 @@
 
 
   <!-- BOTTOM NAV -->
+
   <nav class="bottom-nav">
 
     <button
       type="button"
       onclick="goTo('/dashboard.html')"
     >
-      <span class="bottom-icon">🏠</span>
+      <span class="bottom-icon">
+        🏠
+      </span>
+
       Home
     </button>
+
 
     <button
       type="button"
       onclick="goTo('/data.html')"
     >
-      <span class="bottom-icon">📶</span>
+      <span class="bottom-icon">
+        📶
+      </span>
+
       Data
     </button>
+
 
     <button
       type="button"
       onclick="goTo('/airtime.html')"
     >
-      <span class="bottom-icon">📱</span>
+      <span class="bottom-icon">
+        📱
+      </span>
+
       Airtime
     </button>
+
 
     <button
       type="button"
       onclick="goTo('/orders.html')"
     >
-      <span class="bottom-icon">📦</span>
+      <span class="bottom-icon">
+        📦
+      </span>
+
       Orders
     </button>
+
 
     <button
       type="button"
       onclick="goTo('/account.html')"
     >
-      <span class="bottom-icon">👤</span>
+      <span class="bottom-icon">
+        👤
+      </span>
+
       Account
     </button>
 
@@ -976,11 +1234,14 @@
         .getElementById("sidebar")
         .classList.add("open");
 
+
       document
         .getElementById("overlay")
         .classList.add("show");
 
-      document.body.style.overflow = "hidden";
+
+      document.body.style.overflow =
+        "hidden";
 
     }
 
@@ -991,11 +1252,14 @@
         .getElementById("sidebar")
         .classList.remove("open");
 
+
       document
         .getElementById("overlay")
         .classList.remove("show");
 
-      document.body.style.overflow = "";
+
+      document.body.style.overflow =
+        "";
 
     }
 
@@ -1041,6 +1305,7 @@
 
       }
 
+
       window.location.replace(
         "/login.html"
       );
@@ -1061,8 +1326,11 @@
             "/api/me",
             {
               method: "GET",
+
               credentials: "include",
+
               cache: "no-store",
+
               headers: {
                 "Accept":
                   "application/json"
@@ -1071,7 +1339,9 @@
           );
 
 
-        if (response.status === 401) {
+        if (
+          response.status === 401
+        ) {
 
           window.location.replace(
             "/login.html"
@@ -1115,7 +1385,9 @@
 
 
         document
-          .getElementById("customerName")
+          .getElementById(
+            "customerName"
+          )
           .textContent =
           customer.name ||
           "DGM Customer";
@@ -1128,7 +1400,9 @@
 
 
         document
-          .getElementById("balance")
+          .getElementById(
+            "balance"
+          )
           .textContent =
           "GH₵" +
           balance.toFixed(2);
@@ -1153,7 +1427,9 @@
     async function loadOrders() {
 
       const container =
-        document.getElementById("orders");
+        document.getElementById(
+          "orders"
+        );
 
 
       try {
@@ -1163,8 +1439,11 @@
             "/api/orders",
             {
               method: "GET",
+
               credentials: "include",
+
               cache: "no-store",
+
               headers: {
                 "Accept":
                   "application/json"
@@ -1173,7 +1452,9 @@
           );
 
 
-        if (response.status === 401) {
+        if (
+          response.status === 401
+        ) {
 
           window.location.replace(
             "/login.html"
@@ -1200,7 +1481,9 @@
         if (
           !result ||
           !result.success ||
-          !Array.isArray(result.orders) ||
+          !Array.isArray(
+            result.orders
+          ) ||
           result.orders.length === 0
         ) {
 
@@ -1208,7 +1491,9 @@
 
             <div class="empty-orders">
 
-              <div>📦</div>
+              <div>
+                📦
+              </div>
 
               No orders yet.
 
@@ -1231,73 +1516,81 @@
 
         result.orders
           .slice(0, 5)
-          .forEach(function(order) {
+          .forEach(
+            function(order) {
 
-            const item =
-              document.createElement("div");
-
-            item.className = "order";
-
-
-            const service =
-              escapeHTML(
-                order.service ||
-                "Service"
-              );
+              const item =
+                document.createElement(
+                  "div"
+                );
 
 
-            const reference =
-              escapeHTML(
-                order.order_ref ||
-                "N/A"
-              );
+              item.className =
+                "order";
 
 
-            const status =
-              escapeHTML(
-                order.status ||
-                "Processing"
-              );
+              const service =
+                escapeHTML(
+                  order.service ||
+                  "Service"
+                );
 
 
-            const amount =
-              Number(
-                order.amount || 0
-              );
+              const reference =
+                escapeHTML(
+                  order.order_ref ||
+                  "N/A"
+                );
 
 
-            item.innerHTML = `
+              const status =
+                escapeHTML(
+                  order.status ||
+                  "Processing"
+                );
 
-              <div>
 
-                <strong>
-                  ${service}
-                </strong>
+              const amount =
+                Number(
+                  order.amount || 0
+                );
 
-                <small>
-                  ${reference}
-                </small>
 
-              </div>
+              item.innerHTML = `
 
-              <div class="order-right">
+                <div>
 
-                <div class="order-amount">
-                  GH₵${amount.toFixed(2)}
+                  <strong>
+                    ${service}
+                  </strong>
+
+                  <small>
+                    ${reference}
+                  </small>
+
                 </div>
 
-                <span class="order-status">
-                  ${status}
-                </span>
+                <div class="order-right">
 
-              </div>
+                  <div class="order-amount">
+                    GH₵${amount.toFixed(2)}
+                  </div>
 
-            `;
+                  <span class="order-status">
+                    ${status}
+                  </span>
+
+                </div>
+
+              `;
 
 
-            container.appendChild(item);
+              container.appendChild(
+                item
+              );
 
-          });
+            }
+          );
 
 
       } catch (error) {
@@ -1312,7 +1605,9 @@
 
           <div class="empty-orders">
 
-            <div>📦</div>
+            <div>
+              📦
+            </div>
 
             Unable to load orders.
 
@@ -1336,11 +1631,31 @@
     function escapeHTML(value) {
 
       return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+
+        .replace(
+          /&/g,
+          "&amp;"
+        )
+
+        .replace(
+          /</g,
+          "&lt;"
+        )
+
+        .replace(
+          />/g,
+          "&gt;"
+        )
+
+        .replace(
+          /"/g,
+          "&quot;"
+        )
+
+        .replace(
+          /'/g,
+          "&#039;"
+        );
 
     }
 
