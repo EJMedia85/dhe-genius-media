@@ -48,7 +48,9 @@ app.disable("x-powered-by");
 // =====================================================
 
 if (!DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL is missing.");
+  console.error(
+    "ERROR: DATABASE_URL is missing."
+  );
 }
 
 const pool = new Pool({
@@ -60,7 +62,9 @@ const pool = new Pool({
       : false,
 
   max: 10,
+
   idleTimeoutMillis: 30000,
+
   connectionTimeoutMillis: 10000
 });
 
@@ -76,6 +80,7 @@ pool.on("error", (error) => {
 // =====================================================
 
 async function initDatabase() {
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
@@ -126,27 +131,31 @@ async function initDatabase() {
     );
   `);
 
-  /*
-   * Dedicated wallet top-up table.
-   *
-   * This is important because Paystack may retry
-   * webhooks. The unique Paystack reference prevents
-   * the same payment from crediting the wallet twice.
-   */
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wallet_topups (
       id SERIAL PRIMARY KEY,
+
       customer_id INTEGER NOT NULL
         REFERENCES customers(id)
         ON DELETE CASCADE,
+
       reference TEXT UNIQUE NOT NULL,
+
       amount NUMERIC(12,2) NOT NULL,
+
       status TEXT NOT NULL DEFAULT 'Pending',
+
       payment_status TEXT NOT NULL DEFAULT 'Pending',
+
       paid_at TIMESTAMPTZ,
+
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
+
+  // ===================================================
+  // ADD NEW ORDER COLUMNS SAFELY
+  // ===================================================
 
   const orderColumns = [
     ["datamart_purchase_id", "TEXT"],
@@ -159,7 +168,11 @@ async function initDatabase() {
     ["paid_at", "TIMESTAMPTZ"]
   ];
 
-  for (const [column, definition] of orderColumns) {
+  for (
+    const [column, definition]
+    of orderColumns
+  ) {
+
     await pool.query(`
       ALTER TABLE orders
       ADD COLUMN IF NOT EXISTS
@@ -167,15 +180,53 @@ async function initDatabase() {
     `);
   }
 
+  // ===================================================
+  // WALLET TRANSACTION UNIQUE INDEX
+  // ===================================================
+
   /*
-   * Clean up old duplicate references if necessary before
-   * creating the unique index.
+   * Remove duplicate non-null references while
+   * preserving the newest transaction.
+   *
+   * This makes old databases safe before the unique
+   * index is created.
    */
+
+  await pool.query(`
+    DELETE FROM wallet_transactions a
+    USING wallet_transactions b
+    WHERE a.reference IS NOT NULL
+      AND a.reference = b.reference
+      AND a.id < b.id
+  `);
+
   await pool.query(`
     CREATE UNIQUE INDEX IF NOT EXISTS
     wallet_transactions_reference_unique
     ON wallet_transactions(reference)
     WHERE reference IS NOT NULL
+  `);
+
+  // ===================================================
+  // INDEXES
+  // ===================================================
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS
+    orders_customer_created_idx
+    ON orders(customer_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS
+    wallet_transactions_customer_created_idx
+    ON wallet_transactions(customer_id, created_at DESC)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS
+    wallet_topups_customer_created_idx
+    ON wallet_topups(customer_id, created_at DESC)
   `);
 
   console.log(
@@ -187,10 +238,13 @@ async function initDatabase() {
 // POSTGRES SESSION STORE
 // =====================================================
 
-class PostgresSessionStore extends session.Store {
+class PostgresSessionStore
+  extends session.Store {
 
   async get(sid, callback) {
+
     try {
+
       const result =
         await pool.query(
           `
@@ -212,6 +266,7 @@ class PostgresSessionStore extends session.Store {
       );
 
     } catch (error) {
+
       console.error(
         "Session GET error:",
         error
@@ -221,13 +276,23 @@ class PostgresSessionStore extends session.Store {
     }
   }
 
-  async set(sid, sess, callback) {
+  async set(
+    sid,
+    sess,
+    callback
+  ) {
+
     try {
+
       const maxAge =
         sess.cookie &&
         sess.cookie.maxAge
           ? sess.cookie.maxAge
-          : 1000 * 60 * 60 * 24 * 7;
+          : 1000 *
+            60 *
+            60 *
+            24 *
+            7;
 
       const expire =
         new Date(
@@ -237,9 +302,17 @@ class PostgresSessionStore extends session.Store {
       await pool.query(
         `
         INSERT INTO user_sessions
-          (sid, sess, expire)
+          (
+            sid,
+            sess,
+            expire
+          )
         VALUES
-          ($1, $2::jsonb, $3)
+          (
+            $1,
+            $2::jsonb,
+            $3
+          )
         ON CONFLICT (sid)
         DO UPDATE SET
           sess = EXCLUDED.sess,
@@ -257,6 +330,7 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
+
       console.error(
         "Session SET error:",
         error
@@ -268,8 +342,13 @@ class PostgresSessionStore extends session.Store {
     }
   }
 
-  async destroy(sid, callback) {
+  async destroy(
+    sid,
+    callback
+  ) {
+
     try {
+
       await pool.query(
         `
         DELETE FROM user_sessions
@@ -283,6 +362,7 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
+
       console.error(
         "Session DESTROY error:",
         error
@@ -294,13 +374,23 @@ class PostgresSessionStore extends session.Store {
     }
   }
 
-  async touch(sid, sess, callback) {
+  async touch(
+    sid,
+    sess,
+    callback
+  ) {
+
     try {
+
       const maxAge =
         sess.cookie &&
         sess.cookie.maxAge
           ? sess.cookie.maxAge
-          : 1000 * 60 * 60 * 24 * 7;
+          : 1000 *
+            60 *
+            60 *
+            24 *
+            7;
 
       const expire =
         new Date(
@@ -327,6 +417,7 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
+
       console.error(
         "Session TOUCH error:",
         error
@@ -348,11 +439,14 @@ const sessionStore =
 
 app.use(
   session({
+
     name: "dgm.sid",
 
-    store: sessionStore,
+    store:
+      sessionStore,
 
-    secret: SESSION_SECRET,
+    secret:
+      SESSION_SECRET,
 
     resave: false,
 
@@ -361,6 +455,7 @@ app.use(
     rolling: true,
 
     cookie: {
+
       httpOnly: true,
 
       secure:
@@ -381,265 +476,11 @@ app.use(
 );
 
 // =====================================================
-// PAYSTACK WEBHOOK
-//
-// IMPORTANT:
-// This route MUST come before express.json()
-// =====================================================
-
-app.post(
-  "/api/paystack/webhook",
-  express.raw({
-    type: "application/json"
-  }),
-  async (req, res) => {
-
-    try {
-
-      if (!PAYSTACK_SECRET_KEY) {
-        return res.sendStatus(200);
-      }
-
-      const signature =
-        req.headers[
-          "x-paystack-signature"
-        ];
-
-      if (!signature) {
-        return res.sendStatus(401);
-      }
-
-      const rawBody =
-        Buffer.isBuffer(req.body)
-          ? req.body
-          : Buffer.from("");
-
-      const expectedSignature =
-        crypto
-          .createHmac(
-            "sha512",
-            PAYSTACK_SECRET_KEY
-          )
-          .update(rawBody)
-          .digest("hex");
-
-      if (
-        signature.length !==
-        expectedSignature.length
-      ) {
-        return res.sendStatus(401);
-      }
-
-      const valid =
-        crypto.timingSafeEqual(
-          Buffer.from(signature),
-          Buffer.from(expectedSignature)
-        );
-
-      if (!valid) {
-        return res.sendStatus(401);
-      }
-
-      const event =
-        JSON.parse(
-          rawBody.toString("utf8")
-        );
-
-      if (
-        event.event !==
-        "charge.success"
-      ) {
-        return res.sendStatus(200);
-      }
-
-      const reference =
-        event?.data?.reference;
-
-      if (!reference) {
-        return res.sendStatus(200);
-      }
-
-      // =================================================
-      // FIRST: CHECK IF THIS IS A WALLET TOP-UP
-      // =================================================
-
-      const walletResult =
-        await pool.query(
-          `
-          SELECT *
-          FROM wallet_topups
-          WHERE reference = $1
-          LIMIT 1
-          `,
-          [reference]
-        );
-
-      if (walletResult.rows.length) {
-
-        const topup =
-          walletResult.rows[0];
-
-        const amountFromPaystack =
-          Number(
-            event?.data?.amount || 0
-          ) / 100;
-
-        const currency =
-          String(
-            event?.data?.currency || ""
-          ).toUpperCase();
-
-        if (currency !== "GHS") {
-          return res.sendStatus(400);
-        }
-
-        if (
-          Math.round(
-            amountFromPaystack * 100
-          ) !==
-          Math.round(
-            Number(topup.amount) * 100
-          )
-        ) {
-          console.error(
-            "Wallet top-up amount mismatch:",
-            reference
-          );
-
-          return res.sendStatus(400);
-        }
-
-        await creditWalletFromTopup(
-          reference
-        );
-
-        return res.sendStatus(200);
-      }
-
-      // =================================================
-      // OTHERWISE CHECK NORMAL ORDER
-      // =================================================
-
-      const result =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE paystack_reference = $1
-             OR order_ref = $1
-          LIMIT 1
-          `,
-          [reference]
-        );
-
-      if (!result.rows.length) {
-        return res.sendStatus(200);
-      }
-
-      const order =
-        result.rows[0];
-
-      const amountFromPaystack =
-        Number(
-          event?.data?.amount || 0
-        ) / 100;
-
-      if (
-        Math.round(
-          amountFromPaystack * 100
-        ) !==
-        Math.round(
-          Number(order.amount) * 100
-        )
-      ) {
-        console.error(
-          "Paystack amount mismatch:",
-          reference
-        );
-
-        return res.sendStatus(400);
-      }
-
-      const currency =
-        String(
-          event?.data?.currency || ""
-        ).toUpperCase();
-
-      if (currency !== "GHS") {
-        return res.sendStatus(400);
-      }
-
-      await pool.query(
-        `
-        UPDATE orders
-        SET
-          payment_status = 'Paid',
-          paid_at =
-            COALESCE(
-              paid_at,
-              NOW()
-            ),
-          status =
-            CASE
-              WHEN status =
-                'Pending Payment'
-              THEN 'Processing'
-              ELSE status
-            END
-        WHERE id = $1
-        `,
-        [order.id]
-      );
-
-      const updatedResult =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE id = $1
-          `,
-          [order.id]
-        );
-
-      await fulfillDataOrder(
-        updatedResult.rows[0]
-      );
-
-      return res.sendStatus(200);
-
-    } catch (error) {
-
-      console.error(
-        "Paystack webhook error:",
-        error
-      );
-
-      return res.sendStatus(500);
-    }
-  }
-);
-
-// =====================================================
-// BODY PARSERS
-// =====================================================
-
-app.use(
-  express.json({
-    limit: "1mb"
-  })
-);
-
-app.use(
-  express.urlencoded({
-    extended: true
-  })
-);
-
-// =====================================================
 // HELPERS
 // =====================================================
 
 function cleanPhone(value) {
+
   return String(value || "")
     .replace(/\s+/g, "")
     .replace(/[-()]/g, "");
@@ -653,6 +494,7 @@ function normalizeGhanaPhone(value) {
   if (
     phone.startsWith("+233")
   ) {
+
     phone =
       "0" +
       phone.slice(4);
@@ -661,6 +503,7 @@ function normalizeGhanaPhone(value) {
   if (
     phone.startsWith("233")
   ) {
+
     phone =
       "0" +
       phone.slice(3);
@@ -723,7 +566,7 @@ function createWalletReference() {
       .toUpperCase() +
     "-" +
     crypto
-      .randomBytes(4)
+      .randomBytes(6)
       .toString("hex")
       .toUpperCase()
   );
@@ -736,7 +579,9 @@ function sendError(
 ) {
 
   return res.status(status).json({
+
     success: false,
+
     message
   });
 }
@@ -751,6 +596,7 @@ function requireLogin(
     !req.session ||
     !req.session.customerId
   ) {
+
     return sendError(
       res,
       401,
@@ -796,13 +642,18 @@ function publicCustomer(
   }
 
   return {
-    id: customer.id,
 
-    name: customer.name,
+    id:
+      customer.id,
 
-    phone: customer.phone,
+    name:
+      customer.name,
 
-    email: customer.email,
+    phone:
+      customer.phone,
+
+    email:
+      customer.email,
 
     balance:
       Number(
@@ -813,71 +664,6 @@ function publicCustomer(
       customer.created_at
   };
 }
-
-// =====================================================
-// DGM PRICES
-// =====================================================
-
-const DGM_PRICES = {
-
-  MTN: {
-    1: 5,
-    2: 10,
-    3: 15,
-    4: 20,
-    5: 24,
-    6: 28,
-    8: 36,
-    10: 45,
-    15: 64,
-    20: 84,
-    25: 100,
-    30: 128,
-    40: 168,
-    50: 207
-  },
-
-  AirtelTigo: {
-    1: 5,
-    2: 10,
-    3: 15,
-    4: 20,
-    5: 24,
-    6: 26,
-    8: 35,
-    10: 45,
-    12: 48,
-    15: 65,
-    25: 100,
-    30: 120,
-    40: 160,
-    50: 200
-  },
-
-  Telecel: {
-    10: 45,
-    15: 60,
-    20: 76,
-    25: 100,
-    30: 115,
-    35: 136,
-    40: 150,
-    45: 165,
-    50: 185,
-    100: 407
-  }
-};
-
-const NETWORK_MAP = {
-
-  MTN: "YELLO",
-
-  AirtelTigo:
-    "AT_PREMIUM",
-
-  Telecel:
-    "TELECEL"
-};
 
 function normalizeCapacity(
   value
@@ -898,6 +684,75 @@ function normalizeCapacity(
 }
 
 // =====================================================
+// DGM PRICES
+// =====================================================
+
+const DGM_PRICES = {
+
+  MTN: {
+
+    1: 5,
+    2: 10,
+    3: 15,
+    4: 20,
+    5: 24,
+    6: 28,
+    8: 36,
+    10: 45,
+    15: 64,
+    20: 84,
+    25: 100,
+    30: 128,
+    40: 168,
+    50: 207
+  },
+
+  AirtelTigo: {
+
+    1: 5,
+    2: 10,
+    3: 15,
+    4: 20,
+    5: 24,
+    6: 26,
+    8: 35,
+    10: 45,
+    12: 48,
+    15: 65,
+    25: 100,
+    30: 120,
+    40: 160,
+    50: 200
+  },
+
+  Telecel: {
+
+    10: 45,
+    15: 60,
+    20: 76,
+    25: 100,
+    30: 115,
+    35: 136,
+    40: 150,
+    45: 165,
+    50: 185,
+    100: 407
+  }
+};
+
+const NETWORK_MAP = {
+
+  MTN:
+    "YELLO",
+
+  AirtelTigo:
+    "AT_PREMIUM",
+
+  Telecel:
+    "TELECEL"
+};
+
+// =====================================================
 // DATAMART
 // =====================================================
 
@@ -914,6 +769,7 @@ async function datamartRequest(
 ) {
 
   if (!DATAMART_API_KEY) {
+
     throw new Error(
       "DATAMART_API_KEY is not configured."
     );
@@ -923,9 +779,10 @@ async function datamartRequest(
     new AbortController();
 
   const timeout =
-    setTimeout(() => {
-      controller.abort();
-    }, 30000);
+    setTimeout(
+      () => controller.abort(),
+      30000
+    );
 
   try {
 
@@ -933,12 +790,14 @@ async function datamartRequest(
       await fetch(
         `${baseUrl}${endpoint}`,
         {
+
           ...options,
 
           signal:
             controller.signal,
 
           headers: {
+
             "Content-Type":
               "application/json",
 
@@ -956,9 +815,12 @@ async function datamartRequest(
     let data;
 
     try {
+
       data =
         JSON.parse(text);
+
     } catch {
+
       data = {
         raw: text
       };
@@ -979,6 +841,7 @@ async function datamartRequest(
     return data;
 
   } finally {
+
     clearTimeout(timeout);
   }
 }
@@ -997,11 +860,13 @@ async function datamartPurchase(
       DATAMART_BASE,
       "/purchase",
       {
+
         method: "POST",
 
         body,
 
         headers: {
+
           "X-Idempotency-Key":
             idempotencyKey
         }
@@ -1019,11 +884,13 @@ async function datamartPurchase(
       DATAMART_DEVELOPER_BASE,
       "/purchase",
       {
+
         method: "POST",
 
         body,
 
         headers: {
+
           "X-Idempotency-Key":
             idempotencyKey
         }
@@ -1037,6 +904,7 @@ async function fulfillDataOrder(
 ) {
 
   if (!order) {
+
     throw new Error(
       "Order not found."
     );
@@ -1047,6 +915,7 @@ async function fulfillDataOrder(
       order.payment_status || ""
     ).toLowerCase() !== "paid"
   ) {
+
     throw new Error(
       "Order has not been paid."
     );
@@ -1057,7 +926,29 @@ async function fulfillDataOrder(
       order.service || ""
     ).toLowerCase() !== "data"
   ) {
+
     return;
+  }
+
+  /*
+   * Prevent unnecessary repeat fulfillment.
+   */
+
+  if (
+    order.datamart_purchase_id ||
+    order.datamart_reference
+  ) {
+
+    return {
+      success: true,
+
+      status:
+        order.status ||
+        "Processing",
+
+      alreadyFulfilled:
+        true
+    };
   }
 
   const capacity =
@@ -1066,6 +957,7 @@ async function fulfillDataOrder(
     );
 
   if (!order.network) {
+
     throw new Error(
       "Network is missing."
     );
@@ -1076,12 +968,14 @@ async function fulfillDataOrder(
       order.phone
     )
   ) {
+
     throw new Error(
       "Invalid Ghana phone number."
     );
   }
 
   if (!capacity) {
+
     throw new Error(
       "Data capacity is missing."
     );
@@ -1093,6 +987,7 @@ async function fulfillDataOrder(
     ];
 
   if (!datamartNetwork) {
+
     throw new Error(
       `Unsupported network: ${order.network}`
     );
@@ -1110,7 +1005,8 @@ async function fulfillDataOrder(
 
     capacity,
 
-    gateway: "wallet"
+    gateway:
+      "wallet"
   };
 
   const idempotencyKey =
@@ -1128,17 +1024,25 @@ async function fulfillDataOrder(
       result?.purchaseId ||
       result?.purchase_id ||
       result?.id ||
+      result?.data?.purchaseId ||
+      result?.data?.purchase_id ||
+      result?.data?.id ||
       null;
 
     const reference =
       result?.reference ||
       result?.orderReference ||
       result?.order_reference ||
+      result?.data?.reference ||
+      result?.data?.orderReference ||
+      result?.data?.order_reference ||
       null;
 
     const transactionReference =
       result?.transactionReference ||
       result?.transaction_reference ||
+      result?.data?.transactionReference ||
+      result?.data?.transaction_reference ||
       null;
 
     const externalStatus =
@@ -1161,6 +1065,7 @@ async function fulfillDataOrder(
         externalStatus
       )
     ) {
+
       localStatus =
         "Completed";
     }
@@ -1176,6 +1081,7 @@ async function fulfillDataOrder(
         externalStatus
       )
     ) {
+
       localStatus =
         "Failed";
     }
@@ -1192,17 +1098,25 @@ async function fulfillDataOrder(
       WHERE id = $6
       `,
       [
+
         purchaseId,
+
         reference,
+
         transactionReference,
+
         externalStatus,
+
         localStatus,
+
         order.id
       ]
     );
 
     return {
-      success: true,
+
+      success:
+        true,
 
       status:
         localStatus,
@@ -1228,12 +1142,15 @@ async function fulfillDataOrder(
       `,
       [
         `pending: ${error.message}`,
+
         order.id
       ]
     );
 
     return {
-      success: false,
+
+      success:
+        false,
 
       status:
         "Processing",
@@ -1246,10 +1163,6 @@ async function fulfillDataOrder(
 
 // =====================================================
 // WALLET CREDIT
-//
-// This function is deliberately transactional.
-// It prevents one Paystack payment from being
-// credited more than once.
 // =====================================================
 
 async function creditWalletFromTopup(
@@ -1279,12 +1192,16 @@ async function creditWalletFromTopup(
     if (
       !topupResult.rows.length
     ) {
+
       await client.query(
         "ROLLBACK"
       );
 
       return {
-        success: false,
+
+        success:
+          false,
+
         message:
           "Wallet top-up not found."
       };
@@ -1294,8 +1211,9 @@ async function creditWalletFromTopup(
       topupResult.rows[0];
 
     /*
-     * Already credited.
+     * Idempotency protection.
      */
+
     if (
       String(
         topup.payment_status
@@ -1308,10 +1226,18 @@ async function creditWalletFromTopup(
       );
 
       return {
-        success: true,
-        alreadyCredited: true,
+
+        success:
+          true,
+
+        alreadyCredited:
+          true,
+
         amount:
-          Number(topup.amount)
+          Number(topup.amount),
+
+        customerId:
+          topup.customer_id
       };
     }
 
@@ -1359,8 +1285,9 @@ async function creditWalletFromTopup(
     }
 
     /*
-     * Credit wallet.
+     * Credit customer wallet.
      */
+
     await client.query(
       `
       UPDATE customers
@@ -1370,13 +1297,15 @@ async function creditWalletFromTopup(
       `,
       [
         amount,
+
         topup.customer_id
       ]
     );
 
     /*
-     * Mark top-up as paid.
+     * Mark payment as completed.
      */
+
     await client.query(
       `
       UPDATE wallet_topups
@@ -1394,11 +1323,9 @@ async function creditWalletFromTopup(
     );
 
     /*
-     * Record wallet transaction.
-     *
-     * ON CONFLICT protects against duplicate
-     * transaction records.
+     * Create wallet transaction.
      */
+
     await client.query(
       `
       INSERT INTO wallet_transactions
@@ -1421,8 +1348,11 @@ async function creditWalletFromTopup(
       DO NOTHING
       `,
       [
+
         topup.customer_id,
+
         amount,
+
         reference
       ]
     );
@@ -1432,13 +1362,16 @@ async function creditWalletFromTopup(
     );
 
     console.log(
-      `WALLET CREDITED: ${reference} GH₵${amount}`
+      `WALLET CREDITED: ${reference} GH₵${amount.toFixed(2)}`
     );
 
     return {
-      success: true,
 
-      alreadyCredited: false,
+      success:
+        true,
+
+      alreadyCredited:
+        false,
 
       amount,
 
@@ -1449,9 +1382,11 @@ async function creditWalletFromTopup(
   } catch (error) {
 
     try {
+
       await client.query(
         "ROLLBACK"
       );
+
     } catch {}
 
     console.error(
@@ -1466,6 +1401,342 @@ async function creditWalletFromTopup(
     client.release();
   }
 }
+
+// =====================================================
+// PAYSTACK WEBHOOK
+// =====================================================
+
+app.post(
+  "/api/paystack/webhook",
+
+  express.raw({
+    type: "application/json"
+  }),
+
+  async (req, res) => {
+
+    try {
+
+      if (
+        !PAYSTACK_SECRET_KEY
+      ) {
+
+        return res.sendStatus(
+          200
+        );
+      }
+
+      const signature =
+        req.headers[
+          "x-paystack-signature"
+        ];
+
+      if (!signature) {
+
+        return res.sendStatus(
+          401
+        );
+      }
+
+      const rawBody =
+        Buffer.isBuffer(req.body)
+          ? req.body
+          : Buffer.from("");
+
+      const expectedSignature =
+        crypto
+          .createHmac(
+            "sha512",
+            PAYSTACK_SECRET_KEY
+          )
+          .update(rawBody)
+          .digest("hex");
+
+      if (
+        signature.length !==
+        expectedSignature.length
+      ) {
+
+        return res.sendStatus(
+          401
+        );
+      }
+
+      const valid =
+        crypto.timingSafeEqual(
+          Buffer.from(
+            signature
+          ),
+          Buffer.from(
+            expectedSignature
+          )
+        );
+
+      if (!valid) {
+
+        return res.sendStatus(
+          401
+        );
+      }
+
+      let event;
+
+      try {
+
+        event =
+          JSON.parse(
+            rawBody.toString("utf8")
+          );
+
+      } catch {
+
+        return res.sendStatus(
+          400
+        );
+      }
+
+      if (
+        event.event !==
+        "charge.success"
+      ) {
+
+        return res.sendStatus(
+          200
+        );
+      }
+
+      const reference =
+        event?.data?.reference;
+
+      if (!reference) {
+
+        return res.sendStatus(
+          200
+        );
+      }
+
+      // =================================================
+      // WALLET TOP-UP
+      // =================================================
+
+      const walletResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM wallet_topups
+          WHERE reference = $1
+          LIMIT 1
+          `,
+          [reference]
+        );
+
+      if (
+        walletResult.rows.length
+      ) {
+
+        const topup =
+          walletResult.rows[0];
+
+        const amountFromPaystack =
+          Number(
+            event?.data?.amount || 0
+          ) / 100;
+
+        const currency =
+          String(
+            event?.data?.currency || ""
+          ).toUpperCase();
+
+        if (
+          currency !== "GHS"
+        ) {
+
+          console.error(
+            "Wallet webhook currency mismatch:",
+            reference
+          );
+
+          return res.sendStatus(
+            400
+          );
+        }
+
+        if (
+          Math.round(
+            amountFromPaystack * 100
+          ) !==
+          Math.round(
+            Number(topup.amount) * 100
+          )
+        ) {
+
+          console.error(
+            "Wallet top-up amount mismatch:",
+            reference
+          );
+
+          return res.sendStatus(
+            400
+          );
+        }
+
+        await creditWalletFromTopup(
+          reference
+        );
+
+        return res.sendStatus(
+          200
+        );
+      }
+
+      // =================================================
+      // NORMAL ORDER
+      // =================================================
+
+      const result =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE paystack_reference = $1
+             OR order_ref = $1
+          LIMIT 1
+          `,
+          [reference]
+        );
+
+      if (
+        !result.rows.length
+      ) {
+
+        return res.sendStatus(
+          200
+        );
+      }
+
+      const order =
+        result.rows[0];
+
+      const amountFromPaystack =
+        Number(
+          event?.data?.amount || 0
+        ) / 100;
+
+      const currency =
+        String(
+          event?.data?.currency || ""
+        ).toUpperCase();
+
+      if (
+        currency !== "GHS"
+      ) {
+
+        return res.sendStatus(
+          400
+        );
+      }
+
+      if (
+        Math.round(
+          amountFromPaystack * 100
+        ) !==
+        Math.round(
+          Number(order.amount) * 100
+        )
+      ) {
+
+        console.error(
+          "Paystack order amount mismatch:",
+          reference
+        );
+
+        return res.sendStatus(
+          400
+        );
+      }
+
+      await pool.query(
+        `
+        UPDATE orders
+        SET
+          payment_status = 'Paid',
+
+          paid_at =
+            COALESCE(
+              paid_at,
+              NOW()
+            ),
+
+          status =
+            CASE
+              WHEN status =
+                'Pending Payment'
+              THEN 'Processing'
+              ELSE status
+            END,
+
+          paystack_reference =
+            COALESCE(
+              paystack_reference,
+              $1
+            )
+
+        WHERE id = $2
+        `,
+        [
+          reference,
+
+          order.id
+        ]
+      );
+
+      const updatedResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE id = $1
+          `,
+          [order.id]
+        );
+
+      await fulfillDataOrder(
+        updatedResult.rows[0]
+      );
+
+      return res.sendStatus(
+        200
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Paystack webhook error:",
+        error
+      );
+
+      return res.sendStatus(
+        500
+      );
+    }
+  }
+);
+
+// =====================================================
+// BODY PARSERS
+// =====================================================
+
+app.use(
+  express.json({
+    limit: "1mb"
+  })
+);
+
+app.use(
+  express.urlencoded({
+    extended: true
+  })
+);
 
 // =====================================================
 // AUTH - REGISTER
@@ -1498,6 +1769,7 @@ app.post(
         );
 
       if (!name) {
+
         return sendError(
           res,
           400,
@@ -1506,10 +1778,9 @@ app.post(
       }
 
       if (
-        !validGhanaPhone(
-          phone
-        )
+        !validGhanaPhone(phone)
       ) {
+
         return sendError(
           res,
           400,
@@ -1518,6 +1789,7 @@ app.post(
       }
 
       if (!email) {
+
         return sendError(
           res,
           400,
@@ -1528,6 +1800,7 @@ app.post(
       if (
         password.length < 6
       ) {
+
         return sendError(
           res,
           400,
@@ -1553,6 +1826,7 @@ app.post(
       if (
         existing.rows.length
       ) {
+
         return sendError(
           res,
           409,
@@ -1638,7 +1912,9 @@ app.post(
       );
 
       return res.json({
-        success: true,
+
+        success:
+          true,
 
         message:
           "Registration successful.",
@@ -1667,11 +1943,6 @@ app.post(
 
 // =====================================================
 // AUTH - LOGIN
-//
-// Accepts both:
-// { identifier, password }
-// and
-// { login, password }
 // =====================================================
 
 app.post(
@@ -1696,6 +1967,7 @@ app.post(
         !identifier ||
         !password
       ) {
+
         return sendError(
           res,
           400,
@@ -1712,11 +1984,6 @@ app.post(
         cleanEmail(
           identifier
         );
-
-      console.log(
-        "DGM LOGIN ATTEMPT:",
-        identifier
-      );
 
       const result =
         await pool.query(
@@ -1797,13 +2064,10 @@ app.post(
         }
       );
 
-      console.log(
-        "DGM LOGIN SUCCESS:",
-        customer.id
-      );
-
       return res.json({
-        success: true,
+
+        success:
+          true,
 
         message:
           "Login successful.",
@@ -1817,7 +2081,7 @@ app.post(
     } catch (error) {
 
       console.error(
-        "DGM LOGIN ERROR:",
+        "Login error:",
         error
       );
 
@@ -1844,6 +2108,7 @@ app.get(
         !req.session ||
         !req.session.customerId
       ) {
+
         return sendError(
           res,
           401,
@@ -1870,7 +2135,9 @@ app.get(
       }
 
       return res.json({
-        success: true,
+
+        success:
+          true,
 
         customer:
           publicCustomer(
@@ -1909,9 +2176,13 @@ app.post(
           "dgm.sid",
           {
             httpOnly: true,
+
             secure:
               NODE_ENV === "production",
-            sameSite: "lax",
+
+            sameSite:
+              "lax",
+
             path: "/"
           }
         );
@@ -1920,15 +2191,20 @@ app.post(
           "connect.sid",
           {
             httpOnly: true,
+
             secure:
               NODE_ENV === "production",
-            sameSite: "lax",
+
+            sameSite:
+              "lax",
+
             path: "/"
           }
         );
 
         return res.json({
-          success: true
+          success:
+            true
         });
       };
 
@@ -1949,7 +2225,10 @@ app.post(
           return res.status(
             500
           ).json({
-            success: false,
+
+            success:
+              false,
+
             message:
               "Logout failed."
           });
@@ -1995,6 +2274,7 @@ app.post(
         );
 
       if (!network) {
+
         return sendError(
           res,
           400,
@@ -2003,10 +2283,9 @@ app.post(
       }
 
       if (
-        !validGhanaPhone(
-          phone
-        )
+        !validGhanaPhone(phone)
       ) {
+
         return sendError(
           res,
           400,
@@ -2015,6 +2294,7 @@ app.post(
       }
 
       if (!capacity) {
+
         return sendError(
           res,
           400,
@@ -2028,6 +2308,7 @@ app.post(
         ];
 
       if (!networkPrices) {
+
         return sendError(
           res,
           400,
@@ -2044,6 +2325,7 @@ app.post(
         typeof amount !==
         "number"
       ) {
+
         return sendError(
           res,
           400,
@@ -2084,18 +2366,28 @@ app.post(
           RETURNING *
           `,
           [
+
             orderRef,
+
             req.session.customerId,
+
             service,
+
             network,
+
             phone,
+
             amount,
+
             String(capacity)
           ]
         );
 
       return res.json({
-        success: true,
+
+        success:
+          true,
+
         order:
           result.rows[0]
       });
@@ -2156,7 +2448,10 @@ app.get(
         );
 
       return res.json({
-        success: true,
+
+        success:
+          true,
+
         orders:
           result.rows
       });
@@ -2198,7 +2493,9 @@ app.get(
           LIMIT 1
           `,
           [
+
             req.params.orderRef,
+
             req.session.customerId
           ]
         );
@@ -2206,6 +2503,7 @@ app.get(
       if (
         !result.rows.length
       ) {
+
         return sendError(
           res,
           404,
@@ -2214,7 +2512,10 @@ app.get(
       }
 
       return res.json({
-        success: true,
+
+        success:
+          true,
+
         order:
           result.rows[0]
       });
@@ -2249,6 +2550,7 @@ app.post(
       if (
         !PAYSTACK_SECRET_KEY
       ) {
+
         return sendError(
           res,
           500,
@@ -2263,6 +2565,7 @@ app.post(
         ).trim();
 
       if (!orderRef) {
+
         return sendError(
           res,
           400,
@@ -2281,6 +2584,7 @@ app.post(
           `,
           [
             orderRef,
+
             req.session.customerId
           ]
         );
@@ -2288,6 +2592,7 @@ app.post(
       if (
         !result.rows.length
       ) {
+
         return sendError(
           res,
           404,
@@ -2304,9 +2609,15 @@ app.post(
         ).toLowerCase() ===
         "paid"
       ) {
+
         return res.json({
-          success: true,
-          alreadyPaid: true,
+
+          success:
+            true,
+
+          alreadyPaid:
+            true,
+
           order
         });
       }
@@ -2317,6 +2628,7 @@ app.post(
         );
 
       if (!customer) {
+
         return sendError(
           res,
           401,
@@ -2331,6 +2643,17 @@ app.post(
           ) * 100
         );
 
+      if (
+        amountPesewas <= 0
+      ) {
+
+        return sendError(
+          res,
+          400,
+          "Invalid order amount."
+        );
+      }
+
       const callbackUrl =
         `${BASE_URL}/payment-success`;
 
@@ -2338,9 +2661,12 @@ app.post(
         await fetch(
           "https://api.paystack.co/transaction/initialize",
           {
-            method: "POST",
+
+            method:
+              "POST",
 
             headers: {
+
               Authorization:
                 `Bearer ${PAYSTACK_SECRET_KEY}`,
 
@@ -2350,6 +2676,7 @@ app.post(
 
             body:
               JSON.stringify({
+
                 email:
                   customer.email,
 
@@ -2363,6 +2690,7 @@ app.post(
                   callbackUrl,
 
                 metadata: {
+
                   type:
                     "data_order",
 
@@ -2384,7 +2712,8 @@ app.post(
 
       if (
         !paystackResponse.ok ||
-        !data.status
+        !data.status ||
+        !data.data
       ) {
 
         console.error(
@@ -2411,12 +2740,15 @@ app.post(
         `,
         [
           reference,
+
           order.id
         ]
       );
 
       return res.json({
-        success: true,
+
+        success:
+          true,
 
         authorization_url:
           data.data.authorization_url,
@@ -2457,6 +2789,7 @@ app.get(
       if (
         !PAYSTACK_SECRET_KEY
       ) {
+
         return sendError(
           res,
           500,
@@ -2469,6 +2802,15 @@ app.get(
           req.params.reference ||
           ""
         ).trim();
+
+      if (!reference) {
+
+        return sendError(
+          res,
+          400,
+          "Payment reference is required."
+        );
+      }
 
       const orderResult =
         await pool.query(
@@ -2483,7 +2825,9 @@ app.get(
           LIMIT 1
           `,
           [
+
             req.session.customerId,
+
             reference
           ]
         );
@@ -2491,6 +2835,7 @@ app.get(
       if (
         !orderResult.rows.length
       ) {
+
         return sendError(
           res,
           404,
@@ -2507,7 +2852,9 @@ app.get(
             reference
           )}`,
           {
+
             headers: {
+
               Authorization:
                 `Bearer ${PAYSTACK_SECRET_KEY}`
             }
@@ -2519,8 +2866,10 @@ app.get(
 
       if (
         !verifyResponse.ok ||
-        !data.status
+        !data.status ||
+        !data.data
       ) {
+
         return sendError(
           res,
           502,
@@ -2539,9 +2888,12 @@ app.get(
       if (!paid) {
 
         return res.json({
-          success: true,
 
-          paid: false,
+          success:
+            true,
+
+          paid:
+            false,
 
           status:
             transaction.status,
@@ -2563,6 +2915,7 @@ app.get(
           Number(order.amount) * 100
         )
       ) {
+
         return sendError(
           res,
           400,
@@ -2575,7 +2928,10 @@ app.get(
           transaction.currency || ""
         ).toUpperCase();
 
-      if (currency !== "GHS") {
+      if (
+        currency !== "GHS"
+      ) {
+
         return sendError(
           res,
           400,
@@ -2588,12 +2944,16 @@ app.get(
         UPDATE orders
         SET
           payment_status = 'Paid',
+
           paid_at =
             COALESCE(
               paid_at,
               NOW()
             ),
-          paystack_reference = $1,
+
+          paystack_reference =
+            $1,
+
           status =
             CASE
               WHEN status =
@@ -2601,10 +2961,13 @@ app.get(
               THEN 'Processing'
               ELSE status
             END
+
         WHERE id = $2
         `,
         [
+
           transaction.reference,
+
           order.id
         ]
       );
@@ -2657,8 +3020,13 @@ app.get(
       }
 
       return res.json({
-        success: true,
-        paid: true,
+
+        success:
+          true,
+
+        paid:
+          true,
+
         order
       });
 
@@ -2692,6 +3060,7 @@ app.post(
       if (
         !PAYSTACK_SECRET_KEY
       ) {
+
         return sendError(
           res,
           500,
@@ -2707,26 +3076,11 @@ app.post(
       if (
         !Number.isFinite(amount)
       ) {
+
         return sendError(
           res,
           400,
           "Enter a valid amount."
-        );
-      }
-
-      if (amount < 1) {
-        return sendError(
-          res,
-          400,
-          "Minimum wallet top-up is GH₵1.00."
-        );
-      }
-
-      if (amount > 10000) {
-        return sendError(
-          res,
-          400,
-          "Maximum wallet top-up is GH₵10,000.00."
         );
       }
 
@@ -2735,12 +3089,35 @@ app.post(
           amount * 100
         ) / 100;
 
+      if (
+        roundedAmount < 1
+      ) {
+
+        return sendError(
+          res,
+          400,
+          "Minimum wallet top-up is GH₵1.00."
+        );
+      }
+
+      if (
+        roundedAmount > 10000
+      ) {
+
+        return sendError(
+          res,
+          400,
+          "Maximum wallet top-up is GH₵10,000.00."
+        );
+      }
+
       const customer =
         await getCustomer(
           req.session.customerId
         );
 
       if (!customer) {
+
         return sendError(
           res,
           401,
@@ -2751,10 +3128,6 @@ app.post(
       const reference =
         createWalletReference();
 
-      /*
-       * Create the top-up BEFORE sending the customer
-       * to Paystack.
-       */
       await pool.query(
         `
         INSERT INTO wallet_topups
@@ -2775,8 +3148,11 @@ app.post(
           )
         `,
         [
+
           customer.id,
+
           reference,
+
           roundedAmount
         ]
       );
@@ -2795,9 +3171,12 @@ app.post(
         await fetch(
           "https://api.paystack.co/transaction/initialize",
           {
-            method: "POST",
+
+            method:
+              "POST",
 
             headers: {
+
               Authorization:
                 `Bearer ${PAYSTACK_SECRET_KEY}`,
 
@@ -2807,6 +3186,7 @@ app.post(
 
             body:
               JSON.stringify({
+
                 email:
                   customer.email,
 
@@ -2822,6 +3202,7 @@ app.post(
                   callbackUrl,
 
                 metadata: {
+
                   type:
                     "wallet_topup",
 
@@ -2843,7 +3224,8 @@ app.post(
 
       if (
         !paystackResponse.ok ||
-        !data.status
+        !data.status ||
+        !data.data
       ) {
 
         console.error(
@@ -2869,7 +3251,9 @@ app.post(
       }
 
       return res.json({
-        success: true,
+
+        success:
+          true,
 
         amount:
           roundedAmount,
@@ -2913,6 +3297,7 @@ app.get(
       if (
         !PAYSTACK_SECRET_KEY
       ) {
+
         return sendError(
           res,
           500,
@@ -2927,6 +3312,7 @@ app.get(
         ).trim();
 
       if (!reference) {
+
         return sendError(
           res,
           400,
@@ -2944,7 +3330,9 @@ app.get(
           LIMIT 1
           `,
           [
+
             reference,
+
             req.session.customerId
           ]
         );
@@ -2952,6 +3340,7 @@ app.get(
       if (
         !topupResult.rows.length
       ) {
+
         return sendError(
           res,
           404,
@@ -2959,12 +3348,13 @@ app.get(
         );
       }
 
-      let topup =
+      const topup =
         topupResult.rows[0];
 
       /*
        * Already credited.
        */
+
       if (
         String(
           topup.payment_status
@@ -2978,15 +3368,24 @@ app.get(
           );
 
         return res.json({
-          success: true,
-          paid: true,
-          alreadyCredited: true,
+
+          success:
+            true,
+
+          paid:
+            true,
+
+          alreadyCredited:
+            true,
+
           amount:
             Number(topup.amount),
+
           balance:
             Number(
               customer?.balance || 0
             ),
+
           reference
         });
       }
@@ -2997,7 +3396,9 @@ app.get(
             reference
           )}`,
           {
+
             headers: {
+
               Authorization:
                 `Bearer ${PAYSTACK_SECRET_KEY}`
             }
@@ -3009,8 +3410,10 @@ app.get(
 
       if (
         !verifyResponse.ok ||
-        !data.status
+        !data.status ||
+        !data.data
       ) {
+
         return sendError(
           res,
           502,
@@ -3029,9 +3432,12 @@ app.get(
       if (!paid) {
 
         return res.json({
-          success: true,
 
-          paid: false,
+          success:
+            true,
+
+          paid:
+            false,
 
           status:
             transaction.status,
@@ -3046,7 +3452,9 @@ app.get(
         ) / 100;
 
       const expectedAmount =
-        Number(topup.amount);
+        Number(
+          topup.amount
+        );
 
       if (
         Math.round(
@@ -3069,7 +3477,10 @@ app.get(
           transaction.currency || ""
         ).toUpperCase();
 
-      if (currency !== "GHS") {
+      if (
+        currency !== "GHS"
+      ) {
+
         return sendError(
           res,
           400,
@@ -3077,10 +3488,6 @@ app.get(
         );
       }
 
-      /*
-       * Credit wallet only after Paystack confirms
-       * the transaction.
-       */
       const creditResult =
         await creditWalletFromTopup(
           reference
@@ -3092,9 +3499,12 @@ app.get(
         );
 
       return res.json({
-        success: true,
 
-        paid: true,
+        success:
+          true,
+
+        paid:
+          true,
 
         credited:
           !creditResult.alreadyCredited,
@@ -3143,6 +3553,7 @@ app.get(
         );
 
       if (!customer) {
+
         return sendError(
           res,
           404,
@@ -3151,7 +3562,9 @@ app.get(
       }
 
       return res.json({
-        success: true,
+
+        success:
+          true,
 
         balance:
           Number(
@@ -3195,6 +3608,7 @@ app.get(
             amount,
             description,
             reference,
+            reference AS transaction_ref,
             created_at
           FROM wallet_transactions
           WHERE customer_id = $1
@@ -3207,7 +3621,9 @@ app.get(
         );
 
       return res.json({
-        success: true,
+
+        success:
+          true,
 
         transactions:
           result.rows
@@ -3231,6 +3647,9 @@ app.get(
 
 // =====================================================
 // PAYMENT SUCCESS PAGE
+//
+// This page now verifies the payment before the user
+// is sent back to the dashboard/account/orders.
 // =====================================================
 
 app.get(
@@ -3245,10 +3664,27 @@ app.get(
     const reference =
       String(
         req.query.reference || ""
-      );
+      ).trim();
 
     const isWallet =
       type === "wallet";
+
+    const safeReference =
+      escapeHtml(reference);
+
+    const verifyEndpoint =
+      isWallet
+        ? `/api/wallet/deposit/verify/${encodeURIComponent(
+            reference
+          )}`
+        : `/api/payments/verify/${encodeURIComponent(
+            reference
+          )}`;
+
+    const destination =
+      isWallet
+        ? "/account.html"
+        : "/orders.html";
 
     res.send(`
       <!DOCTYPE html>
@@ -3265,7 +3701,7 @@ app.get(
         >
 
         <title>
-          Payment Successful | DHE GENIUS MEDIA
+          Payment Processing | DHE GENIUS MEDIA
         </title>
 
         <style>
@@ -3275,12 +3711,19 @@ app.get(
           }
 
           body {
+
             margin: 0;
+
             min-height: 100vh;
+
             display: flex;
+
             align-items: center;
+
             justify-content: center;
+
             padding: 20px;
+
             background:
               linear-gradient(
                 135deg,
@@ -3288,7 +3731,9 @@ app.get(
                 #0a2417,
                 #020705
               );
+
             color: white;
+
             font-family:
               Arial,
               Helvetica,
@@ -3296,56 +3741,165 @@ app.get(
           }
 
           .box {
+
             width: 100%;
-            max-width: 430px;
+
+            max-width: 440px;
+
             padding: 35px 25px;
+
             text-align: center;
+
             border-radius: 24px;
-            background: #0c1712;
+
+            background:
+              #0c1712;
+
             border:
               1px solid
               rgba(255,255,255,.08);
+
             box-shadow:
               0 25px 70px
               rgba(0,0,0,.45);
           }
 
           .icon {
-            width: 75px;
-            height: 75px;
-            margin: 0 auto 20px;
-            border-radius: 50%;
-            display: grid;
-            place-items: center;
-            background: #25d366;
-            color: #06110b;
-            font-size: 38px;
-            font-weight: 900;
+
+            width: 76px;
+
+            height: 76px;
+
+            margin:
+              0 auto 20px;
+
+            border-radius:
+              50%;
+
+            display:
+              grid;
+
+            place-items:
+              center;
+
+            background:
+              #25d366;
+
+            color:
+              #06110b;
+
+            font-size:
+              38px;
+
+            font-weight:
+              900;
+          }
+
+          .loading {
+
+            width: 38px;
+
+            height: 38px;
+
+            margin:
+              0 auto 20px;
+
+            border:
+              4px solid
+              rgba(255,255,255,.15);
+
+            border-top-color:
+              #25d366;
+
+            border-radius:
+              50%;
+
+            animation:
+              spin 0.8s linear infinite;
+          }
+
+          @keyframes spin {
+
+            to {
+              transform:
+                rotate(360deg);
+            }
           }
 
           h1 {
-            margin-bottom: 10px;
+            margin:
+              0 0 10px;
           }
 
           p {
-            color: #9fb2a7;
-            line-height: 1.6;
+
+            color:
+              #9fb2a7;
+
+            line-height:
+              1.6;
+          }
+
+          .reference {
+
+            margin-top:
+              18px;
+
+            padding:
+              12px;
+
+            border-radius:
+              12px;
+
+            background:
+              #111f18;
+
+            font-size:
+              13px;
+
+            word-break:
+              break-word;
           }
 
           a {
-            display: block;
-            margin-top: 15px;
-            padding: 14px;
-            border-radius: 13px;
-            background: #25d366;
-            color: #06110b;
-            text-decoration: none;
-            font-weight: 900;
+
+            display:
+              block;
+
+            margin-top:
+              15px;
+
+            padding:
+              14px;
+
+            border-radius:
+              13px;
+
+            background:
+              #25d366;
+
+            color:
+              #06110b;
+
+            text-decoration:
+              none;
+
+            font-weight:
+              900;
           }
 
           .secondary {
-            background: #17251e;
-            color: white;
+
+            background:
+              #17251e;
+
+            color:
+              white;
+          }
+
+          .hidden {
+            display:
+              none;
           }
 
         </style>
@@ -3356,55 +3910,224 @@ app.get(
 
         <div class="box">
 
-          <div class="icon">
+          <div
+            id="loadingIcon"
+            class="loading"
+          ></div>
+
+          <div
+            id="successIcon"
+            class="icon hidden"
+          >
             ✓
           </div>
 
-          <h1>
-            Payment Successful
+          <h1 id="title">
+            Verifying Payment
           </h1>
 
-          <p>
-            ${
-              isWallet
-                ? "Your wallet payment has been received. Your balance is being updated."
-                : "Your payment has been received. Your order is being processed."
-            }
+          <p id="message">
+            Please wait while we securely
+            confirm your payment.
           </p>
 
           ${
-            reference
+            safeReference
               ? `
-                <p style="font-size:13px;">
+                <div class="reference">
                   Reference:<br>
-                  <strong>${escapeHtml(reference)}</strong>
-                </p>
+                  <strong>
+                    ${safeReference}
+                  </strong>
+                </div>
               `
               : ""
           }
 
-          ${
-            isWallet
-              ? `
-                <a href="/account.html">
-                  View My Wallet
-                </a>
-              `
-              : `
-                <a href="/orders.html">
-                  View My Orders
-                </a>
-              `
-          }
-
-          <a
-            href="/dashboard.html"
-            class="secondary"
+          <div
+            id="buttons"
+            class="hidden"
           >
-            Back to Dashboard
-          </a>
+
+            <a href="${destination}">
+              ${
+                isWallet
+                  ? "View My Wallet"
+                  : "View My Orders"
+              }
+            </a>
+
+            <a
+              href="/dashboard.html"
+              class="secondary"
+            >
+              Back to Dashboard
+            </a>
+
+          </div>
 
         </div>
+
+        <script>
+
+          const verifyEndpoint =
+            ${JSON.stringify(
+              verifyEndpoint
+            )};
+
+          const destination =
+            ${JSON.stringify(
+              destination
+            )};
+
+          const hasReference =
+            ${JSON.stringify(
+              Boolean(reference)
+            )};
+
+          async function verifyPayment() {
+
+            if (!hasReference) {
+
+              showResult(
+                false,
+                "Payment reference is missing."
+              );
+
+              return;
+            }
+
+            try {
+
+              const response =
+                await fetch(
+                  verifyEndpoint,
+                  {
+                    method: "GET",
+                    credentials: "include",
+                    cache: "no-store"
+                  }
+                );
+
+              const data =
+                await response.json();
+
+              if (
+                response.status === 401
+              ) {
+
+                showResult(
+                  false,
+                  "Your session has expired. Please login again."
+                );
+
+                return;
+              }
+
+              if (
+                data.success &&
+                data.paid
+              ) {
+
+                showResult(
+                  true,
+                  ${
+                    isWallet
+                      ? JSON.stringify(
+                          "Your wallet has been successfully funded. Your balance has been updated."
+                        )
+                      : JSON.stringify(
+                          "Your payment has been verified. Your order is now being processed."
+                        )
+                  }
+                );
+
+                setTimeout(
+                  () => {
+                    window.location.href =
+                      destination;
+                  },
+                  1800
+                );
+
+                return;
+              }
+
+              showResult(
+                false,
+                data.message ||
+                "Payment has not been confirmed yet. If you completed the payment, please check your account shortly."
+              );
+
+            } catch (error) {
+
+              console.error(
+                "Payment verification error:",
+                error
+              );
+
+              showResult(
+                false,
+                "We could not verify the payment right now. Please check your account before trying to pay again."
+              );
+            }
+          }
+
+          function showResult(
+            success,
+            message
+          ) {
+
+            const loading =
+              document.getElementById(
+                "loadingIcon"
+              );
+
+            const successIcon =
+              document.getElementById(
+                "successIcon"
+              );
+
+            const title =
+              document.getElementById(
+                "title"
+              );
+
+            const messageElement =
+              document.getElementById(
+                "message"
+              );
+
+            const buttons =
+              document.getElementById(
+                "buttons"
+              );
+
+            loading.classList.add(
+              "hidden"
+            );
+
+            successIcon.classList.toggle(
+              "hidden",
+              !success
+            );
+
+            title.textContent =
+              success
+                ? "Payment Successful"
+                : "Payment Status";
+
+            messageElement.textContent =
+              message;
+
+            buttons.classList.remove(
+              "hidden"
+            );
+          }
+
+          verifyPayment();
+
+        </script>
 
       </body>
 
@@ -3413,14 +4136,33 @@ app.get(
   }
 );
 
+// =====================================================
+// ESCAPE HTML
+// =====================================================
+
 function escapeHtml(value) {
 
   return String(value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
+    .replace(
+      /&/g,
+      "&amp;"
+    )
+    .replace(
+      /</g,
+      "&lt;"
+    )
+    .replace(
+      />/g,
+      "&gt;"
+    )
+    .replace(
+      /"/g,
+      "&quot;"
+    )
+    .replace(
+      /'/g,
+      "&#039;"
+    );
 }
 
 // =====================================================
@@ -3439,7 +4181,8 @@ app.get(
 
       return res.json({
 
-        success: true,
+        success:
+          true,
 
         service:
           "DHE GENIUS MEDIA",
@@ -3472,7 +4215,8 @@ app.get(
         500
       ).json({
 
-        success: false,
+        success:
+          false,
 
         service:
           "DHE GENIUS MEDIA",
@@ -3481,7 +4225,17 @@ app.get(
           "online",
 
         database:
-          "error"
+          "error",
+
+        datamart:
+          DATAMART_API_KEY
+            ? "configured"
+            : "not configured",
+
+        paystack:
+          PAYSTACK_SECRET_KEY
+            ? "configured"
+            : "not configured"
       });
     }
   }
@@ -3502,7 +4256,9 @@ app.use(
     publicDir,
     {
       extensions: ["html"],
+
       index: false,
+
       redirect: false
     }
   )
@@ -3528,13 +4284,23 @@ function servePage(
 }
 
 app.get(
-  ["/", "/index.html"],
-  servePage("index.html")
+  [
+    "/",
+    "/index.html"
+  ],
+  servePage(
+    "index.html"
+  )
 );
 
 app.get(
-  ["/login", "/login.html"],
-  servePage("login.html")
+  [
+    "/login",
+    "/login.html"
+  ],
+  servePage(
+    "login.html"
+  )
 );
 
 app.get(
@@ -3542,7 +4308,9 @@ app.get(
     "/register",
     "/register.html"
   ],
-  servePage("register.html")
+  servePage(
+    "register.html"
+  )
 );
 
 app.get(
@@ -3550,7 +4318,9 @@ app.get(
     "/dashboard",
     "/dashboard.html"
   ],
-  servePage("dashboard.html")
+  servePage(
+    "dashboard.html"
+  )
 );
 
 app.get(
@@ -3559,7 +4329,9 @@ app.get(
     "/buy-data",
     "/data.html"
   ],
-  servePage("data.html")
+  servePage(
+    "data.html"
+  )
 );
 
 app.get(
@@ -3567,7 +4339,9 @@ app.get(
     "/airtime",
     "/airtime.html"
   ],
-  servePage("airtime.html")
+  servePage(
+    "airtime.html"
+  )
 );
 
 app.get(
@@ -3575,7 +4349,9 @@ app.get(
     "/orders",
     "/orders.html"
   ],
-  servePage("orders.html")
+  servePage(
+    "orders.html"
+  )
 );
 
 app.get(
@@ -3583,7 +4359,9 @@ app.get(
     "/account",
     "/account.html"
   ],
-  servePage("account.html")
+  servePage(
+    "account.html"
+  )
 );
 
 app.get(
@@ -3593,7 +4371,9 @@ app.get(
     "/services",
     "/services.html"
   ],
-  servePage("service.html")
+  servePage(
+    "service.html"
+  )
 );
 
 // =====================================================
@@ -3607,7 +4387,10 @@ app.use(
     return res.status(
       404
     ).json({
-      success: false,
+
+      success:
+        false,
+
       message:
         "API endpoint not found."
     });
@@ -3629,6 +4412,7 @@ app.use(
       return res.status(
         404
       ).send(`
+
         <!DOCTYPE html>
 
         <html>
@@ -3649,40 +4433,80 @@ app.use(
           <style>
 
             body {
+
               margin: 0;
+
               min-height: 100vh;
+
               display: grid;
+
               place-items: center;
-              background: #07110d;
-              color: white;
-              font-family: Arial, sans-serif;
-              padding: 24px;
-              text-align: center;
+
+              background:
+                #07110d;
+
+              color:
+                white;
+
+              font-family:
+                Arial,
+                sans-serif;
+
+              padding:
+                24px;
+
+              text-align:
+                center;
             }
 
             .box {
-              max-width: 430px;
+              max-width:
+                430px;
             }
 
             h1 {
-              font-size: 58px;
-              margin: 0 0 10px;
+
+              font-size:
+                58px;
+
+              margin:
+                0 0 10px;
             }
 
             p {
-              color: #aab8b1;
-              line-height: 1.6;
+
+              color:
+                #aab8b1;
+
+              line-height:
+                1.6;
             }
 
             a {
-              display: inline-block;
-              margin-top: 18px;
-              padding: 13px 20px;
-              border-radius: 12px;
-              background: #25d366;
-              color: #06110b;
-              text-decoration: none;
-              font-weight: 800;
+
+              display:
+                inline-block;
+
+              margin-top:
+                18px;
+
+              padding:
+                13px 20px;
+
+              border-radius:
+                12px;
+
+              background:
+                #25d366;
+
+              color:
+                #06110b;
+
+              text-decoration:
+                none;
+
+              font-weight:
+                800;
             }
 
           </style>
