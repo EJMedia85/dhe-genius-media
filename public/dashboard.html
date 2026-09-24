@@ -8,6 +8,11 @@
     content="width=device-width, initial-scale=1.0"
   >
 
+  <meta
+    name="theme-color"
+    content="#07131f"
+  >
+
   <title>Dashboard | DHE GENIUS MEDIA</title>
 
   <style>
@@ -28,7 +33,12 @@
       --blue2: #00c6ff;
       --green: #20d889;
       --red: #ff6262;
+      --yellow: #ffc45e;
       --border: rgba(255,255,255,0.08);
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
@@ -60,6 +70,11 @@
       cursor: pointer;
     }
 
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
     /* =========================
        MOBILE HEADER
     ========================= */
@@ -72,7 +87,8 @@
 
       padding: 16px 18px;
 
-      background: rgba(7,19,31,0.96);
+      background:
+        rgba(7,19,31,0.96);
 
       border-bottom:
         1px solid var(--border);
@@ -82,6 +98,8 @@
       top: 0;
 
       z-index: 100;
+
+      backdrop-filter: blur(15px);
     }
 
     .brand {
@@ -95,6 +113,8 @@
     .brand-logo {
       width: 42px;
       height: 42px;
+
+      flex-shrink: 0;
 
       border-radius: 13px;
 
@@ -110,19 +130,30 @@
           #0072ff
         );
 
-      font-size: 14px;
+      color: white;
+
+      font-size: 13px;
 
       font-weight: 900;
+
+      box-shadow:
+        0 8px 22px
+        rgba(0,114,255,0.25);
     }
 
     .brand-name {
       font-size: 14px;
+
       font-weight: 900;
+
+      letter-spacing: 0.1px;
     }
 
     .brand-tagline {
       font-size: 9px;
+
       color: var(--muted);
+
       margin-top: 2px;
     }
 
@@ -130,15 +161,26 @@
       width: 42px;
       height: 42px;
 
-      border: 1px solid var(--border);
+      border:
+        1px solid var(--border);
 
-      background: var(--card);
+      background:
+        var(--card);
 
       color: white;
 
       border-radius: 12px;
 
       font-size: 20px;
+
+      display: flex;
+
+      align-items: center;
+      justify-content: center;
+    }
+
+    .menu-btn:active {
+      transform: scale(0.95);
     }
 
     /* =========================
@@ -149,9 +191,9 @@
       position: fixed;
 
       top: 0;
-      left: -280px;
+      left: -290px;
 
-      width: 270px;
+      width: 280px;
 
       height: 100vh;
 
@@ -165,9 +207,14 @@
 
       padding: 22px;
 
-      transition: 0.25s;
+      transition:
+        left 0.25s ease;
 
       overflow-y: auto;
+
+      box-shadow:
+        15px 0 40px
+        rgba(0,0,0,0.18);
     }
 
     .sidebar.open {
@@ -191,7 +238,9 @@
 
       color: white;
 
-      font-size: 24px;
+      font-size: 28px;
+
+      line-height: 1;
     }
 
     .nav-title {
@@ -231,12 +280,22 @@
       gap: 12px;
 
       font-size: 14px;
+
+      transition:
+        background 0.2s,
+        color 0.2s,
+        transform 0.15s;
     }
 
     .nav-item:hover {
-      background: var(--card);
+      background:
+        var(--card);
 
       color: white;
+    }
+
+    .nav-item:active {
+      transform: scale(0.98);
     }
 
     .logout {
@@ -254,6 +313,8 @@
         rgba(0,0,0,0.65);
 
       z-index: 150;
+
+      backdrop-filter: blur(2px);
     }
 
     .overlay.show {
@@ -271,7 +332,8 @@
 
       margin: auto;
 
-      padding: 20px 16px 100px;
+      padding:
+        20px 16px 100px;
     }
 
     .welcome {
@@ -289,6 +351,8 @@
       font-size: 25px;
 
       margin-top: 4px;
+
+      word-break: break-word;
     }
 
     /* =========================
@@ -334,6 +398,8 @@
 
       right: -55px;
       top: -55px;
+
+      pointer-events: none;
     }
 
     .balance-label {
@@ -355,6 +421,10 @@
       display: flex;
 
       gap: 10px;
+
+      position: relative;
+
+      z-index: 2;
     }
 
     .balance-btn {
@@ -372,10 +442,23 @@
       font-size: 12px;
 
       font-weight: 700;
+
+      transition:
+        background 0.2s,
+        transform 0.15s;
+    }
+
+    .balance-btn:hover {
+      background:
+        rgba(255,255,255,0.22);
+    }
+
+    .balance-btn:active {
+      transform: scale(0.96);
     }
 
     /* =========================
-       QUICK ACTIONS
+       SECTION
     ========================= */
 
     .section-title {
@@ -384,6 +467,10 @@
       margin:
         24px 0 12px;
     }
+
+    /* =========================
+       QUICK ACTIONS
+    ========================= */
 
     .quick-grid {
       display: grid;
@@ -411,7 +498,18 @@
 
       min-height: 105px;
 
-      transition: 0.2s;
+      transition:
+        transform 0.2s,
+        background 0.2s,
+        border 0.2s;
+    }
+
+    .quick-card:hover {
+      background:
+        var(--card2);
+
+      border-color:
+        rgba(0,140,255,0.25);
     }
 
     .quick-card:active {
@@ -458,7 +556,8 @@
     ========================= */
 
     .status-card {
-      background: var(--card);
+      background:
+        var(--card);
 
       border:
         1px solid var(--border);
@@ -486,9 +585,12 @@
       width: 11px;
       height: 11px;
 
+      flex-shrink: 0;
+
       border-radius: 50%;
 
-      background: var(--green);
+      background:
+        var(--green);
 
       box-shadow:
         0 0 12px
@@ -522,7 +624,8 @@
     ========================= */
 
     .orders-card {
-      background: var(--card);
+      background:
+        var(--card);
 
       border:
         1px solid var(--border);
@@ -540,6 +643,8 @@
       color: var(--muted);
 
       font-size: 13px;
+
+      line-height: 1.6;
     }
 
     .empty-orders div {
@@ -581,6 +686,8 @@
 
     .order-right {
       text-align: right;
+
+      flex-shrink: 0;
     }
 
     .order-amount {
@@ -601,7 +708,8 @@
       background:
         rgba(255,190,70,0.10);
 
-      color: #ffc45e;
+      color:
+        var(--yellow);
 
       font-size: 9px;
 
@@ -634,6 +742,8 @@
       justify-content: space-around;
 
       z-index: 100;
+
+      backdrop-filter: blur(15px);
     }
 
     .bottom-nav button {
@@ -652,14 +762,30 @@
       align-items: center;
 
       gap: 5px;
+
+      min-width: 55px;
     }
 
     .bottom-nav button:first-child {
       color: #00aaff;
     }
 
+    .bottom-nav button:active {
+      transform: scale(0.94);
+    }
+
     .bottom-icon {
       font-size: 20px;
+    }
+
+    /* =========================
+       LOADING
+    ========================= */
+
+    .loading {
+      opacity: 0.6;
+
+      pointer-events: none;
     }
 
     /* =========================
@@ -681,10 +807,10 @@
       }
 
       .main {
-        margin-left: 270px;
+        margin-left: 280px;
 
         max-width:
-          calc(1200px - 270px);
+          calc(1200px - 280px);
 
         padding:
           40px 35px 60px;
@@ -714,7 +840,9 @@
 
 <body>
 
-  <!-- MOBILE HEADER -->
+  <!-- =================================================
+       MOBILE HEADER
+  ================================================== -->
 
   <header class="mobile-header">
 
@@ -740,7 +868,9 @@
 
     <button
       class="menu-btn"
+      type="button"
       onclick="openMenu()"
+      aria-label="Open menu"
     >
       ☰
     </button>
@@ -748,7 +878,9 @@
   </header>
 
 
-  <!-- SIDEBAR -->
+  <!-- =================================================
+       SIDEBAR
+  ================================================== -->
 
   <aside
     class="sidebar"
@@ -779,7 +911,9 @@
 
       <button
         class="close-btn"
+        type="button"
         onclick="closeMenu()"
+        aria-label="Close menu"
       >
         ×
       </button>
@@ -793,26 +927,29 @@
 
     <button
       class="nav-item"
+      type="button"
       onclick="goTo('/dashboard.html')"
     >
       🏠
-      Dashboard
+      <span>Dashboard</span>
     </button>
 
     <button
       class="nav-item"
+      type="button"
       onclick="goTo('/data.html')"
     >
       📶
-      Buy Data
+      <span>Buy Data</span>
     </button>
 
     <button
       class="nav-item"
+      type="button"
       onclick="goTo('/airtime.html')"
     >
       📱
-      Buy Airtime
+      <span>Buy Airtime</span>
     </button>
 
 
@@ -822,26 +959,29 @@
 
     <button
       class="nav-item"
+      type="button"
       onclick="goTo('/orders.html')"
     >
       📦
-      My Orders
+      <span>My Orders</span>
     </button>
 
     <button
       class="nav-item"
+      type="button"
       onclick="goTo('/account.html')"
     >
       👤
-      Account
+      <span>Account</span>
     </button>
 
     <button
       class="nav-item"
+      type="button"
       onclick="goTo('/account.html')"
     >
       🔐
-      Security
+      <span>Security</span>
     </button>
 
 
@@ -849,12 +989,14 @@
       Services
     </div>
 
+    <!-- CORRECT FILE: service.html -->
     <button
       class="nav-item"
-      onclick="goTo('/services.html')"
+      type="button"
+      onclick="goTo('/service.html')"
     >
       🛍️
-      More Services
+      <span>More Services</span>
     </button>
 
 
@@ -864,23 +1006,27 @@
 
     <button
       class="nav-item"
+      type="button"
       onclick="openWhatsApp()"
     >
       💬
-      WhatsApp Support
+      <span>WhatsApp Support</span>
     </button>
 
 
     <button
       class="nav-item logout"
+      type="button"
       onclick="logout()"
     >
       🚪
-      Sign Out
+      <span>Sign Out</span>
     </button>
 
   </aside>
 
+
+  <!-- OVERLAY -->
 
   <div
     class="overlay"
@@ -889,9 +1035,13 @@
   ></div>
 
 
-  <!-- MAIN -->
+  <!-- =================================================
+       MAIN
+  ================================================== -->
 
   <main class="main">
+
+    <!-- WELCOME -->
 
     <section class="welcome">
 
@@ -906,7 +1056,9 @@
     </section>
 
 
-    <!-- BALANCE -->
+    <!-- =================================================
+         BALANCE
+    ================================================== -->
 
     <section class="balance-card">
 
@@ -925,13 +1077,15 @@
 
         <button
           class="balance-btn"
-          onclick="alert('Wallet funding will be connected in the payment stage.')"
+          type="button"
+          onclick="showWalletMessage()"
         >
           + Add Money
         </button>
 
         <button
           class="balance-btn"
+          type="button"
           onclick="goTo('/orders.html')"
         >
           Transactions
@@ -942,7 +1096,9 @@
     </section>
 
 
-    <!-- QUICK ACTIONS -->
+    <!-- =================================================
+         QUICK ACTIONS
+    ================================================== -->
 
     <h2 class="section-title">
       Quick Actions
@@ -950,8 +1106,11 @@
 
     <section class="quick-grid">
 
+      <!-- DATA -->
+
       <button
         class="quick-card"
+        type="button"
         onclick="goTo('/data.html')"
       >
 
@@ -970,8 +1129,11 @@
       </button>
 
 
+      <!-- AIRTIME -->
+
       <button
         class="quick-card"
+        type="button"
         onclick="goTo('/airtime.html')"
       >
 
@@ -990,9 +1152,13 @@
       </button>
 
 
+      <!-- MORE SERVICES -->
+      <!-- FIXED: service.html -->
+
       <button
         class="quick-card"
-        onclick="goTo('/services.html')"
+        type="button"
+        onclick="goTo('/service.html')"
       >
 
         <div class="quick-icon">
@@ -1010,8 +1176,11 @@
       </button>
 
 
+      <!-- ORDERS -->
+
       <button
         class="quick-card"
+        type="button"
         onclick="goTo('/orders.html')"
       >
 
@@ -1032,7 +1201,9 @@
     </section>
 
 
-    <!-- SERVICE STATUS -->
+    <!-- =================================================
+         SERVICE STATUS
+    ================================================== -->
 
     <h2 class="section-title">
       Service Status
@@ -1065,7 +1236,9 @@
     </section>
 
 
-    <!-- RECENT ORDERS -->
+    <!-- =================================================
+         RECENT ORDERS
+    ================================================== -->
 
     <h2 class="section-title">
       Recent Orders
@@ -1082,11 +1255,7 @@
           📦
         </div>
 
-        No orders yet.
-
-        <br>
-
-        Your recent transactions will appear here.
+        Loading orders...
 
       </div>
 
@@ -1095,11 +1264,14 @@
   </main>
 
 
-  <!-- BOTTOM NAV -->
+  <!-- =================================================
+       BOTTOM NAV
+  ================================================== -->
 
   <nav class="bottom-nav">
 
     <button
+      type="button"
       onclick="goTo('/dashboard.html')"
     >
 
@@ -1113,6 +1285,7 @@
 
 
     <button
+      type="button"
       onclick="goTo('/data.html')"
     >
 
@@ -1126,6 +1299,7 @@
 
 
     <button
+      type="button"
       onclick="goTo('/airtime.html')"
     >
 
@@ -1139,6 +1313,7 @@
 
 
     <button
+      type="button"
       onclick="goTo('/orders.html')"
     >
 
@@ -1152,6 +1327,7 @@
 
 
     <button
+      type="button"
       onclick="goTo('/account.html')"
     >
 
@@ -1168,104 +1344,197 @@
 
   <script>
 
-    // =========================
+    // =================================================
     // NAVIGATION
-    // =========================
+    // =================================================
 
     function goTo(page) {
-      window.location.href = page;
+
+      if (!page) {
+        return;
+      }
+
+      closeMenu();
+
+      window.location.assign(page);
+
     }
 
 
-    // =========================
+    // =================================================
     // MOBILE MENU
-    // =========================
+    // =================================================
 
     function openMenu() {
 
-      document
-        .getElementById("sidebar")
-        .classList.add("open");
+      const sidebar =
+        document.getElementById("sidebar");
 
-      document
-        .getElementById("overlay")
-        .classList.add("show");
+      const overlay =
+        document.getElementById("overlay");
+
+      sidebar.classList.add("open");
+
+      overlay.classList.add("show");
+
+      document.body.style.overflow = "hidden";
 
     }
 
 
     function closeMenu() {
 
-      document
-        .getElementById("sidebar")
-        .classList.remove("open");
+      const sidebar =
+        document.getElementById("sidebar");
 
-      document
-        .getElementById("overlay")
-        .classList.remove("show");
+      const overlay =
+        document.getElementById("overlay");
+
+      sidebar.classList.remove("open");
+
+      overlay.classList.remove("show");
+
+      document.body.style.overflow = "";
 
     }
 
 
-    // =========================
+    // =================================================
+    // ESC KEY CLOSES MENU
+    // =================================================
+
+    document.addEventListener(
+      "keydown",
+      function(event) {
+
+        if (event.key === "Escape") {
+          closeMenu();
+        }
+
+      }
+    );
+
+
+    // =================================================
     // WHATSAPP
-    // =========================
+    // =================================================
 
     function openWhatsApp() {
 
       window.open(
         "https://wa.me/233241518385",
-        "_blank"
+        "_blank",
+        "noopener,noreferrer"
       );
 
     }
 
 
-    // =========================
+    // =================================================
+    // WALLET MESSAGE
+    // =================================================
+
+    function showWalletMessage() {
+
+      alert(
+        "Wallet funding will be connected to the payment system."
+      );
+
+    }
+
+
+    // =================================================
     // LOGOUT
-    // =========================
+    // =================================================
 
     async function logout() {
+
+      const button =
+        document.querySelector(".logout");
+
+      if (button) {
+        button.disabled = true;
+        button.classList.add("loading");
+      }
 
       try {
 
         await fetch(
           "/api/logout",
           {
-            method: "POST"
+            method: "POST",
+
+            credentials: "include",
+
+            cache: "no-store"
           }
         );
 
       } catch (error) {
 
-        console.error(error);
+        console.error(
+          "Logout error:",
+          error
+        );
+
+      } finally {
+
+        window.location.replace(
+          "/login.html"
+        );
 
       }
-
-      window.location.href =
-        "/login.html";
 
     }
 
 
-    // =========================
+    // =================================================
     // LOAD CUSTOMER
-    // =========================
+    // =================================================
 
     async function loadCustomer() {
 
       try {
 
         const response =
-          await fetch("/api/me");
+          await fetch(
+            "/api/me",
+            {
+              method: "GET",
+
+              credentials: "include",
+
+              cache: "no-store",
+
+              headers: {
+                "Accept":
+                  "application/json"
+              }
+            }
+          );
+
+
+        /*
+         * If the session is gone,
+         * send the customer back to login.
+         */
+
+        if (response.status === 401) {
+
+          window.location.replace(
+            "/login.html"
+          );
+
+          return;
+
+        }
 
 
         if (!response.ok) {
 
-          window.location.href =
-            "/login.html";
-
-          return;
+          throw new Error(
+            "Could not load account."
+          );
 
         }
 
@@ -1274,10 +1543,15 @@
           await response.json();
 
 
-        if (!result.success) {
+        if (
+          !result ||
+          !result.success ||
+          !result.customer
+        ) {
 
-          window.location.href =
-            "/login.html";
+          window.location.replace(
+            "/login.html"
+          );
 
           return;
 
@@ -1288,46 +1562,104 @@
           result.customer;
 
 
+        // CUSTOMER NAME
+
         document
           .getElementById("customerName")
           .textContent =
-          customer.name;
+          customer.name ||
+          "DGM Customer";
+
+
+        // BALANCE
+
+        const balance =
+          Number(
+            customer.balance || 0
+          );
 
 
         document
           .getElementById("balance")
           .textContent =
           "GH₵" +
-          Number(customer.balance || 0)
-            .toFixed(2);
+          balance.toFixed(2);
 
 
       } catch (error) {
 
-        console.error(error);
+        console.error(
+          "Customer loading error:",
+          error
+        );
 
-        window.location.href =
-          "/login.html";
+        /*
+         * Only redirect when the request
+         * actually fails. This prevents
+         * unnecessary redirects from
+         * normal page behavior.
+         */
+
+        window.location.replace(
+          "/login.html"
+        );
 
       }
 
     }
 
 
-    // =========================
+    // =================================================
     // LOAD ORDERS
-    // =========================
+    // =================================================
 
     async function loadOrders() {
+
+      const container =
+        document.getElementById(
+          "orders"
+        );
+
 
       try {
 
         const response =
-          await fetch("/api/orders");
+          await fetch(
+            "/api/orders",
+            {
+              method: "GET",
+
+              credentials: "include",
+
+              cache: "no-store",
+
+              headers: {
+                "Accept":
+                  "application/json"
+              }
+            }
+          );
+
+
+        if (
+          response.status === 401
+        ) {
+
+          window.location.replace(
+            "/login.html"
+          );
+
+          return;
+
+        }
 
 
         if (!response.ok) {
-          return;
+
+          throw new Error(
+            "Could not load orders."
+          );
+
         }
 
 
@@ -1336,17 +1668,34 @@
 
 
         if (
+          !result ||
           !result.success ||
-          !result.orders.length
+          !Array.isArray(result.orders) ||
+          result.orders.length === 0
         ) {
+
+          container.innerHTML = `
+
+            <div class="empty-orders">
+
+              <div>
+                📦
+              </div>
+
+              No orders yet.
+
+              <br>
+
+              Your recent transactions
+              will appear here.
+
+            </div>
+
+          `;
+
           return;
+
         }
-
-
-        const container =
-          document.getElementById(
-            "orders"
-          );
 
 
         container.innerHTML = "";
@@ -1354,89 +1703,164 @@
 
         result.orders
           .slice(0, 5)
-          .forEach(function(order) {
+          .forEach(
+            function(order) {
 
-            const item =
-              document.createElement("div");
+              const item =
+                document.createElement(
+                  "div"
+                );
 
-            item.className =
-              "order";
+
+              item.className =
+                "order";
 
 
-            item.innerHTML = `
+              const service =
+                escapeHTML(
+                  order.service ||
+                  "Service"
+                );
 
-              <div>
 
-                <strong>
-                  ${escapeHTML(
-                    order.service
-                  )}
-                </strong>
+              const reference =
+                escapeHTML(
+                  order.order_ref ||
+                  "N/A"
+                );
 
-                <small>
-                  ${escapeHTML(
-                    order.order_ref
-                  )}
-                </small>
 
-              </div>
+              const status =
+                escapeHTML(
+                  order.status ||
+                  "Processing"
+                );
 
-              <div class="order-right">
 
-                <div class="order-amount">
-                  GH₵${Number(
-                    order.amount
-                  ).toFixed(2)}
+              const amount =
+                Number(
+                  order.amount || 0
+                );
+
+
+              item.innerHTML = `
+
+                <div>
+
+                  <strong>
+                    ${service}
+                  </strong>
+
+                  <small>
+                    ${reference}
+                  </small>
+
                 </div>
 
-                <span class="order-status">
-                  ${escapeHTML(
-                    order.status
-                  )}
-                </span>
+                <div class="order-right">
 
-              </div>
+                  <div class="order-amount">
+                    GH₵${amount.toFixed(2)}
+                  </div>
 
-            `;
+                  <span class="order-status">
+                    ${status}
+                  </span>
+
+                </div>
+
+              `;
 
 
-            container.appendChild(item);
+              container.appendChild(
+                item
+              );
 
-          });
+            }
+          );
 
 
       } catch (error) {
 
-        console.error(error);
+        console.error(
+          "Orders loading error:",
+          error
+        );
+
+
+        container.innerHTML = `
+
+          <div class="empty-orders">
+
+            <div>
+              📦
+            </div>
+
+            Unable to load orders.
+
+            <br>
+
+            Please refresh and try again.
+
+          </div>
+
+        `;
 
       }
 
     }
 
 
-    // =========================
+    // =================================================
     // BASIC HTML ESCAPE
-    // =========================
+    // =================================================
 
     function escapeHTML(value) {
 
       return String(value)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+
+        .replace(
+          /&/g,
+          "&amp;"
+        )
+
+        .replace(
+          /</g,
+          "&lt;"
+        )
+
+        .replace(
+          />/g,
+          "&gt;"
+        )
+
+        .replace(
+          /"/g,
+          "&quot;"
+        )
+
+        .replace(
+          /'/g,
+          "&#039;"
+        );
 
     }
 
 
-    // =========================
-    // START
-    // =========================
+    // =================================================
+    // START DASHBOARD
+    // =================================================
 
-    loadCustomer();
+    document.addEventListener(
+      "DOMContentLoaded",
+      function() {
 
-    loadOrders();
+        loadCustomer();
+
+        loadOrders();
+
+      }
+    );
 
   </script>
 
