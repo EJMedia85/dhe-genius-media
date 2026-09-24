@@ -3,10 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b0f0e">
 
-  <title>My Orders • DHE GENIUS MEDIA</title>
+  <title>Orders — DHE GENIUS MEDIA</title>
 
   <style>
+    :root {
+      --bg: #070b0a;
+      --card: #101614;
+      --card-2: #151c19;
+      --border: rgba(255,255,255,.08);
+      --text: #f5f7f6;
+      --muted: #8f9a96;
+      --green: #25d366;
+      --green-dark: #128c7e;
+      --yellow: #f5b942;
+      --red: #ff5c5c;
+      --blue: #4da3ff;
+      --shadow: 0 15px 40px rgba(0,0,0,.25);
+    }
 
     * {
       box-sizing: border-box;
@@ -15,1024 +30,1681 @@
     }
 
     body {
-      font-family: Arial, sans-serif;
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Roboto,
+        Arial,
+        sans-serif;
+
       background:
-        radial-gradient(circle at top right, #123c3c, transparent 35%),
-        linear-gradient(160deg, #071111, #020606);
-      color: #fff;
+        radial-gradient(
+          circle at top right,
+          rgba(37,211,102,.08),
+          transparent 30%
+        ),
+        var(--bg);
+
+      color: var(--text);
       min-height: 100vh;
-      padding-bottom: 85px;
+      padding-bottom: 90px;
     }
 
-    header {
-      padding: 18px 16px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(4,12,12,.95);
-      border-bottom: 1px solid rgba(255,255,255,.08);
+    button {
+      font-family: inherit;
+    }
+
+    /* =========================
+       HEADER
+    ========================= */
+
+    .topbar {
       position: sticky;
       top: 0;
       z-index: 20;
-      backdrop-filter: blur(12px);
-    }
 
-    .back {
-      width: 40px;
-      height: 40px;
-      display: grid;
-      place-items: center;
-      border-radius: 12px;
-      background: rgba(255,255,255,.08);
-      color: #fff;
-      text-decoration: none;
-      font-size: 23px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      padding: 18px 18px 15px;
+
+      background: rgba(7,11,10,.88);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+
+      border-bottom: 1px solid var(--border);
     }
 
     .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .brand-logo {
+      width: 42px;
+      height: 42px;
+
+      border-radius: 13px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      background:
+        linear-gradient(
+          135deg,
+          var(--green),
+          var(--green-dark)
+        );
+
+      color: #06100b;
+      font-weight: 900;
       font-size: 16px;
-      font-weight: 900;
+
+      box-shadow:
+        0 8px 25px rgba(37,211,102,.2);
     }
 
-    .subtitle {
-      color: #91a7a7;
-      font-size: 11px;
-      margin-top: 3px;
-    }
-
-    main {
-      max-width: 700px;
-      margin: auto;
-      padding: 24px 16px;
-    }
-
-    .hero {
-      margin-bottom: 20px;
-    }
-
-    .hero h1 {
-      font-size: 30px;
-      margin-bottom: 8px;
-    }
-
-    .hero p {
-      color: #96aaaa;
+    .brand-name {
       font-size: 14px;
-      line-height: 1.5;
+      font-weight: 800;
+      letter-spacing: .3px;
     }
 
-    .loading {
-      text-align: center;
-      padding: 45px 15px;
-      color: #91a7a7;
+    .brand-sub {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 11px;
     }
 
-    .empty {
-      display: none;
-      text-align: center;
-      padding: 45px 20px;
-      background: rgba(255,255,255,.045);
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 20px;
-    }
+    .back-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
 
-    .empty-icon {
-      font-size: 42px;
-      margin-bottom: 15px;
-    }
+      width: 40px;
+      height: 40px;
 
-    .empty h2 {
-      font-size: 19px;
-      margin-bottom: 8px;
-    }
-
-    .empty p {
-      color: #91a7a7;
-      font-size: 13px;
-      line-height: 1.5;
-      margin-bottom: 18px;
-    }
-
-    .empty a {
-      display: inline-block;
-      text-decoration: none;
-      background: #25d366;
-      color: #001b0b;
-      padding: 13px 18px;
       border-radius: 12px;
-      font-weight: 900;
+
+      cursor: pointer;
+      font-size: 19px;
+    }
+
+    /* =========================
+       PAGE
+    ========================= */
+
+    .container {
+      width: min(100% - 30px, 720px);
+      margin: 0 auto;
+    }
+
+    .page-header {
+      padding: 27px 0 20px;
+    }
+
+    .page-header h1 {
+      font-size: 28px;
+      line-height: 1.15;
+      font-weight: 850;
+      letter-spacing: -.7px;
+    }
+
+    .page-header p {
+      color: var(--muted);
+      margin-top: 7px;
       font-size: 13px;
     }
 
-    .orders {
+    /* =========================
+       SUMMARY
+    ========================= */
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+
+      margin-bottom: 22px;
+    }
+
+    .summary-card {
+      background: linear-gradient(
+        145deg,
+        rgba(255,255,255,.055),
+        rgba(255,255,255,.02)
+      );
+
+      border: 1px solid var(--border);
+      border-radius: 17px;
+
+      padding: 15px 12px;
+
+      box-shadow: var(--shadow);
+    }
+
+    .summary-number {
+      font-size: 21px;
+      font-weight: 850;
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 5px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+    }
+
+    .summary-card.active .summary-number {
+      color: var(--yellow);
+    }
+
+    .summary-card.completed .summary-number {
+      color: var(--green);
+    }
+
+    /* =========================
+       FILTERS
+    ========================= */
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+
+      padding-bottom: 4px;
+      margin-bottom: 16px;
+
+      scrollbar-width: none;
+    }
+
+    .filters::-webkit-scrollbar {
       display: none;
     }
 
-    .order {
+    .filter-btn {
+      flex: 0 0 auto;
+
+      border: 1px solid var(--border);
+      background: var(--card);
+
+      color: var(--muted);
+
+      padding: 9px 15px;
+      border-radius: 30px;
+
+      font-size: 12px;
+      font-weight: 700;
+
+      cursor: pointer;
+    }
+
+    .filter-btn.active {
+      background: rgba(37,211,102,.12);
+      color: var(--green);
+      border-color: rgba(37,211,102,.28);
+    }
+
+    /* =========================
+       ORDER CARD
+    ========================= */
+
+    .orders-list {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+    }
+
+    .order-card {
       background:
         linear-gradient(
           145deg,
-          rgba(255,255,255,.075),
-          rgba(255,255,255,.025)
+          rgba(255,255,255,.055),
+          rgba(255,255,255,.018)
         );
 
-      border: 1px solid rgba(255,255,255,.08);
+      border: 1px solid var(--border);
       border-radius: 20px;
+
       padding: 17px;
-      margin-bottom: 15px;
-      box-shadow: 0 15px 35px rgba(0,0,0,.18);
-      overflow: hidden;
+
+      box-shadow: var(--shadow);
+
+      animation: fadeIn .3s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .order-top {
       display: flex;
-      justify-content: space-between;
       align-items: flex-start;
+      justify-content: space-between;
       gap: 12px;
-      margin-bottom: 15px;
+    }
+
+    .service-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .service-icon {
+      width: 45px;
+      height: 45px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      border-radius: 14px;
+
+      background: rgba(37,211,102,.1);
+      border: 1px solid rgba(37,211,102,.15);
+
+      font-size: 21px;
     }
 
     .service-name {
-      font-weight: 900;
-      font-size: 16px;
+      font-weight: 800;
+      font-size: 14px;
     }
 
-    .order-ref {
-      color: #809797;
-      font-size: 10px;
-      margin-top: 5px;
-      word-break: break-all;
+    .service-network {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 4px;
     }
+
+    /* =========================
+       STATUS
+    ========================= */
 
     .status {
-      padding: 7px 10px;
-      border-radius: 9px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+
+      padding: 6px 9px;
+
+      border-radius: 30px;
+
       font-size: 10px;
-      font-weight: 900;
+      font-weight: 800;
+
       white-space: nowrap;
     }
 
-    .pending {
-      color: #ffc44d;
-      background: rgba(255,196,77,.1);
-      border: 1px solid rgba(255,196,77,.18);
+    .status::before {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
     }
 
-    .processing {
-      color: #60b9ff;
-      background: rgba(96,185,255,.1);
-      border: 1px solid rgba(96,185,255,.18);
+    .status.processing,
+    .status.pending {
+      color: var(--yellow);
+      background: rgba(245,185,66,.09);
     }
 
-    .completed {
-      color: #25d366;
-      background: rgba(37,211,102,.1);
-      border: 1px solid rgba(37,211,102,.18);
+    .status.completed {
+      color: var(--green);
+      background: rgba(37,211,102,.09);
     }
 
-    .failed,
-    .cancelled {
-      color: #ff7777;
-      background: rgba(255,80,80,.1);
-      border: 1px solid rgba(255,80,80,.18);
+    .status.failed {
+      color: var(--red);
+      background: rgba(255,92,92,.09);
     }
 
-    .status-message {
-      padding: 11px 12px;
-      border-radius: 12px;
-      margin-bottom: 13px;
-      font-size: 12px;
-      line-height: 1.45;
+    .status.cancelled {
+      color: var(--muted);
+      background: rgba(255,255,255,.06);
     }
 
-    .status-message.processing-message {
-      color: #9bd4ff;
-      background: rgba(96,185,255,.07);
-      border: 1px solid rgba(96,185,255,.12);
-    }
+    /* =========================
+       ORDER BODY
+    ========================= */
 
-    .status-message.completed-message {
-      color: #75e69e;
-      background: rgba(37,211,102,.07);
-      border: 1px solid rgba(37,211,102,.12);
-    }
-
-    .status-message.failed-message {
-      color: #ff9999;
-      background: rgba(255,80,80,.07);
-      border: 1px solid rgba(255,80,80,.12);
-    }
-
-    .status-message.pending-message {
-      color: #ffd36b;
-      background: rgba(255,196,77,.07);
-      border: 1px solid rgba(255,196,77,.12);
-    }
-
-    .section-title {
-      color: #6f8585;
-      font-size: 9px;
-      font-weight: 900;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      margin: 15px 0 5px;
-    }
-
-    .order-details {
-      border-top: 1px solid rgba(255,255,255,.07);
-      padding-top: 10px;
-    }
-
-    .row {
+    .order-ref {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 15px;
-      padding: 7px 0;
-      font-size: 13px;
+      align-items: center;
+
+      margin-top: 17px;
+
+      padding: 11px 12px;
+
+      background: rgba(0,0,0,.2);
+      border-radius: 12px;
+
+      border: 1px solid rgba(255,255,255,.045);
     }
 
-    .row span:first-child {
-      color: #819797;
-      flex-shrink: 0;
+    .ref-label {
+      color: var(--muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
     }
 
-    .row span:last-child {
-      color: #fff;
+    .ref-value {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .3px;
+    }
+
+    .details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+
+      gap: 13px;
+
+      margin-top: 17px;
+    }
+
+    .detail-label {
+      color: var(--muted);
+      font-size: 10px;
+      margin-bottom: 5px;
+    }
+
+    .detail-value {
+      font-size: 12px;
       font-weight: 700;
-      text-align: right;
-      word-break: break-word;
     }
 
     .amount {
-      color: #25d366 !important;
-      font-size: 17px;
-      font-weight: 900 !important;
+      color: var(--green);
+      font-size: 15px;
+      font-weight: 850;
     }
 
-    .date {
-      color: #c7d2d2 !important;
+    /* =========================
+       PAYMENT LINE
+    ========================= */
+
+    .payment-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      margin-top: 17px;
+      padding-top: 14px;
+
+      border-top: 1px solid var(--border);
+    }
+
+    .payment-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+
       font-size: 11px;
-      font-weight: 600 !important;
+      font-weight: 700;
     }
 
-    .reference {
-      font-family: monospace;
-      color: #b8dede !important;
-      font-size: 10px;
-      max-width: 65%;
+    .payment-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
     }
 
     .payment-paid {
-      color: #25d366 !important;
+      color: var(--green);
     }
 
-    .payment-pending {
-      color: #ffc44d !important;
+    .payment-paid .payment-dot {
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(37,211,102,.5);
     }
 
-    .payment-failed {
-      color: #ff7777 !important;
+    .payment-unpaid {
+      color: var(--yellow);
     }
 
-    .refresh {
-      width: 100%;
-      border: 1px solid rgba(255,255,255,.09);
-      background: rgba(255,255,255,.05);
-      color: #fff;
-      padding: 13px;
-      border-radius: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      margin-bottom: 15px;
+    .payment-unpaid .payment-dot {
+      background: var(--yellow);
     }
 
-    .refresh:active {
-      transform: scale(.98);
+    .payment-reference {
+      color: var(--muted);
+      font-size: 9px;
+      max-width: 150px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
-    .error {
-      display: none;
-      padding: 18px;
-      border-radius: 16px;
-      background: rgba(255,70,70,.08);
-      border: 1px solid rgba(255,70,70,.2);
-      color: #ff9292;
+    /* =========================
+       EMPTY STATE
+    ========================= */
+
+    .empty {
       text-align: center;
-      font-size: 13px;
+      padding: 55px 25px;
+
+      border: 1px dashed rgba(255,255,255,.1);
+      border-radius: 20px;
+
+      background: rgba(255,255,255,.02);
     }
+
+    .empty-icon {
+      width: 62px;
+      height: 62px;
+
+      margin: 0 auto 16px;
+
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      border-radius: 20px;
+
+      background: rgba(37,211,102,.08);
+
+      font-size: 27px;
+    }
+
+    .empty h3 {
+      font-size: 17px;
+      margin-bottom: 7px;
+    }
+
+    .empty p {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .shop-btn {
+      margin-top: 18px;
+
+      border: none;
+      background: linear-gradient(
+        135deg,
+        var(--green),
+        var(--green-dark)
+      );
+
+      color: #06100b;
+
+      padding: 12px 19px;
+
+      border-radius: 12px;
+
+      font-size: 12px;
+      font-weight: 850;
+
+      cursor: pointer;
+    }
+
+    /* =========================
+       LOADING
+    ========================= */
+
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
+      padding: 55px 20px;
+
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+
+      border: 3px solid rgba(255,255,255,.1);
+      border-top-color: var(--green);
+
+      border-radius: 50%;
+
+      animation: spin .8s linear infinite;
+
+      margin-bottom: 13px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* =========================
+       BOTTOM NAV
+    ========================= */
 
     .bottom-nav {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      height: 68px;
-      background: rgba(3,10,10,.97);
-      border-top: 1px solid rgba(255,255,255,.08);
+
+      z-index: 30;
+
+      height: 72px;
+
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      z-index: 30;
+
+      background: rgba(9,13,12,.94);
+
+      border-top: 1px solid var(--border);
+
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
     }
 
-    .bottom-nav a {
+    .nav-item {
+      border: none;
+      background: transparent;
+
+      color: var(--muted);
+
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      color: #829696;
-      text-decoration: none;
-      font-size: 11px;
-    }
 
-    .bottom-nav a.active {
-      color: #25d366;
+      gap: 5px;
+
+      cursor: pointer;
+
+      font-size: 10px;
       font-weight: 700;
     }
 
-    .bottom-icon {
-      font-size: 20px;
+    .nav-icon {
+      font-size: 18px;
     }
 
-    @media (max-width: 480px) {
-
-      .order {
-        padding: 15px;
-      }
-
-      .order-top {
-        align-items: flex-start;
-      }
-
-      .status {
-        font-size: 9px;
-        padding: 6px 8px;
-      }
-
-      .row {
-        font-size: 12px;
-      }
-
-      .reference {
-        max-width: 60%;
-        font-size: 9px;
-      }
-
+    .nav-item.active {
+      color: var(--green);
     }
 
+    /* =========================
+       DESKTOP
+    ========================= */
+
+    @media (min-width: 700px) {
+      .container {
+        width: min(100% - 50px, 850px);
+      }
+
+      .page-header {
+        padding-top: 35px;
+      }
+
+      .page-header h1 {
+        font-size: 32px;
+      }
+
+      .summary-grid {
+        gap: 14px;
+      }
+
+      .order-card {
+        padding: 20px;
+      }
+
+      .bottom-nav {
+        width: 600px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+
+        border-radius: 20px 20px 0 0;
+      }
+    }
   </style>
-
 </head>
 
 <body>
 
-<header>
+  <!-- HEADER -->
 
-  <a class="back" href="/dashboard.html">‹</a>
+  <header class="topbar">
 
-  <div>
-    <div class="brand">DHE GENIUS MEDIA</div>
+    <div class="brand">
 
-    <div class="subtitle">
-      My Orders • Stay Connected. Stay Genius.
+      <div class="brand-logo">
+        DGM
+      </div>
+
+      <div>
+        <div class="brand-name">
+          DHE GENIUS MEDIA
+        </div>
+
+        <div class="brand-sub">
+          Stay Connected. Stay Genius.
+        </div>
+      </div>
+
     </div>
-  </div>
 
-</header>
+    <button
+      class="back-btn"
+      onclick="goBack()"
+      aria-label="Go back"
+    >
+      ←
+    </button>
 
-
-<main>
-
-  <section class="hero">
-
-    <h1>My Orders</h1>
-
-    <p>
-      View your purchases, payment status and DataMart fulfillment details.
-    </p>
-
-  </section>
+  </header>
 
 
-  <button class="refresh" onclick="loadOrders()">
-    ↻ Refresh Orders
-  </button>
+  <main class="container">
+
+    <!-- PAGE HEADER -->
+
+    <section class="page-header">
+
+      <h1>My Orders</h1>
+
+      <p>
+        Track your purchases and service requests in one place.
+      </p>
+
+    </section>
 
 
-  <div id="loading" class="loading">
-    Loading your orders...
-  </div>
+    <!-- SUMMARY -->
+
+    <section class="summary-grid">
+
+      <div class="summary-card">
+
+        <div
+          class="summary-number"
+          id="totalOrders"
+        >
+          0
+        </div>
+
+        <div class="summary-label">
+          Total
+        </div>
+
+      </div>
 
 
-  <div id="error" class="error"></div>
+      <div class="summary-card active">
+
+        <div
+          class="summary-number"
+          id="processingOrders"
+        >
+          0
+        </div>
+
+        <div class="summary-label">
+          Processing
+        </div>
+
+      </div>
 
 
-  <div id="empty" class="empty">
+      <div class="summary-card completed">
 
-    <div class="empty-icon">📦</div>
+        <div
+          class="summary-number"
+          id="completedOrders"
+        >
+          0
+        </div>
 
-    <h2>No orders yet</h2>
+        <div class="summary-label">
+          Completed
+        </div>
 
-    <p>
-      Your data and airtime purchases will appear here
-      after you place an order.
-    </p>
+      </div>
 
-    <a href="/data.html">
+    </section>
+
+
+    <!-- FILTERS -->
+
+    <div class="filters">
+
+      <button
+        class="filter-btn active"
+        data-filter="all"
+        onclick="setFilter('all', this)"
+      >
+        All Orders
+      </button>
+
+      <button
+        class="filter-btn"
+        data-filter="processing"
+        onclick="setFilter('processing', this)"
+      >
+        Processing
+      </button>
+
+      <button
+        class="filter-btn"
+        data-filter="completed"
+        onclick="setFilter('completed', this)"
+      >
+        Completed
+      </button>
+
+      <button
+        class="filter-btn"
+        data-filter="failed"
+        onclick="setFilter('failed', this)"
+      >
+        Failed
+      </button>
+
+    </div>
+
+
+    <!-- ORDERS -->
+
+    <section id="ordersContainer">
+
+      <div class="loading">
+
+        <div class="spinner"></div>
+
+        Loading your orders...
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <!-- BOTTOM NAV -->
+
+  <nav class="bottom-nav">
+
+    <button
+      class="nav-item"
+      onclick="location.href='/dashboard.html'"
+    >
+      <span class="nav-icon">⌂</span>
+      Dashboard
+    </button>
+
+
+    <button
+      class="nav-item"
+      onclick="location.href='/data.html'"
+    >
+      <span class="nav-icon">▣</span>
       Buy Data
-    </a>
-
-  </div>
+    </button>
 
 
-  <div id="orders" class="orders"></div>
-
-</main>
-
-
-<nav class="bottom-nav">
-
-  <a href="/dashboard.html">
-    <span class="bottom-icon">⌂</span>
-    Dashboard
-  </a>
-
-  <a href="/data.html">
-    <span class="bottom-icon">▣</span>
-    Data
-  </a>
-
-  <a href="/airtime.html">
-    <span class="bottom-icon">₵</span>
-    Airtime
-  </a>
-
-  <a class="active" href="/orders.html">
-    <span class="bottom-icon">☰</span>
-    Orders
-  </a>
-
-</nav>
+    <button
+      class="nav-item active"
+      onclick="location.href='/orders.html'"
+    >
+      <span class="nav-icon">◷</span>
+      Orders
+    </button>
 
 
-<script>
+    <button
+      class="nav-item"
+      onclick="location.href='/account.html'"
+    >
+      <span class="nav-icon">◉</span>
+      Account
+    </button>
 
-  function escapeHtml(value) {
-
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-
-  }
+  </nav>
 
 
-  function normalizeStatus(status) {
+  <script>
 
-    const value =
-      String(status || "Pending")
-        .trim()
-        .toLowerCase();
+    let orders = [];
+    let currentFilter = "all";
 
-    if (
-      value === "completed" ||
-      value === "complete" ||
-      value === "success" ||
-      value === "successful"
+
+    /* =========================
+       LOAD ORDERS
+    ========================= */
+
+    async function loadOrders() {
+
+      const container =
+        document.getElementById("ordersContainer");
+
+      try {
+
+        const response =
+          await fetch("/api/orders", {
+            credentials: "include"
+          });
+
+
+        if (response.status === 401) {
+
+          window.location.href = "/login.html";
+
+          return;
+        }
+
+
+        const data =
+          await response.json();
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.message ||
+            "Unable to load orders."
+          );
+        }
+
+
+        /*
+         Your API may return:
+
+         [
+           {...},
+           {...}
+         ]
+
+         OR:
+
+         {
+           orders: [...]
+         }
+        */
+
+        if (Array.isArray(data)) {
+
+          orders = data;
+
+        } else if (Array.isArray(data.orders)) {
+
+          orders = data.orders;
+
+        } else if (Array.isArray(data.data)) {
+
+          orders = data.data;
+
+        } else {
+
+          orders = [];
+
+        }
+
+
+        updateSummary();
+
+        renderOrders();
+
+      } catch (error) {
+
+        console.error(
+          "ORDER LOAD ERROR:",
+          error
+        );
+
+
+        container.innerHTML = `
+
+          <div class="empty">
+
+            <div class="empty-icon">
+              ⚠️
+            </div>
+
+            <h3>
+              Couldn't load orders
+            </h3>
+
+            <p>
+              Please check your connection and try again.
+            </p>
+
+            <button
+              class="shop-btn"
+              onclick="loadOrders()"
+            >
+              Try Again
+            </button>
+
+          </div>
+
+        `;
+
+      }
+
+    }
+
+
+    /* =========================
+       SUMMARY
+    ========================= */
+
+    function updateSummary() {
+
+      document.getElementById(
+        "totalOrders"
+      ).textContent = orders.length;
+
+
+      const processing =
+        orders.filter(order => {
+
+          const status =
+            normalizeStatus(order.status);
+
+          return (
+            status === "processing" ||
+            status === "pending"
+          );
+
+        }).length;
+
+
+      const completed =
+        orders.filter(order => {
+
+          return (
+            normalizeStatus(order.status)
+            === "completed"
+          );
+
+        }).length;
+
+
+      document.getElementById(
+        "processingOrders"
+      ).textContent = processing;
+
+
+      document.getElementById(
+        "completedOrders"
+      ).textContent = completed;
+
+    }
+
+
+    /* =========================
+       FILTER
+    ========================= */
+
+    function setFilter(
+      filter,
+      button
     ) {
-      return "Completed";
+
+      currentFilter = filter;
+
+
+      document
+        .querySelectorAll(".filter-btn")
+        .forEach(btn => {
+
+          btn.classList.remove("active");
+
+        });
+
+
+      button.classList.add("active");
+
+
+      renderOrders();
+
     }
 
-    if (
-      value === "processing" ||
-      value === "in progress" ||
-      value === "in_progress"
-    ) {
-      return "Processing";
-    }
 
-    if (
-      value === "failed" ||
-      value === "cancelled" ||
-      value === "canceled"
-    ) {
-      return value === "cancelled" || value === "canceled"
-        ? "Cancelled"
-        : "Failed";
-    }
+    /* =========================
+       RENDER
+    ========================= */
 
-    if (
-      value === "paid"
-    ) {
-      return "Processing";
-    }
+    function renderOrders() {
 
-    return "Pending";
-  }
+      const container =
+        document.getElementById(
+          "ordersContainer"
+        );
 
 
-  function statusClass(status) {
-
-    const value = normalizeStatus(status).toLowerCase();
-
-    if (value === "completed") {
-      return "completed";
-    }
-
-    if (value === "processing") {
-      return "processing";
-    }
-
-    if (
-      value === "failed" ||
-      value === "cancelled"
-    ) {
-      return "failed";
-    }
-
-    return "pending";
-
-  }
+      let filtered = [...orders];
 
 
-  function paymentClass(paymentStatus) {
+      if (currentFilter !== "all") {
 
-    const value =
-      String(paymentStatus || "")
-        .toLowerCase();
+        filtered =
+          filtered.filter(order => {
 
-    if (
-      value === "paid" ||
-      value === "success" ||
-      value === "successful" ||
-      value === "completed"
-    ) {
-      return "payment-paid";
-    }
+            const status =
+              normalizeStatus(
+                order.status
+              );
 
-    if (
-      value === "failed" ||
-      value === "cancelled"
-    ) {
-      return "payment-failed";
-    }
+            return status === currentFilter;
 
-    return "payment-pending";
+          });
 
-  }
+      }
 
 
-  function formatPaymentStatus(paymentStatus) {
+      if (!filtered.length) {
 
-    const value =
-      String(paymentStatus || "")
-        .trim()
-        .toLowerCase();
+        container.innerHTML = `
 
-    if (
-      value === "paid" ||
-      value === "success" ||
-      value === "successful" ||
-      value === "completed"
-    ) {
-      return "Paid";
-    }
+          <div class="empty">
 
-    if (
-      value === "failed" ||
-      value === "cancelled"
-    ) {
-      return "Failed";
-    }
+            <div class="empty-icon">
+              🧾
+            </div>
 
-    return "Pending";
+            <h3>
+              No orders found
+            </h3>
 
-  }
+            <p>
+              Your purchases and service orders
+              will appear here.
+            </p>
+
+            <button
+              class="shop-btn"
+              onclick="location.href='/data.html'"
+            >
+              Buy Data
+            </button>
+
+          </div>
+
+        `;
+
+        return;
+      }
 
 
-  function formatDate(dateString) {
+      /*
+        Newest orders first.
+      */
 
-    if (!dateString) {
-      return "—";
-    }
-
-    let date;
-
-    const raw =
-      String(dateString);
-
-    if (
-      raw.includes("T") ||
-      raw.endsWith("Z") ||
-      raw.includes("+")
-    ) {
-
-      date = new Date(raw);
-
-    } else {
-
-      date = new Date(
-        raw.replace(" ", "T") + "Z"
+      filtered.sort(
+        (a, b) =>
+          new Date(
+            b.created_at ||
+            b.createdAt ||
+            0
+          ) -
+          new Date(
+            a.created_at ||
+            a.createdAt ||
+            0
+          )
       );
 
-    }
 
-    if (Number.isNaN(date.getTime())) {
-      return escapeHtml(raw);
-    }
+      container.innerHTML = `
 
-    return date.toLocaleString(
-      "en-GH",
-      {
-        dateStyle: "medium",
-        timeStyle: "short"
-      }
-    );
+        <div class="orders-list">
 
-  }
-
-
-  function getStatusMessage(status) {
-
-    const normalized =
-      normalizeStatus(status);
-
-    if (normalized === "Completed") {
-
-      return {
-        className: "completed-message",
-        icon: "✓",
-        text: "Your order has been completed successfully."
-      };
-
-    }
-
-    if (normalized === "Processing") {
-
-      return {
-        className: "processing-message",
-        icon: "⏳",
-        text: "Your payment has been confirmed and your order is being processed."
-      };
-
-    }
-
-    if (normalized === "Failed") {
-
-      return {
-        className: "failed-message",
-        icon: "!",
-        text: "This order could not be completed. Please contact DHE GENIUS MEDIA if you need assistance."
-      };
-
-    }
-
-    if (normalized === "Cancelled") {
-
-      return {
-        className: "failed-message",
-        icon: "×",
-        text: "This order has been cancelled."
-      };
-
-    }
-
-    return {
-      className: "pending-message",
-      icon: "⌛",
-      text: "Waiting for payment confirmation."
-    };
-
-  }
-
-
-  function renderOrders(orders) {
-
-    const container =
-      document.getElementById("orders");
-
-    const empty =
-      document.getElementById("empty");
-
-    container.innerHTML = "";
-
-
-    if (!orders || orders.length === 0) {
-
-      container.style.display = "none";
-      empty.style.display = "block";
-
-      return;
-
-    }
-
-
-    empty.style.display = "none";
-    container.style.display = "block";
-
-
-    orders.forEach(order => {
-
-      const card =
-        document.createElement("div");
-
-      card.className = "order";
-
-
-      const normalizedStatus =
-        normalizeStatus(order.status);
-
-      const statusStyle =
-        statusClass(order.status);
-
-      const statusMessage =
-        getStatusMessage(order.status);
-
-
-      const service =
-        escapeHtml(
-          order.service || "Service"
-        );
-
-      const network =
-        escapeHtml(
-          order.network || "—"
-        );
-
-      const phone =
-        escapeHtml(
-          order.phone || "—"
-        );
-
-      const capacity =
-        escapeHtml(
-          order.capacity ||
-          order.data_capacity ||
-          order.bundle ||
-          "—"
-        );
-
-      const ref =
-        escapeHtml(
-          order.order_ref || "—"
-        );
-
-
-      const datamartReference =
-        escapeHtml(
-          order.datamart_reference ||
-          "Not available yet"
-        );
-
-
-      const datamartTransaction =
-        escapeHtml(
-          order.datamart_transaction_reference ||
-          "Not available yet"
-        );
-
-
-      const datamartPurchaseId =
-        escapeHtml(
-          order.datamart_purchase_id ||
-          "Not available yet"
-        );
-
-
-      const paymentStatus =
-        formatPaymentStatus(
-          order.payment_status
-        );
-
-
-      const amountNumber =
-        Number(order.amount || 0);
-
-
-      const amount =
-        Number.isFinite(amountNumber)
-          ? amountNumber.toFixed(2)
-          : "0.00";
-
-
-      const date =
-        escapeHtml(
-          formatDate(order.created_at)
-        );
-
-
-      card.innerHTML = `
-
-        <div class="order-top">
-
-          <div>
-
-            <div class="service-name">
-              ${service}
-            </div>
-
-            <div class="order-ref">
-              Order: ${ref}
-            </div>
-
-          </div>
-
-          <span class="status ${statusStyle}">
-            ${escapeHtml(normalizedStatus)}
-          </span>
-
-        </div>
-
-
-        <div class="status-message ${statusMessage.className}">
-          ${statusMessage.icon}
-          &nbsp;
-          ${statusMessage.text}
-        </div>
-
-
-        <div class="section-title">
-          Order Details
-        </div>
-
-        <div class="order-details">
-
-          <div class="row">
-            <span>Network</span>
-            <span>${network}</span>
-          </div>
-
-          <div class="row">
-            <span>Bundle</span>
-            <span>${capacity}</span>
-          </div>
-
-          <div class="row">
-            <span>Recipient</span>
-            <span>${phone}</span>
-          </div>
-
-          <div class="row">
-            <span>Amount</span>
-            <span class="amount">
-              GH₵${amount}
-            </span>
-          </div>
-
-          <div class="row">
-            <span>Payment</span>
-            <span class="${paymentClass(order.payment_status)}">
-              ${escapeHtml(paymentStatus)}
-            </span>
-          </div>
-
-          <div class="row">
-            <span>Order Date</span>
-            <span class="date">
-              ${date}
-            </span>
-          </div>
-
-        </div>
-
-
-        <div class="section-title">
-          DataMart Information
-        </div>
-
-        <div class="order-details">
-
-          <div class="row">
-            <span>DataMart Reference</span>
-
-            <span class="reference">
-              ${datamartReference}
-            </span>
-          </div>
-
-
-          <div class="row">
-            <span>Transaction Reference</span>
-
-            <span class="reference">
-              ${datamartTransaction}
-            </span>
-          </div>
-
-
-          <div class="row">
-            <span>Purchase ID</span>
-
-            <span class="reference">
-              ${datamartPurchaseId}
-            </span>
-          </div>
+          ${filtered
+            .map(orderCard)
+            .join("")}
 
         </div>
 
       `;
 
-
-      container.appendChild(card);
-
-    });
-
-  }
+    }
 
 
-  async function loadOrders() {
+    /* =========================
+       ORDER CARD
+    ========================= */
 
-    const loading =
-      document.getElementById("loading");
+    function orderCard(order) {
 
-    const error =
-      document.getElementById("error");
-
-    const container =
-      document.getElementById("orders");
-
-    const empty =
-      document.getElementById("empty");
-
-
-    loading.style.display = "block";
-
-    error.style.display = "none";
-
-    container.style.display = "none";
-
-    empty.style.display = "none";
-
-
-    try {
-
-      const response =
-        await fetch(
-          "/api/orders",
-          {
-            credentials: "same-origin",
-            cache: "no-store"
-          }
+      const status =
+        normalizeStatus(
+          order.status
         );
 
 
-      if (response.status === 401) {
-
-        window.location.href =
-          "/login.html";
-
-        return;
-
-      }
-
-
-      const data =
-        await response.json();
-
-
-      if (!response.ok) {
-
-        throw new Error(
-          data.error ||
-          "Unable to load orders."
+      const statusLabel =
+        capitalize(
+          status || "pending"
         );
 
-      }
+
+      const service =
+        order.service ||
+        "Digital Service";
 
 
-      renderOrders(
-        data.orders || []
-      );
+      const network =
+        order.network ||
+        "";
 
 
-    } catch (err) {
+      const phone =
+        order.phone ||
+        order.recipient ||
+        "—";
 
-      container.style.display = "none";
 
-      empty.style.display = "none";
+      const amount =
+        Number(
+          order.amount || 0
+        );
 
-      error.style.display = "block";
 
-      error.textContent =
-        err.message ||
-        "Something went wrong while loading your orders.";
+      const reference =
+        order.order_ref ||
+        order.orderRef ||
+        order.reference ||
+        "—";
 
-      return;
+
+      const paymentStatus =
+        normalizePayment(
+          order.payment_status ||
+          order.paymentStatus
+        );
+
+
+      const paymentReference =
+        order.paystack_reference ||
+        order.paystackReference ||
+        "";
+
+
+      const created =
+        order.created_at ||
+        order.createdAt;
+
+
+      const date =
+        formatDate(created);
+
+
+      const icon =
+        getServiceIcon(
+          service
+        );
+
+
+      return `
+
+        <article
+          class="order-card"
+        >
+
+          <div class="order-top">
+
+            <div class="service-info">
+
+              <div class="service-icon">
+                ${icon}
+              </div>
+
+              <div>
+
+                <div class="service-name">
+                  ${escapeHtml(service)}
+                </div>
+
+                <div class="service-network">
+                  ${escapeHtml(network || "DGM Service")}
+                </div>
+
+              </div>
+
+            </div>
+
+
+            <span
+              class="status ${statusClass(status)}"
+            >
+              ${escapeHtml(statusLabel)}
+            </span>
+
+          </div>
+
+
+          <div class="order-ref">
+
+            <span class="ref-label">
+              Order Reference
+            </span>
+
+            <span class="ref-value">
+              ${escapeHtml(reference)}
+            </span>
+
+          </div>
+
+
+          <div class="details">
+
+            <div>
+
+              <div class="detail-label">
+                Recipient
+              </div>
+
+              <div class="detail-value">
+                ${escapeHtml(phone)}
+              </div>
+
+            </div>
+
+
+            <div>
+
+              <div class="detail-label">
+                Amount
+              </div>
+
+              <div class="amount">
+                GH₵${amount.toFixed(2)}
+              </div>
+
+            </div>
+
+
+            <div>
+
+              <div class="detail-label">
+                Date
+              </div>
+
+              <div class="detail-value">
+                ${escapeHtml(date)}
+              </div>
+
+            </div>
+
+
+            <div>
+
+              <div class="detail-label">
+                Service
+              </div>
+
+              <div class="detail-value">
+                ${escapeHtml(
+                  service
+                )}
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <div class="payment-line">
+
+            <div
+              class="payment-status
+                ${
+                  paymentStatus === "paid"
+                    ? "payment-paid"
+                    : "payment-unpaid"
+                }"
+            >
+
+              <span class="payment-dot"></span>
+
+              ${
+                paymentStatus === "paid"
+                  ? "Payment confirmed"
+                  : "Payment pending"
+              }
+
+            </div>
+
+
+            ${
+              paymentReference
+                ? `
+                  <div
+                    class="payment-reference"
+                    title="${escapeHtml(paymentReference)}"
+                  >
+                    ${escapeHtml(paymentReference)}
+                  </div>
+                `
+                : `
+                  <div class="payment-reference">
+                    DHE GENIUS MEDIA
+                  </div>
+                `
+            }
+
+          </div>
+
+        </article>
+
+      `;
 
     }
 
 
-    loading.style.display = "none";
+    /* =========================
+       STATUS HELPERS
+    ========================= */
 
-  }
+    function normalizeStatus(status) {
+
+      const value =
+        String(
+          status || "Pending"
+        )
+        .trim()
+        .toLowerCase();
 
 
-  loadOrders();
+      if (
+        value.includes("complete") ||
+        value === "success" ||
+        value === "successful"
+      ) {
 
-</script>
+        return "completed";
+
+      }
+
+
+      if (
+        value.includes("fail") ||
+        value.includes("cancel")
+      ) {
+
+        return value.includes("cancel")
+          ? "cancelled"
+          : "failed";
+
+      }
+
+
+      if (
+        value.includes("process")
+      ) {
+
+        return "processing";
+
+      }
+
+
+      return "pending";
+
+    }
+
+
+    function normalizePayment(status) {
+
+      const value =
+        String(
+          status || ""
+        )
+        .trim()
+        .toLowerCase();
+
+
+      if (
+        value === "paid" ||
+        value === "success" ||
+        value === "successful"
+      ) {
+
+        return "paid";
+
+      }
+
+
+      return "pending";
+
+    }
+
+
+    function statusClass(status) {
+
+      if (
+        status === "completed"
+      ) {
+
+        return "completed";
+
+      }
+
+
+      if (
+        status === "processing"
+      ) {
+
+        return "processing";
+
+      }
+
+
+      if (
+        status === "failed"
+      ) {
+
+        return "failed";
+
+      }
+
+
+      if (
+        status === "cancelled"
+      ) {
+
+        return "cancelled";
+
+      }
+
+
+      return "pending";
+
+    }
+
+
+    /* =========================
+       SERVICE ICON
+    ========================= */
+
+    function getServiceIcon(service) {
+
+      const value =
+        String(service || "")
+          .toLowerCase();
+
+
+      if (
+        value.includes("data")
+      ) {
+
+        return "📶";
+
+      }
+
+
+      if (
+        value.includes("airtime")
+      ) {
+
+        return "📱";
+
+      }
+
+
+      if (
+        value.includes("netflix")
+      ) {
+
+        return "🎬";
+
+      }
+
+
+      if (
+        value.includes("dstv")
+      ) {
+
+        return "📺";
+
+      }
+
+
+      if (
+        value.includes("music")
+      ) {
+
+        return "🎵";
+
+      }
+
+
+      if (
+        value.includes("social")
+      ) {
+
+        return "🚀";
+
+      }
+
+
+      return "⚡";
+
+    }
+
+
+    /* =========================
+       DATE
+    ========================= */
+
+    function formatDate(value) {
+
+      if (!value) {
+        return "—";
+      }
+
+
+      const date =
+        new Date(value);
+
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+
+        return String(value);
+
+      }
+
+
+      return date.toLocaleString(
+        "en-GH",
+        {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        }
+      );
+
+    }
+
+
+    /* =========================
+       SECURITY
+    ========================= */
+
+    function escapeHtml(value) {
+
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+    }
+
+
+    function capitalize(value) {
+
+      if (!value) {
+        return "";
+      }
+
+
+      return (
+        value.charAt(0).toUpperCase() +
+        value.slice(1)
+      );
+
+    }
+
+
+    /* =========================
+       NAVIGATION
+    ========================= */
+
+    function goBack() {
+
+      if (
+        document.referrer
+      ) {
+
+        history.back();
+
+      } else {
+
+        location.href =
+          "/dashboard.html";
+
+      }
+
+    }
+
+
+    /* =========================
+       START
+    ========================= */
+
+    loadOrders();
+
+  </script>
 
 </body>
 </html>
