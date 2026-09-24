@@ -13,11 +13,9 @@ const PORT = Number(process.env.PORT || 10000);
 // ENVIRONMENT
 // =====================================================
 
-const NODE_ENV =
-  process.env.NODE_ENV || "development";
+const NODE_ENV = process.env.NODE_ENV || "development";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL || "";
+const DATABASE_URL = process.env.DATABASE_URL || "";
 
 const DATAMART_API_KEY =
   process.env.DATAMART_API_KEY || "";
@@ -48,9 +46,7 @@ app.disable("x-powered-by");
 // =====================================================
 
 if (!DATABASE_URL) {
-  console.error(
-    "ERROR: DATABASE_URL is missing."
-  );
+  console.error("ERROR: DATABASE_URL is missing.");
 }
 
 const pool = new Pool({
@@ -69,10 +65,7 @@ const pool = new Pool({
 });
 
 pool.on("error", (error) => {
-  console.error(
-    "PostgreSQL pool error:",
-    error
-  );
+  console.error("PostgreSQL pool error:", error);
 });
 
 // =====================================================
@@ -123,12 +116,14 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wallet_transactions (
       id SERIAL PRIMARY KEY,
+      transaction_ref TEXT NOT NULL,
       customer_id INTEGER NOT NULL
         REFERENCES customers(id)
         ON DELETE CASCADE,
       type TEXT NOT NULL,
       amount NUMERIC(12,2) NOT NULL,
       description TEXT,
+      status TEXT NOT NULL DEFAULT 'Completed',
       reference TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -183,18 +178,47 @@ async function initDatabase() {
   for (const [column, definition] of orderColumns) {
     await pool.query(`
       ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS
-      ${column} ${definition}
+      ADD COLUMN IF NOT EXISTS ${column} ${definition};
     `);
   }
 
   // ===================================================
-  // WALLET TRANSACTION REFERENCE
+  // WALLET TRANSACTION MIGRATIONS
   // ===================================================
 
+  // Existing databases may already have reference.
   await pool.query(`
     ALTER TABLE wallet_transactions
-    ADD COLUMN IF NOT EXISTS reference TEXT
+    ADD COLUMN IF NOT EXISTS reference TEXT;
+  `);
+
+  // IMPORTANT:
+  // Your existing PostgreSQL database requires
+  // transaction_ref to be NOT NULL.
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ADD COLUMN IF NOT EXISTS transaction_ref TEXT;
+  `);
+
+  // Existing databases may also require status.
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Completed';
+  `);
+
+  // Fill transaction_ref for old rows where possible.
+  await pool.query(`
+    UPDATE wallet_transactions
+    SET transaction_ref = reference
+    WHERE transaction_ref IS NULL
+      AND reference IS NOT NULL;
+  `);
+
+  // Fill status for old rows.
+  await pool.query(`
+    UPDATE wallet_transactions
+    SET status = 'Completed'
+    WHERE status IS NULL;
   `);
 
   // ===================================================
@@ -206,7 +230,7 @@ async function initDatabase() {
     USING wallet_transactions b
     WHERE a.reference IS NOT NULL
       AND a.reference = b.reference
-      AND a.id < b.id
+      AND a.id < b.id;
   `);
 
   // ===================================================
@@ -217,7 +241,7 @@ async function initDatabase() {
     CREATE UNIQUE INDEX IF NOT EXISTS
     wallet_transactions_reference_unique
     ON wallet_transactions(reference)
-    WHERE reference IS NOT NULL
+    WHERE reference IS NOT NULL;
   `);
 
   // ===================================================
@@ -227,30 +251,28 @@ async function initDatabase() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS
     orders_customer_created_idx
-    ON orders(customer_id, created_at DESC)
+    ON orders(customer_id, created_at DESC);
   `);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS
     wallet_transactions_customer_created_idx
-    ON wallet_transactions(customer_id, created_at DESC)
+    ON wallet_transactions(customer_id, created_at DESC);
   `);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS
     wallet_topups_customer_created_idx
-    ON wallet_topups(customer_id, created_at DESC)
+    ON wallet_topups(customer_id, created_at DESC);
   `);
 
   await pool.query(`
     CREATE INDEX IF NOT EXISTS
     orders_datamart_processing_idx
-    ON orders(status, payment_status, created_at)
+    ON orders(status, payment_status, created_at);
   `);
 
-  console.log(
-    "Database initialized successfully."
-  );
+  console.log("Database initialized successfully.");
 }
 
 // =====================================================
@@ -274,16 +296,9 @@ class PostgresSessionStore extends session.Store {
         return callback(null, null);
       }
 
-      return callback(
-        null,
-        result.rows[0].sess
-      );
+      return callback(null, result.rows[0].sess);
     } catch (error) {
-      console.error(
-        "Session GET error:",
-        error
-      );
-
+      console.error("Session GET error:", error);
       return callback(error);
     }
   }
@@ -291,18 +306,11 @@ class PostgresSessionStore extends session.Store {
   async set(sid, sess, callback) {
     try {
       const maxAge =
-        sess.cookie &&
-        sess.cookie.maxAge
+        sess.cookie && sess.cookie.maxAge
           ? sess.cookie.maxAge
-          : 1000 *
-            60 *
-            60 *
-            24 *
-            7;
+          : 1000 * 60 * 60 * 24 * 7;
 
-      const expire = new Date(
-        Date.now() + maxAge
-      );
+      const expire = new Date(Date.now() + maxAge);
 
       await pool.query(
         `
@@ -326,10 +334,7 @@ class PostgresSessionStore extends session.Store {
         callback(null);
       }
     } catch (error) {
-      console.error(
-        "Session SET error:",
-        error
-      );
+      console.error("Session SET error:", error);
 
       if (callback) {
         callback(error);
@@ -351,10 +356,7 @@ class PostgresSessionStore extends session.Store {
         callback(null);
       }
     } catch (error) {
-      console.error(
-        "Session DESTROY error:",
-        error
-      );
+      console.error("Session DESTROY error:", error);
 
       if (callback) {
         callback(error);
@@ -365,18 +367,11 @@ class PostgresSessionStore extends session.Store {
   async touch(sid, sess, callback) {
     try {
       const maxAge =
-        sess.cookie &&
-        sess.cookie.maxAge
+        sess.cookie && sess.cookie.maxAge
           ? sess.cookie.maxAge
-          : 1000 *
-            60 *
-            60 *
-            24 *
-            7;
+          : 1000 * 60 * 60 * 24 * 7;
 
-      const expire = new Date(
-        Date.now() + maxAge
-      );
+      const expire = new Date(Date.now() + maxAge);
 
       await pool.query(
         `
@@ -397,10 +392,7 @@ class PostgresSessionStore extends session.Store {
         callback(null);
       }
     } catch (error) {
-      console.error(
-        "Session TOUCH error:",
-        error
-      );
+      console.error("Session TOUCH error:", error);
 
       if (callback) {
         callback(error);
@@ -432,20 +424,10 @@ app.use(
 
     cookie: {
       httpOnly: true,
-
-      secure:
-        NODE_ENV === "production",
-
+      secure: NODE_ENV === "production",
       sameSite: "lax",
-
       path: "/",
-
-      maxAge:
-        1000 *
-        60 *
-        60 *
-        24 *
-        7
+      maxAge: 1000 * 60 * 60 * 24 * 7
     }
   })
 );
@@ -577,19 +559,13 @@ function publicCustomer(
 
   return {
     id: customer.id,
-
     name: customer.name,
-
     phone: customer.phone,
-
     email: customer.email,
-
     balance: Number(
       customer.balance || 0
     ),
-
-    created_at:
-      customer.created_at
+    created_at: customer.created_at
   };
 }
 
@@ -738,8 +714,7 @@ async function datamartRequest(
       {
         ...options,
 
-        signal:
-          controller.signal,
+        signal: controller.signal,
 
         headers: {
           "Content-Type":
@@ -964,9 +939,9 @@ async function syncDataMartOrder(
     const datamartStatus =
       String(
         data.orderStatus ||
-        data.order_status ||
-        data.status ||
-        ""
+          data.order_status ||
+          data.status ||
+          ""
       )
         .trim()
         .toLowerCase();
@@ -987,9 +962,7 @@ async function syncDataMartOrder(
       [
         datamartStatus ||
           "unknown",
-
         localStatus,
-
         order.id
       ]
     );
@@ -1000,14 +973,11 @@ async function syncDataMartOrder(
 
     return {
       success: true,
-
       orderStatus:
         localStatus,
-
       datamartStatus:
         datamartStatus ||
         "unknown",
-
       data
     };
   } catch (error) {
@@ -1021,7 +991,6 @@ async function syncDataMartOrder(
 
     return {
       success: false,
-
       error:
         error.message
     };
@@ -1086,8 +1055,7 @@ async function fulfillDataOrder(
         order.status ||
         "Processing",
 
-      alreadyFulfilled:
-        true,
+      alreadyFulfilled: true,
 
       datamart:
         syncResult
@@ -1109,8 +1077,7 @@ async function fulfillDataOrder(
         order.status ||
         "Processing",
 
-      alreadyFulfilled:
-        true,
+      alreadyFulfilled: true,
 
       message:
         "DataMart purchase already exists but no status reference is available."
@@ -1216,8 +1183,7 @@ async function fulfillDataOrder(
 
     capacity,
 
-    gateway:
-      "wallet"
+    gateway: "wallet"
   };
 
   const idempotencyKey =
@@ -1266,10 +1232,10 @@ async function fulfillDataOrder(
     const externalStatus =
       String(
         result?.orderStatus ||
-        result?.status ||
-        result?.data?.orderStatus ||
-        result?.data?.status ||
-        "processing"
+          result?.status ||
+          result?.data?.orderStatus ||
+          result?.data?.status ||
+          "processing"
       )
         .trim()
         .toLowerCase();
@@ -1292,15 +1258,10 @@ async function fulfillDataOrder(
       `,
       [
         purchaseId,
-
         reference,
-
         transactionReference,
-
         externalStatus,
-
         localStatus,
-
         order.id
       ]
     );
@@ -1365,12 +1326,8 @@ async function fulfillDataOrder(
 
     return {
       success: true,
-
-      status:
-        localStatus,
-
-      datamart:
-        result
+      status: localStatus,
+      datamart: result
     };
   } catch (error) {
     console.error(
@@ -1388,17 +1345,13 @@ async function fulfillDataOrder(
       `,
       [
         `pending: ${error.message}`,
-
         order.id
       ]
     );
 
     return {
       success: false,
-
-      status:
-        "Processing",
-
+      status: "Processing",
       error:
         error.message
     };
@@ -1420,8 +1373,11 @@ async function creditWalletFromTopup(
       "BEGIN"
     );
 
-    // Lock this top-up so two Paystack
-    // requests cannot credit it twice.
+    // =================================================
+    // LOCK TOP-UP
+    // Prevent duplicate Paystack webhook credits.
+    // =================================================
+
     const topupResult =
       await client.query(
         `
@@ -1442,7 +1398,6 @@ async function creditWalletFromTopup(
 
       return {
         success: false,
-
         message:
           "Wallet top-up not found."
       };
@@ -1451,7 +1406,10 @@ async function creditWalletFromTopup(
     const topup =
       topupResult.rows[0];
 
-    // Already paid = already credited.
+    // =================================================
+    // ALREADY PAID
+    // =================================================
+
     if (
       String(
         topup.payment_status
@@ -1463,17 +1421,17 @@ async function creditWalletFromTopup(
 
       return {
         success: true,
-
-        alreadyCredited:
-          true,
-
+        alreadyCredited: true,
         amount:
           Number(topup.amount),
-
         customerId:
           topup.customer_id
       };
     }
+
+    // =================================================
+    // LOCK CUSTOMER
+    // =================================================
 
     const customerResult =
       await client.query(
@@ -1523,8 +1481,7 @@ async function creditWalletFromTopup(
     await client.query(
       `
       UPDATE customers
-      SET balance =
-        balance + $1
+      SET balance = balance + $1
       WHERE id = $2
       `,
       [
@@ -1534,7 +1491,7 @@ async function creditWalletFromTopup(
     );
 
     // =================================================
-    // MARK TOPUP PAID
+    // MARK TOP-UP PAID
     // =================================================
 
     await client.query(
@@ -1544,54 +1501,55 @@ async function creditWalletFromTopup(
         status = 'Completed',
         payment_status = 'Paid',
         paid_at =
-          COALESCE(
-            paid_at,
-            NOW()
-          )
+          COALESCE(paid_at, NOW())
       WHERE id = $1
       `,
       [topup.id]
     );
 
     // =================================================
-    // IMPORTANT POSTGRES FIX
+    // WALLET TRANSACTION
     //
-    // The unique index is partial:
+    // IMPORTANT:
+    // transaction_ref is required by your existing DB.
     //
-    // WHERE reference IS NOT NULL
+    // We populate BOTH:
+    // transaction_ref = reference
+    // reference       = reference
     //
-    // Therefore the conflict clause MUST include
-    // the same predicate.
+    // status = Completed
     // =================================================
 
     await client.query(
       `
       INSERT INTO wallet_transactions
         (
+          transaction_ref,
           customer_id,
           type,
           amount,
           description,
+          status,
           reference
         )
       VALUES
         (
           $1,
-          'Credit',
           $2,
+          'Credit',
+          $3,
           'Wallet top-up via Paystack',
-          $3
+          'Completed',
+          $1
         )
       ON CONFLICT (reference)
       WHERE reference IS NOT NULL
       DO NOTHING
       `,
       [
+        reference,
         topup.customer_id,
-
-        amount,
-
-        reference
+        amount
       ]
     );
 
@@ -1600,19 +1558,13 @@ async function creditWalletFromTopup(
     );
 
     console.log(
-      `WALLET CREDITED: ${reference} GH₵${amount.toFixed(
-        2
-      )}`
+      `WALLET CREDITED: ${reference} GH₵${amount.toFixed(2)}`
     );
 
     return {
       success: true,
-
-      alreadyCredited:
-        false,
-
+      alreadyCredited: false,
       amount,
-
       customerId:
         topup.customer_id
     };
@@ -1648,9 +1600,7 @@ app.post(
   async (req, res) => {
     try {
       if (!PAYSTACK_SECRET_KEY) {
-        return res.sendStatus(
-          200
-        );
+        return res.sendStatus(200);
       }
 
       const signature =
@@ -1659,9 +1609,7 @@ app.post(
         ];
 
       if (!signature) {
-        return res.sendStatus(
-          401
-        );
+        return res.sendStatus(401);
       }
 
       const rawBody =
@@ -1682,9 +1630,7 @@ app.post(
         signature.length !==
         expectedSignature.length
       ) {
-        return res.sendStatus(
-          401
-        );
+        return res.sendStatus(401);
       }
 
       const valid =
@@ -1700,33 +1646,24 @@ app.post(
         );
 
       if (!valid) {
-        return res.sendStatus(
-          401
-        );
+        return res.sendStatus(401);
       }
 
       let event;
 
       try {
-        event =
-          JSON.parse(
-            rawBody.toString(
-              "utf8"
-            )
-          );
-      } catch {
-        return res.sendStatus(
-          400
+        event = JSON.parse(
+          rawBody.toString("utf8")
         );
+      } catch {
+        return res.sendStatus(400);
       }
 
       if (
         event.event !==
         "charge.success"
       ) {
-        return res.sendStatus(
-          200
-        );
+        return res.sendStatus(200);
       }
 
       const reference =
@@ -1736,9 +1673,7 @@ app.post(
         ).trim();
 
       if (!reference) {
-        return res.sendStatus(
-          200
-        );
+        return res.sendStatus(200);
       }
 
       // =================================================
@@ -1789,7 +1724,8 @@ app.post(
 
         if (
           Math.round(
-            amountFromPaystack * 100
+            amountFromPaystack *
+              100
           ) !==
           Math.round(
             Number(topup.amount) *
@@ -1797,7 +1733,7 @@ app.post(
           )
         ) {
           console.error(
-            "Wallet amount mismatch:",
+            "Wallet webhook amount mismatch:",
             reference
           );
 
@@ -1834,9 +1770,7 @@ app.post(
       if (
         !result.rows.length
       ) {
-        return res.sendStatus(
-          200
-        );
+        return res.sendStatus(200);
       }
 
       const order =
@@ -1857,14 +1791,13 @@ app.post(
       if (
         currency !== "GHS"
       ) {
-        return res.sendStatus(
-          400
-        );
+        return res.sendStatus(400);
       }
 
       if (
         Math.round(
-          amountFromPaystack * 100
+          amountFromPaystack *
+            100
         ) !==
         Math.round(
           Number(order.amount) *
@@ -1876,9 +1809,7 @@ app.post(
           reference
         );
 
-        return res.sendStatus(
-          400
-        );
+        return res.sendStatus(400);
       }
 
       await pool.query(
@@ -1886,26 +1817,22 @@ app.post(
         UPDATE orders
         SET
           payment_status = 'Paid',
-
           paid_at =
             COALESCE(
               paid_at,
               NOW()
             ),
-
           status =
             CASE
               WHEN status = 'Pending Payment'
               THEN 'Processing'
               ELSE status
             END,
-
           paystack_reference =
             COALESCE(
               paystack_reference,
               $1
             )
-
         WHERE id = $2
         `,
         [
@@ -2092,7 +2019,10 @@ app.post(
         result.rows[0];
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
           req.session.regenerate(
             (error) => {
               if (error) {
@@ -2109,7 +2039,10 @@ app.post(
         customer.id;
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
           req.session.save(
             (error) => {
               if (error) {
@@ -2124,10 +2057,8 @@ app.post(
 
       return res.json({
         success: true,
-
         message:
           "Registration successful.",
-
         customer:
           publicCustomer(
             customer
@@ -2165,7 +2096,8 @@ app.post(
 
       const password =
         String(
-          req.body.password || ""
+          req.body.password ||
+            ""
         );
 
       if (
@@ -2232,7 +2164,10 @@ app.post(
       }
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
           req.session.regenerate(
             (error) => {
               if (error) {
@@ -2249,7 +2184,10 @@ app.post(
         customer.id;
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
           req.session.save(
             (error) => {
               if (error) {
@@ -2264,10 +2202,8 @@ app.post(
 
       return res.json({
         success: true,
-
         message:
           "Login successful.",
-
         customer:
           publicCustomer(
             customer
@@ -2326,7 +2262,6 @@ app.get(
 
       return res.json({
         success: true,
-
         customer:
           publicCustomer(
             customer
@@ -2360,13 +2295,10 @@ app.post(
           "dgm.sid",
           {
             httpOnly: true,
-
             secure:
               NODE_ENV ===
               "production",
-
             sameSite: "lax",
-
             path: "/"
           }
         );
@@ -2375,13 +2307,10 @@ app.post(
           "connect.sid",
           {
             httpOnly: true,
-
             secure:
               NODE_ENV ===
               "production",
-
             sameSite: "lax",
-
             path: "/"
           }
         );
@@ -2407,7 +2336,6 @@ app.post(
             .status(500)
             .json({
               success: false,
-
               message:
                 "Logout failed."
             });
@@ -2539,24 +2467,17 @@ app.post(
           `,
           [
             orderRef,
-
             req.session.customerId,
-
             service,
-
             network,
-
             phone,
-
             amount,
-
             String(capacity)
           ]
         );
 
       return res.json({
         success: true,
-
         order:
           result.rows[0]
       });
@@ -2614,7 +2535,6 @@ app.get(
 
       return res.json({
         success: true,
-
         orders:
           result.rows
       });
@@ -2653,7 +2573,6 @@ app.get(
           `,
           [
             req.params.orderRef,
-
             req.session.customerId
           ]
         );
@@ -2705,7 +2624,6 @@ app.get(
 
       return res.json({
         success: true,
-
         order
       });
     } catch (error) {
@@ -2743,7 +2661,6 @@ app.post(
           `,
           [
             req.params.orderRef,
-
             req.session.customerId
           ]
         );
@@ -2853,7 +2770,6 @@ app.post(
           `,
           [
             orderRef,
-
             req.session.customerId
           ]
         );
@@ -2879,9 +2795,7 @@ app.post(
       ) {
         return res.json({
           success: true,
-
           alreadyPaid: true,
-
           order
         });
       }
@@ -2932,34 +2846,33 @@ app.post(
                 "application/json"
             },
 
-            body:
-              JSON.stringify({
-                email:
-                  customer.email,
+            body: JSON.stringify({
+              email:
+                customer.email,
 
-                amount:
-                  amountPesewas,
+              amount:
+                amountPesewas,
 
-                currency:
-                  "GHS",
+              currency:
+                "GHS",
 
-                callback_url:
-                  callbackUrl,
+              callback_url:
+                callbackUrl,
 
-                metadata: {
-                  type:
-                    "data_order",
+              metadata: {
+                type:
+                  "data_order",
 
-                  order_ref:
-                    order.order_ref,
+                order_ref:
+                  order.order_ref,
 
-                  customer_id:
-                    order.customer_id,
+                customer_id:
+                  order.customer_id,
 
-                  service:
-                    order.service
-                }
-              })
+                service:
+                  order.service
+              }
+            })
           }
         );
 
@@ -3071,7 +2984,6 @@ app.get(
           `,
           [
             req.session.customerId,
-
             reference
           ]
         );
@@ -3121,8 +3033,6 @@ app.get(
       const transaction =
         data.data;
 
-      // Make sure Paystack returned the same
-      // reference that was requested.
       if (
         String(
           transaction.reference ||
@@ -3143,12 +3053,9 @@ app.get(
       if (!paid) {
         return res.json({
           success: true,
-
           paid: false,
-
           status:
             transaction.status,
-
           order
         });
       }
@@ -3196,28 +3103,22 @@ app.get(
         UPDATE orders
         SET
           payment_status = 'Paid',
-
           paid_at =
             COALESCE(
               paid_at,
               NOW()
             ),
-
-          paystack_reference =
-            $1,
-
+          paystack_reference = $1,
           status =
             CASE
               WHEN status = 'Pending Payment'
               THEN 'Processing'
               ELSE status
             END
-
         WHERE id = $2
         `,
         [
           transaction.reference,
-
           order.id
         ]
       );
@@ -3264,9 +3165,7 @@ app.get(
 
       return res.json({
         success: true,
-
         paid: true,
-
         order
       });
     } catch (error) {
@@ -3378,9 +3277,7 @@ app.post(
         `,
         [
           customer.id,
-
           reference,
-
           roundedAmount
         ]
       );
@@ -3409,36 +3306,35 @@ app.post(
                 "application/json"
             },
 
-            body:
-              JSON.stringify({
-                email:
-                  customer.email,
+            body: JSON.stringify({
+              email:
+                customer.email,
 
-                amount:
-                  amountPesewas,
+              amount:
+                amountPesewas,
 
-                currency:
-                  "GHS",
+              currency:
+                "GHS",
 
-                reference,
+              reference,
 
-                callback_url:
-                  callbackUrl,
+              callback_url:
+                callbackUrl,
 
-                metadata: {
-                  type:
-                    "wallet_topup",
+              metadata: {
+                type:
+                  "wallet_topup",
 
-                  wallet_reference:
-                    reference,
+                wallet_reference:
+                  reference,
 
-                  customer_id:
-                    customer.id,
+                customer_id:
+                  customer.id,
 
-                  customer_email:
-                    customer.email
-                }
-              })
+                customer_email:
+                  customer.email
+              }
+            })
           }
         );
 
@@ -3544,7 +3440,6 @@ app.get(
           `,
           [
             reference,
-
             req.session.customerId
           ]
         );
@@ -3575,21 +3470,15 @@ app.get(
 
         return res.json({
           success: true,
-
           paid: true,
-
-          alreadyCredited:
-            true,
-
+          alreadyCredited: true,
           amount:
             Number(topup.amount),
-
           balance:
             Number(
               customer?.balance ||
                 0
             ),
-
           reference
         });
       }
@@ -3645,12 +3534,9 @@ app.get(
       ) {
         return res.json({
           success: true,
-
           paid: false,
-
           status:
             transaction.status,
-
           reference
         });
       }
@@ -3662,9 +3548,7 @@ app.get(
         ) / 100;
 
       const expectedAmount =
-        Number(
-          topup.amount
-        );
+        Number(topup.amount);
 
       if (
         Math.round(
@@ -3804,8 +3688,9 @@ app.get(
             type,
             amount,
             description,
+            status,
+            transaction_ref,
             reference,
-            reference AS transaction_ref,
             created_at
           FROM wallet_transactions
           WHERE customer_id = $1
@@ -3819,7 +3704,6 @@ app.get(
 
       return res.json({
         success: true,
-
         transactions:
           result.rows
       });
@@ -3852,7 +3736,8 @@ app.get(
 
     const reference =
       String(
-        req.query.reference || ""
+        req.query.reference ||
+          ""
       ).trim();
 
     const isWallet =
@@ -3976,7 +3861,6 @@ app.get(
       </head>
 
       <body>
-
         <div class="card">
 
           <div class="icon">
@@ -4098,7 +3982,9 @@ async function syncProcessingDataOrders() {
         `
       );
 
-    if (!result.rows.length) {
+    if (
+      !result.rows.length
+    ) {
       return;
     }
 
@@ -4206,9 +4092,7 @@ app.get(
         error
       );
 
-      return res.status(
-        500
-      ).json({
+      return res.status(500).json({
         success: false,
 
         service:
@@ -4376,7 +4260,6 @@ app.use(
       .status(404)
       .json({
         success: false,
-
         message:
           "API endpoint not found."
       });
@@ -4405,7 +4288,6 @@ app.use(
               name="viewport"
               content="width=device-width, initial-scale=1"
             >
-
             <title>
               Page Not Found
             </title>
@@ -4425,7 +4307,6 @@ app.use(
               padding:20px;
             "
           >
-
             <div>
 
               <h1
@@ -4467,15 +4348,12 @@ app.use(
               </a>
 
             </div>
-
           </body>
           </html>
         `);
     }
 
-    return res.redirect(
-      "/"
-    );
+    return res.redirect("/");
   }
 );
 
@@ -4526,27 +4404,33 @@ async function startServer() {
         // DATAMART AUTOMATIC STATUS CHECK
         // =================================================
 
-        setTimeout(() => {
-          syncProcessingDataOrders();
+        setTimeout(
+          () => {
+            syncProcessingDataOrders();
 
-          setInterval(
-            syncProcessingDataOrders,
-            15000
-          );
-        }, 5000);
+            setInterval(
+              syncProcessingDataOrders,
+              15000
+            );
+          },
+          5000
+        );
 
         // =================================================
         // EXPIRED SESSION CLEANUP
         // =================================================
 
-        setTimeout(() => {
-          cleanupExpiredSessions();
+        setTimeout(
+          () => {
+            cleanupExpiredSessions();
 
-          setInterval(
-            cleanupExpiredSessions,
-            60 * 60 * 1000
-          );
-        }, 10000);
+            setInterval(
+              cleanupExpiredSessions,
+              60 * 60 * 1000
+            );
+          },
+          10000
+        );
       }
     );
   } catch (error) {
