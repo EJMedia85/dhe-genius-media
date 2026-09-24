@@ -18,114 +18,95 @@
     }
 
     body {
-      font-family:
-        Inter,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
-
       min-height: 100vh;
-
+      font-family: Arial, Helvetica, sans-serif;
       background:
-        radial-gradient(
-          circle at top right,
-          rgba(0, 153, 255, 0.25),
-          transparent 35%
-        ),
-        linear-gradient(
-          135deg,
-          #06121f,
-          #0b1d2e,
-          #03111d
-        );
-
-      color: #fff;
-
+        radial-gradient(circle at top, #123b7a 0%, #07111f 42%, #02060c 100%);
+      color: #ffffff;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-
-      padding: 24px;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 460px;
+      padding: 35px 18px;
     }
 
     .brand {
       text-align: center;
-      margin-bottom: 24px;
+      margin-bottom: 25px;
     }
 
     .logo {
-      width: 68px;
-      height: 68px;
-
-      margin: 0 auto 14px;
-
+      width: 70px;
+      height: 70px;
+      margin: 0 auto 15px;
       border-radius: 20px;
-
       display: flex;
       align-items: center;
       justify-content: center;
-
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 900;
-
-      background:
-        linear-gradient(
-          135deg,
-          #00c6ff,
-          #0072ff
-        );
-
-      box-shadow:
-        0 12px 35px
-        rgba(0, 136, 255, 0.35);
+      letter-spacing: 1px;
+      background: linear-gradient(135deg, #1d9bf0, #0066ff);
+      box-shadow: 0 12px 35px rgba(0, 102, 255, 0.35);
     }
 
     .brand h1 {
-      font-size: 24px;
+      font-size: 25px;
       font-weight: 900;
       letter-spacing: 0.5px;
     }
 
     .brand p {
-      margin-top: 6px;
-      color: #9db2c5;
+      margin-top: 7px;
+      color: #a9bad0;
       font-size: 14px;
     }
 
     .card {
-      background:
-        rgba(11, 29, 46, 0.88);
-
-      border:
-        1px solid
-        rgba(255, 255, 255, 0.08);
-
+      width: 100%;
+      max-width: 430px;
+      padding: 30px 24px;
       border-radius: 24px;
-
-      padding: 28px;
-
-      box-shadow:
-        0 25px 70px
-        rgba(0, 0, 0, 0.35);
-
-      backdrop-filter: blur(18px);
+      background: rgba(10, 22, 38, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(12px);
     }
 
     .card h2 {
-      font-size: 22px;
-      margin-bottom: 7px;
+      font-size: 27px;
+      margin-bottom: 8px;
     }
 
     .subtitle {
-      color: #91a8ba;
+      color: #94a8bf;
       font-size: 14px;
+      line-height: 1.5;
       margin-bottom: 24px;
+    }
+
+    .message {
+      display: none;
+      padding: 12px 14px;
+      margin-bottom: 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .message.show {
+      display: block;
+    }
+
+    .message.error {
+      background: rgba(255, 70, 70, 0.12);
+      border: 1px solid rgba(255, 70, 70, 0.3);
+      color: #ff9d9d;
+    }
+
+    .message.success {
+      background: rgba(37, 211, 102, 0.12);
+      border: 1px solid rgba(37, 211, 102, 0.3);
+      color: #72f0a0;
     }
 
     .field {
@@ -134,432 +115,398 @@
 
     label {
       display: block;
-
-      font-size: 13px;
-      font-weight: 700;
-
       margin-bottom: 8px;
-
-      color: #d9e7f1;
+      font-size: 14px;
+      font-weight: 700;
+      color: #dce7f4;
     }
 
     input {
       width: 100%;
-
-      padding: 14px 15px;
-
+      height: 52px;
+      padding: 0 15px;
       border-radius: 13px;
-
-      border:
-        1px solid
-        rgba(255, 255, 255, 0.10);
-
-      background:
-        rgba(255, 255, 255, 0.055);
-
-      color: white;
-
+      border: 1px solid #263a52;
       outline: none;
-
+      background: #081321;
+      color: #ffffff;
       font-size: 15px;
-
-      transition: 0.2s;
-    }
-
-    input:focus {
-      border-color: #00aaff;
-
-      box-shadow:
-        0 0 0 3px
-        rgba(0, 170, 255, 0.10);
+      transition: 0.2s ease;
     }
 
     input::placeholder {
-      color: #71889a;
+      color: #60738a;
+    }
+
+    input:focus {
+      border-color: #168cff;
+      box-shadow: 0 0 0 3px rgba(22, 140, 255, 0.12);
     }
 
     .forgot {
       text-align: right;
-
-      margin-top: -7px;
-
-      margin-bottom: 20px;
+      margin: -4px 0 20px;
     }
 
     .forgot a {
-      color: #00b7ff;
-
+      color: #4aa3ff;
       text-decoration: none;
+      font-size: 13px;
+    }
 
-      font-size: 12px;
-
-      font-weight: 700;
+    .forgot a:hover {
+      text-decoration: underline;
     }
 
     button {
       width: 100%;
-
+      height: 53px;
       border: none;
-
-      padding: 15px;
-
-      border-radius: 14px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #00c6ff,
-          #0072ff
-        );
-
-      color: white;
-
-      font-size: 15px;
-
+      border-radius: 13px;
+      background: linear-gradient(135deg, #168cff, #005eea);
+      color: #ffffff;
+      font-size: 16px;
       font-weight: 800;
-
       cursor: pointer;
-
-      box-shadow:
-        0 12px 25px
-        rgba(0, 114, 255, 0.25);
-
-      transition: 0.2s;
+      box-shadow: 0 12px 28px rgba(0, 102, 255, 0.25);
+      transition: 0.2s ease;
     }
 
-    button:active {
-      transform: scale(0.98);
+    button:hover {
+      transform: translateY(-1px);
     }
 
     button:disabled {
       opacity: 0.65;
       cursor: not-allowed;
-    }
-
-    .message {
-      display: none;
-
-      margin-bottom: 16px;
-
-      padding: 12px 14px;
-
-      border-radius: 12px;
-
-      font-size: 13px;
-
-      line-height: 1.5;
-    }
-
-    .message.error {
-      display: block;
-
-      background:
-        rgba(255, 70, 70, 0.10);
-
-      border:
-        1px solid
-        rgba(255, 70, 70, 0.25);
-
-      color: #ff9c9c;
-    }
-
-    .message.success {
-      display: block;
-
-      background:
-        rgba(0, 220, 130, 0.10);
-
-      border:
-        1px solid
-        rgba(0, 220, 130, 0.25);
-
-      color: #7ff0bd;
+      transform: none;
     }
 
     .register {
       text-align: center;
-
-      margin-top: 22px;
-
-      color: #91a8ba;
-
+      margin-top: 24px;
+      color: #8fa2b8;
       font-size: 14px;
+      line-height: 1.6;
     }
 
     .register a {
-      color: #00b7ff;
-
-      font-weight: 800;
-
+      color: #42a5ff;
       text-decoration: none;
+      font-weight: 800;
+    }
+
+    .register a:hover {
+      text-decoration: underline;
     }
 
     .footer {
+      margin-top: 25px;
       text-align: center;
-
-      margin-top: 20px;
-
-      color: #62798b;
-
-      font-size: 11px;
+      color: #62758b;
+      font-size: 12px;
     }
 
     @media (max-width: 480px) {
-
       body {
-        padding: 16px;
-      }
-
-      .card {
-        padding: 22px;
-        border-radius: 20px;
+        padding: 25px 14px;
       }
 
       .brand h1 {
-        font-size: 21px;
+        font-size: 22px;
       }
 
+      .card {
+        padding: 26px 19px;
+        border-radius: 20px;
+      }
+
+      .card h2 {
+        font-size: 24px;
+      }
     }
   </style>
 </head>
 
 <body>
 
-  <main class="container">
+  <div class="brand">
 
-    <div class="brand">
-
-      <div class="logo">
-        DGM
-      </div>
-
-      <h1>
-        DHE GENIUS MEDIA
-      </h1>
-
-      <p>
-        Stay Connected. Stay Genius.
-      </p>
-
+    <div class="logo">
+      DGM
     </div>
 
+    <h1>
+      DHE GENIUS MEDIA
+    </h1>
 
-    <section class="card">
+    <p>
+      Stay Connected. Stay Genius.
+    </p>
 
-      <h2>
-        Welcome back
-      </h2>
-
-      <p class="subtitle">
-        Login to your DGM customer account.
-      </p>
-
-
-      <div
-        id="message"
-        class="message"
-      ></div>
+  </div>
 
 
-      <form id="loginForm">
+  <section class="card">
 
-        <div class="field">
+    <h2>
+      Welcome back
+    </h2>
 
-          <label for="identifier">
-            Phone Number or Email
-          </label>
-
-          <input
-            type="text"
-            id="identifier"
-            name="identifier"
-            placeholder="0241234567 or you@example.com"
-            autocomplete="username"
-            required
-          >
-
-        </div>
+    <p class="subtitle">
+      Login to your DGM customer account.
+    </p>
 
 
-        <div class="field">
-
-          <label for="password">
-            Password
-          </label>
-
-          <input
-            type="password"
-            id="password"
-            name="password"
-            placeholder="Enter your password"
-            autocomplete="current-password"
-            required
-          >
-
-        </div>
+    <div
+      id="message"
+      class="message"
+    ></div>
 
 
-        <div class="forgot">
+    <form id="loginForm">
 
-          <a href="#">
-            Forgot password?
-          </a>
+      <div class="field">
 
-        </div>
+        <label for="identifier">
+          Phone Number or Email
+        </label>
 
-
-        <button
-          type="submit"
-          id="loginButton"
+        <input
+          type="text"
+          id="identifier"
+          name="identifier"
+          placeholder="0241234567 or you@example.com"
+          autocomplete="username"
+          required
         >
-          Login
-        </button>
 
-      </form>
+      </div>
 
 
-      <div class="register">
+      <div class="field">
 
-        Don't have a DGM account?
+        <label for="password">
+          Password
+        </label>
 
-        <a href="/register.html">
-          Create Account
+        <input
+          type="password"
+          id="password"
+          name="password"
+          placeholder="Enter your password"
+          autocomplete="current-password"
+          required
+        >
+
+      </div>
+
+
+      <div class="forgot">
+
+        <a
+          href="#"
+          onclick="return false;"
+        >
+          Forgot password?
         </a>
 
       </div>
 
-    </section>
+
+      <button
+        type="submit"
+        id="loginButton"
+      >
+        Login
+      </button>
+
+    </form>
 
 
-    <div class="footer">
-      © 2026 DHE GENIUS MEDIA • Accra - Spintex
+    <div class="register">
+
+      Don't have a DGM account?
+
+      <a href="/register.html">
+        Create Account
+      </a>
+
     </div>
 
-  </main>
+  </section>
+
+
+  <div class="footer">
+    © 2026 DHE GENIUS MEDIA • Accra - Spintex
+  </div>
 
 
   <script>
 
-    const form =
+    const loginForm =
       document.getElementById("loginForm");
+
+    const loginButton =
+      document.getElementById("loginButton");
 
     const message =
       document.getElementById("message");
 
-    const button =
-      document.getElementById("loginButton");
 
-
-    function showMessage(
-      text,
-      type
-    ) {
+    function showMessage(text, type = "error") {
 
       message.textContent = text;
 
       message.className =
-        "message " + type;
+        "message show " + type;
 
     }
 
 
-    form.addEventListener(
+    loginForm.addEventListener(
       "submit",
       async function(event) {
 
         event.preventDefault();
 
-        button.disabled = true;
 
-        button.textContent =
+        const identifier =
+          document
+            .getElementById("identifier")
+            .value
+            .trim();
+
+        const password =
+          document
+            .getElementById("password")
+            .value;
+
+
+        if (!identifier || !password) {
+
+          showMessage(
+            "Please enter your phone/email and password."
+          );
+
+          return;
+        }
+
+
+        loginButton.disabled = true;
+
+        loginButton.textContent =
           "Logging in...";
 
-
-        const data = {
-
-          identifier:
-            document
-              .getElementById("identifier")
-              .value
-              .trim(),
-
-          password:
-            document
-              .getElementById("password")
-              .value
-
-        };
+        message.className = "message";
 
 
         try {
 
-          const response =
-            await fetch(
-              "/api/login",
-              {
-                method: "POST",
+          const response = await fetch(
+            "/api/login",
+            {
+              method: "POST",
 
-                headers: {
-                  "Content-Type":
-                    "application/json"
-                },
+              credentials: "include",
 
-                body:
-                  JSON.stringify(data)
-              }
+              cache: "no-store",
+
+              headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+              },
+
+              body: JSON.stringify({
+                identifier: identifier,
+                password: password
+              })
+            }
+          );
+
+
+          const contentType =
+            response.headers.get(
+              "content-type"
+            ) || "";
+
+
+          let result;
+
+
+          if (
+            contentType.includes(
+              "application/json"
+            )
+          ) {
+
+            result =
+              await response.json();
+
+          } else {
+
+            const text =
+              await response.text();
+
+            throw new Error(
+              text ||
+              "The server returned an invalid response."
             );
+          }
 
 
-          const result =
-            await response.json();
+          if (!response.ok || !result.success) {
 
-
-          if (!response.ok) {
-
-            showMessage(
+            throw new Error(
               result.message ||
-              "Login failed.",
-              "error"
+              "Login failed. Please check your details."
             );
-
-            button.disabled = false;
-
-            button.textContent =
-              "Login";
-
-            return;
           }
 
 
           showMessage(
-            "Login successful. Opening dashboard...",
+            "Login successful. Opening your dashboard...",
             "success"
           );
 
 
+          loginButton.textContent =
+            "Success ✓";
+
+
+          /*
+           * Give the browser a moment to save
+           * the session cookie before redirecting.
+           */
+
           setTimeout(
             function() {
 
-              window.location.href =
-                "/dashboard.html";
+              window.location.replace(
+                "/dashboard.html"
+              );
 
             },
-            700
+            500
           );
-
 
         } catch (error) {
 
-          console.error(error);
-
-          showMessage(
-            "Unable to connect to DGM server. Please try again.",
-            "error"
+          console.error(
+            "DGM LOGIN ERROR:",
+            error
           );
 
-          button.disabled = false;
 
-          button.textContent =
+          showMessage(
+            error.message ||
+            "Unable to login. Please try again."
+          );
+
+
+          loginButton.disabled = false;
+
+          loginButton.textContent =
             "Login";
         }
 
