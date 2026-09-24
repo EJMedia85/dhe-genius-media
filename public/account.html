@@ -13,66 +13,121 @@
       padding: 0;
     }
 
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial, Helvetica, sans-serif;
       background:
         radial-gradient(
           circle at top right,
-          #123c3c,
+          #123c3c 0%,
           transparent 35%
         ),
         linear-gradient(
           160deg,
-          #071111,
-          #020606
+          #071111 0%,
+          #020606 100%
         );
-      color: #fff;
+      color: #ffffff;
       min-height: 100vh;
-      padding-bottom: 85px;
+      padding-bottom: 90px;
     }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    a {
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* =========================
+       HEADER
+    ========================= */
 
     header {
       position: sticky;
       top: 0;
-      z-index: 20;
-      padding: 17px 16px;
+      z-index: 50;
+
+      padding: 16px;
+
       display: flex;
       align-items: center;
       gap: 12px;
-      background: rgba(4,12,12,.95);
-      border-bottom: 1px solid rgba(255,255,255,.08);
-      backdrop-filter: blur(12px);
+
+      background: rgba(4, 12, 12, 0.96);
+
+      border-bottom:
+        1px solid rgba(255, 255, 255, 0.08);
+
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
     }
 
     .back {
-      width: 40px;
-      height: 40px;
+      width: 42px;
+      height: 42px;
+
       display: grid;
       place-items: center;
-      border-radius: 12px;
-      background: rgba(255,255,255,.08);
-      color: #fff;
+
+      border-radius: 13px;
+
+      background:
+        rgba(255, 255, 255, 0.07);
+
+      color: #ffffff;
+
       text-decoration: none;
-      font-size: 23px;
+
+      font-size: 26px;
+
+      flex-shrink: 0;
+
+      transition: 0.2s;
+    }
+
+    .back:hover {
+      background:
+        rgba(37, 211, 102, 0.15);
     }
 
     .brand {
       font-size: 16px;
       font-weight: 900;
+      letter-spacing: 0.2px;
     }
 
     .subtitle {
-      margin-top: 3px;
+      margin-top: 4px;
       color: #91a7a7;
       font-size: 11px;
     }
 
+    /* =========================
+       MAIN
+    ========================= */
+
     main {
       width: 100%;
       max-width: 650px;
-      margin: auto;
+
+      margin: 0 auto;
+
       padding: 24px 16px;
     }
+
+    /* =========================
+       HERO
+    ========================= */
 
     .hero {
       margin-bottom: 20px;
@@ -80,43 +135,59 @@
 
     .hero h1 {
       font-size: 30px;
-      margin-bottom: 7px;
+      line-height: 1.1;
+      margin-bottom: 8px;
     }
 
     .hero p {
       color: #96aaaa;
       font-size: 14px;
-      line-height: 1.5;
+      line-height: 1.6;
     }
+
+    /* =========================
+       PROFILE
+    ========================= */
 
     .profile {
       padding: 22px;
+
       border-radius: 22px;
+
       background:
         linear-gradient(
           145deg,
-          rgba(37,211,102,.12),
-          rgba(255,255,255,.04)
+          rgba(37, 211, 102, 0.12),
+          rgba(255, 255, 255, 0.04)
         );
-      border: 1px solid rgba(37,211,102,.16);
+
+      border:
+        1px solid rgba(37, 211, 102, 0.16);
+
       margin-bottom: 14px;
     }
 
     .avatar {
       width: 72px;
       height: 72px;
-      border-radius: 50%;
+
       display: grid;
       place-items: center;
+
+      border-radius: 50%;
+
       background:
         linear-gradient(
           135deg,
           #25d366,
           #128c7e
         );
+
       color: #001b0b;
+
       font-size: 28px;
       font-weight: 900;
+
       margin-bottom: 14px;
     }
 
@@ -130,32 +201,46 @@
       font-size: 12px;
     }
 
-    /* WALLET */
+    /* =========================
+       WALLET
+    ========================= */
 
     .wallet {
       padding: 22px;
+
       border-radius: 22px;
+
       background:
         linear-gradient(
           135deg,
-          rgba(37,211,102,.18),
-          rgba(18,140,126,.10),
-          rgba(255,255,255,.04)
+          rgba(37, 211, 102, 0.18),
+          rgba(18, 140, 126, 0.10),
+          rgba(255, 255, 255, 0.04)
         );
-      border: 1px solid rgba(37,211,102,.22);
+
+      border:
+        1px solid rgba(37, 211, 102, 0.22);
+
       margin-bottom: 14px;
+
       position: relative;
       overflow: hidden;
     }
 
     .wallet::after {
       content: "DGM";
+
       position: absolute;
+
       right: -10px;
       bottom: -28px;
+
       font-size: 90px;
       font-weight: 900;
-      color: rgba(255,255,255,.035);
+
+      color:
+        rgba(255, 255, 255, 0.035);
+
       pointer-events: none;
     }
 
@@ -168,35 +253,65 @@
     .wallet-balance {
       font-size: 32px;
       font-weight: 900;
+
       color: #25d366;
-      margin-bottom: 17px;
+
+      margin-bottom: 15px;
     }
 
     .wallet-note {
       color: #91a7a7;
+
       font-size: 11px;
+
       line-height: 1.5;
-      margin-bottom: 16px;
+
+      margin-bottom: 17px;
+
+      max-width: 480px;
     }
 
     .wallet-actions {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
       gap: 10px;
+
       position: relative;
       z-index: 2;
     }
 
     .wallet-btn {
       border: 0;
+
       padding: 13px 10px;
+
       border-radius: 12px;
+
       font-size: 12px;
       font-weight: 900;
+
       cursor: pointer;
-      background: rgba(255,255,255,.08);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,.08);
+
+      background:
+        rgba(255, 255, 255, 0.08);
+
+      color: #ffffff;
+
+      border:
+        1px solid rgba(255, 255, 255, 0.08);
+
+      text-decoration: none;
+
+      text-align: center;
+
+      transition: 0.2s;
+    }
+
+    .wallet-btn:hover {
+      transform: translateY(-1px);
     }
 
     .wallet-btn.primary {
@@ -205,33 +320,59 @@
       border-color: #25d366;
     }
 
-    .wallet-btn:disabled {
-      opacity: .55;
-      cursor: not-allowed;
+    /* =========================
+       SECTIONS
+    ========================= */
+
+    .section {
+      margin-bottom: 16px;
     }
 
-    /* CARDS */
+    .section-title {
+      font-size: 12px;
+
+      color: #8fa5a5;
+
+      margin:
+        0 4px 9px;
+
+      font-weight: 900;
+
+      text-transform: uppercase;
+
+      letter-spacing: 0.7px;
+    }
 
     .card {
-      padding: 18px;
-      border-radius: 19px;
-      background: rgba(255,255,255,.05);
-      border: 1px solid rgba(255,255,255,.08);
-      margin-bottom: 13px;
+      background:
+        rgba(255, 255, 255, 0.045);
+
+      border:
+        1px solid rgba(255, 255, 255, 0.07);
+
+      border-radius: 18px;
+
+      overflow: hidden;
     }
 
-    .card-title {
-      font-size: 14px;
-      font-weight: 900;
-      margin-bottom: 14px;
-    }
+    /* =========================
+       ACCOUNT INFORMATION
+    ========================= */
 
     .info-row {
       display: flex;
-      justify-content: space-between;
+
+      justify-content:
+        space-between;
+
+      align-items: center;
+
       gap: 15px;
-      padding: 12px 0;
-      border-bottom: 1px solid rgba(255,255,255,.055);
+
+      padding: 16px;
+
+      border-bottom:
+        1px solid rgba(255, 255, 255, 0.06);
     }
 
     .info-row:last-child {
@@ -239,203 +380,366 @@
     }
 
     .info-label {
-      color: #829696;
+      color: #819696;
       font-size: 12px;
+      flex-shrink: 0;
     }
 
     .info-value {
-      color: #fff;
+      color: #ffffff;
+
       font-size: 13px;
+
       font-weight: 700;
+
       text-align: right;
+
       word-break: break-word;
     }
 
-    .balance {
-      color: #25d366 !important;
-      font-size: 18px !important;
-    }
+    /* =========================
+       QUICK ACTIONS
+    ========================= */
 
-    /* ACTIONS */
-
-    .actions {
+    .quick-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
       gap: 10px;
-      margin-top: 4px;
     }
 
-    .action {
+    .quick {
       display: block;
-      text-align: center;
+
       text-decoration: none;
-      padding: 14px 8px;
-      border-radius: 13px;
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
-      color: #fff;
-      font-size: 12px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: .2s;
+
+      color: #ffffff;
+
+      background:
+        rgba(255, 255, 255, 0.045);
+
+      border:
+        1px solid rgba(255, 255, 255, 0.07);
+
+      border-radius: 17px;
+
+      padding: 17px;
+
+      transition: 0.2s;
     }
 
-    .action:hover {
-      transform: translateY(-1px);
-      background: rgba(255,255,255,.10);
+    .quick:hover {
+      transform: translateY(-2px);
+
+      border-color:
+        rgba(37, 211, 102, 0.35);
     }
 
-    .action.primary {
-      background: #25d366;
-      color: #001b0b;
-      border-color: #25d366;
+    .quick-icon {
+      font-size: 22px;
+      margin-bottom: 10px;
     }
 
-    /* HISTORY */
+    .quick-title {
+      font-size: 13px;
 
-    .history {
-      display: none;
-      margin-bottom: 13px;
-    }
-
-    .history-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-
-    .history-title {
-      font-size: 14px;
       font-weight: 900;
+
+      margin-bottom: 4px;
     }
 
-    .refresh-btn {
-      border: 0;
-      background: rgba(37,211,102,.12);
-      color: #25d366;
-      border: 1px solid rgba(37,211,102,.18);
-      border-radius: 9px;
-      padding: 7px 10px;
-      font-size: 11px;
-      font-weight: 800;
-      cursor: pointer;
+    .quick-desc {
+      color: #819696;
+
+      font-size: 10px;
+
+      line-height: 1.45;
     }
+
+    /* =========================
+       TRANSACTIONS
+    ========================= */
 
     .transaction {
-      padding: 13px 0;
-      border-bottom: 1px solid rgba(255,255,255,.055);
+      padding: 15px 16px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content:
+        space-between;
+
+      gap: 12px;
+
+      border-bottom:
+        1px solid rgba(255, 255, 255, 0.06);
     }
 
     .transaction:last-child {
       border-bottom: 0;
     }
 
-    .transaction-top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
+    .transaction-left {
+      min-width: 0;
     }
 
-    .transaction-name {
-      font-size: 12px;
+    .transaction-title {
+      font-size: 13px;
+
       font-weight: 800;
+
       margin-bottom: 4px;
+
+      overflow: hidden;
+
+      text-overflow: ellipsis;
+
+      white-space: nowrap;
     }
 
-    .transaction-ref {
-      color: #718787;
+    .transaction-date {
+      color: #718888;
       font-size: 10px;
-      word-break: break-all;
+    }
+
+    .transaction-right {
+      text-align: right;
+      flex-shrink: 0;
     }
 
     .transaction-amount {
       font-size: 13px;
+
       font-weight: 900;
-      white-space: nowrap;
-    }
 
-    .transaction-amount.credit {
       color: #25d366;
-    }
-
-    .transaction-amount.debit {
-      color: #ff8585;
-    }
-
-    .transaction-amount.refund {
-      color: #62c7ff;
-    }
-
-    .transaction-bottom {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      margin-top: 8px;
-      color: #788d8d;
-      font-size: 10px;
     }
 
     .transaction-status {
-      color: #25d366;
-      font-weight: 700;
+      margin-top: 4px;
+
+      font-size: 9px;
+
+      color: #91a7a7;
     }
 
-    .empty-history {
-      padding: 18px 5px;
+    .empty {
+      padding: 25px 16px;
+
       text-align: center;
-      color: #819595;
+
+      color: #718888;
+
       font-size: 12px;
-      line-height: 1.5;
     }
 
-    /* LOGOUT */
+    /* =========================
+       SECURITY
+    ========================= */
+
+    .security-btn {
+      width: 100%;
+
+      border: 0;
+
+      background: transparent;
+
+      color: #ffffff;
+
+      padding: 16px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content:
+        space-between;
+
+      border-bottom:
+        1px solid rgba(255, 255, 255, 0.06);
+
+      cursor: pointer;
+
+      text-align: left;
+    }
+
+    .security-btn:last-child {
+      border-bottom: 0;
+    }
+
+    .security-left {
+      display: flex;
+
+      align-items: center;
+
+      gap: 12px;
+    }
+
+    .security-icon {
+      width: 36px;
+      height: 36px;
+
+      border-radius: 10px;
+
+      display: grid;
+      place-items: center;
+
+      background:
+        rgba(255, 255, 255, 0.07);
+    }
+
+    .security-title {
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .security-desc {
+      color: #819696;
+
+      font-size: 10px;
+
+      margin-top: 3px;
+    }
+
+    .arrow {
+      color: #6e8585;
+      font-size: 18px;
+    }
+
+    /* =========================
+       LOGOUT
+    ========================= */
 
     .logout {
       width: 100%;
-      border: 1px solid rgba(255,90,90,.2);
-      background: rgba(255,70,70,.08);
+
+      border:
+        1px solid rgba(255, 70, 70, 0.2);
+
+      background:
+        rgba(255, 70, 70, 0.06);
+
       color: #ff8585;
-      padding: 15px;
-      border-radius: 13px;
-      font-size: 13px;
+
+      padding: 14px;
+
+      border-radius: 14px;
+
       font-weight: 900;
+
       cursor: pointer;
+
       margin-top: 4px;
     }
 
-    /* STATUS */
-
-    .loading {
-      padding: 30px;
-      text-align: center;
-      color: #8fa5a5;
+    .logout:hover {
+      background:
+        rgba(255, 70, 70, 0.1);
     }
 
-    .error {
-      display: none;
-      padding: 20px;
-      border-radius: 17px;
-      background: rgba(255,70,70,.08);
-      border: 1px solid rgba(255,70,70,.15);
-      color: #ff9999;
+    /* =========================
+       BOTTOM NAVIGATION
+    ========================= */
+
+    .bottom-nav {
+      position: fixed;
+
+      bottom: 0;
+      left: 0;
+      right: 0;
+
+      z-index: 100;
+
+      height: 72px;
+
+      display: grid;
+
+      grid-template-columns:
+        repeat(4, 1fr);
+
+      background:
+        rgba(3, 10, 10, 0.97);
+
+      border-top:
+        1px solid rgba(255, 255, 255, 0.08);
+
+      backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
+    }
+
+    .bottom-nav a {
+      text-decoration: none;
+
+      color: #718888;
+
+      display: flex;
+
+      flex-direction: column;
+
+      align-items: center;
+
+      justify-content: center;
+
+      gap: 4px;
+
+      font-size: 10px;
+
+      font-weight: 700;
+    }
+
+    .bottom-nav a span:first-child {
+      font-size: 19px;
+    }
+
+    .bottom-nav a.active {
+      color: #25d366;
+    }
+
+    /* =========================
+       LOADING
+    ========================= */
+
+    #loading {
+      min-height: 60vh;
+
+      display: grid;
+
+      place-items: center;
+
+      color: #819696;
+
       font-size: 13px;
-      text-align: center;
+
+      padding: 30px;
     }
 
-    /* MODAL */
+    #content {
+      display: none;
+    }
+
+    /* =========================
+       ADD MONEY MODAL
+    ========================= */
 
     .modal {
       position: fixed;
+
       inset: 0;
-      background: rgba(0,0,0,.72);
-      backdrop-filter: blur(8px);
+
+      z-index: 200;
+
+      background:
+        rgba(0, 0, 0, 0.75);
+
       display: none;
+
       align-items: flex-end;
+
       justify-content: center;
-      z-index: 100;
+
       padding: 16px;
     }
 
@@ -445,85 +749,131 @@
 
     .modal-box {
       width: 100%;
-      max-width: 480px;
-      background:
-        linear-gradient(
-          145deg,
-          #0d1b1b,
-          #061010
-        );
-      border: 1px solid rgba(37,211,102,.20);
+
+      max-width: 520px;
+
+      background: #0b1717;
+
+      border:
+        1px solid rgba(255, 255, 255, 0.09);
+
       border-radius: 24px;
+
       padding: 22px;
-      box-shadow: 0 20px 70px rgba(0,0,0,.5);
-      animation: slideUp .22s ease;
+
+      box-shadow:
+        0 20px 70px rgba(0, 0, 0, 0.5);
     }
 
-    @keyframes slideUp {
-      from {
-        transform: translateY(30px);
-        opacity: 0;
-      }
-      to {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
+    .modal-head {
+      display: flex;
 
-    .modal-title {
-      font-size: 21px;
-      font-weight: 900;
-      margin-bottom: 6px;
-    }
+      align-items: center;
 
-    .modal-subtitle {
-      color: #8fa5a5;
-      font-size: 12px;
-      line-height: 1.5;
+      justify-content:
+        space-between;
+
       margin-bottom: 18px;
+    }
+
+    .modal-head h2 {
+      font-size: 20px;
+    }
+
+    .close {
+      width: 36px;
+      height: 36px;
+
+      border: 0;
+
+      border-radius: 10px;
+
+      background:
+        rgba(255, 255, 255, 0.07);
+
+      color: #ffffff;
+
+      cursor: pointer;
+
+      font-size: 20px;
+    }
+
+    .modal-text {
+      color: #91a7a7;
+
+      font-size: 12px;
+
+      line-height: 1.5;
+
+      margin-bottom: 16px;
     }
 
     .amount-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+
+      grid-template-columns:
+        repeat(4, 1fr);
+
       gap: 8px;
+
       margin-bottom: 15px;
     }
 
     .amount-btn {
-      border: 1px solid rgba(255,255,255,.08);
-      background: rgba(255,255,255,.06);
-      color: #fff;
-      border-radius: 11px;
       padding: 12px 5px;
+
+      border-radius: 11px;
+
+      border:
+        1px solid rgba(255, 255, 255, 0.08);
+
+      background:
+        rgba(255, 255, 255, 0.05);
+
+      color: #ffffff;
+
       font-size: 12px;
+
       font-weight: 900;
+
       cursor: pointer;
     }
 
     .amount-btn.selected {
-      background: rgba(37,211,102,.16);
+      background:
+        rgba(37, 211, 102, 0.15);
+
       border-color: #25d366;
+
       color: #25d366;
     }
 
-    .amount-label {
+    .input-label {
       display: block;
-      color: #8fa5a5;
+
+      color: #91a7a7;
+
       font-size: 11px;
+
       margin-bottom: 7px;
     }
 
     .amount-input {
       width: 100%;
-      border: 1px solid rgba(255,255,255,.10);
-      background: rgba(255,255,255,.05);
-      color: #fff;
+
       padding: 14px;
+
       border-radius: 12px;
+
+      border:
+        1px solid rgba(255, 255, 255, 0.1);
+
+      background: #061010;
+
+      color: #ffffff;
+
       outline: none;
-      font-size: 16px;
-      font-weight: 800;
+
       margin-bottom: 14px;
     }
 
@@ -531,122 +881,101 @@
       border-color: #25d366;
     }
 
-    .modal-actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
+    .pay-btn {
+      width: 100%;
 
-    .modal-btn {
+      padding: 15px;
+
       border: 0;
-      padding: 14px;
-      border-radius: 12px;
+
+      border-radius: 13px;
+
+      background: #25d366;
+
+      color: #001b0b;
+
       font-weight: 900;
+
       cursor: pointer;
     }
 
-    .modal-btn.cancel {
-      background: rgba(255,255,255,.07);
-      color: #fff;
-    }
-
-    .modal-btn.pay {
-      background: #25d366;
-      color: #001b0b;
-    }
-
-    .modal-btn:disabled {
-      opacity: .55;
+    .pay-btn:disabled {
+      opacity: 0.6;
       cursor: not-allowed;
     }
 
-    /* TOAST */
+    .modal-message {
+      margin-top: 12px;
 
-    .toast {
-      position: fixed;
-      left: 16px;
-      right: 16px;
-      bottom: 84px;
-      z-index: 200;
-      max-width: 500px;
-      margin: auto;
-      padding: 14px 16px;
-      border-radius: 14px;
-      background: #0c1919;
-      border: 1px solid rgba(37,211,102,.25);
-      color: #fff;
-      font-size: 12px;
-      line-height: 1.4;
-      box-shadow: 0 12px 40px rgba(0,0,0,.35);
-      display: none;
-    }
-
-    .toast.show {
-      display: block;
-      animation: toastIn .2s ease;
-    }
-
-    .toast.success {
-      border-color: rgba(37,211,102,.35);
-    }
-
-    .toast.error-toast {
-      border-color: rgba(255,90,90,.35);
-    }
-
-    @keyframes toastIn {
-      from {
-        transform: translateY(10px);
-        opacity: 0;
-      }
-      to {
-        transform: translateY(0);
-        opacity: 1;
-      }
-    }
-
-    /* BOTTOM NAV */
-
-    .bottom-nav {
-      position: fixed;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: 68px;
-      background: rgba(3,10,10,.97);
-      border-top: 1px solid rgba(255,255,255,.08);
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      z-index: 30;
-    }
-
-    .bottom-nav a {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      color: #829696;
-      text-decoration: none;
       font-size: 11px;
+
+      color: #ff8585;
+
+      text-align: center;
+
+      min-height: 16px;
     }
 
-    .bottom-nav a.active {
-      color: #25d366;
-      font-weight: 700;
-    }
+    /* =========================
+       DESKTOP
+    ========================= */
 
-    .icon {
-      font-size: 20px;
-    }
-
-    @media (min-width: 650px) {
-      main {
-        padding-top: 35px;
-      }
+    @media (min-width: 700px) {
 
       .modal {
         align-items: center;
+      }
+
+      .bottom-nav {
+        left: 50%;
+
+        transform:
+          translateX(-50%);
+
+        width:
+          min(650px, 100%);
+
+        border-left:
+          1px solid rgba(255, 255, 255, 0.08);
+
+        border-right:
+          1px solid rgba(255, 255, 255, 0.08);
+      }
+    }
+
+    /* =========================
+       SMALL PHONES
+    ========================= */
+
+    @media (max-width: 380px) {
+
+      main {
+        padding-left: 12px;
+        padding-right: 12px;
+      }
+
+      .hero h1 {
+        font-size: 27px;
+      }
+
+      .wallet {
+        padding: 18px;
+      }
+
+      .wallet-balance {
+        font-size: 28px;
+      }
+
+      .quick {
+        padding: 14px;
+      }
+
+      .info-row {
+        align-items: flex-start;
+      }
+
+      .info-value {
+        max-width: 58%;
       }
     }
   </style>
@@ -654,35 +983,50 @@
 
 <body>
 
-<header>
+  <!-- =========================
+       HEADER
+  ========================= -->
 
-  <a class="back" href="/dashboard.html">
-    ‹
-  </a>
+  <header>
 
-  <div>
+    <a
+      href="/dashboard.html"
+      class="back"
+      aria-label="Back to dashboard">
+      ‹
+    </a>
 
-    <div class="brand">
-      DHE GENIUS MEDIA
+    <div>
+
+      <div class="brand">
+        DHE GENIUS MEDIA
+      </div>
+
+      <div class="subtitle">
+        My Account • Stay Connected. Stay Genius.
+      </div>
+
     </div>
 
-    <div class="subtitle">
-      My Account • Stay Connected. Stay Genius.
-    </div>
-
-  </div>
-
-</header>
+  </header>
 
 
-<main>
+  <!-- =========================
+       LOADING
+  ========================= -->
 
-  <div id="loading" class="loading">
-    Loading account...
+  <div id="loading">
+    Loading your account...
   </div>
 
 
-  <div id="content" style="display:none;">
+  <!-- =========================
+       MAIN CONTENT
+  ========================= -->
+
+  <main id="content">
+
+    <!-- HERO -->
 
     <section class="hero">
 
@@ -691,8 +1035,8 @@
       </h1>
 
       <p>
-        Manage your DGM account, wallet and
-        customer services.
+        Manage your profile, wallet, transactions
+        and DHE GENIUS MEDIA services.
       </p>
 
     </section>
@@ -702,16 +1046,18 @@
 
     <section class="profile">
 
-      <div id="avatar" class="avatar">
+      <div
+        class="avatar"
+        id="avatar">
         D
       </div>
 
-      <h2 id="name">
+      <h2 id="profileName">
         Customer
       </h2>
 
-      <p id="member">
-        DHE GENIUS MEDIA Customer
+      <p id="memberSince">
+        Member since —
       </p>
 
     </section>
@@ -722,35 +1068,34 @@
     <section class="wallet">
 
       <div class="wallet-label">
-        DGM WALLET BALANCE
+        Available Wallet Balance
       </div>
 
-      <div id="walletBalance" class="wallet-balance">
+      <div
+        class="wallet-balance"
+        id="walletBalance">
         GH₵0.00
       </div>
 
       <div class="wallet-note">
-        Add money securely through Paystack.
-        Your wallet is credited only after the
-        payment has been verified.
+        Add money to your DGM wallet and use
+        your balance to pay for supported digital
+        services.
       </div>
 
       <div class="wallet-actions">
 
         <button
-          id="addMoneyBtn"
-          class="wallet-btn primary"
           type="button"
-          onclick="addMoney()"
-        >
+          class="wallet-btn primary"
+          onclick="openMoneyModal()">
           + Add Money
         </button>
 
         <button
-          class="wallet-btn"
           type="button"
-          onclick="walletHistory()"
-        >
+          class="wallet-btn"
+          onclick="scrollToTransactions()">
           Wallet History
         </button>
 
@@ -759,90 +1104,74 @@
     </section>
 
 
-    <!-- WALLET HISTORY -->
-
-    <section
-      id="history"
-      class="card history"
-    >
-
-      <div class="history-header">
-
-        <div class="history-title">
-          Wallet Transactions
-        </div>
-
-        <button
-          class="refresh-btn"
-          type="button"
-          onclick="loadWalletHistory()"
-        >
-          Refresh
-        </button>
-
-      </div>
-
-      <div id="transactions"></div>
-
-    </section>
-
-
     <!-- ACCOUNT INFORMATION -->
 
-    <section class="card">
+    <section class="section">
 
-      <div class="card-title">
+      <div class="section-title">
         Account Information
       </div>
 
-      <div class="info-row">
+      <div class="card">
 
-        <span class="info-label">
-          Full Name
-        </span>
+        <div class="info-row">
 
-        <strong id="fullName" class="info-value">
-          —
-        </strong>
+          <div class="info-label">
+            Full Name
+          </div>
 
-      </div>
+          <div
+            class="info-value"
+            id="infoName">
+            —
+          </div>
 
-
-      <div class="info-row">
-
-        <span class="info-label">
-          Phone
-        </span>
-
-        <strong id="phone" class="info-value">
-          —
-        </strong>
-
-      </div>
+        </div>
 
 
-      <div class="info-row">
+        <div class="info-row">
 
-        <span class="info-label">
-          Email
-        </span>
+          <div class="info-label">
+            Phone
+          </div>
 
-        <strong id="email" class="info-value">
-          —
-        </strong>
+          <div
+            class="info-value"
+            id="infoPhone">
+            —
+          </div>
 
-      </div>
+        </div>
 
 
-      <div class="info-row">
+        <div class="info-row">
 
-        <span class="info-label">
-          Account Balance
-        </span>
+          <div class="info-label">
+            Email
+          </div>
 
-        <strong id="balance" class="info-value balance">
-          GH₵0.00
-        </strong>
+          <div
+            class="info-value"
+            id="infoEmail">
+            —
+          </div>
+
+        </div>
+
+
+        <div class="info-row">
+
+          <div class="info-label">
+            Wallet
+          </div>
+
+          <div
+            class="info-value"
+            id="infoBalance">
+            GH₵0.00
+          </div>
+
+        </div>
 
       </div>
 
@@ -851,41 +1180,111 @@
 
     <!-- QUICK ACTIONS -->
 
-    <section class="card">
+    <section class="section">
 
-      <div class="card-title">
+      <div class="section-title">
         Quick Actions
       </div>
 
-      <div class="actions">
+      <div class="quick-grid">
 
         <a
-          class="action primary"
           href="/data.html"
-        >
-          Buy Data
+          class="quick">
+
+          <div class="quick-icon">
+            📶
+          </div>
+
+          <div class="quick-title">
+            Buy Data
+          </div>
+
+          <div class="quick-desc">
+            MTN, Telecel and AirtelTigo bundles.
+          </div>
+
         </a>
 
+
         <a
-          class="action primary"
           href="/airtime.html"
-        >
-          Buy Airtime
+          class="quick">
+
+          <div class="quick-icon">
+            📱
+          </div>
+
+          <div class="quick-title">
+            Buy Airtime
+          </div>
+
+          <div class="quick-desc">
+            Recharge your preferred network.
+          </div>
+
         </a>
 
+
         <a
-          class="action"
           href="/orders.html"
-        >
-          My Orders
+          class="quick">
+
+          <div class="quick-icon">
+            📦
+          </div>
+
+          <div class="quick-title">
+            My Orders
+          </div>
+
+          <div class="quick-desc">
+            View your orders and delivery status.
+          </div>
+
         </a>
 
+
         <a
-          class="action"
           href="/service.html"
-        >
-          More Services
+          class="quick">
+
+          <div class="quick-icon">
+            ⚡
+          </div>
+
+          <div class="quick-title">
+            More Services
+          </div>
+
+          <div class="quick-desc">
+            Netflix, DSTV, social services and more.
+          </div>
+
         </a>
+
+      </div>
+
+    </section>
+
+
+    <!-- TRANSACTIONS -->
+
+    <section
+      class="section"
+      id="transactionsSection">
+
+      <div class="section-title">
+        Recent Wallet Transactions
+      </div>
+
+      <div
+        class="card"
+        id="transactions">
+
+        <div class="empty">
+          Loading transactions...
+        </div>
 
       </div>
 
@@ -894,28 +1293,76 @@
 
     <!-- SECURITY -->
 
-    <section class="card">
+    <section class="section">
 
-      <div class="card-title">
-        🔐 Security
+      <div class="section-title">
+        Security
       </div>
 
-      <div class="actions">
+      <div class="card">
+
 
         <button
-          class="action"
           type="button"
-          onclick="comingSoon('Password change')"
-        >
-          🔑 Change Password
+          class="security-btn"
+          onclick="comingSoon('Change Password')">
+
+          <div class="security-left">
+
+            <div class="security-icon">
+              🔐
+            </div>
+
+            <div>
+
+              <div class="security-title">
+                Change Password
+              </div>
+
+              <div class="security-desc">
+                Update your account password.
+              </div>
+
+            </div>
+
+          </div>
+
+          <div class="arrow">
+            ›
+          </div>
+
         </button>
 
+
         <button
-          class="action"
           type="button"
-          onclick="comingSoon('Login security')"
-        >
-          🛡️ Login Security
+          class="security-btn"
+          onclick="comingSoon('Account Settings')">
+
+          <div class="security-left">
+
+            <div class="security-icon">
+              ⚙️
+            </div>
+
+            <div>
+
+              <div class="security-title">
+                Account Settings
+              </div>
+
+              <div class="security-desc">
+                Manage your account preferences.
+              </div>
+
+            </div>
+
+          </div>
+
+          <div class="arrow">
+            ›
+          </div>
+
         </button>
 
       </div>
@@ -923,1170 +1370,1187 @@
     </section>
 
 
-    <button
-      class="logout"
-      type="button"
-      onclick="logout()"
-    >
-      Sign Out
-    </button>
+    <!-- LOGOUT -->
 
-  </div>
+    <section class="section">
+
+      <button
+        type="button"
+        class="logout"
+        onclick="logout()">
+
+        Sign Out
+
+      </button>
+
+    </section>
+
+  </main>
 
 
-  <div id="error" class="error"></div>
-
-</main>
-
-
-<!-- ADD MONEY MODAL -->
-
-<div
-  id="moneyModal"
-  class="modal"
-  onclick="closeMoneyModal(event)"
->
+  <!-- =========================
+       ADD MONEY MODAL
+  ========================= -->
 
   <div
-    class="modal-box"
-    onclick="event.stopPropagation()"
-  >
+    class="modal"
+    id="moneyModal"
+    onclick="closeMoneyModal(event)">
 
-    <div class="modal-title">
-      Add Money
-    </div>
+    <div
+      class="modal-box"
+      onclick="event.stopPropagation()">
 
-    <div class="modal-subtitle">
-      Choose an amount to add to your DGM wallet.
-      You will be redirected to Paystack to complete
-      the secure payment.
-    </div>
+      <div class="modal-head">
 
-    <div class="amount-grid">
+        <h2>
+          Add Money
+        </h2>
+
+        <button
+          type="button"
+          class="close"
+          onclick="closeMoneyModal()">
+
+          ×
+
+        </button>
+
+      </div>
+
+
+      <div class="modal-text">
+
+        Select an amount or enter your own amount.
+        You will be redirected to Paystack to
+        complete your payment securely.
+
+      </div>
+
+
+      <div class="amount-grid">
+
+        <button
+          type="button"
+          class="amount-btn"
+          onclick="selectAmount(10, this)">
+          GH₵10
+        </button>
+
+        <button
+          type="button"
+          class="amount-btn"
+          onclick="selectAmount(20, this)">
+          GH₵20
+        </button>
+
+        <button
+          type="button"
+          class="amount-btn"
+          onclick="selectAmount(50, this)">
+          GH₵50
+        </button>
+
+        <button
+          type="button"
+          class="amount-btn"
+          onclick="selectAmount(100, this)">
+          GH₵100
+        </button>
+
+      </div>
+
+
+      <label
+        class="input-label"
+        for="amount">
+        Amount
+      </label>
+
+
+      <input
+        id="amount"
+        class="amount-input"
+        type="number"
+        min="1"
+        max="10000"
+        step="0.01"
+        inputmode="decimal"
+        placeholder="Enter amount e.g. 50">
+
 
       <button
         type="button"
-        class="amount-btn"
-        onclick="selectAmount(10, this)"
-      >
-        GH₵10
+        id="payBtn"
+        class="pay-btn"
+        onclick="startPayment()">
+
+        Continue to Payment
+
       </button>
 
-      <button
-        type="button"
-        class="amount-btn"
-        onclick="selectAmount(20, this)"
-      >
-        GH₵20
-      </button>
 
-      <button
-        type="button"
-        class="amount-btn"
-        onclick="selectAmount(50, this)"
-      >
-        GH₵50
-      </button>
-
-      <button
-        type="button"
-        class="amount-btn"
-        onclick="selectAmount(100, this)"
-      >
-        GH₵100
-      </button>
-
-    </div>
-
-    <label class="amount-label">
-      Custom amount
-    </label>
-
-    <input
-      id="walletAmount"
-      class="amount-input"
-      type="number"
-      min="1"
-      max="10000"
-      step="0.01"
-      placeholder="Enter amount"
-      inputmode="decimal"
-    >
-
-    <div class="modal-actions">
-
-      <button
-        id="cancelMoneyBtn"
-        class="modal-btn cancel"
-        type="button"
-        onclick="closeMoneyModal()"
-      >
-        Cancel
-      </button>
-
-      <button
-        id="payMoneyBtn"
-        class="modal-btn pay"
-        type="button"
-        onclick="startWalletPayment()"
-      >
-        Continue to Paystack
-      </button>
+      <div
+        id="modalMessage"
+        class="modal-message">
+      </div>
 
     </div>
 
   </div>
 
-</div>
+
+  <!-- =========================
+       BOTTOM NAVIGATION
+  ========================= -->
+
+  <nav class="bottom-nav">
+
+    <a href="/dashboard.html">
+
+      <span>⌂</span>
+
+      <span>
+        Dashboard
+      </span>
+
+    </a>
 
 
-<!-- TOAST -->
+    <a href="/data.html">
 
-<div id="toast" class="toast"></div>
+      <span>📶</span>
 
+      <span>
+        Data
+      </span>
 
-<!-- BOTTOM NAV -->
-
-<nav class="bottom-nav">
-
-  <a href="/dashboard.html">
-
-    <span class="icon">
-      ⌂
-    </span>
-
-    Dashboard
-
-  </a>
+    </a>
 
 
-  <a href="/data.html">
+    <a href="/airtime.html">
 
-    <span class="icon">
-      ▣
-    </span>
+      <span>📱</span>
 
-    Data
+      <span>
+        Airtime
+      </span>
 
-  </a>
-
-
-  <a href="/airtime.html">
-
-    <span class="icon">
-      ₵
-    </span>
-
-    Airtime
-
-  </a>
+    </a>
 
 
-  <a
-    class="active"
-    href="/account.html"
-  >
+    <a
+      href="/account.html"
+      class="active">
 
-    <span class="icon">
-      ●
-    </span>
+      <span>👤</span>
 
-    Account
+      <span>
+        Account
+      </span>
 
-  </a>
+    </a>
 
-</nav>
-
-
-<script>
-
-  // ==========================================
-  // HELPERS
-  // ==========================================
-
-  function escapeHtml(value) {
-
-    return String(value ?? "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-
-  }
+  </nav>
 
 
-  function formatMoney(amount) {
+  <!-- =========================
+       JAVASCRIPT
+  ========================= -->
 
-    const number =
-      Number(amount || 0);
+  <script>
 
-    return "GH₵" +
-      number.toFixed(2);
-
-  }
+    let currentUser = null;
 
 
-  function formatDate(dateValue) {
+    /* =========================
+       HELPERS
+    ========================= */
 
-    if (!dateValue) {
-      return "—";
-    }
+    function money(value) {
 
-    const raw =
-      String(dateValue);
+      const number =
+        Number(value || 0);
 
-    const date =
-      new Date(
-        raw.includes("T")
-          ? raw
-          : raw.replace(" ", "T") + "Z"
-      );
-
-    if (
-      Number.isNaN(
-        date.getTime()
-      )
-    ) {
-
-      return raw;
+      return "GH₵" +
+        number.toLocaleString("en-GH", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
 
     }
 
-    return date.toLocaleString(
-      "en-GH",
-      {
-        dateStyle: "medium",
-        timeStyle: "short"
-      }
-    );
 
-  }
+    function escapeHTML(value) {
 
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
-  // ==========================================
-  // TOAST
-  // ==========================================
-
-  let toastTimer = null;
-
-  function showToast(message, type = "success") {
-
-    const toast =
-      document.getElementById("toast");
-
-    toast.textContent =
-      message;
-
-    toast.className =
-      "toast show " +
-      (
-        type === "error"
-          ? "error-toast"
-          : "success"
-      );
-
-    clearTimeout(toastTimer);
-
-    toastTimer =
-      setTimeout(() => {
-
-        toast.classList.remove(
-          "show"
-        );
-
-      }, 4500);
-
-  }
+    }
 
 
-  // ==========================================
-  // LOAD CUSTOMER
-  // ==========================================
+    function getInitial(name) {
 
-  async function loadAccount() {
+      const value =
+        String(name || "D").trim();
 
-    const loading =
-      document.getElementById("loading");
-
-    const content =
-      document.getElementById("content");
-
-    const error =
-      document.getElementById("error");
-
-
-    try {
-
-      const response =
-        await fetch(
-          "/api/me",
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store"
-          }
-        );
-
-
-      if (response.status === 401) {
-
-        window.location.replace(
-          "/login.html"
-        );
-
-        return;
-
+      if (!value) {
+        return "D";
       }
 
+      return value
+        .charAt(0)
+        .toUpperCase();
 
-      const data =
-        await response.json();
+    }
 
+
+    function formatDate(value) {
+
+      if (!value) {
+        return "—";
+      }
+
+      const date =
+        new Date(value);
 
       if (
-        !response.ok ||
-        !data.success ||
-        !data.customer
+        Number.isNaN(
+          date.getTime()
+        )
       ) {
+        return String(value);
+      }
 
-        throw new Error(
-          data.message ||
-          "Unable to load account."
+      return date.toLocaleDateString(
+        "en-GH",
+        {
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        }
+      );
+
+    }
+
+
+    function formatDateTime(value) {
+
+      if (!value) {
+        return "—";
+      }
+
+      const date =
+        new Date(value);
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return String(value);
+      }
+
+      return date.toLocaleString(
+        "en-GH",
+        {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        }
+      );
+
+    }
+
+
+    /* =========================
+       LOAD ACCOUNT
+    ========================= */
+
+    async function loadAccount() {
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/me",
+            {
+              method: "GET",
+              credentials: "include",
+              headers: {
+                "Accept": "application/json"
+              }
+            }
+          );
+
+
+        if (response.status === 401) {
+
+          window.location.href =
+            "/login.html";
+
+          return;
+        }
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            "Unable to load account."
+          );
+
+        }
+
+
+        const data =
+          await response.json();
+
+
+        currentUser =
+          data.user ||
+          data.customer ||
+          data;
+
+
+        if (!currentUser) {
+
+          throw new Error(
+            "Account information was not returned."
+          );
+
+        }
+
+
+        renderAccount(
+          currentUser
         );
+
+
+        await loadTransactions();
+
+
+        document
+          .getElementById("loading")
+          .style.display = "none";
+
+
+        document
+          .getElementById("content")
+          .style.display = "block";
+
+
+        handlePaymentReturn();
 
       }
 
+      catch (error) {
 
-      const customer =
-        data.customer;
+        console.error(
+          "Account loading error:",
+          error
+        );
 
+
+        document
+          .getElementById("loading")
+          .innerHTML = `
+
+            <div
+              style="
+                text-align:center;
+                padding:30px;
+                max-width:420px;
+              ">
+
+              <div
+                style="
+                  font-size:30px;
+                  margin-bottom:10px;
+                ">
+                ⚠️
+              </div>
+
+              <div
+                style="
+                  color:#ffffff;
+                  font-weight:800;
+                  margin-bottom:6px;
+                ">
+                Unable to load account
+              </div>
+
+              <div
+                style="
+                  font-size:12px;
+                  color:#819696;
+                  line-height:1.5;
+                ">
+                ${escapeHTML(
+                  error.message ||
+                  "Please try again."
+                )}
+              </div>
+
+              <button
+                type="button"
+                onclick="location.reload()"
+                style="
+                  margin-top:15px;
+                  border:0;
+                  padding:11px 18px;
+                  border-radius:10px;
+                  background:#25d366;
+                  color:#001b0b;
+                  font-weight:900;
+                  cursor:pointer;
+                ">
+
+                Try Again
+
+              </button>
+
+            </div>
+
+          `;
+
+      }
+
+    }
+
+
+    /* =========================
+       RENDER ACCOUNT
+    ========================= */
+
+    function renderAccount(user) {
 
       const name =
-        customer.name ||
+        user.name ||
+        user.full_name ||
+        user.fullName ||
         "Customer";
 
 
-      document
-        .getElementById("name")
-        .textContent =
-        name;
-
-
-      document
-        .getElementById("fullName")
-        .textContent =
-        name;
-
-
-      document
-        .getElementById("phone")
-        .textContent =
-        customer.phone ||
+      const phone =
+        user.phone ||
+        user.phone_number ||
+        user.phoneNumber ||
         "—";
 
 
-      document
-        .getElementById("email")
-        .textContent =
-        customer.email ||
+      const email =
+        user.email ||
         "—";
 
 
       const balance =
-        Number(
-          customer.balance || 0
-        );
-
-
-      document
-        .getElementById("balance")
-        .textContent =
-        formatMoney(balance);
-
-
-      document
-        .getElementById("walletBalance")
-        .textContent =
-        formatMoney(balance);
-
-
-      let memberDate =
-        "2026";
-
-
-      if (
-        customer.created_at
-      ) {
-
-        const raw =
-          String(
-            customer.created_at
-          );
-
-        const date =
-          new Date(
-            raw.includes("T")
-              ? raw
-              : raw.replace(" ", "T") + "Z"
-          );
-
-
-        if (
-          !Number.isNaN(
-            date.getTime()
-          )
-        ) {
-
-          memberDate =
-            date.toLocaleDateString(
-              "en-GH"
-            );
-
-        }
-
-      }
-
-
-      document
-        .getElementById("member")
-        .textContent =
-        "DGM Customer • Member since " +
-        memberDate;
-
-
-      const firstLetter =
-        name
-          .trim()
-          .charAt(0)
-          .toUpperCase();
+        user.balance ??
+        user.wallet_balance ??
+        user.walletBalance ??
+        0;
 
 
       document
         .getElementById("avatar")
         .textContent =
-        firstLetter ||
-        "D";
+          getInitial(name);
 
 
-      loading.style.display =
-        "none";
-
-      content.style.display =
-        "block";
-
-
-      // Check if returning from wallet payment.
-      handlePaymentReturn();
-
-    }
-
-    catch (err) {
-
-      console.error(
-        "Account loading error:",
-        err
-      );
+      document
+        .getElementById("profileName")
+        .textContent =
+          name;
 
 
-      loading.style.display =
-        "none";
-
-      error.style.display =
-        "block";
-
-      error.textContent =
-        err.message ||
-        "Something went wrong.";
-
-    }
-
-  }
+      document
+        .getElementById("memberSince")
+        .textContent =
+          "Member since " +
+          formatDate(
+            user.created_at ||
+            user.createdAt ||
+            user.joined_at
+          );
 
 
-  // ==========================================
-  // WALLET PAYMENT RETURN
-  // ==========================================
-
-  function handlePaymentReturn() {
-
-    const params =
-      new URLSearchParams(
-        window.location.search
-      );
-
-    const wallet =
-      params.get("wallet");
-
-    const status =
-      params.get("status");
+      document
+        .getElementById("walletBalance")
+        .textContent =
+          money(balance);
 
 
-    if (
-      wallet === "success" ||
-      status === "success"
-    ) {
-
-      showToast(
-        "Wallet funded successfully. Your balance has been updated.",
-        "success"
-      );
+      document
+        .getElementById("infoName")
+        .textContent =
+          name;
 
 
-      // Remove query parameters from address bar.
-      window.history.replaceState(
-        {},
-        document.title,
-        "/account.html"
-      );
+      document
+        .getElementById("infoPhone")
+        .textContent =
+          phone;
 
 
-      // Refresh account balance.
-      setTimeout(() => {
+      document
+        .getElementById("infoEmail")
+        .textContent =
+          email;
 
-        loadAccount();
 
-      }, 1200);
+      document
+        .getElementById("infoBalance")
+        .textContent =
+          money(balance);
 
     }
 
-  }
 
+    /* =========================
+       LOAD TRANSACTIONS
+    ========================= */
 
-  // ==========================================
-  // WALLET HISTORY
-  // ==========================================
+    async function loadTransactions() {
 
-  async function loadWalletHistory() {
-
-    const history =
-      document.getElementById("history");
-
-    const transactions =
-      document.getElementById(
-        "transactions"
-      );
-
-
-    history.style.display =
-      "block";
-
-
-    transactions.innerHTML = `
-      <div class="empty-history">
-        Loading wallet transactions...
-      </div>
-    `;
-
-
-    try {
-
-      const response =
-        await fetch(
-          "/api/wallet/transactions",
-          {
-            method: "GET",
-            credentials: "include",
-            cache: "no-store"
-          }
+      const container =
+        document.getElementById(
+          "transactions"
         );
 
 
-      if (response.status === 401) {
+      try {
 
-        window.location.replace(
-          "/login.html"
-        );
-
-        return;
-
-      }
-
-
-      const data =
-        await response.json();
-
-
-      if (!response.ok) {
-
-        throw new Error(
-          data.message ||
-          "Unable to load wallet history."
-        );
-
-      }
-
-
-      const list =
-        Array.isArray(
-          data.transactions
-        )
-          ? data.transactions
-          : [];
-
-
-      if (
-        list.length === 0
-      ) {
-
-        transactions.innerHTML = `
-          <div class="empty-history">
-            No wallet transactions yet.
-            <br>
-            Your verified wallet activity
-            will appear here.
-          </div>
-        `;
-
-        return;
-
-      }
-
-
-      transactions.innerHTML =
-        list.map(
-          transaction => {
-
-            const type =
-              String(
-                transaction.type || ""
-              ).toLowerCase();
-
-
-            let amountClass =
-              "credit";
-
-            let sign =
-              "+";
-
-
-            if (
-              type === "debit"
-            ) {
-
-              amountClass =
-                "debit";
-
-              sign =
-                "-";
-
+        const response =
+          await fetch(
+            "/api/wallet/transactions",
+            {
+              method: "GET",
+              credentials: "include",
+              headers: {
+                "Accept": "application/json"
+              }
             }
+          );
 
 
-            if (
-              type === "refund"
-            ) {
+        if (response.status === 401) {
 
-              amountClass =
-                "refund";
+          window.location.href =
+            "/login.html";
 
-              sign =
-                "+";
-
-            }
+          return;
+        }
 
 
-            const description =
-              transaction.description ||
-              transaction.type ||
-              "Wallet transaction";
+        if (!response.ok) {
+
+          throw new Error(
+            "Unable to load transactions."
+          );
+
+        }
 
 
-            return `
-              <div class="transaction">
+        const data =
+          await response.json();
 
-                <div class="transaction-top">
 
-                  <div>
+        const transactions =
+          Array.isArray(data)
+            ? data
+            : (
+                data.transactions ||
+                data.data ||
+                []
+              );
 
-                    <div class="transaction-name">
-                      ${escapeHtml(
-                        description
-                      )}
-                    </div>
 
-                    <div class="transaction-ref">
-                      ${escapeHtml(
-                        transaction.transaction_ref ||
-                        transaction.reference ||
-                        ""
-                      )}
-                    </div>
+        if (
+          !Array.isArray(
+            transactions
+          ) ||
+          transactions.length === 0
+        ) {
 
-                  </div>
+          container.innerHTML = `
+
+            <div class="empty">
+              No wallet transactions yet.
+            </div>
+
+          `;
+
+          return;
+        }
+
+
+        container.innerHTML =
+          transactions
+            .slice(0, 10)
+            .map(
+              transaction => {
+
+                const amount =
+                  transaction.amount ??
+                  transaction.value ??
+                  0;
+
+
+                const title =
+                  transaction.description ||
+                  transaction.reference ||
+                  "Wallet transaction";
+
+
+                const status =
+                  transaction.status ||
+                  "Completed";
+
+
+                const date =
+                  transaction.created_at ||
+                  transaction.createdAt ||
+                  transaction.date;
+
+
+                return `
 
                   <div
-                    class="transaction-amount ${amountClass}"
-                  >
-                    ${sign}${formatMoney(
-                      transaction.amount
-                    )}
+                    class="transaction">
+
+                    <div
+                      class="transaction-left">
+
+                      <div
+                        class="transaction-title">
+
+                        ${escapeHTML(
+                          title
+                        )}
+
+                      </div>
+
+                      <div
+                        class="transaction-date">
+
+                        ${escapeHTML(
+                          formatDateTime(date)
+                        )}
+
+                      </div>
+
+                    </div>
+
+
+                    <div
+                      class="transaction-right">
+
+                      <div
+                        class="transaction-amount">
+
+                        +${money(amount)}
+
+                      </div>
+
+                      <div
+                        class="transaction-status">
+
+                        ${escapeHTML(
+                          status
+                        )}
+
+                      </div>
+
+                    </div>
+
                   </div>
 
-                </div>
+                `;
 
-                <div class="transaction-bottom">
+              }
+            )
+            .join("");
 
-                  <span>
-                    ${escapeHtml(
-                      formatDate(
-                        transaction.created_at
-                      )
-                    )}
-                  </span>
+      }
 
-                  <span class="transaction-status">
-                    ${escapeHtml(
-                      transaction.status ||
-                      "Completed"
-                    )}
-                  </span>
+      catch (error) {
 
-                </div>
-
-              </div>
-            `;
-
-          }
-        ).join("");
-
-    }
-
-    catch (error) {
-
-      console.error(
-        "Wallet history error:",
-        error
-      );
-
-
-      transactions.innerHTML = `
-        <div class="empty-history">
-          ${escapeHtml(
-            error.message ||
-            "Unable to load wallet history."
-          )}
-        </div>
-      `;
-
-    }
-
-  }
-
-
-  // ==========================================
-  // OPEN ADD MONEY MODAL
-  // ==========================================
-
-  function addMoney() {
-
-    const modal =
-      document.getElementById(
-        "moneyModal"
-      );
-
-    const input =
-      document.getElementById(
-        "walletAmount"
-      );
-
-
-    input.value =
-      "";
-
-
-    document
-      .querySelectorAll(".amount-btn")
-      .forEach(button => {
-
-        button.classList.remove(
-          "selected"
+        console.error(
+          "Transaction loading error:",
+          error
         );
 
-      });
 
+        container.innerHTML = `
 
-    modal.classList.add(
-      "show"
-    );
+          <div class="empty">
+            Wallet history is currently unavailable.
+          </div>
 
+        `;
 
-    setTimeout(() => {
-
-      input.focus();
-
-    }, 150);
-
-  }
-
-
-  // ==========================================
-  // CLOSE MODAL
-  // ==========================================
-
-  function closeMoneyModal(event) {
-
-    if (
-      event &&
-      event.target !==
-      document.getElementById(
-        "moneyModal"
-      )
-    ) {
-
-      return;
+      }
 
     }
 
 
-    document
-      .getElementById("moneyModal")
-      .classList.remove("show");
+    /* =========================
+       ADD MONEY MODAL
+    ========================= */
 
-  }
+    function openMoneyModal() {
 
-
-  // ==========================================
-  // SELECT PRESET AMOUNT
-  // ==========================================
-
-  function selectAmount(
-    amount,
-    button
-  ) {
-
-    document
-      .getElementById("walletAmount")
-      .value =
-      amount;
-
-
-    document
-      .querySelectorAll(".amount-btn")
-      .forEach(item => {
-
-        item.classList.remove(
-          "selected"
+      const modal =
+        document.getElementById(
+          "moneyModal"
         );
 
-      });
+
+      const message =
+        document.getElementById(
+          "modalMessage"
+        );
 
 
-    button.classList.add(
-      "selected"
-    );
-
-  }
+      modal.classList.add("show");
 
 
-  // ==========================================
-  // START PAYSTACK WALLET PAYMENT
-  // ==========================================
-
-  async function startWalletPayment() {
-
-    const input =
-      document.getElementById(
-        "walletAmount"
-      );
-
-    const payButton =
-      document.getElementById(
-        "payMoneyBtn"
-      );
-
-    const cancelButton =
-      document.getElementById(
-        "cancelMoneyBtn"
-      );
-
-    const addButton =
-      document.getElementById(
-        "addMoneyBtn"
-      );
+      message.textContent = "";
 
 
-    const amount =
-      Number(
-        input.value
-      );
+      setTimeout(() => {
+
+        document
+          .getElementById("amount")
+          .focus();
+
+      }, 100);
+
+    }
 
 
-    if (
-      !Number.isFinite(amount) ||
-      amount < 1
+    function closeMoneyModal(event) {
+
+      if (
+        event &&
+        event.target &&
+        event.target.id !==
+          "moneyModal"
+      ) {
+        return;
+      }
+
+
+      document
+        .getElementById(
+          "moneyModal"
+        )
+        .classList.remove("show");
+
+    }
+
+
+    function selectAmount(
+      amount,
+      button
     ) {
 
-      showToast(
-        "Please enter at least GH₵1.00.",
-        "error"
-      );
-
-      input.focus();
-
-      return;
-
-    }
+      document
+        .getElementById("amount")
+        .value = amount;
 
 
-    if (
-      amount > 10000
-    ) {
-
-      showToast(
-        "The maximum wallet top-up is GH₵10,000.",
-        "error"
-      );
-
-      input.focus();
-
-      return;
-
-    }
-
-
-    const confirmed =
-      confirm(
-        "Add " +
-        formatMoney(amount) +
-        " to your DGM wallet?"
-      );
-
-
-    if (!confirmed) {
-      return;
-    }
-
-
-    payButton.disabled =
-      true;
-
-    cancelButton.disabled =
-      true;
-
-    addButton.disabled =
-      true;
-
-
-    payButton.textContent =
-      "Connecting to Paystack...";
-
-
-    try {
-
-      const response =
-        await fetch(
-          "/api/wallet/deposit",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            credentials:
-              "include",
-
-            cache:
-              "no-store",
-
-            body:
-              JSON.stringify({
-                amount
-              })
+      document
+        .querySelectorAll(
+          ".amount-btn"
+        )
+        .forEach(
+          btn => {
+            btn.classList.remove(
+              "selected"
+            );
           }
         );
 
 
-      const data =
-        await response.json();
+      if (button) {
+        button.classList.add(
+          "selected"
+        );
+      }
+
+    }
+
+
+    /* =========================
+       PAYSTACK
+    ========================= */
+
+    async function startPayment() {
+
+      const input =
+        document.getElementById(
+          "amount"
+        );
+
+
+      const payButton =
+        document.getElementById(
+          "payBtn"
+        );
+
+
+      const message =
+        document.getElementById(
+          "modalMessage"
+        );
+
+
+      const amount =
+        Number(input.value);
+
+
+      message.textContent = "";
 
 
       if (
-        response.status === 401
+        !Number.isFinite(amount) ||
+        amount < 1
       ) {
 
-        window.location.replace(
-          "/login.html"
-        );
+        message.textContent =
+          "Please enter a valid amount.";
 
         return;
-
       }
 
 
-      if (
-        !response.ok ||
-        !data.success
-      ) {
+      if (amount > 10000) {
 
-        throw new Error(
-          data.message ||
-          "Unable to start wallet payment."
-        );
+        message.textContent =
+          "Maximum deposit is GH₵10,000.";
 
+        return;
       }
 
 
-      if (
-        !data.authorization_url
-      ) {
-
-        throw new Error(
-          "Paystack payment link was not returned."
-        );
-
-      }
-
+      payButton.disabled = true;
 
       payButton.textContent =
-        "Redirecting...";
+        "Preparing Payment...";
+
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/wallet/deposit",
+            {
+              method: "POST",
+
+              credentials: "include",
+
+              headers: {
+                "Content-Type":
+                  "application/json",
+
+                "Accept":
+                  "application/json"
+              },
+
+              body:
+                JSON.stringify({
+                  amount: amount
+                })
+            }
+          );
+
+
+        let data = {};
+
+        try {
+
+          data =
+            await response.json();
+
+        }
+
+        catch {
+
+          data = {};
+
+        }
+
+
+        if (!response.ok) {
+
+          throw new Error(
+            data.message ||
+            data.error ||
+            "Unable to start payment."
+          );
+
+        }
+
+
+        const paymentUrl =
+          data.authorization_url ||
+          data.authorizationUrl ||
+          data.url;
+
+
+        if (!paymentUrl) {
+
+          throw new Error(
+            "Payment link was not returned by the server."
+          );
+
+        }
+
+
+        window.location.href =
+          paymentUrl;
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "Payment error:",
+          error
+        );
+
+
+        message.textContent =
+          error.message ||
+          "Payment could not be started.";
+
+
+        payButton.disabled = false;
+
+        payButton.textContent =
+          "Continue to Payment";
+
+      }
+
+    }
+
+
+    /* =========================
+       PAYMENT RETURN
+    ========================= */
+
+    function handlePaymentReturn() {
+
+      const params =
+        new URLSearchParams(
+          window.location.search
+        );
+
+
+      const reference =
+        params.get("reference") ||
+        params.get("trxref");
+
+
+      if (!reference) {
+        return;
+      }
 
 
       /*
-       * IMPORTANT:
-       * The customer now leaves DGM and
-       * completes payment securely on Paystack.
-       */
-      window.location.href =
-        data.authorization_url;
+        Remove Paystack query
+        parameters from the URL.
+      */
 
-    }
-
-    catch (error) {
-
-      console.error(
-        "Wallet payment error:",
-        error
+      window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
       );
 
 
-      showToast(
-        error.message ||
-        "Unable to start payment.",
-        "error"
+      /*
+        Give the backend a moment to
+        verify/update the transaction,
+        then reload account data.
+      */
+
+      setTimeout(
+        async () => {
+
+          try {
+
+            await loadAccount();
+
+          }
+
+          catch (error) {
+
+            console.error(
+              "Payment return refresh failed:",
+              error
+            );
+
+          }
+
+        },
+        1500
       );
-
-
-      payButton.disabled =
-        false;
-
-      cancelButton.disabled =
-        false;
-
-      addButton.disabled =
-        false;
-
-      payButton.textContent =
-        "Continue to Paystack";
-
-    }
-
-  }
-
-
-  // ==========================================
-  // WALLET HISTORY TOGGLE
-  // ==========================================
-
-  function walletHistory() {
-
-    const history =
-      document.getElementById(
-        "history"
-      );
-
-
-    if (
-      history.style.display ===
-      "block"
-    ) {
-
-      history.style.display =
-        "none";
-
-      return;
 
     }
 
 
-    loadWalletHistory();
+    /* =========================
+       TRANSACTION SCROLL
+    ========================= */
 
-  }
+    function scrollToTransactions() {
 
-
-  // ==========================================
-  // LOGOUT
-  // ==========================================
-
-  async function logout() {
-
-    const confirmed =
-      confirm(
-        "Are you sure you want to sign out?"
-      );
+      const section =
+        document.getElementById(
+          "transactionsSection"
+        );
 
 
-    if (!confirmed) {
-      return;
+      if (!section) {
+        return;
+      }
+
+
+      section.scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+
     }
 
 
-    try {
+    /* =========================
+       SECURITY
+    ========================= */
 
-      await fetch(
-        "/api/logout",
-        {
-          method: "POST",
-          credentials: "include"
+    function comingSoon(feature) {
+
+      alert(
+        feature +
+        " is coming soon."
+      );
+
+    }
+
+
+    /* =========================
+       LOGOUT
+    ========================= */
+
+    async function logout() {
+
+      const confirmed =
+        confirm(
+          "Are you sure you want to sign out?"
+        );
+
+
+      if (!confirmed) {
+        return;
+      }
+
+
+      try {
+
+        const response =
+          await fetch(
+            "/api/logout",
+            {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "Accept":
+                  "application/json"
+              }
+            }
+          );
+
+
+        if (
+          response.ok ||
+          response.status === 204
+        ) {
+
+          window.location.href =
+            "/login.html";
+
+          return;
         }
-      );
+
+
+        /*
+          Even if the server responds
+          unexpectedly, send the user
+          back to login.
+        */
+
+        window.location.href =
+          "/login.html";
+
+      }
+
+      catch (error) {
+
+        console.error(
+          "Logout error:",
+          error
+        );
+
+
+        window.location.href =
+          "/login.html";
+
+      }
 
     }
 
-    catch (error) {
 
-      console.error(
-        "Logout error:",
-        error
-      );
+    /* =========================
+       KEYBOARD
+    ========================= */
 
-    }
+    document.addEventListener(
+      "keydown",
+      function(event) {
 
-    finally {
+        if (
+          event.key === "Escape"
+        ) {
 
-      window.location.replace(
-        "/login.html"
-      );
+          closeMoneyModal();
 
-    }
+        }
 
-  }
-
-
-  // ==========================================
-  // SECURITY PLACEHOLDER
-  // ==========================================
-
-  function comingSoon(service) {
-
-    showToast(
-      service +
-      " will be added in the next security stage.",
-      "success"
+      }
     );
 
-  }
 
+    /* =========================
+       START APPLICATION
+    ========================= */
 
-  // ==========================================
-  // START
-  // ==========================================
+    document.addEventListener(
+      "DOMContentLoaded",
+      function() {
 
-  loadAccount();
+        loadAccount();
 
-</script>
+      }
+    );
+
+  </script>
 
 </body>
 </html>
