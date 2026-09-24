@@ -15,7 +15,6 @@
 
     body {
       font-family: Arial, sans-serif;
-
       background:
         radial-gradient(
           circle at top right,
@@ -27,7 +26,6 @@
           #071111,
           #020606
         );
-
       color: #fff;
       min-height: 100vh;
       padding-bottom: 85px;
@@ -37,35 +35,24 @@
       position: sticky;
       top: 0;
       z-index: 20;
-
       padding: 17px 16px;
-
       display: flex;
       align-items: center;
       gap: 12px;
-
       background: rgba(4,12,12,.95);
-
-      border-bottom:
-        1px solid rgba(255,255,255,.08);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      backdrop-filter: blur(12px);
     }
 
     .back {
       width: 40px;
       height: 40px;
-
       display: grid;
       place-items: center;
-
       border-radius: 12px;
-
-      background:
-        rgba(255,255,255,.08);
-
+      background: rgba(255,255,255,.08);
       color: #fff;
-
       text-decoration: none;
-
       font-size: 23px;
     }
 
@@ -104,43 +91,32 @@
 
     .profile {
       padding: 22px;
-
       border-radius: 22px;
-
       background:
         linear-gradient(
           145deg,
           rgba(37,211,102,.12),
           rgba(255,255,255,.04)
         );
-
-      border:
-        1px solid rgba(37,211,102,.16);
-
+      border: 1px solid rgba(37,211,102,.16);
       margin-bottom: 14px;
     }
 
     .avatar {
       width: 72px;
       height: 72px;
-
       border-radius: 50%;
-
       display: grid;
       place-items: center;
-
       background:
         linear-gradient(
           135deg,
           #25d366,
           #128c7e
         );
-
       color: #001b0b;
-
       font-size: 28px;
       font-weight: 900;
-
       margin-bottom: 14px;
     }
 
@@ -158,9 +134,7 @@
 
     .wallet {
       padding: 22px;
-
       border-radius: 22px;
-
       background:
         linear-gradient(
           135deg,
@@ -168,30 +142,20 @@
           rgba(18,140,126,.10),
           rgba(255,255,255,.04)
         );
-
-      border:
-        1px solid rgba(37,211,102,.22);
-
+      border: 1px solid rgba(37,211,102,.22);
       margin-bottom: 14px;
-
       position: relative;
       overflow: hidden;
     }
 
     .wallet::after {
       content: "DGM";
-
       position: absolute;
-
       right: -10px;
       bottom: -28px;
-
       font-size: 90px;
-
       font-weight: 900;
-
       color: rgba(255,255,255,.035);
-
       pointer-events: none;
     }
 
@@ -219,30 +183,20 @@
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 10px;
-
       position: relative;
       z-index: 2;
     }
 
     .wallet-btn {
       border: 0;
-
       padding: 13px 10px;
-
       border-radius: 12px;
-
       font-size: 12px;
       font-weight: 900;
-
       cursor: pointer;
-
-      background:
-        rgba(255,255,255,.08);
-
+      background: rgba(255,255,255,.08);
       color: #fff;
-
-      border:
-        1px solid rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.08);
     }
 
     .wallet-btn.primary {
@@ -252,7 +206,7 @@
     }
 
     .wallet-btn:disabled {
-      opacity: .65;
+      opacity: .55;
       cursor: not-allowed;
     }
 
@@ -260,15 +214,9 @@
 
     .card {
       padding: 18px;
-
       border-radius: 19px;
-
-      background:
-        rgba(255,255,255,.05);
-
-      border:
-        1px solid rgba(255,255,255,.08);
-
+      background: rgba(255,255,255,.05);
+      border: 1px solid rgba(255,255,255,.08);
       margin-bottom: 13px;
     }
 
@@ -280,15 +228,10 @@
 
     .info-row {
       display: flex;
-
       justify-content: space-between;
-
       gap: 15px;
-
       padding: 12px 0;
-
-      border-bottom:
-        1px solid rgba(255,255,255,.055);
+      border-bottom: 1px solid rgba(255,255,255,.055);
     }
 
     .info-row:last-child {
@@ -317,59 +260,38 @@
 
     .actions {
       display: grid;
-
-      grid-template-columns:
-        repeat(2, 1fr);
-
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
-
       margin-top: 4px;
     }
 
     .action {
       display: block;
-
       text-align: center;
-
       text-decoration: none;
-
       padding: 14px 8px;
-
       border-radius: 13px;
-
-      background:
-        rgba(255,255,255,.06);
-
-      border:
-        1px solid rgba(255,255,255,.08);
-
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
       color: #fff;
-
       font-size: 12px;
-
       font-weight: 800;
-
       cursor: pointer;
-
       transition: .2s;
     }
 
     .action:hover {
       transform: translateY(-1px);
-
-      background:
-        rgba(255,255,255,.10);
+      background: rgba(255,255,255,.10);
     }
 
     .action.primary {
       background: #25d366;
-
       color: #001b0b;
-
       border-color: #25d366;
     }
 
-    /* WALLET HISTORY */
+    /* HISTORY */
 
     .history {
       display: none;
@@ -378,13 +300,9 @@
 
     .history-header {
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
-
       gap: 10px;
-
       margin-bottom: 12px;
     }
 
@@ -395,31 +313,19 @@
 
     .refresh-btn {
       border: 0;
-
-      background:
-        rgba(37,211,102,.12);
-
+      background: rgba(37,211,102,.12);
       color: #25d366;
-
-      border:
-        1px solid rgba(37,211,102,.18);
-
+      border: 1px solid rgba(37,211,102,.18);
       border-radius: 9px;
-
       padding: 7px 10px;
-
       font-size: 11px;
-
       font-weight: 800;
-
       cursor: pointer;
     }
 
     .transaction {
       padding: 13px 0;
-
-      border-bottom:
-        1px solid rgba(255,255,255,.055);
+      border-bottom: 1px solid rgba(255,255,255,.055);
     }
 
     .transaction:last-child {
@@ -428,35 +334,26 @@
 
     .transaction-top {
       display: flex;
-
       justify-content: space-between;
-
       gap: 10px;
-
       align-items: flex-start;
     }
 
     .transaction-name {
       font-size: 12px;
-
       font-weight: 800;
-
       margin-bottom: 4px;
     }
 
     .transaction-ref {
       color: #718787;
-
       font-size: 10px;
-
       word-break: break-all;
     }
 
     .transaction-amount {
       font-size: 13px;
-
       font-weight: 900;
-
       white-space: nowrap;
     }
 
@@ -474,15 +371,10 @@
 
     .transaction-bottom {
       display: flex;
-
       justify-content: space-between;
-
       gap: 10px;
-
       margin-top: 8px;
-
       color: #788d8d;
-
       font-size: 10px;
     }
 
@@ -493,13 +385,9 @@
 
     .empty-history {
       padding: 18px 5px;
-
       text-align: center;
-
       color: #819595;
-
       font-size: 12px;
-
       line-height: 1.5;
     }
 
@@ -507,25 +395,14 @@
 
     .logout {
       width: 100%;
-
-      border:
-        1px solid rgba(255,90,90,.2);
-
-      background:
-        rgba(255,70,70,.08);
-
+      border: 1px solid rgba(255,90,90,.2);
+      background: rgba(255,70,70,.08);
       color: #ff8585;
-
       padding: 15px;
-
       border-radius: 13px;
-
       font-size: 13px;
-
       font-weight: 900;
-
       cursor: pointer;
-
       margin-top: 4px;
     }
 
@@ -539,64 +416,218 @@
 
     .error {
       display: none;
-
       padding: 20px;
-
       border-radius: 17px;
-
-      background:
-        rgba(255,70,70,.08);
-
-      border:
-        1px solid rgba(255,70,70,.15);
-
+      background: rgba(255,70,70,.08);
+      border: 1px solid rgba(255,70,70,.15);
       color: #ff9999;
-
       font-size: 13px;
-
       text-align: center;
+    }
+
+    /* MODAL */
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      padding: 16px;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-box {
+      width: 100%;
+      max-width: 480px;
+      background:
+        linear-gradient(
+          145deg,
+          #0d1b1b,
+          #061010
+        );
+      border: 1px solid rgba(37,211,102,.20);
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: 0 20px 70px rgba(0,0,0,.5);
+      animation: slideUp .22s ease;
+    }
+
+    @keyframes slideUp {
+      from {
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-title {
+      font-size: 21px;
+      font-weight: 900;
+      margin-bottom: 6px;
+    }
+
+    .modal-subtitle {
+      color: #8fa5a5;
+      font-size: 12px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .amount-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .amount-btn {
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.06);
+      color: #fff;
+      border-radius: 11px;
+      padding: 12px 5px;
+      font-size: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .amount-btn.selected {
+      background: rgba(37,211,102,.16);
+      border-color: #25d366;
+      color: #25d366;
+    }
+
+    .amount-label {
+      display: block;
+      color: #8fa5a5;
+      font-size: 11px;
+      margin-bottom: 7px;
+    }
+
+    .amount-input {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.05);
+      color: #fff;
+      padding: 14px;
+      border-radius: 12px;
+      outline: none;
+      font-size: 16px;
+      font-weight: 800;
+      margin-bottom: 14px;
+    }
+
+    .amount-input:focus {
+      border-color: #25d366;
+    }
+
+    .modal-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .modal-btn {
+      border: 0;
+      padding: 14px;
+      border-radius: 12px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+
+    .modal-btn.cancel {
+      background: rgba(255,255,255,.07);
+      color: #fff;
+    }
+
+    .modal-btn.pay {
+      background: #25d366;
+      color: #001b0b;
+    }
+
+    .modal-btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    /* TOAST */
+
+    .toast {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      bottom: 84px;
+      z-index: 200;
+      max-width: 500px;
+      margin: auto;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: #0c1919;
+      border: 1px solid rgba(37,211,102,.25);
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.4;
+      box-shadow: 0 12px 40px rgba(0,0,0,.35);
+      display: none;
+    }
+
+    .toast.show {
+      display: block;
+      animation: toastIn .2s ease;
+    }
+
+    .toast.success {
+      border-color: rgba(37,211,102,.35);
+    }
+
+    .toast.error-toast {
+      border-color: rgba(255,90,90,.35);
+    }
+
+    @keyframes toastIn {
+      from {
+        transform: translateY(10px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
     }
 
     /* BOTTOM NAV */
 
     .bottom-nav {
       position: fixed;
-
       left: 0;
       right: 0;
       bottom: 0;
-
       height: 68px;
-
-      background:
-        rgba(3,10,10,.97);
-
-      border-top:
-        1px solid rgba(255,255,255,.08);
-
+      background: rgba(3,10,10,.97);
+      border-top: 1px solid rgba(255,255,255,.08);
       display: grid;
-
-      grid-template-columns:
-        repeat(4, 1fr);
-
+      grid-template-columns: repeat(4, 1fr);
       z-index: 30;
     }
 
     .bottom-nav a {
       display: flex;
-
       flex-direction: column;
-
       align-items: center;
-
       justify-content: center;
-
       gap: 4px;
-
       color: #829696;
-
       text-decoration: none;
-
       font-size: 11px;
     }
 
@@ -613,6 +644,10 @@
       main {
         padding-top: 35px;
       }
+
+      .modal {
+        align-items: center;
+      }
     }
   </style>
 </head>
@@ -621,10 +656,7 @@
 
 <header>
 
-  <a
-    class="back"
-    href="/dashboard.html"
-  >
+  <a class="back" href="/dashboard.html">
     ‹
   </a>
 
@@ -645,18 +677,12 @@
 
 <main>
 
-  <div
-    id="loading"
-    class="loading"
-  >
+  <div id="loading" class="loading">
     Loading account...
   </div>
 
 
-  <div
-    id="content"
-    style="display:none;"
-  >
+  <div id="content" style="display:none;">
 
     <section class="hero">
 
@@ -676,10 +702,7 @@
 
     <section class="profile">
 
-      <div
-        id="avatar"
-        class="avatar"
-      >
+      <div id="avatar" class="avatar">
         D
       </div>
 
@@ -702,23 +725,22 @@
         DGM WALLET BALANCE
       </div>
 
-      <div
-        id="walletBalance"
-        class="wallet-balance"
-      >
+      <div id="walletBalance" class="wallet-balance">
         GH₵0.00
       </div>
 
       <div class="wallet-note">
-        Your wallet balance is securely stored
-        on your DGM account. Wallet funding will
-        only be completed after verified payment.
+        Add money securely through Paystack.
+        Your wallet is credited only after the
+        payment has been verified.
       </div>
 
       <div class="wallet-actions">
 
         <button
+          id="addMoneyBtn"
           class="wallet-btn primary"
+          type="button"
           onclick="addMoney()"
         >
           + Add Money
@@ -726,6 +748,7 @@
 
         <button
           class="wallet-btn"
+          type="button"
           onclick="walletHistory()"
         >
           Wallet History
@@ -751,6 +774,7 @@
 
         <button
           class="refresh-btn"
+          type="button"
           onclick="loadWalletHistory()"
         >
           Refresh
@@ -777,10 +801,7 @@
           Full Name
         </span>
 
-        <strong
-          id="fullName"
-          class="info-value"
-        >
+        <strong id="fullName" class="info-value">
           —
         </strong>
 
@@ -793,10 +814,7 @@
           Phone
         </span>
 
-        <strong
-          id="phone"
-          class="info-value"
-        >
+        <strong id="phone" class="info-value">
           —
         </strong>
 
@@ -809,10 +827,7 @@
           Email
         </span>
 
-        <strong
-          id="email"
-          class="info-value"
-        >
+        <strong id="email" class="info-value">
           —
         </strong>
 
@@ -825,10 +840,7 @@
           Account Balance
         </span>
 
-        <strong
-          id="balance"
-          class="info-value balance"
-        >
+        <strong id="balance" class="info-value balance">
           GH₵0.00
         </strong>
 
@@ -868,7 +880,6 @@
           My Orders
         </a>
 
-        <!-- FIXED: actual file is service.html -->
         <a
           class="action"
           href="/service.html"
@@ -923,12 +934,115 @@
   </div>
 
 
-  <div
-    id="error"
-    class="error"
-  ></div>
+  <div id="error" class="error"></div>
 
 </main>
+
+
+<!-- ADD MONEY MODAL -->
+
+<div
+  id="moneyModal"
+  class="modal"
+  onclick="closeMoneyModal(event)"
+>
+
+  <div
+    class="modal-box"
+    onclick="event.stopPropagation()"
+  >
+
+    <div class="modal-title">
+      Add Money
+    </div>
+
+    <div class="modal-subtitle">
+      Choose an amount to add to your DGM wallet.
+      You will be redirected to Paystack to complete
+      the secure payment.
+    </div>
+
+    <div class="amount-grid">
+
+      <button
+        type="button"
+        class="amount-btn"
+        onclick="selectAmount(10, this)"
+      >
+        GH₵10
+      </button>
+
+      <button
+        type="button"
+        class="amount-btn"
+        onclick="selectAmount(20, this)"
+      >
+        GH₵20
+      </button>
+
+      <button
+        type="button"
+        class="amount-btn"
+        onclick="selectAmount(50, this)"
+      >
+        GH₵50
+      </button>
+
+      <button
+        type="button"
+        class="amount-btn"
+        onclick="selectAmount(100, this)"
+      >
+        GH₵100
+      </button>
+
+    </div>
+
+    <label class="amount-label">
+      Custom amount
+    </label>
+
+    <input
+      id="walletAmount"
+      class="amount-input"
+      type="number"
+      min="1"
+      max="10000"
+      step="0.01"
+      placeholder="Enter amount"
+      inputmode="decimal"
+    >
+
+    <div class="modal-actions">
+
+      <button
+        id="cancelMoneyBtn"
+        class="modal-btn cancel"
+        type="button"
+        onclick="closeMoneyModal()"
+      >
+        Cancel
+      </button>
+
+      <button
+        id="payMoneyBtn"
+        class="modal-btn pay"
+        type="button"
+        onclick="startWalletPayment()"
+      >
+        Continue to Paystack
+      </button>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<!-- TOAST -->
+
+<div id="toast" class="toast"></div>
 
 
 <!-- BOTTOM NAV -->
@@ -1046,6 +1160,42 @@
         timeStyle: "short"
       }
     );
+
+  }
+
+
+  // ==========================================
+  // TOAST
+  // ==========================================
+
+  let toastTimer = null;
+
+  function showToast(message, type = "success") {
+
+    const toast =
+      document.getElementById("toast");
+
+    toast.textContent =
+      message;
+
+    toast.className =
+      "toast show " +
+      (
+        type === "error"
+          ? "error-toast"
+          : "success"
+      );
+
+    clearTimeout(toastTimer);
+
+    toastTimer =
+      setTimeout(() => {
+
+        toast.classList.remove(
+          "show"
+        );
+
+      }, 4500);
 
   }
 
@@ -1169,11 +1319,16 @@
         customer.created_at
       ) {
 
+        const raw =
+          String(
+            customer.created_at
+          );
+
         const date =
           new Date(
-            String(
-              customer.created_at
-            ).replace(" ", "T") + "Z"
+            raw.includes("T")
+              ? raw
+              : raw.replace(" ", "T") + "Z"
           );
 
 
@@ -1220,6 +1375,10 @@
       content.style.display =
         "block";
 
+
+      // Check if returning from wallet payment.
+      handlePaymentReturn();
+
     }
 
     catch (err) {
@@ -1239,6 +1398,55 @@
       error.textContent =
         err.message ||
         "Something went wrong.";
+
+    }
+
+  }
+
+
+  // ==========================================
+  // WALLET PAYMENT RETURN
+  // ==========================================
+
+  function handlePaymentReturn() {
+
+    const params =
+      new URLSearchParams(
+        window.location.search
+      );
+
+    const wallet =
+      params.get("wallet");
+
+    const status =
+      params.get("status");
+
+
+    if (
+      wallet === "success" ||
+      status === "success"
+    ) {
+
+      showToast(
+        "Wallet funded successfully. Your balance has been updated.",
+        "success"
+      );
+
+
+      // Remove query parameters from address bar.
+      window.history.replaceState(
+        {},
+        document.title,
+        "/account.html"
+      );
+
+
+      // Refresh account balance.
+      setTimeout(() => {
+
+        loadAccount();
+
+      }, 1200);
 
     }
 
@@ -1400,6 +1608,7 @@
                     <div class="transaction-ref">
                       ${escapeHtml(
                         transaction.transaction_ref ||
+                        transaction.reference ||
                         ""
                       )}
                     </div>
@@ -1466,19 +1675,320 @@
 
 
   // ==========================================
-  // WALLET
+  // OPEN ADD MONEY MODAL
   // ==========================================
 
   function addMoney() {
 
-    alert(
-      "Wallet funding is not active yet.\n\n" +
-      "Secure verified payments will be connected " +
-      "before wallet funding is enabled."
+    const modal =
+      document.getElementById(
+        "moneyModal"
+      );
+
+    const input =
+      document.getElementById(
+        "walletAmount"
+      );
+
+
+    input.value =
+      "";
+
+
+    document
+      .querySelectorAll(".amount-btn")
+      .forEach(button => {
+
+        button.classList.remove(
+          "selected"
+        );
+
+      });
+
+
+    modal.classList.add(
+      "show"
+    );
+
+
+    setTimeout(() => {
+
+      input.focus();
+
+    }, 150);
+
+  }
+
+
+  // ==========================================
+  // CLOSE MODAL
+  // ==========================================
+
+  function closeMoneyModal(event) {
+
+    if (
+      event &&
+      event.target !==
+      document.getElementById(
+        "moneyModal"
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    document
+      .getElementById("moneyModal")
+      .classList.remove("show");
+
+  }
+
+
+  // ==========================================
+  // SELECT PRESET AMOUNT
+  // ==========================================
+
+  function selectAmount(
+    amount,
+    button
+  ) {
+
+    document
+      .getElementById("walletAmount")
+      .value =
+      amount;
+
+
+    document
+      .querySelectorAll(".amount-btn")
+      .forEach(item => {
+
+        item.classList.remove(
+          "selected"
+        );
+
+      });
+
+
+    button.classList.add(
+      "selected"
     );
 
   }
 
+
+  // ==========================================
+  // START PAYSTACK WALLET PAYMENT
+  // ==========================================
+
+  async function startWalletPayment() {
+
+    const input =
+      document.getElementById(
+        "walletAmount"
+      );
+
+    const payButton =
+      document.getElementById(
+        "payMoneyBtn"
+      );
+
+    const cancelButton =
+      document.getElementById(
+        "cancelMoneyBtn"
+      );
+
+    const addButton =
+      document.getElementById(
+        "addMoneyBtn"
+      );
+
+
+    const amount =
+      Number(
+        input.value
+      );
+
+
+    if (
+      !Number.isFinite(amount) ||
+      amount < 1
+    ) {
+
+      showToast(
+        "Please enter at least GH₵1.00.",
+        "error"
+      );
+
+      input.focus();
+
+      return;
+
+    }
+
+
+    if (
+      amount > 10000
+    ) {
+
+      showToast(
+        "The maximum wallet top-up is GH₵10,000.",
+        "error"
+      );
+
+      input.focus();
+
+      return;
+
+    }
+
+
+    const confirmed =
+      confirm(
+        "Add " +
+        formatMoney(amount) +
+        " to your DGM wallet?"
+      );
+
+
+    if (!confirmed) {
+      return;
+    }
+
+
+    payButton.disabled =
+      true;
+
+    cancelButton.disabled =
+      true;
+
+    addButton.disabled =
+      true;
+
+
+    payButton.textContent =
+      "Connecting to Paystack...";
+
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/wallet/deposit",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            credentials:
+              "include",
+
+            cache:
+              "no-store",
+
+            body:
+              JSON.stringify({
+                amount
+              })
+          }
+        );
+
+
+      const data =
+        await response.json();
+
+
+      if (
+        response.status === 401
+      ) {
+
+        window.location.replace(
+          "/login.html"
+        );
+
+        return;
+
+      }
+
+
+      if (
+        !response.ok ||
+        !data.success
+      ) {
+
+        throw new Error(
+          data.message ||
+          "Unable to start wallet payment."
+        );
+
+      }
+
+
+      if (
+        !data.authorization_url
+      ) {
+
+        throw new Error(
+          "Paystack payment link was not returned."
+        );
+
+      }
+
+
+      payButton.textContent =
+        "Redirecting...";
+
+
+      /*
+       * IMPORTANT:
+       * The customer now leaves DGM and
+       * completes payment securely on Paystack.
+       */
+      window.location.href =
+        data.authorization_url;
+
+    }
+
+    catch (error) {
+
+      console.error(
+        "Wallet payment error:",
+        error
+      );
+
+
+      showToast(
+        error.message ||
+        "Unable to start payment.",
+        "error"
+      );
+
+
+      payButton.disabled =
+        false;
+
+      cancelButton.disabled =
+        false;
+
+      addButton.disabled =
+        false;
+
+      payButton.textContent =
+        "Continue to Paystack";
+
+    }
+
+  }
+
+
+  // ==========================================
+  // WALLET HISTORY TOGGLE
+  // ==========================================
 
   function walletHistory() {
 
@@ -1561,9 +2071,10 @@
 
   function comingSoon(service) {
 
-    alert(
+    showToast(
       service +
-      " will be added in the next security stage."
+      " will be added in the next security stage.",
+      "success"
     );
 
   }
