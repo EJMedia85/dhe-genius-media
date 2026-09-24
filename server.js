@@ -6,15 +6,18 @@ const crypto = require("crypto");
 const { Pool } = require("pg");
 
 const app = express();
+
 const PORT = Number(process.env.PORT || 10000);
 
 // =====================================================
 // ENVIRONMENT VARIABLES
 // =====================================================
 
-const NODE_ENV = process.env.NODE_ENV || "development";
+const NODE_ENV =
+  process.env.NODE_ENV || "development";
 
-const DATABASE_URL = process.env.DATABASE_URL || "";
+const DATABASE_URL =
+  process.env.DATABASE_URL || "";
 
 const DATAMART_API_KEY =
   process.env.DATAMART_API_KEY || "";
@@ -23,15 +26,12 @@ const PAYSTACK_SECRET_KEY =
   process.env.PAYSTACK_SECRET_KEY || "";
 
 const SESSION_SECRET =
-  process.env.SESSION_SECRET || "dgm-change-this-secret";
+  process.env.SESSION_SECRET ||
+  "dgm-change-this-secret";
 
 const BASE_URL =
   process.env.BASE_URL ||
   "https://dhe-genius-media.onrender.com";
-
-const DATAMART_STATUS_CHECKER_ENABLED =
-  String(process.env.DATAMART_STATUS_CHECKER_ENABLED || "false")
-    .toLowerCase() === "true";
 
 // =====================================================
 // APP CONFIG
@@ -43,30 +43,34 @@ if (NODE_ENV === "production") {
 
 app.disable("x-powered-by");
 
-app.use(express.json({ limit: "1mb" }));
-app.use(express.urlencoded({ extended: true }));
-
 // =====================================================
 // DATABASE
 // =====================================================
 
 if (!DATABASE_URL) {
-  console.error("DATABASE_URL is missing.");
+  console.error(
+    "ERROR: DATABASE_URL is missing."
+  );
 }
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
+
   ssl:
     NODE_ENV === "production"
       ? { rejectUnauthorized: false }
       : false,
+
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000
 });
 
-pool.on("error", (err) => {
-  console.error("PostgreSQL pool error:", err);
+pool.on("error", (error) => {
+  console.error(
+    "PostgreSQL pool error:",
+    error
+  );
 });
 
 // =====================================================
@@ -138,11 +142,14 @@ async function initDatabase() {
   for (const [column, definition] of columns) {
     await pool.query(`
       ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS ${column} ${definition}
+      ADD COLUMN IF NOT EXISTS
+      ${column} ${definition}
     `);
   }
 
-  console.log("Database initialized.");
+  console.log(
+    "Database initialized successfully."
+  );
 }
 
 // =====================================================
@@ -150,6 +157,7 @@ async function initDatabase() {
 // =====================================================
 
 class PostgresSessionStore extends session.Store {
+
   async get(sid, callback) {
     try {
       const result = await pool.query(
@@ -166,84 +174,146 @@ class PostgresSessionStore extends session.Store {
         return callback(null, null);
       }
 
-      callback(null, result.rows[0].sess);
+      return callback(
+        null,
+        result.rows[0].sess
+      );
+
     } catch (error) {
-      console.error("Session GET error:", error);
-      callback(error);
+
+      console.error(
+        "Session GET error:",
+        error
+      );
+
+      return callback(error);
     }
   }
 
   async set(sid, sess, callback) {
     try {
+
+      const maxAge =
+        sess.cookie &&
+        sess.cookie.maxAge
+          ? sess.cookie.maxAge
+          : 1000 * 60 * 60 * 24 * 7;
+
       const expire = new Date(
-        Date.now() +
-          ((sess.cookie && sess.cookie.maxAge) ||
-            1000 * 60 * 60 * 24 * 7)
+        Date.now() + maxAge
       );
 
       await pool.query(
         `
-        INSERT INTO user_sessions (sid, sess, expire)
-        VALUES ($1, $2::jsonb, $3)
+        INSERT INTO user_sessions
+          (sid, sess, expire)
+        VALUES
+          ($1, $2::jsonb, $3)
         ON CONFLICT (sid)
         DO UPDATE SET
           sess = EXCLUDED.sess,
           expire = EXCLUDED.expire
         `,
-        [sid, JSON.stringify(sess), expire]
+        [
+          sid,
+          JSON.stringify(sess),
+          expire
+        ]
       );
 
-      if (callback) callback(null);
-    } catch (error) {
-      console.error("Session SET error:", error);
+      if (callback) {
+        callback(null);
+      }
 
-      if (callback) callback(error);
+    } catch (error) {
+
+      console.error(
+        "Session SET error:",
+        error
+      );
+
+      if (callback) {
+        callback(error);
+      }
     }
   }
 
   async destroy(sid, callback) {
     try {
+
       await pool.query(
-        `DELETE FROM user_sessions WHERE sid = $1`,
+        `
+        DELETE FROM user_sessions
+        WHERE sid = $1
+        `,
         [sid]
       );
 
-      if (callback) callback(null);
-    } catch (error) {
-      console.error("Session DESTROY error:", error);
+      if (callback) {
+        callback(null);
+      }
 
-      if (callback) callback(error);
+    } catch (error) {
+
+      console.error(
+        "Session DESTROY error:",
+        error
+      );
+
+      if (callback) {
+        callback(error);
+      }
     }
   }
 
   async touch(sid, sess, callback) {
     try {
+
+      const maxAge =
+        sess.cookie &&
+        sess.cookie.maxAge
+          ? sess.cookie.maxAge
+          : 1000 * 60 * 60 * 24 * 7;
+
       const expire = new Date(
-        Date.now() +
-          ((sess.cookie && sess.cookie.maxAge) ||
-            1000 * 60 * 60 * 24 * 7)
+        Date.now() + maxAge
       );
 
       await pool.query(
         `
         UPDATE user_sessions
-        SET expire = $2,
-            sess = $3::jsonb
+        SET
+          expire = $2,
+          sess = $3::jsonb
         WHERE sid = $1
         `,
-        [sid, expire, JSON.stringify(sess)]
+        [
+          sid,
+          expire,
+          JSON.stringify(sess)
+        ]
       );
 
-      if (callback) callback(null);
-    } catch (error) {
-      console.error("Session TOUCH error:", error);
+      if (callback) {
+        callback(null);
+      }
 
-      if (callback) callback(error);
+    } catch (error) {
+
+      console.error(
+        "Session TOUCH error:",
+        error
+      );
+
+      if (callback) {
+        callback(error);
+      }
     }
   }
 }
 
-const sessionStore = new PostgresSessionStore();
+const sessionStore =
+  new PostgresSessionStore();
 
 // =====================================================
 // SESSION
@@ -252,18 +322,229 @@ const sessionStore = new PostgresSessionStore();
 app.use(
   session({
     name: "dgm.sid",
+
     store: sessionStore,
+
     secret: SESSION_SECRET,
+
     resave: false,
+
     saveUninitialized: false,
+
     rolling: true,
 
     cookie: {
       httpOnly: true,
-      secure: NODE_ENV === "production",
+
+      secure:
+        NODE_ENV === "production",
+
       sameSite: "lax",
-      maxAge: 1000 * 60 * 60 * 24 * 7
+
+      path: "/",
+
+      maxAge:
+        1000 *
+        60 *
+        60 *
+        24 *
+        7
     }
+  })
+);
+
+// =====================================================
+// PAYSTACK WEBHOOK
+// IMPORTANT:
+// RAW BODY MUST BE READ BEFORE express.json()
+// =====================================================
+
+app.post(
+  "/api/paystack/webhook",
+  express.raw({
+    type: "application/json"
+  }),
+  async (req, res) => {
+
+    try {
+
+      if (!PAYSTACK_SECRET_KEY) {
+        return res.sendStatus(200);
+      }
+
+      const signature =
+        req.headers[
+          "x-paystack-signature"
+        ];
+
+      if (!signature) {
+        return res.sendStatus(401);
+      }
+
+      const rawBody =
+        Buffer.isBuffer(req.body)
+          ? req.body
+          : Buffer.from("");
+
+      const expectedSignature =
+        crypto
+          .createHmac(
+            "sha512",
+            PAYSTACK_SECRET_KEY
+          )
+          .update(rawBody)
+          .digest("hex");
+
+      if (
+        signature.length !==
+        expectedSignature.length
+      ) {
+        return res.sendStatus(401);
+      }
+
+      const valid =
+        crypto.timingSafeEqual(
+          Buffer.from(signature),
+          Buffer.from(
+            expectedSignature
+          )
+        );
+
+      if (!valid) {
+        return res.sendStatus(401);
+      }
+
+      const event =
+        JSON.parse(
+          rawBody.toString("utf8")
+        );
+
+      if (
+        event.event !==
+        "charge.success"
+      ) {
+        return res.sendStatus(200);
+      }
+
+      const reference =
+        event?.data?.reference;
+
+      if (!reference) {
+        return res.sendStatus(200);
+      }
+
+      const result =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE paystack_reference = $1
+             OR order_ref = $1
+          LIMIT 1
+          `,
+          [reference]
+        );
+
+      if (!result.rows.length) {
+        return res.sendStatus(200);
+      }
+
+      const order =
+        result.rows[0];
+
+      const amountFromPaystack =
+        Number(
+          event?.data?.amount || 0
+        ) / 100;
+
+      if (
+        Math.round(
+          amountFromPaystack * 100
+        ) !==
+        Math.round(
+          Number(order.amount) * 100
+        )
+      ) {
+        console.error(
+          "Paystack amount mismatch:",
+          reference
+        );
+
+        return res.sendStatus(400);
+      }
+
+      const currency =
+        String(
+          event?.data?.currency || ""
+        ).toUpperCase();
+
+      if (currency !== "GHS") {
+        return res.sendStatus(400);
+      }
+
+      await pool.query(
+        `
+        UPDATE orders
+        SET
+          payment_status = 'Paid',
+          paid_at =
+            COALESCE(
+              paid_at,
+              NOW()
+            ),
+          status =
+            CASE
+              WHEN status =
+                'Pending Payment'
+              THEN 'Processing'
+              ELSE status
+            END
+        WHERE id = $1
+        `,
+        [order.id]
+      );
+
+      const updatedResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE id = $1
+          `,
+          [order.id]
+        );
+
+      await fulfillDataOrder(
+        updatedResult.rows[0]
+      );
+
+      return res.sendStatus(200);
+
+    } catch (error) {
+
+      console.error(
+        "Paystack webhook error:",
+        error
+      );
+
+      return res.sendStatus(500);
+    }
+  }
+);
+
+// =====================================================
+// BODY PARSERS
+// =====================================================
+
+app.use(
+  express.json({
+    limit: "1mb"
+  })
+);
+
+app.use(
+  express.urlencoded({
+    extended: true
   })
 );
 
@@ -278,93 +559,156 @@ function cleanPhone(value) {
 }
 
 function normalizeGhanaPhone(value) {
-  let phone = cleanPhone(value);
 
-  if (phone.startsWith("+233")) {
-    phone = "0" + phone.slice(4);
+  let phone =
+    cleanPhone(value);
+
+  if (
+    phone.startsWith("+233")
+  ) {
+    phone =
+      "0" +
+      phone.slice(4);
   }
 
-  if (phone.startsWith("233")) {
-    phone = "0" + phone.slice(3);
+  if (
+    phone.startsWith("233")
+  ) {
+    phone =
+      "0" +
+      phone.slice(3);
   }
 
   return phone;
 }
 
 function validGhanaPhone(value) {
-  return /^0(20|23|24|25|26|27|50|51|53|54|55|59)\d{7}$/.test(
-    normalizeGhanaPhone(value)
-  );
+
+  return /^0(20|23|24|25|26|27|50|51|53|54|55|59)\d{7}$/
+    .test(
+      normalizeGhanaPhone(value)
+    );
 }
 
 function cleanEmail(value) {
+
   return String(value || "")
     .trim()
     .toLowerCase();
 }
 
 function createOrderReference() {
+
   return (
     "DGM-" +
-    Date.now().toString(36).toUpperCase() +
+    Date.now()
+      .toString(36)
+      .toUpperCase() +
     "-" +
-    crypto.randomBytes(3).toString("hex").toUpperCase()
+    crypto
+      .randomBytes(3)
+      .toString("hex")
+      .toUpperCase()
   );
 }
 
 function createTransactionReference() {
+
   return (
     "TXN-" +
-    Date.now().toString(36).toUpperCase() +
+    Date.now()
+      .toString(36)
+      .toUpperCase() +
     "-" +
-    crypto.randomBytes(3).toString("hex").toUpperCase()
+    crypto
+      .randomBytes(3)
+      .toString("hex")
+      .toUpperCase()
   );
 }
 
-function sendError(res, status, message) {
+function sendError(
+  res,
+  status,
+  message
+) {
+
   return res.status(status).json({
     success: false,
     message
   });
 }
 
-async function requireLogin(req, res, next) {
-  if (!req.session || !req.session.customerId) {
-    return sendError(res, 401, "Please login to continue.");
+function requireLogin(
+  req,
+  res,
+  next
+) {
+
+  if (
+    !req.session ||
+    !req.session.customerId
+  ) {
+    return sendError(
+      res,
+      401,
+      "Please login to continue."
+    );
   }
 
   next();
 }
 
-async function getCustomer(customerId) {
-  const result = await pool.query(
-    `
-    SELECT
-      id,
-      name,
-      phone,
-      email,
-      balance,
-      created_at
-    FROM customers
-    WHERE id = $1
-    `,
-    [customerId]
-  );
+async function getCustomer(
+  customerId
+) {
 
-  return result.rows[0] || null;
+  const result =
+    await pool.query(
+      `
+      SELECT
+        id,
+        name,
+        phone,
+        email,
+        balance,
+        created_at
+      FROM customers
+      WHERE id = $1
+      `,
+      [customerId]
+    );
+
+  return (
+    result.rows[0] ||
+    null
+  );
 }
 
-function publicCustomer(customer) {
-  if (!customer) return null;
+function publicCustomer(
+  customer
+) {
+
+  if (!customer) {
+    return null;
+  }
 
   return {
     id: customer.id,
+
     name: customer.name,
+
     phone: customer.phone,
+
     email: customer.email,
-    balance: Number(customer.balance || 0),
-    created_at: customer.created_at
+
+    balance:
+      Number(
+        customer.balance || 0
+      ),
+
+    created_at:
+      customer.created_at
   };
 }
 
@@ -373,6 +717,7 @@ function publicCustomer(customer) {
 // =====================================================
 
 const DGM_PRICES = {
+
   MTN: {
     1: 5,
     2: 10,
@@ -422,20 +767,32 @@ const DGM_PRICES = {
 };
 
 const NETWORK_MAP = {
+
   MTN: "YELLO",
-  AirtelTigo: "AT_PREMIUM",
-  Telecel: "TELECEL"
+
+  AirtelTigo:
+    "AT_PREMIUM",
+
+  Telecel:
+    "TELECEL"
 };
 
-function normalizeCapacity(value) {
-  const cleaned = String(value || "")
-    .toUpperCase()
-    .replace(/GB/g, "")
-    .trim();
+function normalizeCapacity(
+  value
+) {
 
-  const number = Number(cleaned);
+  const cleaned =
+    String(value || "")
+      .toUpperCase()
+      .replace(/GB/g, "")
+      .trim();
 
-  return Number.isFinite(number) ? number : null;
+  const number =
+    Number(cleaned);
+
+  return Number.isFinite(number)
+    ? number
+    : null;
 }
 
 // =====================================================
@@ -448,38 +805,57 @@ const DATAMART_BASE =
 const DATAMART_DEVELOPER_BASE =
   "https://api.datamartgh.shop/api/developer";
 
-async function datamartRequest(baseUrl, endpoint, options = {}) {
+async function datamartRequest(
+  baseUrl,
+  endpoint,
+  options = {}
+) {
+
   if (!DATAMART_API_KEY) {
-    throw new Error("DATAMART_API_KEY is not configured.");
+    throw new Error(
+      "DATAMART_API_KEY is not configured."
+    );
   }
 
-  const controller = new AbortController();
+  const controller =
+    new AbortController();
 
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, 30000);
+  const timeout =
+    setTimeout(() => {
+      controller.abort();
+    }, 30000);
 
   try {
-    const response = await fetch(
-      `${baseUrl}${endpoint}`,
-      {
-        ...options,
-        signal: controller.signal,
 
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-Key": DATAMART_API_KEY,
-          ...(options.headers || {})
+    const response =
+      await fetch(
+        `${baseUrl}${endpoint}`,
+        {
+          ...options,
+
+          signal:
+            controller.signal,
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            "X-API-Key":
+              DATAMART_API_KEY,
+
+            ...(options.headers || {})
+          }
         }
-      }
-    );
+      );
 
-    const text = await response.text();
+    const text =
+      await response.text();
 
     let data;
 
     try {
-      data = JSON.parse(text);
+      data =
+        JSON.parse(text);
     } catch {
       data = {
         raw: text
@@ -487,6 +863,7 @@ async function datamartRequest(baseUrl, endpoint, options = {}) {
     }
 
     if (!response.ok) {
+
       throw new Error(
         `DataMart HTTP ${response.status}: ${
           data.message ||
@@ -498,29 +875,42 @@ async function datamartRequest(baseUrl, endpoint, options = {}) {
     }
 
     return data;
+
   } finally {
+
     clearTimeout(timeout);
   }
 }
 
-async function datamartPurchase(payload, idempotencyKey) {
-  const body = JSON.stringify(payload);
+async function datamartPurchase(
+  payload,
+  idempotencyKey
+) {
+
+  const body =
+    JSON.stringify(payload);
 
   try {
+
     return await datamartRequest(
       DATAMART_BASE,
       "/purchase",
       {
         method: "POST",
+
         body,
+
         headers: {
-          "X-Idempotency-Key": idempotencyKey
+          "X-Idempotency-Key":
+            idempotencyKey
         }
       }
     );
+
   } catch (primaryError) {
+
     console.warn(
-      "Primary DataMart purchase endpoint failed:",
+      "Primary DataMart endpoint failed:",
       primaryError.message
     );
 
@@ -529,50 +919,77 @@ async function datamartPurchase(payload, idempotencyKey) {
       "/purchase",
       {
         method: "POST",
+
         body,
+
         headers: {
-          "X-Idempotency-Key": idempotencyKey
+          "X-Idempotency-Key":
+            idempotencyKey
         }
       }
     );
   }
 }
 
-async function fulfillDataOrder(order) {
+async function fulfillDataOrder(
+  order
+) {
+
   if (!order) {
-    throw new Error("Order not found.");
+    throw new Error(
+      "Order not found."
+    );
   }
 
   if (
-    String(order.payment_status || "").toLowerCase() !==
-    "paid"
+    String(
+      order.payment_status || ""
+    ).toLowerCase() !== "paid"
   ) {
-    throw new Error("Order has not been paid.");
+    throw new Error(
+      "Order has not been paid."
+    );
   }
 
   if (
-    String(order.service || "").toLowerCase() !==
-    "data"
+    String(
+      order.service || ""
+    ).toLowerCase() !== "data"
   ) {
     return;
   }
 
-  const capacity = normalizeCapacity(order.capacity);
+  const capacity =
+    normalizeCapacity(
+      order.capacity
+    );
 
   if (!order.network) {
-    throw new Error("Network is missing.");
+    throw new Error(
+      "Network is missing."
+    );
   }
 
-  if (!validGhanaPhone(order.phone)) {
-    throw new Error("Invalid Ghana phone number.");
+  if (
+    !validGhanaPhone(
+      order.phone
+    )
+  ) {
+    throw new Error(
+      "Invalid Ghana phone number."
+    );
   }
 
   if (!capacity) {
-    throw new Error("Data capacity is missing.");
+    throw new Error(
+      "Data capacity is missing."
+    );
   }
 
   const datamartNetwork =
-    NETWORK_MAP[order.network];
+    NETWORK_MAP[
+      order.network
+    ];
 
   if (!datamartNetwork) {
     throw new Error(
@@ -581,9 +998,17 @@ async function fulfillDataOrder(order) {
   }
 
   const payload = {
-    phoneNumber: normalizeGhanaPhone(order.phone),
-    network: datamartNetwork,
+
+    phoneNumber:
+      normalizeGhanaPhone(
+        order.phone
+      ),
+
+    network:
+      datamartNetwork,
+
     capacity,
+
     gateway: "wallet"
   };
 
@@ -591,10 +1016,12 @@ async function fulfillDataOrder(order) {
     `dgm-${order.order_ref}`;
 
   try {
-    const result = await datamartPurchase(
-      payload,
-      idempotencyKey
-    );
+
+    const result =
+      await datamartPurchase(
+        payload,
+        idempotencyKey
+      );
 
     const purchaseId =
       result?.purchaseId ||
@@ -613,13 +1040,15 @@ async function fulfillDataOrder(order) {
       result?.transaction_reference ||
       null;
 
-    const externalStatus = String(
-      result?.status ||
-      result?.data?.status ||
-      "processing"
-    ).toLowerCase();
+    const externalStatus =
+      String(
+        result?.status ||
+        result?.data?.status ||
+        "processing"
+      ).toLowerCase();
 
-    let localStatus = "Processing";
+    let localStatus =
+      "Processing";
 
     if (
       [
@@ -627,9 +1056,12 @@ async function fulfillDataOrder(order) {
         "complete",
         "success",
         "successful"
-      ].includes(externalStatus)
+      ].includes(
+        externalStatus
+      )
     ) {
-      localStatus = "Completed";
+      localStatus =
+        "Completed";
     }
 
     if (
@@ -639,9 +1071,12 @@ async function fulfillDataOrder(order) {
         "refunded",
         "cancelled",
         "canceled"
-      ].includes(externalStatus)
+      ].includes(
+        externalStatus
+      )
     ) {
-      localStatus = "Failed";
+      localStatus =
+        "Failed";
     }
 
     await pool.query(
@@ -667,10 +1102,16 @@ async function fulfillDataOrder(order) {
 
     return {
       success: true,
-      status: localStatus,
-      datamart: result
+
+      status:
+        localStatus,
+
+      datamart:
+        result
     };
+
   } catch (error) {
+
     console.error(
       "DataMart fulfillment error:",
       error
@@ -692,405 +1133,403 @@ async function fulfillDataOrder(order) {
 
     return {
       success: false,
-      status: "Processing",
-      error: error.message
+
+      status:
+        "Processing",
+
+      error:
+        error.message
     };
   }
 }
 
 // =====================================================
-// PAYSTACK WEBHOOK
-// MUST COME BEFORE express.json()
+// AUTH - REGISTER
 // =====================================================
 
 app.post(
-  "/api/paystack/webhook",
-  express.raw({
-    type: "application/json"
-  }),
+  "/api/register",
   async (req, res) => {
+
     try {
-      if (!PAYSTACK_SECRET_KEY) {
-        return res.sendStatus(200);
-      }
 
-      const signature =
-        req.headers["x-paystack-signature"];
+      const name =
+        String(
+          req.body.name || ""
+        ).trim();
 
-      if (!signature) {
-        return res.sendStatus(401);
-      }
-
-      const rawBody = Buffer.isBuffer(req.body)
-        ? req.body
-        : Buffer.from("");
-
-      const expectedSignature =
-        crypto
-          .createHmac(
-            "sha512",
-            PAYSTACK_SECRET_KEY
-          )
-          .update(rawBody)
-          .digest("hex");
-
-      if (
-        signature.length !==
-        expectedSignature.length
-      ) {
-        return res.sendStatus(401);
-      }
-
-      const valid =
-        crypto.timingSafeEqual(
-          Buffer.from(signature),
-          Buffer.from(expectedSignature)
+      const phone =
+        normalizeGhanaPhone(
+          req.body.phone
         );
 
-      if (!valid) {
-        return res.sendStatus(401);
-      }
-
-      const event =
-        JSON.parse(rawBody.toString("utf8"));
-
-      if (event.event !== "charge.success") {
-        return res.sendStatus(200);
-      }
-
-      const reference =
-        event?.data?.reference;
-
-      if (!reference) {
-        return res.sendStatus(200);
-      }
-
-      const result = await pool.query(
-        `
-        SELECT *
-        FROM orders
-        WHERE paystack_reference = $1
-           OR order_ref = $1
-        LIMIT 1
-        `,
-        [reference]
-      );
-
-      if (!result.rows.length) {
-        return res.sendStatus(200);
-      }
-
-      const order = result.rows[0];
-
-      const amountFromPaystack =
-        Number(event?.data?.amount || 0) / 100;
-
-      if (
-        Math.round(amountFromPaystack * 100) !==
-        Math.round(Number(order.amount) * 100)
-      ) {
-        console.error(
-          "Paystack amount mismatch:",
-          reference
+      const email =
+        cleanEmail(
+          req.body.email
         );
 
-        return res.sendStatus(400);
+      const password =
+        String(
+          req.body.password || ""
+        );
+
+      if (!name) {
+        return sendError(
+          res,
+          400,
+          "Please enter your name."
+        );
       }
 
-      const currency = String(
-        event?.data?.currency || ""
-      ).toUpperCase();
-
-      if (currency !== "GHS") {
-        return res.sendStatus(400);
+      if (
+        !validGhanaPhone(
+          phone
+        )
+      ) {
+        return sendError(
+          res,
+          400,
+          "Enter a valid Ghana phone number."
+        );
       }
 
-      await pool.query(
-        `
-        UPDATE orders
-        SET
-          payment_status = 'Paid',
-          paid_at = COALESCE(paid_at, NOW()),
-          status =
-            CASE
-              WHEN status = 'Pending Payment'
-              THEN 'Processing'
-              ELSE status
-            END
-        WHERE id = $1
-        `,
-        [order.id]
-      );
+      if (!email) {
+        return sendError(
+          res,
+          400,
+          "Please enter your email."
+        );
+      }
 
-      const updatedResult =
+      if (
+        password.length < 6
+      ) {
+        return sendError(
+          res,
+          400,
+          "Password must be at least 6 characters."
+        );
+      }
+
+      const existing =
         await pool.query(
           `
-          SELECT *
-          FROM orders
-          WHERE id = $1
+          SELECT id
+          FROM customers
+          WHERE phone = $1
+             OR email = $2
+          LIMIT 1
           `,
-          [order.id]
+          [
+            phone,
+            email
+          ]
         );
 
-      await fulfillDataOrder(
-        updatedResult.rows[0]
+      if (
+        existing.rows.length
+      ) {
+        return sendError(
+          res,
+          409,
+          "An account with that phone or email already exists."
+        );
+      }
+
+      const hashedPassword =
+        await bcrypt.hash(
+          password,
+          12
+        );
+
+      const result =
+        await pool.query(
+          `
+          INSERT INTO customers
+            (
+              name,
+              phone,
+              email,
+              password
+            )
+          VALUES
+            (
+              $1,
+              $2,
+              $3,
+              $4
+            )
+          RETURNING
+            id,
+            name,
+            phone,
+            email,
+            balance,
+            created_at
+          `,
+          [
+            name,
+            phone,
+            email,
+            hashedPassword
+          ]
+        );
+
+      const customer =
+        result.rows[0];
+
+      await new Promise(
+        (resolve, reject) => {
+
+          req.session.regenerate(
+            (error) => {
+
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            }
+          );
+        }
       );
 
-      return res.sendStatus(200);
+      req.session.customerId =
+        customer.id;
+
+      await new Promise(
+        (resolve, reject) => {
+
+          req.session.save(
+            (error) => {
+
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            }
+          );
+        }
+      );
+
+      return res.json({
+        success: true,
+
+        message:
+          "Registration successful.",
+
+        customer:
+          publicCustomer(
+            customer
+          )
+      });
+
     } catch (error) {
+
       console.error(
-        "Paystack webhook error:",
+        "Register error:",
         error
       );
 
-      return res.sendStatus(500);
+      return sendError(
+        res,
+        500,
+        "Registration failed."
+      );
     }
   }
 );
 
 // =====================================================
-// AUTH - REGISTER
-// =====================================================
-
-app.post("/api/register", async (req, res) => {
-  try {
-    const name = String(
-      req.body.name || ""
-    ).trim();
-
-    const phone =
-      normalizeGhanaPhone(req.body.phone);
-
-    const email =
-      cleanEmail(req.body.email);
-
-    const password =
-      String(req.body.password || "");
-
-    if (!name) {
-      return sendError(
-        res,
-        400,
-        "Please enter your name."
-      );
-    }
-
-    if (!validGhanaPhone(phone)) {
-      return sendError(
-        res,
-        400,
-        "Enter a valid Ghana phone number."
-      );
-    }
-
-    if (!email) {
-      return sendError(
-        res,
-        400,
-        "Please enter your email."
-      );
-    }
-
-    if (password.length < 6) {
-      return sendError(
-        res,
-        400,
-        "Password must be at least 6 characters."
-      );
-    }
-
-    const existing =
-      await pool.query(
-        `
-        SELECT id
-        FROM customers
-        WHERE phone = $1
-           OR email = $2
-        LIMIT 1
-        `,
-        [phone, email]
-      );
-
-    if (existing.rows.length) {
-      return sendError(
-        res,
-        409,
-        "An account with that phone or email already exists."
-      );
-    }
-
-    const hashedPassword =
-      await bcrypt.hash(password, 12);
-
-    const result =
-      await pool.query(
-        `
-        INSERT INTO customers
-          (name, phone, email, password)
-        VALUES
-          ($1, $2, $3, $4)
-        RETURNING id, name, phone, email, balance, created_at
-        `,
-        [
-          name,
-          phone,
-          email,
-          hashedPassword
-        ]
-      );
-
-    const customer =
-      result.rows[0];
-
-    await new Promise(
-      (resolve, reject) => {
-        req.session.regenerate(
-          (error) => {
-            if (error) reject(error);
-            else resolve();
-          }
-        );
-      }
-    );
-
-    req.session.customerId =
-      customer.id;
-
-    await new Promise(
-      (resolve, reject) => {
-        req.session.save(
-          (error) => {
-            if (error) reject(error);
-            else resolve();
-          }
-        );
-      }
-    );
-
-    return res.json({
-      success: true,
-      customer: publicCustomer(customer)
-    });
-  } catch (error) {
-    console.error(
-      "Register error:",
-      error
-    );
-
-    return sendError(
-      res,
-      500,
-      "Registration failed."
-    );
-  }
-});
-
-// =====================================================
 // AUTH - LOGIN
+// FIXED:
+// Accepts BOTH "identifier" and "login"
 // =====================================================
 
-app.post("/api/login", async (req, res) => {
-  try {
-    const login =
-      String(req.body.login || "")
-        .trim();
+app.post(
+  "/api/login",
+  async (req, res) => {
 
-    const password =
-      String(req.body.password || "");
+    try {
 
-    if (!login || !password) {
-      return sendError(
-        res,
-        400,
-        "Enter your login details."
-      );
-    }
+      const identifier =
+        String(
+          req.body.identifier ||
+          req.body.login ||
+          ""
+        ).trim();
 
-    const phone =
-      normalizeGhanaPhone(login);
+      const password =
+        String(
+          req.body.password || ""
+        );
 
-    const email =
-      cleanEmail(login);
-
-    const result =
-      await pool.query(
-        `
-        SELECT *
-        FROM customers
-        WHERE phone = $1
-           OR email = $2
-        LIMIT 1
-        `,
-        [phone, email]
-      );
-
-    if (!result.rows.length) {
-      return sendError(
-        res,
-        401,
-        "Invalid login details."
-      );
-    }
-
-    const customer =
-      result.rows[0];
-
-    const passwordMatches =
-      await bcrypt.compare(
-        password,
-        customer.password
-      );
-
-    if (!passwordMatches) {
-      return sendError(
-        res,
-        401,
-        "Invalid login details."
-      );
-    }
-
-    await new Promise(
-      (resolve, reject) => {
-        req.session.regenerate(
-          (error) => {
-            if (error) reject(error);
-            else resolve();
-          }
+      if (
+        !identifier ||
+        !password
+      ) {
+        return sendError(
+          res,
+          400,
+          "Enter your phone number/email and password."
         );
       }
-    );
 
-    req.session.customerId =
-      customer.id;
+      const phone =
+        normalizeGhanaPhone(
+          identifier
+        );
 
-    await new Promise(
-      (resolve, reject) => {
-        req.session.save(
-          (error) => {
-            if (error) reject(error);
-            else resolve();
-          }
+      const email =
+        cleanEmail(
+          identifier
+        );
+
+      console.log(
+        "DGM LOGIN ATTEMPT:",
+        identifier
+      );
+
+      const result =
+        await pool.query(
+          `
+          SELECT *
+          FROM customers
+          WHERE phone = $1
+             OR email = $2
+          LIMIT 1
+          `,
+          [
+            phone,
+            email
+          ]
+        );
+
+      if (
+        !result.rows.length
+      ) {
+
+        console.log(
+          "DGM LOGIN: CUSTOMER NOT FOUND"
+        );
+
+        return sendError(
+          res,
+          401,
+          "Invalid login details."
         );
       }
-    );
 
-    return res.json({
-      success: true,
-      customer: publicCustomer(customer)
-    });
-  } catch (error) {
-    console.error(
-      "Login error:",
-      error
-    );
+      const customer =
+        result.rows[0];
 
-    return sendError(
-      res,
-      500,
-      "Login failed."
-    );
+      if (
+        !customer.password
+      ) {
+
+        console.error(
+          "DGM LOGIN: Customer has no password hash."
+        );
+
+        return sendError(
+          res,
+          500,
+          "This account has an invalid password record."
+        );
+      }
+
+      const passwordMatches =
+        await bcrypt.compare(
+          password,
+          customer.password
+        );
+
+      if (!passwordMatches) {
+
+        console.log(
+          "DGM LOGIN: INCORRECT PASSWORD"
+        );
+
+        return sendError(
+          res,
+          401,
+          "Invalid login details."
+        );
+      }
+
+      // ===============================================
+      // CREATE NEW SESSION
+      // ===============================================
+
+      await new Promise(
+        (resolve, reject) => {
+
+          req.session.regenerate(
+            (error) => {
+
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            }
+          );
+        }
+      );
+
+      req.session.customerId =
+        customer.id;
+
+      await new Promise(
+        (resolve, reject) => {
+
+          req.session.save(
+            (error) => {
+
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            }
+          );
+        }
+      );
+
+      console.log(
+        "DGM LOGIN SUCCESS:",
+        customer.id,
+        customer.phone
+      );
+
+      return res.json({
+        success: true,
+
+        message:
+          "Login successful.",
+
+        customer:
+          publicCustomer(
+            customer
+          )
+      });
+
+    } catch (error) {
+
+      console.error(
+        "DGM LOGIN ERROR:",
+        error
+      );
+
+      return sendError(
+        res,
+        500,
+        "Login failed. Please try again."
+      );
+    }
   }
-});
+);
 
 // =====================================================
 // AUTH - ME
@@ -1099,11 +1538,14 @@ app.post("/api/login", async (req, res) => {
 app.get(
   "/api/me",
   async (req, res) => {
+
     try {
+
       if (
         !req.session ||
         !req.session.customerId
       ) {
+
         return sendError(
           res,
           401,
@@ -1117,7 +1559,10 @@ app.get(
         );
 
       if (!customer) {
-        req.session.destroy(() => {});
+
+        req.session.destroy(
+          () => {}
+        );
 
         return sendError(
           res,
@@ -1128,10 +1573,15 @@ app.get(
 
       return res.json({
         success: true,
+
         customer:
-          publicCustomer(customer)
+          publicCustomer(
+            customer
+          )
       });
+
     } catch (error) {
+
       console.error(
         "ME error:",
         error
@@ -1153,46 +1603,63 @@ app.get(
 app.post(
   "/api/logout",
   (req, res) => {
-    const destroySession = () => {
-      res.clearCookie("dgm.sid", {
-        httpOnly: true,
-        secure: NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/"
-      });
 
-      // Clear old session cookie too.
-      res.clearCookie("connect.sid", {
-        httpOnly: true,
-        secure: NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/"
-      });
+    const clearCookies =
+      () => {
 
-      return res.json({
-        success: true
-      });
-    };
-
-    if (!req.session) {
-      return destroySession();
-    }
-
-    req.session.destroy((error) => {
-      if (error) {
-        console.error(
-          "Logout error:",
-          error
+        res.clearCookie(
+          "dgm.sid",
+          {
+            httpOnly: true,
+            secure:
+              NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/"
+          }
         );
 
-        return res.status(500).json({
-          success: false,
-          message: "Logout failed."
-        });
-      }
+        res.clearCookie(
+          "connect.sid",
+          {
+            httpOnly: true,
+            secure:
+              NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/"
+          }
+        );
 
-      return destroySession();
-    });
+        return res.json({
+          success: true
+        });
+      };
+
+    if (!req.session) {
+      return clearCookies();
+    }
+
+    req.session.destroy(
+      (error) => {
+
+        if (error) {
+
+          console.error(
+            "Logout error:",
+            error
+          );
+
+          return res.status(
+            500
+          ).json({
+            success: false,
+            message:
+              "Logout failed."
+          });
+        }
+
+        return clearCookies();
+      }
+    );
   }
 );
 
@@ -1204,15 +1671,19 @@ app.post(
   "/api/orders",
   requireLogin,
   async (req, res) => {
+
     try {
+
       const service =
         String(
-          req.body.service || "Data"
+          req.body.service ||
+          "Data"
         ).trim();
 
       const network =
         String(
-          req.body.network || ""
+          req.body.network ||
+          ""
         ).trim();
 
       const phone =
@@ -1233,7 +1704,11 @@ app.post(
         );
       }
 
-      if (!validGhanaPhone(phone)) {
+      if (
+        !validGhanaPhone(
+          phone
+        )
+      ) {
         return sendError(
           res,
           400,
@@ -1250,7 +1725,9 @@ app.post(
       }
 
       const networkPrices =
-        DGM_PRICES[network];
+        DGM_PRICES[
+          network
+        ];
 
       if (!networkPrices) {
         return sendError(
@@ -1261,10 +1738,13 @@ app.post(
       }
 
       const amount =
-        networkPrices[capacity];
+        networkPrices[
+          capacity
+        ];
 
       if (
-        typeof amount !== "number"
+        typeof amount !==
+        "number"
       ) {
         return sendError(
           res,
@@ -1318,9 +1798,12 @@ app.post(
 
       return res.json({
         success: true,
-        order: result.rows[0]
+        order:
+          result.rows[0]
       });
+
     } catch (error) {
+
       console.error(
         "Create order error:",
         error
@@ -1343,7 +1826,9 @@ app.get(
   "/api/orders",
   requireLogin,
   async (req, res) => {
+
     try {
+
       const result =
         await pool.query(
           `
@@ -1367,14 +1852,19 @@ app.get(
           WHERE customer_id = $1
           ORDER BY created_at DESC
           `,
-          [req.session.customerId]
+          [
+            req.session.customerId
+          ]
         );
 
       return res.json({
         success: true,
-        orders: result.rows
+        orders:
+          result.rows
       });
+
     } catch (error) {
+
       console.error(
         "Orders error:",
         error
@@ -1397,7 +1887,9 @@ app.get(
   "/api/orders/:orderRef",
   requireLogin,
   async (req, res) => {
+
     try {
+
       const result =
         await pool.query(
           `
@@ -1413,7 +1905,9 @@ app.get(
           ]
         );
 
-      if (!result.rows.length) {
+      if (
+        !result.rows.length
+      ) {
         return sendError(
           res,
           404,
@@ -1423,9 +1917,12 @@ app.get(
 
       return res.json({
         success: true,
-        order: result.rows[0]
+        order:
+          result.rows[0]
       });
+
     } catch (error) {
+
       console.error(
         "Single order error:",
         error
@@ -1448,8 +1945,12 @@ app.post(
   "/api/payments/initialize",
   requireLogin,
   async (req, res) => {
+
     try {
-      if (!PAYSTACK_SECRET_KEY) {
+
+      if (
+        !PAYSTACK_SECRET_KEY
+      ) {
         return sendError(
           res,
           500,
@@ -1459,7 +1960,8 @@ app.post(
 
       const orderRef =
         String(
-          req.body.orderRef || ""
+          req.body.orderRef ||
+          ""
         ).trim();
 
       if (!orderRef) {
@@ -1485,7 +1987,9 @@ app.post(
           ]
         );
 
-      if (!result.rows.length) {
+      if (
+        !result.rows.length
+      ) {
         return sendError(
           res,
           404,
@@ -1499,8 +2003,10 @@ app.post(
       if (
         String(
           order.payment_status
-        ).toLowerCase() === "paid"
+        ).toLowerCase() ===
+        "paid"
       ) {
+
         return res.json({
           success: true,
           alreadyPaid: true,
@@ -1508,9 +2014,24 @@ app.post(
         });
       }
 
+      const customer =
+        await getCustomer(
+          req.session.customerId
+        );
+
+      if (!customer) {
+        return sendError(
+          res,
+          401,
+          "Customer account not found."
+        );
+      }
+
       const amountPesewas =
         Math.round(
-          Number(order.amount) * 100
+          Number(
+            order.amount
+          ) * 100
         );
 
       const callbackUrl =
@@ -1521,34 +2042,40 @@ app.post(
           "https://api.paystack.co/transaction/initialize",
           {
             method: "POST",
+
             headers: {
               Authorization:
                 `Bearer ${PAYSTACK_SECRET_KEY}`,
+
               "Content-Type":
                 "application/json"
             },
-            body: JSON.stringify({
-              email:
-                String(
-                  (
-                    await getCustomer(
-                      req.session.customerId
-                    )
-                  )?.email || ""
-                ),
-              amount: amountPesewas,
-              currency: "GHS",
-              callback_url: callbackUrl,
 
-              metadata: {
-                order_ref:
-                  order.order_ref,
-                customer_id:
-                  order.customer_id,
-                service:
-                  order.service
-              }
-            })
+            body:
+              JSON.stringify({
+                email:
+                  customer.email,
+
+                amount:
+                  amountPesewas,
+
+                currency:
+                  "GHS",
+
+                callback_url:
+                  callbackUrl,
+
+                metadata: {
+                  order_ref:
+                    order.order_ref,
+
+                  customer_id:
+                    order.customer_id,
+
+                  service:
+                    order.service
+                }
+              })
           }
         );
 
@@ -1559,6 +2086,7 @@ app.post(
         !paystackResponse.ok ||
         !data.status
       ) {
+
         console.error(
           "Paystack initialize failed:",
           data
@@ -1589,13 +2117,18 @@ app.post(
 
       return res.json({
         success: true,
+
         authorization_url:
           data.data.authorization_url,
+
         access_code:
           data.data.access_code,
+
         reference
       });
+
     } catch (error) {
+
       console.error(
         "Payment initialize error:",
         error
@@ -1618,8 +2151,12 @@ app.get(
   "/api/payments/verify/:reference",
   requireLogin,
   async (req, res) => {
+
     try {
-      if (!PAYSTACK_SECRET_KEY) {
+
+      if (
+        !PAYSTACK_SECRET_KEY
+      ) {
         return sendError(
           res,
           500,
@@ -1629,7 +2166,8 @@ app.get(
 
       const reference =
         String(
-          req.params.reference || ""
+          req.params.reference ||
+          ""
         ).trim();
 
       const orderResult =
@@ -1650,7 +2188,9 @@ app.get(
           ]
         );
 
-      if (!orderResult.rows.length) {
+      if (
+        !orderResult.rows.length
+      ) {
         return sendError(
           res,
           404,
@@ -1697,23 +2237,32 @@ app.get(
         "success";
 
       if (!paid) {
+
         return res.json({
           success: true,
+
           paid: false,
+
           status:
             transaction.status,
+
           order
         });
       }
 
       const amount =
-        Number(transaction.amount || 0) /
-        100;
+        Number(
+          transaction.amount || 0
+        ) / 100;
 
       if (
-        Math.round(amount * 100) !==
         Math.round(
-          Number(order.amount) * 100
+          amount * 100
+        ) !==
+        Math.round(
+          Number(
+            order.amount
+          ) * 100
         )
       ) {
         return sendError(
@@ -1728,11 +2277,16 @@ app.get(
         UPDATE orders
         SET
           payment_status = 'Paid',
-          paid_at = COALESCE(paid_at, NOW()),
+          paid_at =
+            COALESCE(
+              paid_at,
+              NOW()
+            ),
           paystack_reference = $1,
           status =
             CASE
-              WHEN status = 'Pending Payment'
+              WHEN status =
+                'Pending Payment'
               THEN 'Processing'
               ELSE status
             END
@@ -1757,19 +2311,25 @@ app.get(
       order =
         updated.rows[0];
 
-      // Important:
-      // Even if the webhook already marked the
-      // order Paid, this makes sure an unfulfilled
-      // order is sent to DataMart.
       if (
-        String(order.payment_status)
-          .toLowerCase() === "paid" &&
-        String(order.service)
-          .toLowerCase() === "data" &&
+        String(
+          order.payment_status
+        ).toLowerCase() ===
+          "paid" &&
+
+        String(
+          order.service
+        ).toLowerCase() ===
+          "data" &&
+
         !order.datamart_reference &&
+
         !order.datamart_purchase_id
       ) {
-        await fulfillDataOrder(order);
+
+        await fulfillDataOrder(
+          order
+        );
 
         const refreshed =
           await pool.query(
@@ -1790,7 +2350,9 @@ app.get(
         paid: true,
         order
       });
+
     } catch (error) {
+
       console.error(
         "Payment verify error:",
         error
@@ -1806,6 +2368,148 @@ app.get(
 );
 
 // =====================================================
+// PAYMENT SUCCESS PAGE
+// =====================================================
+
+app.get(
+  "/payment-success",
+  (req, res) => {
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+
+        <meta charset="UTF-8">
+
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0"
+        >
+
+        <title>
+          Payment Successful | DHE GENIUS MEDIA
+        </title>
+
+        <style>
+
+          * {
+            box-sizing: border-box;
+          }
+
+          body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background:
+              linear-gradient(
+                135deg,
+                #06130c,
+                #0a2417,
+                #020705
+              );
+            color: white;
+            font-family:
+              Arial,
+              Helvetica,
+              sans-serif;
+          }
+
+          .box {
+            width: 100%;
+            max-width: 430px;
+            padding: 35px 25px;
+            text-align: center;
+            border-radius: 24px;
+            background: #0c1712;
+            border:
+              1px solid
+              rgba(255,255,255,.08);
+            box-shadow:
+              0 25px 70px
+              rgba(0,0,0,.45);
+          }
+
+          .icon {
+            width: 75px;
+            height: 75px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background: #25d366;
+            color: #06110b;
+            font-size: 38px;
+            font-weight: 900;
+          }
+
+          h1 {
+            margin-bottom: 10px;
+          }
+
+          p {
+            color: #9fb2a7;
+            line-height: 1.6;
+          }
+
+          a {
+            display: block;
+            margin-top: 25px;
+            padding: 14px;
+            border-radius: 13px;
+            background: #25d366;
+            color: #06110b;
+            text-decoration: none;
+            font-weight: 900;
+          }
+
+        </style>
+
+      </head>
+
+      <body>
+
+        <div class="box">
+
+          <div class="icon">
+            ✓
+          </div>
+
+          <h1>
+            Payment Successful
+          </h1>
+
+          <p>
+            Your payment has been received.
+            Your order is being processed.
+          </p>
+
+          <a href="/orders.html">
+            View My Orders
+          </a>
+
+          <a
+            href="/dashboard.html"
+            style="
+              background:#17251e;
+              color:#ffffff;
+            "
+          >
+            Back to Dashboard
+          </a>
+
+        </div>
+
+      </body>
+      </html>
+    `);
+  }
+);
+
+// =====================================================
 // WALLET TRANSACTIONS
 // =====================================================
 
@@ -1813,7 +2517,9 @@ app.get(
   "/api/wallet/transactions",
   requireLogin,
   async (req, res) => {
+
     try {
+
       const result =
         await pool.query(
           `
@@ -1829,15 +2535,20 @@ app.get(
           ORDER BY created_at DESC
           LIMIT 50
           `,
-          [req.session.customerId]
+          [
+            req.session.customerId
+          ]
         );
 
       return res.json({
         success: true,
+
         transactions:
           result.rows
       });
+
     } catch (error) {
+
       console.error(
         "Wallet transactions error:",
         error
@@ -1856,60 +2567,102 @@ app.get(
 // HEALTH CHECK
 // =====================================================
 
-app.get("/api/health", async (req, res) => {
-  try {
-    await pool.query("SELECT 1");
+app.get(
+  "/api/health",
+  async (req, res) => {
 
-    return res.json({
-      success: true,
-      service: "DHE GENIUS MEDIA",
-      status: "online",
-      database: "connected",
-      datamart:
-        DATAMART_API_KEY
-          ? "configured"
-          : "not configured",
-      paystack:
-        PAYSTACK_SECRET_KEY
-          ? "configured"
-          : "not configured"
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      service: "DHE GENIUS MEDIA",
-      status: "online",
-      database: "error"
-    });
+    try {
+
+      await pool.query(
+        "SELECT 1"
+      );
+
+      return res.json({
+
+        success: true,
+
+        service:
+          "DHE GENIUS MEDIA",
+
+        status:
+          "online",
+
+        database:
+          "connected",
+
+        datamart:
+          DATAMART_API_KEY
+            ? "configured"
+            : "not configured",
+
+        paystack:
+          PAYSTACK_SECRET_KEY
+            ? "configured"
+            : "not configured"
+      });
+
+    } catch (error) {
+
+      console.error(
+        "Health check error:",
+        error
+      );
+
+      return res.status(
+        500
+      ).json({
+
+        success: false,
+
+        service:
+          "DHE GENIUS MEDIA",
+
+        status:
+          "online",
+
+        database:
+          "error"
+      });
+    }
   }
-});
+);
 
 // =====================================================
 // STATIC FILES
 // =====================================================
 
 const publicDir =
-  path.join(__dirname, "public");
+  path.join(
+    __dirname,
+    "public"
+  );
 
 app.use(
-  express.static(publicDir, {
-    extensions: ["html"],
-    index: false,
-    redirect: false
-  })
+  express.static(
+    publicDir,
+    {
+      extensions: ["html"],
+      index: false,
+      redirect: false
+    }
+  )
 );
 
 // =====================================================
 // FRONTEND ROUTES
-// IMPORTANT:
-// service.html IS THE REAL FILE.
-// We support both singular and plural URLs.
 // =====================================================
 
-function servePage(fileName) {
+function servePage(
+  fileName
+) {
+
   return (req, res) => {
+
     res.sendFile(
-      path.join(publicDir, fileName)
+      path.join(
+        publicDir,
+        fileName
+      )
     );
   };
 }
@@ -1917,25 +2670,39 @@ function servePage(fileName) {
 // Home
 app.get(
   ["/", "/index.html"],
-  servePage("index.html")
+  servePage(
+    "index.html"
+  )
 );
 
 // Login
 app.get(
   ["/login", "/login.html"],
-  servePage("login.html")
+  servePage(
+    "login.html"
+  )
 );
 
 // Register
 app.get(
-  ["/register", "/register.html"],
-  servePage("register.html")
+  [
+    "/register",
+    "/register.html"
+  ],
+  servePage(
+    "register.html"
+  )
 );
 
 // Dashboard
 app.get(
-  ["/dashboard", "/dashboard.html"],
-  servePage("dashboard.html")
+  [
+    "/dashboard",
+    "/dashboard.html"
+  ],
+  servePage(
+    "dashboard.html"
+  )
 );
 
 // Data
@@ -1945,7 +2712,9 @@ app.get(
     "/buy-data",
     "/data.html"
   ],
-  servePage("data.html")
+  servePage(
+    "data.html"
+  )
 );
 
 // Airtime
@@ -1954,7 +2723,9 @@ app.get(
     "/airtime",
     "/airtime.html"
   ],
-  servePage("airtime.html")
+  servePage(
+    "airtime.html"
+  )
 );
 
 // Orders
@@ -1963,7 +2734,9 @@ app.get(
     "/orders",
     "/orders.html"
   ],
-  servePage("orders.html")
+  servePage(
+    "orders.html"
+  )
 );
 
 // Account
@@ -1972,11 +2745,12 @@ app.get(
     "/account",
     "/account.html"
   ],
-  servePage("account.html")
+  servePage(
+    "account.html"
+  )
 );
 
 // More Services
-// BOTH work:
 app.get(
   [
     "/service",
@@ -1984,114 +2758,191 @@ app.get(
     "/services",
     "/services.html"
   ],
-  servePage("service.html")
+  servePage(
+    "service.html"
+  )
 );
 
 // =====================================================
 // API 404
 // =====================================================
 
-app.use("/api", (req, res) => {
-  return res.status(404).json({
-    success: false,
-    message: "API endpoint not found."
-  });
-});
+app.use(
+  "/api",
+  (req, res) => {
+
+    return res.status(
+      404
+    ).json({
+      success: false,
+      message:
+        "API endpoint not found."
+    });
+  }
+);
 
 // =====================================================
 // FRONTEND 404
 // =====================================================
 
-app.use((req, res) => {
-  if (
-    req.path.endsWith(".html") ||
-    req.path.includes(".")
-  ) {
-    return res.status(404).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1"
-        >
-        <title>Page Not Found - DHE GENIUS MEDIA</title>
-        <style>
-          body {
-            margin: 0;
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            background: #07110d;
-            color: #fff;
-            font-family: Arial, sans-serif;
-            padding: 24px;
-            text-align: center;
-          }
+app.use(
+  (req, res) => {
 
-          .box {
-            max-width: 430px;
-          }
+    if (
+      req.path.endsWith(
+        ".html"
+      ) ||
+      req.path.includes(".")
+    ) {
 
-          h1 {
-            font-size: 58px;
-            margin: 0 0 10px;
-          }
+      return res.status(
+        404
+      ).send(`
+        <!DOCTYPE html>
 
-          p {
-            color: #aab8b1;
-            line-height: 1.6;
-          }
+        <html>
 
-          a {
-            display: inline-block;
-            margin-top: 18px;
-            padding: 13px 20px;
-            border-radius: 12px;
-            background: #25d366;
-            color: #06110b;
-            text-decoration: none;
-            font-weight: 800;
-          }
-        </style>
-      </head>
+        <head>
 
-      <body>
-        <div class="box">
-          <h1>404</h1>
-          <h2>Page not found</h2>
-          <p>
-            The page you requested does not exist.
-          </p>
-          <a href="/dashboard.html">
-            Back to Dashboard
-          </a>
-        </div>
-      </body>
-      </html>
-    `);
+          <meta charset="UTF-8">
+
+          <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1"
+          >
+
+          <title>
+            Page Not Found
+          </title>
+
+          <style>
+
+            body {
+              margin: 0;
+              min-height: 100vh;
+              display: grid;
+              place-items: center;
+              background: #07110d;
+              color: white;
+              font-family: Arial, sans-serif;
+              padding: 24px;
+              text-align: center;
+            }
+
+            .box {
+              max-width: 430px;
+            }
+
+            h1 {
+              font-size: 58px;
+              margin: 0 0 10px;
+            }
+
+            p {
+              color: #aab8b1;
+              line-height: 1.6;
+            }
+
+            a {
+              display: inline-block;
+              margin-top: 18px;
+              padding: 13px 20px;
+              border-radius: 12px;
+              background: #25d366;
+              color: #06110b;
+              text-decoration: none;
+              font-weight: 800;
+            }
+
+          </style>
+
+        </head>
+
+        <body>
+
+          <div class="box">
+
+            <h1>
+              404
+            </h1>
+
+            <h2>
+              Page not found
+            </h2>
+
+            <p>
+              The page you requested
+              does not exist.
+            </p>
+
+            <a href="/dashboard.html">
+              Back to Dashboard
+            </a>
+
+          </div>
+
+        </body>
+
+        </html>
+      `);
+    }
+
+    return res.redirect("/");
   }
-
-  return res.redirect("/");
-});
+);
 
 // =====================================================
 // START SERVER
 // =====================================================
 
 async function startServer() {
+
   try {
+
     await initDatabase();
 
-    app.listen(PORT, () => {
-      console.log(
-        `DHE GENIUS MEDIA running on port ${PORT}`
-      );
-    });
+    app.listen(
+      PORT,
+      () => {
+
+        console.log(
+          `DHE GENIUS MEDIA running on port ${PORT}`
+        );
+
+        console.log(
+          `Environment: ${NODE_ENV}`
+        );
+
+        console.log(
+          `Database: ${
+            DATABASE_URL
+              ? "configured"
+              : "MISSING"
+          }`
+        );
+
+        console.log(
+          `Paystack: ${
+            PAYSTACK_SECRET_KEY
+              ? "configured"
+              : "MISSING"
+          }`
+        );
+
+        console.log(
+          `DataMart: ${
+            DATAMART_API_KEY
+              ? "configured"
+              : "MISSING"
+          }`
+        );
+      }
+    );
+
   } catch (error) {
+
     console.error(
-      "Server startup failed:",
+      "SERVER STARTUP FAILED:",
       error
     );
 
