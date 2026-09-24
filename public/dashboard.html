@@ -2,21 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
-  <meta
-    name="theme-color"
-    content="#07131f"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07131f">
 
   <title>Dashboard | DHE GENIUS MEDIA</title>
 
   <style>
-
     * {
       box-sizing: border-box;
       margin: 0;
@@ -30,7 +21,6 @@
       --text: #ffffff;
       --muted: #8da5b8;
       --blue: #008cff;
-      --blue2: #00c6ff;
       --green: #20d889;
       --red: #ff6262;
       --yellow: #ffc45e;
@@ -42,31 +32,15 @@
     }
 
     body {
-      font-family:
-        Inter,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
-
-      background:
-        linear-gradient(
-          180deg,
-          #06121e 0%,
-          #081725 100%
-        );
-
+      font-family: Inter, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #06121e 0%, #081725 100%);
       color: var(--text);
-
       min-height: 100vh;
     }
 
-    button,
-    input {
-      font: inherit;
-    }
-
     button {
+      font: inherit;
       cursor: pointer;
     }
 
@@ -81,106 +55,60 @@
 
     .mobile-header {
       display: flex;
-
       align-items: center;
       justify-content: space-between;
-
       padding: 16px 18px;
-
-      background:
-        rgba(7,19,31,0.96);
-
-      border-bottom:
-        1px solid var(--border);
-
+      background: rgba(7,19,31,0.96);
+      border-bottom: 1px solid var(--border);
       position: sticky;
-
       top: 0;
-
       z-index: 100;
-
       backdrop-filter: blur(15px);
     }
 
     .brand {
       display: flex;
-
       align-items: center;
-
       gap: 10px;
     }
 
     .brand-logo {
       width: 42px;
       height: 42px;
-
       flex-shrink: 0;
-
       border-radius: 13px;
-
       display: flex;
-
       align-items: center;
       justify-content: center;
-
-      background:
-        linear-gradient(
-          135deg,
-          #00c6ff,
-          #0072ff
-        );
-
+      background: linear-gradient(135deg, #00c6ff, #0072ff);
       color: white;
-
       font-size: 13px;
-
       font-weight: 900;
-
-      box-shadow:
-        0 8px 22px
-        rgba(0,114,255,0.25);
+      box-shadow: 0 8px 22px rgba(0,114,255,0.25);
     }
 
     .brand-name {
       font-size: 14px;
-
       font-weight: 900;
-
-      letter-spacing: 0.1px;
     }
 
     .brand-tagline {
       font-size: 9px;
-
       color: var(--muted);
-
       margin-top: 2px;
     }
 
     .menu-btn {
       width: 42px;
       height: 42px;
-
-      border:
-        1px solid var(--border);
-
-      background:
-        var(--card);
-
+      border: 1px solid var(--border);
+      background: var(--card);
       color: white;
-
       border-radius: 12px;
-
       font-size: 20px;
-
       display: flex;
-
       align-items: center;
       justify-content: center;
-    }
-
-    .menu-btn:active {
-      transform: scale(0.95);
     }
 
     /* =========================
@@ -189,32 +117,17 @@
 
     .sidebar {
       position: fixed;
-
       top: 0;
       left: -290px;
-
       width: 280px;
-
       height: 100vh;
-
-      background:
-        #091a29;
-
-      border-right:
-        1px solid var(--border);
-
+      background: #091a29;
+      border-right: 1px solid var(--border);
       z-index: 200;
-
       padding: 22px;
-
-      transition:
-        left 0.25s ease;
-
+      transition: left 0.25s ease;
       overflow-y: auto;
-
-      box-shadow:
-        15px 0 40px
-        rgba(0,0,0,0.18);
+      box-shadow: 15px 0 40px rgba(0,0,0,0.18);
     }
 
     .sidebar.open {
@@ -223,79 +136,44 @@
 
     .sidebar-header {
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
-
       margin-bottom: 30px;
     }
 
     .close-btn {
       background: none;
-
       border: none;
-
       color: white;
-
       font-size: 28px;
-
-      line-height: 1;
     }
 
     .nav-title {
       color: #617b8e;
-
       font-size: 10px;
-
       text-transform: uppercase;
-
       letter-spacing: 1px;
-
-      margin:
-        20px 0 9px;
+      margin: 20px 0 9px;
     }
 
     .nav-item {
       width: 100%;
-
       border: none;
-
       background: transparent;
-
       color: #c9d9e4;
-
       padding: 13px 12px;
-
       text-align: left;
-
       border-radius: 12px;
-
       margin-bottom: 4px;
-
       display: flex;
-
       align-items: center;
-
       gap: 12px;
-
       font-size: 14px;
-
-      transition:
-        background 0.2s,
-        color 0.2s,
-        transform 0.15s;
     }
 
     .nav-item:hover {
-      background:
-        var(--card);
-
+      background: var(--card);
       color: white;
-    }
-
-    .nav-item:active {
-      transform: scale(0.98);
     }
 
     .logout {
@@ -304,16 +182,10 @@
 
     .overlay {
       display: none;
-
       position: fixed;
-
       inset: 0;
-
-      background:
-        rgba(0,0,0,0.65);
-
+      background: rgba(0,0,0,0.65);
       z-index: 150;
-
       backdrop-filter: blur(2px);
     }
 
@@ -327,145 +199,79 @@
 
     .main {
       width: 100%;
-
       max-width: 1200px;
-
       margin: auto;
-
-      padding:
-        20px 16px 100px;
+      padding: 20px 16px 100px;
     }
 
     .welcome {
-      margin:
-        8px 0 20px;
+      margin: 8px 0 20px;
     }
 
     .welcome small {
       color: var(--muted);
-
       font-size: 13px;
     }
 
     .welcome h1 {
       font-size: 25px;
-
       margin-top: 4px;
-
       word-break: break-word;
     }
 
     /* =========================
-       BALANCE
+       BALANCE CARD
     ========================= */
 
     .balance-card {
       padding: 22px;
-
       border-radius: 22px;
-
-      background:
-        linear-gradient(
-          135deg,
-          #087fe8,
-          #004fba
-        );
-
-      box-shadow:
-        0 18px 40px
-        rgba(0,100,220,0.22);
-
+      background: linear-gradient(135deg, #087fe8, #004fba);
+      box-shadow: 0 18px 40px rgba(0,100,220,0.22);
       position: relative;
-
       overflow: hidden;
-
       margin-bottom: 20px;
-    }
-
-    .balance-card::after {
-      content: "";
-
-      position: absolute;
-
-      width: 160px;
-      height: 160px;
-
-      border-radius: 50%;
-
-      border:
-        30px solid
-        rgba(255,255,255,0.06);
-
-      right: -55px;
-      top: -55px;
-
-      pointer-events: none;
     }
 
     .balance-label {
       font-size: 12px;
-
       opacity: 0.8;
     }
 
     .balance {
       font-size: 34px;
-
       font-weight: 900;
-
-      margin:
-        8px 0 18px;
+      margin: 8px 0 18px;
     }
 
     .balance-actions {
       display: flex;
-
       gap: 10px;
-
       position: relative;
-
       z-index: 2;
     }
 
     .balance-btn {
       border: none;
-
-      background:
-        rgba(255,255,255,0.15);
-
+      background: rgba(255,255,255,0.15);
       color: white;
-
       padding: 10px 15px;
-
       border-radius: 10px;
-
       font-size: 12px;
-
       font-weight: 700;
-
-      transition:
-        background 0.2s,
-        transform 0.15s;
     }
 
     .balance-btn:hover {
-      background:
-        rgba(255,255,255,0.22);
-    }
-
-    .balance-btn:active {
-      transform: scale(0.96);
+      background: rgba(255,255,255,0.23);
     }
 
     /* =========================
-       SECTION
+       SECTIONS
     ========================= */
 
     .section-title {
       font-size: 17px;
-
-      margin:
-        24px 0 12px;
+      margin: 24px 0 12px;
     }
 
     /* =========================
@@ -474,127 +280,76 @@
 
     .quick-grid {
       display: grid;
-
-      grid-template-columns:
-        repeat(2, 1fr);
-
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
     }
 
     .quick-card {
-      border:
-        1px solid var(--border);
-
-      background:
-        var(--card);
-
+      border: 1px solid var(--border);
+      background: var(--card);
       border-radius: 17px;
-
       padding: 17px;
-
       color: white;
-
       text-align: left;
-
       min-height: 105px;
-
-      transition:
-        transform 0.2s,
-        background 0.2s,
-        border 0.2s;
     }
 
     .quick-card:hover {
-      background:
-        var(--card2);
-
-      border-color:
-        rgba(0,140,255,0.25);
-    }
-
-    .quick-card:active {
-      transform: scale(0.97);
+      background: var(--card2);
+      border-color: rgba(0,140,255,0.25);
     }
 
     .quick-icon {
       width: 40px;
       height: 40px;
-
       border-radius: 12px;
-
       display: flex;
-
       align-items: center;
       justify-content: center;
-
-      background:
-        rgba(0,140,255,0.12);
-
+      background: rgba(0,140,255,0.12);
       font-size: 20px;
-
       margin-bottom: 10px;
     }
 
     .quick-card strong {
       display: block;
-
       font-size: 14px;
     }
 
     .quick-card span {
       display: block;
-
       color: var(--muted);
-
       font-size: 11px;
-
       margin-top: 4px;
     }
 
     /* =========================
-       SERVICE STATUS
+       STATUS
     ========================= */
 
     .status-card {
-      background:
-        var(--card);
-
-      border:
-        1px solid var(--border);
-
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: 18px;
-
       padding: 17px;
-
       display: flex;
-
       justify-content: space-between;
-
       align-items: center;
     }
 
     .status-left {
       display: flex;
-
       align-items: center;
-
       gap: 12px;
     }
 
     .status-dot {
       width: 11px;
       height: 11px;
-
       flex-shrink: 0;
-
       border-radius: 50%;
-
-      background:
-        var(--green);
-
-      box-shadow:
-        0 0 12px
-        rgba(32,216,137,0.7);
+      background: var(--green);
+      box-shadow: 0 0 12px rgba(32,216,137,0.7);
     }
 
     .status-left strong {
@@ -603,19 +358,14 @@
 
     .status-left small {
       display: block;
-
       color: var(--muted);
-
       margin-top: 3px;
-
       font-size: 11px;
     }
 
     .online {
       color: var(--green);
-
       font-size: 11px;
-
       font-weight: 800;
     }
 
@@ -624,45 +374,30 @@
     ========================= */
 
     .orders-card {
-      background:
-        var(--card);
-
-      border:
-        1px solid var(--border);
-
+      background: var(--card);
+      border: 1px solid var(--border);
       border-radius: 18px;
-
       overflow: hidden;
     }
 
     .empty-orders {
       text-align: center;
-
       padding: 30px 20px;
-
       color: var(--muted);
-
       font-size: 13px;
-
       line-height: 1.6;
     }
 
     .empty-orders div {
       font-size: 30px;
-
       margin-bottom: 10px;
     }
 
     .order {
       padding: 15px;
-
-      border-bottom:
-        1px solid var(--border);
-
+      border-bottom: 1px solid var(--border);
       display: flex;
-
       justify-content: space-between;
-
       gap: 10px;
     }
 
@@ -676,43 +411,29 @@
 
     .order small {
       display: block;
-
       color: var(--muted);
-
       font-size: 10px;
-
       margin-top: 5px;
     }
 
     .order-right {
       text-align: right;
-
       flex-shrink: 0;
     }
 
     .order-amount {
       font-size: 13px;
-
       font-weight: 800;
     }
 
     .order-status {
       display: inline-block;
-
       margin-top: 5px;
-
       padding: 4px 8px;
-
       border-radius: 20px;
-
-      background:
-        rgba(255,190,70,0.10);
-
-      color:
-        var(--yellow);
-
+      background: rgba(255,190,70,0.10);
+      color: var(--yellow);
       font-size: 9px;
-
       font-weight: 800;
     }
 
@@ -722,47 +443,28 @@
 
     .bottom-nav {
       position: fixed;
-
       bottom: 0;
       left: 0;
       right: 0;
-
       height: 68px;
-
-      background:
-        rgba(6,18,30,0.97);
-
-      border-top:
-        1px solid var(--border);
-
+      background: rgba(6,18,30,0.97);
+      border-top: 1px solid var(--border);
       display: flex;
-
       align-items: center;
-
       justify-content: space-around;
-
       z-index: 100;
-
       backdrop-filter: blur(15px);
     }
 
     .bottom-nav button {
       background: none;
-
       border: none;
-
       color: #70899c;
-
       font-size: 10px;
-
       display: flex;
-
       flex-direction: column;
-
       align-items: center;
-
       gap: 5px;
-
       min-width: 55px;
     }
 
@@ -770,22 +472,8 @@
       color: #00aaff;
     }
 
-    .bottom-nav button:active {
-      transform: scale(0.94);
-    }
-
     .bottom-icon {
       font-size: 20px;
-    }
-
-    /* =========================
-       LOADING
-    ========================= */
-
-    .loading {
-      opacity: 0.6;
-
-      pointer-events: none;
     }
 
     /* =========================
@@ -808,12 +496,8 @@
 
       .main {
         margin-left: 280px;
-
-        max-width:
-          calc(1200px - 280px);
-
-        padding:
-          40px 35px 60px;
+        max-width: calc(1200px - 280px);
+        padding: 40px 35px 60px;
       }
 
       .overlay {
@@ -821,8 +505,7 @@
       }
 
       .quick-grid {
-        grid-template-columns:
-          repeat(4, 1fr);
+        grid-template-columns: repeat(4, 1fr);
       }
 
       .balance-card {
@@ -832,18 +515,13 @@
       .bottom-nav {
         display: none;
       }
-
     }
-
   </style>
 </head>
 
 <body>
 
-  <!-- =================================================
-       MOBILE HEADER
-  ================================================== -->
-
+  <!-- MOBILE HEADER -->
   <header class="mobile-header">
 
     <div class="brand">
@@ -870,7 +548,6 @@
       class="menu-btn"
       type="button"
       onclick="openMenu()"
-      aria-label="Open menu"
     >
       ☰
     </button>
@@ -878,10 +555,7 @@
   </header>
 
 
-  <!-- =================================================
-       SIDEBAR
-  ================================================== -->
-
+  <!-- SIDEBAR -->
   <aside
     class="sidebar"
     id="sidebar"
@@ -913,7 +587,6 @@
         class="close-btn"
         type="button"
         onclick="closeMenu()"
-        aria-label="Close menu"
       >
         ×
       </button>
@@ -930,8 +603,7 @@
       type="button"
       onclick="goTo('/dashboard.html')"
     >
-      🏠
-      <span>Dashboard</span>
+      🏠 <span>Dashboard</span>
     </button>
 
     <button
@@ -939,8 +611,7 @@
       type="button"
       onclick="goTo('/data.html')"
     >
-      📶
-      <span>Buy Data</span>
+      📶 <span>Buy Data</span>
     </button>
 
     <button
@@ -948,8 +619,7 @@
       type="button"
       onclick="goTo('/airtime.html')"
     >
-      📱
-      <span>Buy Airtime</span>
+      📱 <span>Buy Airtime</span>
     </button>
 
 
@@ -962,8 +632,7 @@
       type="button"
       onclick="goTo('/orders.html')"
     >
-      📦
-      <span>My Orders</span>
+      📦 <span>My Orders</span>
     </button>
 
     <button
@@ -971,17 +640,15 @@
       type="button"
       onclick="goTo('/account.html')"
     >
-      👤
-      <span>Account</span>
+      👤 <span>Account</span>
     </button>
 
     <button
       class="nav-item"
       type="button"
-      onclick="goTo('/account.html')"
+      onclick="goTo('/account.html#security')"
     >
-      🔐
-      <span>Security</span>
+      🔐 <span>Security</span>
     </button>
 
 
@@ -989,14 +656,12 @@
       Services
     </div>
 
-    <!-- CORRECT FILE: service.html -->
     <button
       class="nav-item"
       type="button"
       onclick="goTo('/service.html')"
     >
-      🛍️
-      <span>More Services</span>
+      🛍️ <span>More Services</span>
     </button>
 
 
@@ -1009,8 +674,7 @@
       type="button"
       onclick="openWhatsApp()"
     >
-      💬
-      <span>WhatsApp Support</span>
+      💬 <span>WhatsApp Support</span>
     </button>
 
 
@@ -1019,15 +683,13 @@
       type="button"
       onclick="logout()"
     >
-      🚪
-      <span>Sign Out</span>
+      🚪 <span>Sign Out</span>
     </button>
 
   </aside>
 
 
   <!-- OVERLAY -->
-
   <div
     class="overlay"
     id="overlay"
@@ -1035,13 +697,8 @@
   ></div>
 
 
-  <!-- =================================================
-       MAIN
-  ================================================== -->
-
+  <!-- MAIN -->
   <main class="main">
-
-    <!-- WELCOME -->
 
     <section class="welcome">
 
@@ -1056,10 +713,7 @@
     </section>
 
 
-    <!-- =================================================
-         BALANCE
-    ================================================== -->
-
+    <!-- BALANCE -->
     <section class="balance-card">
 
       <div class="balance-label">
@@ -1075,10 +729,11 @@
 
       <div class="balance-actions">
 
+        <!-- FIXED: ADD MONEY -->
         <button
           class="balance-btn"
           type="button"
-          onclick="showWalletMessage()"
+          onclick="goTo('/account.html#add-money')"
         >
           + Add Money
         </button>
@@ -1096,17 +751,12 @@
     </section>
 
 
-    <!-- =================================================
-         QUICK ACTIONS
-    ================================================== -->
-
+    <!-- QUICK ACTIONS -->
     <h2 class="section-title">
       Quick Actions
     </h2>
 
     <section class="quick-grid">
-
-      <!-- DATA -->
 
       <button
         class="quick-card"
@@ -1123,13 +773,11 @@
         </strong>
 
         <span>
-          MTN • AT • Telecel
+          MTN • AirtelTigo • Telecel
         </span>
 
       </button>
 
-
-      <!-- AIRTIME -->
 
       <button
         class="quick-card"
@@ -1152,9 +800,6 @@
       </button>
 
 
-      <!-- MORE SERVICES -->
-      <!-- FIXED: service.html -->
-
       <button
         class="quick-card"
         type="button"
@@ -1175,8 +820,6 @@
 
       </button>
 
-
-      <!-- ORDERS -->
 
       <button
         class="quick-card"
@@ -1201,10 +844,7 @@
     </section>
 
 
-    <!-- =================================================
-         SERVICE STATUS
-    ================================================== -->
-
+    <!-- SERVICE STATUS -->
     <h2 class="section-title">
       Service Status
     </h2>
@@ -1236,10 +876,7 @@
     </section>
 
 
-    <!-- =================================================
-         RECENT ORDERS
-    ================================================== -->
-
+    <!-- RECENT ORDERS -->
     <h2 class="section-title">
       Recent Orders
     </h2>
@@ -1264,79 +901,47 @@
   </main>
 
 
-  <!-- =================================================
-       BOTTOM NAV
-  ================================================== -->
-
+  <!-- BOTTOM NAV -->
   <nav class="bottom-nav">
 
     <button
       type="button"
       onclick="goTo('/dashboard.html')"
     >
-
-      <span class="bottom-icon">
-        🏠
-      </span>
-
+      <span class="bottom-icon">🏠</span>
       Home
-
     </button>
-
 
     <button
       type="button"
       onclick="goTo('/data.html')"
     >
-
-      <span class="bottom-icon">
-        📶
-      </span>
-
+      <span class="bottom-icon">📶</span>
       Data
-
     </button>
-
 
     <button
       type="button"
       onclick="goTo('/airtime.html')"
     >
-
-      <span class="bottom-icon">
-        📱
-      </span>
-
+      <span class="bottom-icon">📱</span>
       Airtime
-
     </button>
-
 
     <button
       type="button"
       onclick="goTo('/orders.html')"
     >
-
-      <span class="bottom-icon">
-        📦
-      </span>
-
+      <span class="bottom-icon">📦</span>
       Orders
-
     </button>
-
 
     <button
       type="button"
       onclick="goTo('/account.html')"
     >
-
-      <span class="bottom-icon">
-        👤
-      </span>
-
+      <span class="bottom-icon">👤</span>
       Account
-
     </button>
 
   </nav>
@@ -1344,9 +949,9 @@
 
   <script>
 
-    // =================================================
+    // ================================
     // NAVIGATION
-    // =================================================
+    // ================================
 
     function goTo(page) {
 
@@ -1361,21 +966,19 @@
     }
 
 
-    // =================================================
+    // ================================
     // MOBILE MENU
-    // =================================================
+    // ================================
 
     function openMenu() {
 
-      const sidebar =
-        document.getElementById("sidebar");
+      document
+        .getElementById("sidebar")
+        .classList.add("open");
 
-      const overlay =
-        document.getElementById("overlay");
-
-      sidebar.classList.add("open");
-
-      overlay.classList.add("show");
+      document
+        .getElementById("overlay")
+        .classList.add("show");
 
       document.body.style.overflow = "hidden";
 
@@ -1384,40 +987,22 @@
 
     function closeMenu() {
 
-      const sidebar =
-        document.getElementById("sidebar");
+      document
+        .getElementById("sidebar")
+        .classList.remove("open");
 
-      const overlay =
-        document.getElementById("overlay");
-
-      sidebar.classList.remove("open");
-
-      overlay.classList.remove("show");
+      document
+        .getElementById("overlay")
+        .classList.remove("show");
 
       document.body.style.overflow = "";
 
     }
 
 
-    // =================================================
-    // ESC KEY CLOSES MENU
-    // =================================================
-
-    document.addEventListener(
-      "keydown",
-      function(event) {
-
-        if (event.key === "Escape") {
-          closeMenu();
-        }
-
-      }
-    );
-
-
-    // =================================================
+    // ================================
     // WHATSAPP
-    // =================================================
+    // ================================
 
     function openWhatsApp() {
 
@@ -1430,32 +1015,11 @@
     }
 
 
-    // =================================================
-    // WALLET MESSAGE
-    // =================================================
-
-    function showWalletMessage() {
-
-      alert(
-        "Wallet funding will be connected to the payment system."
-      );
-
-    }
-
-
-    // =================================================
+    // ================================
     // LOGOUT
-    // =================================================
+    // ================================
 
     async function logout() {
-
-      const button =
-        document.querySelector(".logout");
-
-      if (button) {
-        button.disabled = true;
-        button.classList.add("loading");
-      }
 
       try {
 
@@ -1463,9 +1027,7 @@
           "/api/logout",
           {
             method: "POST",
-
             credentials: "include",
-
             cache: "no-store"
           }
         );
@@ -1477,20 +1039,18 @@
           error
         );
 
-      } finally {
-
-        window.location.replace(
-          "/login.html"
-        );
-
       }
+
+      window.location.replace(
+        "/login.html"
+      );
 
     }
 
 
-    // =================================================
+    // ================================
     // LOAD CUSTOMER
-    // =================================================
+    // ================================
 
     async function loadCustomer() {
 
@@ -1501,11 +1061,8 @@
             "/api/me",
             {
               method: "GET",
-
               credentials: "include",
-
               cache: "no-store",
-
               headers: {
                 "Accept":
                   "application/json"
@@ -1513,11 +1070,6 @@
             }
           );
 
-
-        /*
-         * If the session is gone,
-         * send the customer back to login.
-         */
 
         if (response.status === 401) {
 
@@ -1562,16 +1114,12 @@
           result.customer;
 
 
-        // CUSTOMER NAME
-
         document
           .getElementById("customerName")
           .textContent =
           customer.name ||
           "DGM Customer";
 
-
-        // BALANCE
 
         const balance =
           Number(
@@ -1593,32 +1141,19 @@
           error
         );
 
-        /*
-         * Only redirect when the request
-         * actually fails. This prevents
-         * unnecessary redirects from
-         * normal page behavior.
-         */
-
-        window.location.replace(
-          "/login.html"
-        );
-
       }
 
     }
 
 
-    // =================================================
+    // ================================
     // LOAD ORDERS
-    // =================================================
+    // ================================
 
     async function loadOrders() {
 
       const container =
-        document.getElementById(
-          "orders"
-        );
+        document.getElementById("orders");
 
 
       try {
@@ -1628,11 +1163,8 @@
             "/api/orders",
             {
               method: "GET",
-
               credentials: "include",
-
               cache: "no-store",
-
               headers: {
                 "Accept":
                   "application/json"
@@ -1641,9 +1173,7 @@
           );
 
 
-        if (
-          response.status === 401
-        ) {
+        if (response.status === 401) {
 
           window.location.replace(
             "/login.html"
@@ -1678,9 +1208,7 @@
 
             <div class="empty-orders">
 
-              <div>
-                📦
-              </div>
+              <div>📦</div>
 
               No orders yet.
 
@@ -1703,81 +1231,73 @@
 
         result.orders
           .slice(0, 5)
-          .forEach(
-            function(order) {
+          .forEach(function(order) {
 
-              const item =
-                document.createElement(
-                  "div"
-                );
+            const item =
+              document.createElement("div");
 
-
-              item.className =
-                "order";
+            item.className = "order";
 
 
-              const service =
-                escapeHTML(
-                  order.service ||
-                  "Service"
-                );
-
-
-              const reference =
-                escapeHTML(
-                  order.order_ref ||
-                  "N/A"
-                );
-
-
-              const status =
-                escapeHTML(
-                  order.status ||
-                  "Processing"
-                );
-
-
-              const amount =
-                Number(
-                  order.amount || 0
-                );
-
-
-              item.innerHTML = `
-
-                <div>
-
-                  <strong>
-                    ${service}
-                  </strong>
-
-                  <small>
-                    ${reference}
-                  </small>
-
-                </div>
-
-                <div class="order-right">
-
-                  <div class="order-amount">
-                    GH₵${amount.toFixed(2)}
-                  </div>
-
-                  <span class="order-status">
-                    ${status}
-                  </span>
-
-                </div>
-
-              `;
-
-
-              container.appendChild(
-                item
+            const service =
+              escapeHTML(
+                order.service ||
+                "Service"
               );
 
-            }
-          );
+
+            const reference =
+              escapeHTML(
+                order.order_ref ||
+                "N/A"
+              );
+
+
+            const status =
+              escapeHTML(
+                order.status ||
+                "Processing"
+              );
+
+
+            const amount =
+              Number(
+                order.amount || 0
+              );
+
+
+            item.innerHTML = `
+
+              <div>
+
+                <strong>
+                  ${service}
+                </strong>
+
+                <small>
+                  ${reference}
+                </small>
+
+              </div>
+
+              <div class="order-right">
+
+                <div class="order-amount">
+                  GH₵${amount.toFixed(2)}
+                </div>
+
+                <span class="order-status">
+                  ${status}
+                </span>
+
+              </div>
+
+            `;
+
+
+            container.appendChild(item);
+
+          });
 
 
       } catch (error) {
@@ -1792,9 +1312,7 @@
 
           <div class="empty-orders">
 
-            <div>
-              📦
-            </div>
+            <div>📦</div>
 
             Unable to load orders.
 
@@ -1811,45 +1329,25 @@
     }
 
 
-    // =================================================
-    // BASIC HTML ESCAPE
-    // =================================================
+    // ================================
+    // HTML ESCAPE
+    // ================================
 
     function escapeHTML(value) {
 
       return String(value)
-
-        .replace(
-          /&/g,
-          "&amp;"
-        )
-
-        .replace(
-          /</g,
-          "&lt;"
-        )
-
-        .replace(
-          />/g,
-          "&gt;"
-        )
-
-        .replace(
-          /"/g,
-          "&quot;"
-        )
-
-        .replace(
-          /'/g,
-          "&#039;"
-        );
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
     }
 
 
-    // =================================================
-    // START DASHBOARD
-    // =================================================
+    // ================================
+    // START
+    // ================================
 
     document.addEventListener(
       "DOMContentLoaded",
