@@ -48,9 +48,7 @@ app.disable("x-powered-by");
 // =====================================================
 
 if (!DATABASE_URL) {
-  console.error(
-    "ERROR: DATABASE_URL is missing."
-  );
+  console.error("ERROR: DATABASE_URL is missing.");
 }
 
 const pool = new Pool({
@@ -126,22 +124,33 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wallet_transactions (
       id SERIAL PRIMARY KEY,
+
       customer_id INTEGER NOT NULL
         REFERENCES customers(id)
         ON DELETE CASCADE,
+
       type TEXT NOT NULL,
+
       amount NUMERIC(12,2) NOT NULL,
+
+      balance_before NUMERIC(12,2) NOT NULL DEFAULT 0,
+
+      balance_after NUMERIC(12,2) NOT NULL DEFAULT 0,
+
       description TEXT,
+
       transaction_ref TEXT,
+
       status TEXT DEFAULT 'Completed',
+
       reference TEXT,
+
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
 
   // ---------------------------------------------------
   // WALLET TRANSACTION MIGRATIONS
-  // DO NOT RESET DATABASE
   // ---------------------------------------------------
 
   await pool.query(`
@@ -159,8 +168,94 @@ async function initDatabase() {
     ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Completed';
   `);
 
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ADD COLUMN IF NOT EXISTS balance_before NUMERIC(12,2);
+  `);
+
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ADD COLUMN IF NOT EXISTS balance_after NUMERIC(12,2);
+  `);
+
   // ---------------------------------------------------
-  // BACKFILL TRANSACTION REFERENCE
+  // SAFELY HANDLE BALANCE COLUMNS
+  //
+  // Existing installations may already have these
+  // columns as NOT NULL.
+  //
+  // New installations receive defaults.
+  // ---------------------------------------------------
+
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ALTER COLUMN balance_before
+    SET DEFAULT 0;
+  `);
+
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ALTER COLUMN balance_after
+    SET DEFAULT 0;
+  `);
+
+  // ---------------------------------------------------
+  // BACKFILL NULL BALANCE VALUES IF AN OLDER
+  // DATABASE VERSION DID NOT HAVE THESE COLUMNS.
+  //
+  // Existing records are preserved.
+  // ---------------------------------------------------
+
+  await pool.query(`
+    UPDATE wallet_transactions
+    SET balance_before =
+      CASE
+        WHEN LOWER(COALESCE(type, '')) IN
+          ('debit', 'withdrawal', 'purchase')
+        THEN GREATEST(
+          COALESCE(balance_after, 0) +
+          COALESCE(amount, 0),
+          0
+        )
+        ELSE 0
+      END
+    WHERE balance_before IS NULL;
+  `);
+
+  await pool.query(`
+    UPDATE wallet_transactions
+    SET balance_after =
+      CASE
+        WHEN LOWER(COALESCE(type, '')) IN
+          ('debit', 'withdrawal', 'purchase')
+        THEN GREATEST(
+          COALESCE(balance_before, 0) -
+          COALESCE(amount, 0),
+          0
+        )
+        ELSE COALESCE(amount, 0)
+      END
+    WHERE balance_after IS NULL;
+  `);
+
+  // ---------------------------------------------------
+  // ENSURE NEW TRANSACTIONS CANNOT HAVE NULL BALANCES
+  // ---------------------------------------------------
+
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ALTER COLUMN balance_before
+    SET NOT NULL;
+  `);
+
+  await pool.query(`
+    ALTER TABLE wallet_transactions
+    ALTER COLUMN balance_after
+    SET NOT NULL;
+  `);
+
+  // ---------------------------------------------------
+  // BACKFILL TRANSACTION REFERENCES
   // ---------------------------------------------------
 
   await pool.query(`
@@ -196,14 +291,21 @@ async function initDatabase() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wallet_topups (
       id SERIAL PRIMARY KEY,
+
       customer_id INTEGER NOT NULL
         REFERENCES customers(id)
         ON DELETE CASCADE,
+
       reference TEXT UNIQUE NOT NULL,
+
       amount NUMERIC(12,2) NOT NULL,
+
       status TEXT NOT NULL DEFAULT 'Pending',
+
       payment_status TEXT NOT NULL DEFAULT 'Pending',
+
       paid_at TIMESTAMPTZ,
+
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
@@ -227,6 +329,7 @@ async function initDatabase() {
     const [column, definition]
     of orderColumns
   ) {
+
     await pool.query(`
       ALTER TABLE orders
       ADD COLUMN IF NOT EXISTS
@@ -298,6 +401,7 @@ class PostgresSessionStore
   extends session.Store {
 
   async get(sid, callback) {
+
     try {
 
       const result =
@@ -523,6 +627,7 @@ app.use(
 // =====================================================
 
 function cleanPhone(value) {
+
   return String(value || "")
     .replace(/\s+/g, "")
     .replace(/[-()]/g, "");
@@ -534,12 +639,14 @@ function normalizeGhanaPhone(value) {
     cleanPhone(value);
 
   if (phone.startsWith("+233")) {
+
     phone =
       "0" +
       phone.slice(4);
   }
 
   if (phone.startsWith("233")) {
+
     phone =
       "0" +
       phone.slice(3);
@@ -556,6 +663,7 @@ function validGhanaPhone(value) {
 }
 
 function cleanEmail(value) {
+
   return String(value || "")
     .trim()
     .toLowerCase();
@@ -696,6 +804,7 @@ function normalizeCapacity(
     !Number.isFinite(number) ||
     number <= 0
   ) {
+
     return null;
   }
 
@@ -917,10 +1026,6 @@ async function datamartPurchase(
   let primaryError =
     null;
 
-  // ---------------------------------------------------
-  // PRIMARY ENDPOINT
-  // ---------------------------------------------------
-
   try {
 
     return await datamartRequest(
@@ -948,12 +1053,6 @@ async function datamartPurchase(
       error.message
     );
   }
-
-  // ---------------------------------------------------
-  // DEVELOPER ENDPOINT
-  //
-  // SAME IDEMPOTENCY KEY
-  // ---------------------------------------------------
 
   try {
 
@@ -1255,11 +1354,6 @@ async function fulfillDataOrder(
     };
   }
 
-  // ===================================================
-  // EXISTING DATAMART REFERENCE
-  // NEVER CREATE ANOTHER PURCHASE
-  // ===================================================
-
   if (
     order.datamart_reference
   ) {
@@ -1284,10 +1378,6 @@ async function fulfillDataOrder(
         syncResult
     };
   }
-
-  // ===================================================
-  // EXISTING PURCHASE ID WITHOUT REFERENCE
-  // ===================================================
 
   if (
     order.datamart_purchase_id
@@ -1319,10 +1409,6 @@ async function fulfillDataOrder(
         "DataMart purchase exists but tracking reference is not available yet."
     };
   }
-
-  // ===================================================
-  // VALIDATE ORDER
-  // ===================================================
 
   const capacity =
     normalizeCapacity(
@@ -1407,10 +1493,6 @@ async function fulfillDataOrder(
     );
   }
 
-  // ===================================================
-  // DATAMART PAYLOAD
-  // ===================================================
-
   const payload = {
 
     phoneNumber:
@@ -1426,8 +1508,6 @@ async function fulfillDataOrder(
     gateway: "wallet"
   };
 
-  // IMPORTANT:
-  // The same order reference is always used.
   const idempotencyKey =
     `dgm-${order.order_ref}`;
 
@@ -1442,10 +1522,6 @@ async function fulfillDataOrder(
         payload,
         idempotencyKey
       );
-
-    // =================================================
-    // EXTRACT DATAMART IDENTIFIERS
-    // =================================================
 
     const purchaseId =
       result?.purchaseId ||
@@ -1484,13 +1560,6 @@ async function fulfillDataOrder(
       )
         .trim()
         .toLowerCase();
-
-    // =================================================
-    // CRITICAL VALIDATION
-    //
-    // Successful HTTP response without a reference
-    // is NOT enough to claim Processing.
-    // =================================================
 
     if (!reference) {
 
@@ -1546,19 +1615,11 @@ async function fulfillDataOrder(
       };
     }
 
-    // =================================================
-    // MAP INITIAL DATAMART STATUS
-    // =================================================
-
     const localStatus =
       mapDataMartStatus(
         externalStatus ||
           "processing"
       );
-
-    // =================================================
-    // SAVE DATAMART ORDER
-    // =================================================
 
     await pool.query(
       `
@@ -1594,10 +1655,6 @@ async function fulfillDataOrder(
       }`
     );
 
-    // =================================================
-    // IMMEDIATELY VERIFY REAL DATAMART STATUS
-    // =================================================
-
     const updatedResult =
       await pool.query(
         `
@@ -1615,10 +1672,6 @@ async function fulfillDataOrder(
       await syncDataMartOrder(
         updatedOrder
       );
-
-    // =================================================
-    // STATUS CHECK SUCCESS
-    // =================================================
 
     if (
       syncResult.success
@@ -1651,13 +1704,6 @@ async function fulfillDataOrder(
           finalOrder
       };
     }
-
-    // =================================================
-    // PURCHASE EXISTS, STATUS CHECK TEMPORARILY FAILED
-    //
-    // We have a genuine DataMart reference, so
-    // Processing is legitimate.
-    // =================================================
 
     await pool.query(
       `
@@ -1693,14 +1739,6 @@ async function fulfillDataOrder(
       error
     );
 
-    // =================================================
-    // IMPORTANT:
-    //
-    // NO DATAMART REFERENCE EXISTS.
-    //
-    // Therefore DGM must NOT show Processing.
-    // =================================================
-
     await pool.query(
       `
       UPDATE orders
@@ -1732,6 +1770,8 @@ async function fulfillDataOrder(
 
 // =====================================================
 // WALLET CREDIT
+// IMPORTANT FIX:
+// balance_before + balance_after are now recorded.
 // =====================================================
 
 async function creditWalletFromTopup(
@@ -1782,12 +1822,12 @@ async function creditWalletFromTopup(
       topupResult.rows[0];
 
     // -------------------------------------------------
-    // ALREADY PAID
+    // ALREADY PAID / ALREADY CREDITED
     // -------------------------------------------------
 
     if (
       String(
-        topup.payment_status
+        topup.payment_status || ""
       ).toLowerCase() ===
       "paid"
     ) {
@@ -1816,7 +1856,9 @@ async function creditWalletFromTopup(
     const customerResult =
       await client.query(
         `
-        SELECT id, balance
+        SELECT
+          id,
+          balance
         FROM customers
         WHERE id = $1
         FOR UPDATE
@@ -1837,6 +1879,38 @@ async function creditWalletFromTopup(
       );
     }
 
+    const customer =
+      customerResult.rows[0];
+
+    // -------------------------------------------------
+    // CURRENT BALANCE
+    // -------------------------------------------------
+
+    const balanceBefore =
+      Number(
+        customer.balance || 0
+      );
+
+    if (
+      !Number.isFinite(
+        balanceBefore
+      ) ||
+      balanceBefore < 0
+    ) {
+
+      await client.query(
+        "ROLLBACK"
+      );
+
+      throw new Error(
+        "Customer wallet balance is invalid."
+      );
+    }
+
+    // -------------------------------------------------
+    // TOP-UP AMOUNT
+    // -------------------------------------------------
+
     const amount =
       Number(topup.amount);
 
@@ -1855,21 +1929,147 @@ async function creditWalletFromTopup(
     }
 
     // -------------------------------------------------
+    // NEW BALANCE
+    // -------------------------------------------------
+
+    const balanceAfter =
+      Math.round(
+        (
+          balanceBefore +
+          amount
+        ) * 100
+      ) / 100;
+
+    // -------------------------------------------------
     // CREDIT CUSTOMER
     // -------------------------------------------------
 
     await client.query(
       `
       UPDATE customers
-      SET balance = balance + $1
+      SET balance = $1
       WHERE id = $2
       `,
       [
-        amount,
+        balanceAfter,
 
         topup.customer_id
       ]
     );
+
+    // -------------------------------------------------
+    // RECORD WALLET TRANSACTION
+    //
+    // THIS WAS THE PREVIOUS BUG.
+    // -------------------------------------------------
+
+    const transactionResult =
+      await client.query(
+        `
+        INSERT INTO wallet_transactions
+        (
+          customer_id,
+          type,
+          amount,
+          balance_before,
+          balance_after,
+          description,
+          transaction_ref,
+          status,
+          reference
+        )
+        VALUES
+        (
+          $1,
+          'Credit',
+          $2,
+          $3,
+          $4,
+          'Wallet top-up via Paystack',
+          $5,
+          'Completed',
+          $5
+        )
+        ON CONFLICT (reference)
+        WHERE reference IS NOT NULL
+        DO NOTHING
+        RETURNING id
+        `,
+        [
+          topup.customer_id,
+
+          amount,
+
+          balanceBefore,
+
+          balanceAfter,
+
+          reference
+        ]
+      );
+
+    // -------------------------------------------------
+    // DUPLICATE SAFETY
+    //
+    // If the reference already exists, don't credit
+    // the wallet a second time.
+    // -------------------------------------------------
+
+    if (
+      !transactionResult.rows.length
+    ) {
+
+      // Restore wallet balance if the transaction
+      // already existed but this top-up was somehow
+      // still pending.
+      await client.query(
+        `
+        UPDATE customers
+        SET balance = $1
+        WHERE id = $2
+        `,
+        [
+          balanceBefore,
+
+          topup.customer_id
+        ]
+      );
+
+      await client.query(
+        `
+        UPDATE wallet_topups
+        SET
+          status = 'Completed',
+          payment_status = 'Paid',
+          paid_at =
+            COALESCE(
+              paid_at,
+              NOW()
+            )
+        WHERE id = $1
+        `,
+        [topup.id]
+      );
+
+      await client.query(
+        "COMMIT"
+      );
+
+      console.log(
+        `WALLET DUPLICATE IGNORED: ${reference}`
+      );
+
+      return {
+        success: true,
+
+        alreadyCredited: true,
+
+        amount,
+
+        customerId:
+          topup.customer_id
+      };
+    }
 
     // -------------------------------------------------
     // MARK TOP-UP PAID
@@ -1892,50 +2092,15 @@ async function creditWalletFromTopup(
     );
 
     // -------------------------------------------------
-    // WALLET TRANSACTION
+    // COMMIT EVERYTHING AT ONCE
     // -------------------------------------------------
-
-    await client.query(
-      `
-      INSERT INTO wallet_transactions
-      (
-        transaction_ref,
-        customer_id,
-        type,
-        amount,
-        description,
-        status,
-        reference
-      )
-      VALUES
-      (
-        $1,
-        $2,
-        'Credit',
-        $3,
-        'Wallet top-up via Paystack',
-        'Completed',
-        $1
-      )
-      ON CONFLICT (reference)
-      WHERE reference IS NOT NULL
-      DO NOTHING
-      `,
-      [
-        reference,
-
-        topup.customer_id,
-
-        amount
-      ]
-    );
 
     await client.query(
       "COMMIT"
     );
 
     console.log(
-      `WALLET CREDITED: ${reference} GH₵${amount.toFixed(2)}`
+      `WALLET CREDITED: ${reference} GH₵${amount.toFixed(2)} | Before: GH₵${balanceBefore.toFixed(2)} | After: GH₵${balanceAfter.toFixed(2)}`
     );
 
     return {
@@ -1944,6 +2109,10 @@ async function creditWalletFromTopup(
       alreadyCredited: false,
 
       amount,
+
+      balanceBefore,
+
+      balanceAfter,
 
       customerId:
         topup.customer_id
@@ -2131,8 +2300,15 @@ app.post(
           return res.sendStatus(400);
         }
 
-        await creditWalletFromTopup(
-          reference
+        const creditResult =
+          await creditWalletFromTopup(
+            reference
+          );
+
+        console.log(
+          "Paystack wallet webhook processed:",
+          reference,
+          creditResult
         );
 
         return res.sendStatus(200);
@@ -2198,10 +2374,6 @@ app.post(
         return res.sendStatus(400);
       }
 
-      // -------------------------------------------------
-      // MARK ORDER AS PAID
-      // -------------------------------------------------
-
       await pool.query(
         `
         UPDATE orders
@@ -2233,10 +2405,6 @@ app.post(
         ]
       );
 
-      // -------------------------------------------------
-      // GET UPDATED ORDER
-      // -------------------------------------------------
-
       const updatedResult =
         await pool.query(
           `
@@ -2246,10 +2414,6 @@ app.post(
           `,
           [order.id]
         );
-
-      // -------------------------------------------------
-      // FULFILL DATA ORDER
-      // -------------------------------------------------
 
       const fulfillmentResult =
         await fulfillDataOrder(
@@ -2264,16 +2428,6 @@ app.post(
           `DataMart fulfillment failed after Paystack payment: ${order.order_ref}`,
           fulfillmentResult.error
         );
-
-        /*
-         * Payment is already confirmed.
-         *
-         * The order has already been marked
-         * Failed by fulfillDataOrder().
-         *
-         * Returning 500 tells Paystack that the
-         * webhook was not completely processed.
-         */
 
         return res.sendStatus(500);
       }
@@ -2294,7 +2448,6 @@ app.post(
 
 // =====================================================
 // BODY PARSERS
-// IMPORTANT:
 // WEBHOOK ABOVE MUST REMAIN BEFORE express.json()
 // =====================================================
 
@@ -4025,7 +4178,7 @@ app.get(
 
       if (
         String(
-          topup.payment_status
+          topup.payment_status || ""
         ).toLowerCase() ===
         "paid"
       ) {
@@ -4208,6 +4361,13 @@ app.get(
 // =====================================================
 // WALLET BALANCE
 // =====================================================
+//
+// Correct endpoint:
+// GET /api/wallet
+//
+// There is intentionally no /api/wallet/balance route
+// because /api/wallet already returns the balance.
+// =====================================================
 
 app.get(
   "/api/wallet",
@@ -4274,6 +4434,8 @@ app.get(
             id,
             type,
             amount,
+            balance_before,
+            balance_after,
             description,
             status,
             reference,
@@ -4621,10 +4783,6 @@ async function syncProcessingDataOrders() {
 
       try {
 
-        // ---------------------------------------------
-        // HAS DATAMART REFERENCE
-        // ---------------------------------------------
-
         if (
           order.datamart_reference
         ) {
@@ -4635,14 +4793,6 @@ async function syncProcessingDataOrders() {
 
           continue;
         }
-
-        // ---------------------------------------------
-        // PAID BUT NO DATAMART REFERENCE
-        //
-        // Retry fulfillment.
-        // The same DGM order reference is used as
-        // the idempotency key.
-        // ---------------------------------------------
 
         console.log(
           `DataMart background fulfillment: ${order.order_ref} has no DataMart reference. Retrying fulfillment.`
@@ -5093,10 +5243,6 @@ async function startServer() {
           }`
         );
 
-        // ---------------------------------------------
-        // DATAMART AUTOMATIC STATUS / FULFILLMENT CHECK
-        // ---------------------------------------------
-
         setTimeout(
           () => {
 
@@ -5110,10 +5256,6 @@ async function startServer() {
           },
           5000
         );
-
-        // ---------------------------------------------
-        // EXPIRED SESSION CLEANUP
-        // ---------------------------------------------
 
         setTimeout(
           () => {
