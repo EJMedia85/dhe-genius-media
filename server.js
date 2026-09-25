@@ -13,9 +13,11 @@ const PORT = Number(process.env.PORT || 10000);
 // ENVIRONMENT
 // =====================================================
 
-const NODE_ENV = process.env.NODE_ENV || "development";
+const NODE_ENV =
+  process.env.NODE_ENV || "development";
 
-const DATABASE_URL = process.env.DATABASE_URL || "";
+const DATABASE_URL =
+  process.env.DATABASE_URL || "";
 
 const DATAMART_API_KEY =
   process.env.DATAMART_API_KEY || "";
@@ -46,7 +48,9 @@ app.disable("x-powered-by");
 // =====================================================
 
 if (!DATABASE_URL) {
-  console.error("ERROR: DATABASE_URL is missing.");
+  console.error(
+    "ERROR: DATABASE_URL is missing."
+  );
 }
 
 const pool = new Pool({
@@ -58,16 +62,23 @@ const pool = new Pool({
       : false,
 
   max: 10,
+
   idleTimeoutMillis: 30000,
+
   connectionTimeoutMillis: 10000
 });
 
 pool.on("error", (error) => {
-  console.error("PostgreSQL pool error:", error);
+  console.error(
+    "PostgreSQL pool error:",
+    error
+  );
 });
 
 // =====================================================
 // DATABASE SETUP
+// IMPORTANT:
+// THIS DOES NOT RESET OR DELETE EXISTING ORDERS.
 // =====================================================
 
 async function initDatabase() {
@@ -130,7 +141,7 @@ async function initDatabase() {
 
   // ---------------------------------------------------
   // WALLET TRANSACTION MIGRATIONS
-  // IMPORTANT: DO NOT RESET DATABASE
+  // DO NOT RESET DATABASE
   // ---------------------------------------------------
 
   await pool.query(`
@@ -149,7 +160,7 @@ async function initDatabase() {
   `);
 
   // ---------------------------------------------------
-  // BACKFILL transaction_ref FROM reference
+  // BACKFILL TRANSACTION REFERENCE
   // ---------------------------------------------------
 
   await pool.query(`
@@ -158,10 +169,6 @@ async function initDatabase() {
     WHERE transaction_ref IS NULL
       AND reference IS NOT NULL;
   `);
-
-  // ---------------------------------------------------
-  // BACKFILL reference FROM transaction_ref
-  // ---------------------------------------------------
 
   await pool.query(`
     UPDATE wallet_transactions
@@ -216,10 +223,14 @@ async function initDatabase() {
     ["paid_at", "TIMESTAMPTZ"]
   ];
 
-  for (const [column, definition] of orderColumns) {
+  for (
+    const [column, definition]
+    of orderColumns
+  ) {
     await pool.query(`
       ALTER TABLE orders
-      ADD COLUMN IF NOT EXISTS ${column} ${definition};
+      ADD COLUMN IF NOT EXISTS
+      ${column} ${definition};
     `);
   }
 
@@ -274,48 +285,74 @@ async function initDatabase() {
     ON orders(status, payment_status, created_at);
   `);
 
-  console.log("Database initialized successfully.");
+  console.log(
+    "Database initialized successfully."
+  );
 }
 
 // =====================================================
 // POSTGRES SESSION STORE
 // =====================================================
 
-class PostgresSessionStore extends session.Store {
+class PostgresSessionStore
+  extends session.Store {
 
   async get(sid, callback) {
     try {
-      const result = await pool.query(
-        `
-        SELECT sess
-        FROM user_sessions
-        WHERE sid = $1
-          AND expire > NOW()
-        `,
-        [sid]
-      );
+
+      const result =
+        await pool.query(
+          `
+          SELECT sess
+          FROM user_sessions
+          WHERE sid = $1
+            AND expire > NOW()
+          `,
+          [sid]
+        );
 
       if (!result.rows.length) {
         return callback(null, null);
       }
 
-      return callback(null, result.rows[0].sess);
+      return callback(
+        null,
+        result.rows[0].sess
+      );
 
     } catch (error) {
-      console.error("Session GET error:", error);
+
+      console.error(
+        "Session GET error:",
+        error
+      );
+
       return callback(error);
     }
   }
 
-  async set(sid, sess, callback) {
+  async set(
+    sid,
+    sess,
+    callback
+  ) {
+
     try {
+
       const maxAge =
-        sess.cookie && sess.cookie.maxAge
+        sess.cookie &&
+        sess.cookie.maxAge
           ? sess.cookie.maxAge
-          : 1000 * 60 * 60 * 24 * 7;
+          : 1000 *
+            60 *
+            60 *
+            24 *
+            7;
 
       const expire =
-        new Date(Date.now() + maxAge);
+        new Date(
+          Date.now() + maxAge
+        );
 
       await pool.query(
         `
@@ -340,7 +377,11 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
-      console.error("Session SET error:", error);
+
+      console.error(
+        "Session SET error:",
+        error
+      );
 
       if (callback) {
         callback(error);
@@ -348,8 +389,13 @@ class PostgresSessionStore extends session.Store {
     }
   }
 
-  async destroy(sid, callback) {
+  async destroy(
+    sid,
+    callback
+  ) {
+
     try {
+
       await pool.query(
         `
         DELETE FROM user_sessions
@@ -363,7 +409,11 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
-      console.error("Session DESTROY error:", error);
+
+      console.error(
+        "Session DESTROY error:",
+        error
+      );
 
       if (callback) {
         callback(error);
@@ -371,21 +421,35 @@ class PostgresSessionStore extends session.Store {
     }
   }
 
-  async touch(sid, sess, callback) {
+  async touch(
+    sid,
+    sess,
+    callback
+  ) {
+
     try {
+
       const maxAge =
-        sess.cookie && sess.cookie.maxAge
+        sess.cookie &&
+        sess.cookie.maxAge
           ? sess.cookie.maxAge
-          : 1000 * 60 * 60 * 24 * 7;
+          : 1000 *
+            60 *
+            60 *
+            24 *
+            7;
 
       const expire =
-        new Date(Date.now() + maxAge);
+        new Date(
+          Date.now() + maxAge
+        );
 
       await pool.query(
         `
         UPDATE user_sessions
-        SET expire = $2,
-            sess = $3::jsonb
+        SET
+          expire = $2,
+          sess = $3::jsonb
         WHERE sid = $1
         `,
         [
@@ -400,7 +464,11 @@ class PostgresSessionStore extends session.Store {
       }
 
     } catch (error) {
-      console.error("Session TOUCH error:", error);
+
+      console.error(
+        "Session TOUCH error:",
+        error
+      );
 
       if (callback) {
         callback(error);
@@ -419,18 +487,33 @@ const sessionStore =
 app.use(
   session({
     name: "dgm.sid",
+
     store: sessionStore,
+
     secret: SESSION_SECRET,
+
     resave: false,
+
     saveUninitialized: false,
+
     rolling: true,
 
     cookie: {
       httpOnly: true,
-      secure: NODE_ENV === "production",
+
+      secure:
+        NODE_ENV === "production",
+
       sameSite: "lax",
+
       path: "/",
-      maxAge: 1000 * 60 * 60 * 24 * 7
+
+      maxAge:
+        1000 *
+        60 *
+        60 *
+        24 *
+        7
     }
   })
 );
@@ -446,20 +529,27 @@ function cleanPhone(value) {
 }
 
 function normalizeGhanaPhone(value) {
-  let phone = cleanPhone(value);
+
+  let phone =
+    cleanPhone(value);
 
   if (phone.startsWith("+233")) {
-    phone = "0" + phone.slice(4);
+    phone =
+      "0" +
+      phone.slice(4);
   }
 
   if (phone.startsWith("233")) {
-    phone = "0" + phone.slice(3);
+    phone =
+      "0" +
+      phone.slice(3);
   }
 
   return phone;
 }
 
 function validGhanaPhone(value) {
+
   return /^0(20|23|24|25|26|27|50|51|53|54|55|59)\d{7}$/.test(
     normalizeGhanaPhone(value)
   );
@@ -472,6 +562,7 @@ function cleanEmail(value) {
 }
 
 function createOrderReference() {
+
   return (
     "DGM-" +
     Date.now()
@@ -486,6 +577,7 @@ function createOrderReference() {
 }
 
 function createWalletReference() {
+
   return (
     "DGM-WALLET-" +
     Date.now()
@@ -499,18 +591,31 @@ function createWalletReference() {
   );
 }
 
-function sendError(res, status, message) {
-  return res.status(status).json({
-    success: false,
-    message
-  });
+function sendError(
+  res,
+  status,
+  message
+) {
+
+  return res
+    .status(status)
+    .json({
+      success: false,
+      message
+    });
 }
 
-function requireLogin(req, res, next) {
+function requireLogin(
+  req,
+  res,
+  next
+) {
+
   if (
     !req.session ||
     !req.session.customerId
   ) {
+
     return sendError(
       res,
       401,
@@ -521,47 +626,71 @@ function requireLogin(req, res, next) {
   next();
 }
 
-async function getCustomer(customerId) {
-  const result = await pool.query(
-    `
-    SELECT
-      id,
-      name,
-      phone,
-      email,
-      balance,
-      created_at
-    FROM customers
-    WHERE id = $1
-    `,
-    [customerId]
-  );
+async function getCustomer(
+  customerId
+) {
 
-  return result.rows[0] || null;
+  const result =
+    await pool.query(
+      `
+      SELECT
+        id,
+        name,
+        phone,
+        email,
+        balance,
+        created_at
+      FROM customers
+      WHERE id = $1
+      `,
+      [customerId]
+    );
+
+  return (
+    result.rows[0] ||
+    null
+  );
 }
 
-function publicCustomer(customer) {
+function publicCustomer(
+  customer
+) {
+
   if (!customer) {
     return null;
   }
 
   return {
     id: customer.id,
+
     name: customer.name,
+
     phone: customer.phone,
+
     email: customer.email,
-    balance: Number(customer.balance || 0),
-    created_at: customer.created_at
+
+    balance:
+      Number(
+        customer.balance || 0
+      ),
+
+    created_at:
+      customer.created_at
   };
 }
 
-function normalizeCapacity(value) {
-  const cleaned = String(value || "")
-    .toUpperCase()
-    .replace(/GB/g, "")
-    .trim();
+function normalizeCapacity(
+  value
+) {
 
-  const number = Number(cleaned);
+  const cleaned =
+    String(value || "")
+      .toUpperCase()
+      .replace(/GB/g, "")
+      .trim();
+
+  const number =
+    Number(cleaned);
 
   if (
     !Number.isFinite(number) ||
@@ -574,6 +703,7 @@ function normalizeCapacity(value) {
 }
 
 function escapeHtml(value) {
+
   return String(value || "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -586,10 +716,14 @@ function escapeHtml(value) {
 // DATA SERVICE CHECK
 // =====================================================
 
-function isDataService(service) {
-  const value = String(service || "")
-    .trim()
-    .toLowerCase();
+function isDataService(
+  service
+) {
+
+  const value =
+    String(service || "")
+      .trim()
+      .toLowerCase();
 
   return (
     value === "data" ||
@@ -603,6 +737,7 @@ function isDataService(service) {
 // =====================================================
 
 const DGM_PRICES = {
+
   MTN: {
     1: 5,
     2: 10,
@@ -652,9 +787,14 @@ const DGM_PRICES = {
 };
 
 const NETWORK_MAP = {
+
   MTN: "YELLO",
-  AirtelTigo: "AT_PREMIUM",
-  Telecel: "TELECEL"
+
+  AirtelTigo:
+    "AT_PREMIUM",
+
+  Telecel:
+    "TELECEL"
 };
 
 // =====================================================
@@ -676,7 +816,9 @@ async function datamartRequest(
   endpoint,
   options = {}
 ) {
+
   if (!DATAMART_API_KEY) {
+
     throw new Error(
       "DATAMART_API_KEY is not configured."
     );
@@ -685,30 +827,34 @@ async function datamartRequest(
   const controller =
     new AbortController();
 
-  const timeout = setTimeout(
-    () => controller.abort(),
-    30000
-  );
+  const timeout =
+    setTimeout(
+      () => controller.abort(),
+      30000
+    );
 
   try {
-    const response = await fetch(
-      `${baseUrl}${endpoint}`,
-      {
-        ...options,
 
-        signal: controller.signal,
+    const response =
+      await fetch(
+        `${baseUrl}${endpoint}`,
+        {
+          ...options,
 
-        headers: {
-          "Content-Type":
-            "application/json",
+          signal:
+            controller.signal,
 
-          "X-API-Key":
-            DATAMART_API_KEY,
+          headers: {
+            "Content-Type":
+              "application/json",
 
-          ...(options.headers || {})
+            "X-API-Key":
+              DATAMART_API_KEY,
+
+            ...(options.headers || {})
+          }
         }
-      }
-    );
+      );
 
     const text =
       await response.text();
@@ -716,25 +862,42 @@ async function datamartRequest(
     let data;
 
     try {
-      data = JSON.parse(text);
+
+      data =
+        JSON.parse(text);
+
     } catch {
-      data = { raw: text };
+
+      data = {
+        raw: text
+      };
     }
 
     if (!response.ok) {
-      throw new Error(
-        `DataMart HTTP ${response.status}: ${
-          data.message ||
-          data.error ||
-          text ||
-          "Request failed"
-        }`
-      );
+
+      const error =
+        new Error(
+          `DataMart HTTP ${response.status}: ${
+            data.message ||
+            data.error ||
+            text ||
+            "Request failed"
+          }`
+        );
+
+      error.status =
+        response.status;
+
+      error.data =
+        data;
+
+      throw error;
     }
 
     return data;
 
   } finally {
+
     clearTimeout(timeout);
   }
 }
@@ -747,15 +910,25 @@ async function datamartPurchase(
   payload,
   idempotencyKey
 ) {
+
   const body =
     JSON.stringify(payload);
 
+  let primaryError =
+    null;
+
+  // ---------------------------------------------------
+  // PRIMARY ENDPOINT
+  // ---------------------------------------------------
+
   try {
+
     return await datamartRequest(
       DATAMART_BASE,
       "/purchase",
       {
         method: "POST",
+
         body,
 
         headers: {
@@ -765,18 +938,31 @@ async function datamartPurchase(
       }
     );
 
-  } catch (primaryError) {
+  } catch (error) {
+
+    primaryError =
+      error;
 
     console.warn(
       "Primary DataMart endpoint failed:",
-      primaryError.message
+      error.message
     );
+  }
+
+  // ---------------------------------------------------
+  // DEVELOPER ENDPOINT
+  //
+  // SAME IDEMPOTENCY KEY
+  // ---------------------------------------------------
+
+  try {
 
     return await datamartRequest(
       DATAMART_DEVELOPER_BASE,
       "/purchase",
       {
         method: "POST",
+
         body,
 
         headers: {
@@ -785,6 +971,32 @@ async function datamartPurchase(
         }
       }
     );
+
+  } catch (developerError) {
+
+    const combinedError =
+      new Error(
+        `DataMart purchase failed. Primary: ${
+          primaryError?.message ||
+          "unknown error"
+        } | Developer: ${
+          developerError?.message ||
+          "unknown error"
+        }`
+      );
+
+    combinedError.primaryError =
+      primaryError;
+
+    combinedError.developerError =
+      developerError;
+
+    combinedError.status =
+      developerError.status ||
+      primaryError?.status ||
+      null;
+
+    throw combinedError;
   }
 }
 
@@ -795,14 +1007,18 @@ async function datamartPurchase(
 async function datamartOrderStatus(
   reference
 ) {
+
   if (!reference) {
+
     throw new Error(
       "DataMart order reference is required."
     );
   }
 
   const encodedReference =
-    encodeURIComponent(reference);
+    encodeURIComponent(
+      reference
+    );
 
   return await datamartRequest(
     DATAMART_DEVELOPER_BASE,
@@ -820,11 +1036,13 @@ async function datamartOrderStatus(
 function mapDataMartStatus(
   datamartStatus
 ) {
-  const status = String(
-    datamartStatus || ""
-  )
-    .trim()
-    .toLowerCase();
+
+  const status =
+    String(
+      datamartStatus || ""
+    )
+      .trim()
+      .toLowerCase();
 
   if (
     status === "completed" ||
@@ -832,6 +1050,7 @@ function mapDataMartStatus(
     status === "success" ||
     status === "successful"
   ) {
+
     return "Completed";
   }
 
@@ -841,6 +1060,7 @@ function mapDataMartStatus(
     status === "cancelled" ||
     status === "canceled"
   ) {
+
     return "Failed";
   }
 
@@ -850,6 +1070,7 @@ function mapDataMartStatus(
     status === "processing" ||
     status === "queued"
   ) {
+
     return "Processing";
   }
 
@@ -860,16 +1081,25 @@ function mapDataMartStatus(
 // SYNCHRONIZE DATAMART ORDER
 // =====================================================
 
-async function syncDataMartOrder(order) {
+async function syncDataMartOrder(
+  order
+) {
+
   try {
 
     if (!order) {
+
       throw new Error(
         "Order not found."
       );
     }
 
-    if (!isDataService(order.service)) {
+    if (
+      !isDataService(
+        order.service
+      )
+    ) {
+
       return {
         success: false,
         skipped: true,
@@ -883,6 +1113,7 @@ async function syncDataMartOrder(order) {
         order.payment_status || ""
       ).toLowerCase() !== "paid"
     ) {
+
       return {
         success: false,
         skipped: true,
@@ -891,7 +1122,10 @@ async function syncDataMartOrder(order) {
       };
     }
 
-    if (!order.datamart_reference) {
+    if (
+      !order.datamart_reference
+    ) {
+
       return {
         success: false,
         skipped: true,
@@ -906,7 +1140,9 @@ async function syncDataMartOrder(order) {
       );
 
     const data =
-      result?.data || result || {};
+      result?.data ||
+      result ||
+      {};
 
     const datamartStatus =
       String(
@@ -932,8 +1168,11 @@ async function syncDataMartOrder(order) {
       WHERE id = $3
       `,
       [
-        datamartStatus || "unknown",
+        datamartStatus ||
+          "unknown",
+
         localStatus,
+
         order.id
       ]
     );
@@ -944,9 +1183,14 @@ async function syncDataMartOrder(order) {
 
     return {
       success: true,
-      orderStatus: localStatus,
+
+      orderStatus:
+        localStatus,
+
       datamartStatus:
-        datamartStatus || "unknown",
+        datamartStatus ||
+        "unknown",
+
       data
     };
 
@@ -962,7 +1206,9 @@ async function syncDataMartOrder(order) {
 
     return {
       success: false,
-      error: error.message
+
+      error:
+        error.message
     };
   }
 }
@@ -971,9 +1217,12 @@ async function syncDataMartOrder(order) {
 // FULFILL DATA ORDER
 // =====================================================
 
-async function fulfillDataOrder(order) {
+async function fulfillDataOrder(
+  order
+) {
 
   if (!order) {
+
     throw new Error(
       "Order not found."
     );
@@ -984,25 +1233,41 @@ async function fulfillDataOrder(order) {
       order.payment_status || ""
     ).toLowerCase() !== "paid"
   ) {
+
     throw new Error(
       "Order has not been paid."
     );
   }
 
-  if (!isDataService(order.service)) {
+  if (
+    !isDataService(
+      order.service
+    )
+  ) {
+
     return {
       success: true,
+
       skipped: true,
-      reason: "Not a data order."
+
+      reason:
+        "Not a data order."
     };
   }
 
-  // Existing DataMart reference.
-  // NEVER PURCHASE AGAIN.
-  if (order.datamart_reference) {
+  // ===================================================
+  // EXISTING DATAMART REFERENCE
+  // NEVER CREATE ANOTHER PURCHASE
+  // ===================================================
+
+  if (
+    order.datamart_reference
+  ) {
 
     const syncResult =
-      await syncDataMartOrder(order);
+      await syncDataMartOrder(
+        order
+      );
 
     return {
       success:
@@ -1020,22 +1285,44 @@ async function fulfillDataOrder(order) {
     };
   }
 
-  // Existing purchase ID.
-  // NEVER PURCHASE AGAIN.
-  if (order.datamart_purchase_id) {
+  // ===================================================
+  // EXISTING PURCHASE ID WITHOUT REFERENCE
+  // ===================================================
+
+  if (
+    order.datamart_purchase_id
+  ) {
+
+    await pool.query(
+      `
+      UPDATE orders
+      SET
+        status = 'Processing',
+        datamart_status =
+          COALESCE(
+            datamart_status,
+            'processing'
+          )
+      WHERE id = $1
+      `,
+      [order.id]
+    );
 
     return {
       success: true,
-      status:
-        order.status ||
-        "Processing",
+
+      status: "Processing",
 
       alreadyFulfilled: true,
 
       message:
-        "DataMart purchase already exists but no status reference is available."
+        "DataMart purchase exists but tracking reference is not available yet."
     };
   }
+
+  // ===================================================
+  // VALIDATE ORDER
+  // ===================================================
 
   const capacity =
     normalizeCapacity(
@@ -1043,6 +1330,7 @@ async function fulfillDataOrder(order) {
     );
 
   if (!order.network) {
+
     throw new Error(
       "Network is missing."
     );
@@ -1053,12 +1341,14 @@ async function fulfillDataOrder(order) {
       order.phone
     )
   ) {
+
     throw new Error(
       "Invalid Ghana phone number."
     );
   }
 
   if (!capacity) {
+
     throw new Error(
       "Data capacity is missing."
     );
@@ -1070,6 +1360,7 @@ async function fulfillDataOrder(order) {
     ];
 
   if (!datamartNetwork) {
+
     throw new Error(
       `Unsupported network: ${order.network}`
     );
@@ -1081,6 +1372,7 @@ async function fulfillDataOrder(order) {
     ];
 
   if (!networkPrices) {
+
     throw new Error(
       "Invalid DGM network."
     );
@@ -1095,6 +1387,7 @@ async function fulfillDataOrder(order) {
     typeof expectedAmount !==
     "number"
   ) {
+
     throw new Error(
       "Selected data bundle is not available."
     );
@@ -1108,12 +1401,18 @@ async function fulfillDataOrder(order) {
       expectedAmount * 100
     )
   ) {
+
     throw new Error(
       "Order price does not match the current DGM price."
     );
   }
 
+  // ===================================================
+  // DATAMART PAYLOAD
+  // ===================================================
+
   const payload = {
+
     phoneNumber:
       normalizeGhanaPhone(
         order.phone
@@ -1127,6 +1426,8 @@ async function fulfillDataOrder(order) {
     gateway: "wallet"
   };
 
+  // IMPORTANT:
+  // The same order reference is always used.
   const idempotencyKey =
     `dgm-${order.order_ref}`;
 
@@ -1141,6 +1442,10 @@ async function fulfillDataOrder(order) {
         payload,
         idempotencyKey
       );
+
+    // =================================================
+    // EXTRACT DATAMART IDENTIFIERS
+    // =================================================
 
     const purchaseId =
       result?.purchaseId ||
@@ -1170,18 +1475,90 @@ async function fulfillDataOrder(order) {
     const externalStatus =
       String(
         result?.orderStatus ||
+        result?.order_status ||
         result?.status ||
         result?.data?.orderStatus ||
+        result?.data?.order_status ||
         result?.data?.status ||
-        "processing"
+        ""
       )
         .trim()
         .toLowerCase();
 
+    // =================================================
+    // CRITICAL VALIDATION
+    //
+    // Successful HTTP response without a reference
+    // is NOT enough to claim Processing.
+    // =================================================
+
+    if (!reference) {
+
+      const diagnostic =
+        [
+          "DataMart purchase response did not contain an order reference.",
+
+          purchaseId
+            ? `purchaseId=${purchaseId}`
+            : "purchaseId=none",
+
+          externalStatus
+            ? `status=${externalStatus}`
+            : "status=unknown"
+        ].join(" ");
+
+      console.error(
+        `DataMart invalid purchase response for ${order.order_ref}:`,
+        result
+      );
+
+      await pool.query(
+        `
+        UPDATE orders
+        SET
+          datamart_purchase_id = $1,
+          datamart_transaction_reference = $2,
+          datamart_status = $3,
+          status = 'Failed'
+        WHERE id = $4
+        `,
+        [
+          purchaseId,
+
+          transactionReference,
+
+          `failed: ${diagnostic}`,
+
+          order.id
+        ]
+      );
+
+      return {
+        success: false,
+
+        status: "Failed",
+
+        error:
+          diagnostic,
+
+        datamart:
+          result
+      };
+    }
+
+    // =================================================
+    // MAP INITIAL DATAMART STATUS
+    // =================================================
+
     const localStatus =
       mapDataMartStatus(
-        externalStatus
+        externalStatus ||
+          "processing"
       );
+
+    // =================================================
+    // SAVE DATAMART ORDER
+    // =================================================
 
     await pool.query(
       `
@@ -1196,23 +1573,58 @@ async function fulfillDataOrder(order) {
       `,
       [
         purchaseId,
+
         reference,
+
         transactionReference,
-        externalStatus,
+
+        externalStatus ||
+          "processing",
+
         localStatus,
+
         order.id
       ]
     );
 
     console.log(
-      `DataMart purchase created: ${order.order_ref} | reference: ${
-        reference || "none"
-      } | status: ${externalStatus}`
+      `DataMart purchase created: ${order.order_ref} | reference: ${reference} | status: ${
+        externalStatus ||
+        "processing"
+      }`
     );
 
-    if (reference) {
+    // =================================================
+    // IMMEDIATELY VERIFY REAL DATAMART STATUS
+    // =================================================
 
-      const updatedResult =
+    const updatedResult =
+      await pool.query(
+        `
+        SELECT *
+        FROM orders
+        WHERE id = $1
+        `,
+        [order.id]
+      );
+
+    const updatedOrder =
+      updatedResult.rows[0];
+
+    const syncResult =
+      await syncDataMartOrder(
+        updatedOrder
+      );
+
+    // =================================================
+    // STATUS CHECK SUCCESS
+    // =================================================
+
+    if (
+      syncResult.success
+    ) {
+
+      const finalResult =
         await pool.query(
           `
           SELECT *
@@ -1222,72 +1634,98 @@ async function fulfillDataOrder(order) {
           [order.id]
         );
 
-      const updatedOrder =
-        updatedResult.rows[0];
+      const finalOrder =
+        finalResult.rows[0] ||
+        updatedOrder;
 
-      const syncResult =
-        await syncDataMartOrder(
-          updatedOrder
-        );
+      return {
+        success: true,
 
-      if (syncResult.success) {
+        status:
+          finalOrder.status,
 
-        const finalResult =
-          await pool.query(
-            `
-            SELECT *
-            FROM orders
-            WHERE id = $1
-            `,
-            [order.id]
-          );
+        datamart:
+          syncResult,
 
-        return {
-          success: true,
-          status:
-            syncResult.orderStatus,
-
-          datamart:
-            syncResult,
-
-          order:
-            finalResult.rows[0] ||
-            updatedOrder
-        };
-      }
+        order:
+          finalOrder
+      };
     }
+
+    // =================================================
+    // PURCHASE EXISTS, STATUS CHECK TEMPORARILY FAILED
+    //
+    // We have a genuine DataMart reference, so
+    // Processing is legitimate.
+    // =================================================
+
+    await pool.query(
+      `
+      UPDATE orders
+      SET
+        status = 'Processing',
+        datamart_status =
+          COALESCE(
+            datamart_status,
+            'processing'
+          )
+      WHERE id = $1
+      `,
+      [order.id]
+    );
 
     return {
       success: true,
-      status: localStatus,
-      datamart: result
+
+      status: "Processing",
+
+      datamart:
+        syncResult,
+
+      order:
+        updatedOrder
     };
 
   } catch (error) {
 
     console.error(
-      "DataMart fulfillment error:",
+      `DataMart fulfillment failed for ${order.order_ref}:`,
       error
     );
+
+    // =================================================
+    // IMPORTANT:
+    //
+    // NO DATAMART REFERENCE EXISTS.
+    //
+    // Therefore DGM must NOT show Processing.
+    // =================================================
 
     await pool.query(
       `
       UPDATE orders
       SET
         datamart_status = $1,
-        status = 'Processing'
+        status = 'Failed'
       WHERE id = $2
       `,
       [
-        `pending: ${error.message}`,
+        `failed: ${error.message}`,
+
         order.id
       ]
     );
 
     return {
       success: false,
-      status: "Processing",
-      error: error.message
+
+      status: "Failed",
+
+      error:
+        error.message,
+
+      orderRef:
+        order.order_ref
     };
   }
 }
@@ -1305,7 +1743,9 @@ async function creditWalletFromTopup(
 
   try {
 
-    await client.query("BEGIN");
+    await client.query(
+      "BEGIN"
+    );
 
     // -------------------------------------------------
     // LOCK TOP-UP
@@ -1322,7 +1762,9 @@ async function creditWalletFromTopup(
         [reference]
       );
 
-    if (!topupResult.rows.length) {
+    if (
+      !topupResult.rows.length
+    ) {
 
       await client.query(
         "ROLLBACK"
@@ -1330,6 +1772,7 @@ async function creditWalletFromTopup(
 
       return {
         success: false,
+
         message:
           "Wallet top-up not found."
       };
@@ -1345,7 +1788,8 @@ async function creditWalletFromTopup(
     if (
       String(
         topup.payment_status
-      ).toLowerCase() === "paid"
+      ).toLowerCase() ===
+      "paid"
     ) {
 
       await client.query(
@@ -1354,9 +1798,12 @@ async function creditWalletFromTopup(
 
       return {
         success: true,
+
         alreadyCredited: true,
+
         amount:
           Number(topup.amount),
+
         customerId:
           topup.customer_id
       };
@@ -1377,7 +1824,9 @@ async function creditWalletFromTopup(
         [topup.customer_id]
       );
 
-    if (!customerResult.rows.length) {
+    if (
+      !customerResult.rows.length
+    ) {
 
       await client.query(
         "ROLLBACK"
@@ -1417,6 +1866,7 @@ async function creditWalletFromTopup(
       `,
       [
         amount,
+
         topup.customer_id
       ]
     );
@@ -1441,16 +1891,9 @@ async function creditWalletFromTopup(
       [topup.id]
     );
 
-    // =================================================
-    // IMPORTANT FIX
-    //
-    // Existing PostgreSQL database requires:
-    //
-    // transaction_ref NOT NULL
-    //
-    // Therefore BOTH transaction_ref and reference
-    // receive the same wallet reference.
-    // =================================================
+    // -------------------------------------------------
+    // WALLET TRANSACTION
+    // -------------------------------------------------
 
     await client.query(
       `
@@ -1480,7 +1923,9 @@ async function creditWalletFromTopup(
       `,
       [
         reference,
+
         topup.customer_id,
+
         amount
       ]
     );
@@ -1495,8 +1940,11 @@ async function creditWalletFromTopup(
 
     return {
       success: true,
+
       alreadyCredited: false,
+
       amount,
+
       customerId:
         topup.customer_id
     };
@@ -1517,6 +1965,7 @@ async function creditWalletFromTopup(
     throw error;
 
   } finally {
+
     client.release();
   }
 }
@@ -1567,6 +2016,7 @@ app.post(
         signature.length !==
         expectedSignature.length
       ) {
+
         return res.sendStatus(401);
       }
 
@@ -1589,10 +2039,14 @@ app.post(
       let event;
 
       try {
-        event = JSON.parse(
-          rawBody.toString("utf8")
-        );
+
+        event =
+          JSON.parse(
+            rawBody.toString("utf8")
+          );
+
       } catch {
+
         return res.sendStatus(400);
       }
 
@@ -1600,6 +2054,7 @@ app.post(
         event.event !==
         "charge.success"
       ) {
+
         return res.sendStatus(200);
       }
 
@@ -1628,14 +2083,17 @@ app.post(
           [reference]
         );
 
-      if (walletResult.rows.length) {
+      if (
+        walletResult.rows.length
+      ) {
 
         const topup =
           walletResult.rows[0];
 
         const amountFromPaystack =
           Number(
-            event?.data?.amount || 0
+            event?.data?.amount ||
+            0
           ) / 100;
 
         const currency =
@@ -1644,7 +2102,9 @@ app.post(
             ""
           ).toUpperCase();
 
-        if (currency !== "GHS") {
+        if (
+          currency !== "GHS"
+        ) {
 
           console.error(
             "Wallet webhook currency mismatch:",
@@ -1695,6 +2155,7 @@ app.post(
         );
 
       if (!result.rows.length) {
+
         return res.sendStatus(200);
       }
 
@@ -1703,7 +2164,8 @@ app.post(
 
       const amountFromPaystack =
         Number(
-          event?.data?.amount || 0
+          event?.data?.amount ||
+          0
         ) / 100;
 
       const currency =
@@ -1712,7 +2174,10 @@ app.post(
           ""
         ).toUpperCase();
 
-      if (currency !== "GHS") {
+      if (
+        currency !== "GHS"
+      ) {
+
         return res.sendStatus(400);
       }
 
@@ -1732,6 +2197,10 @@ app.post(
 
         return res.sendStatus(400);
       }
+
+      // -------------------------------------------------
+      // MARK ORDER AS PAID
+      // -------------------------------------------------
 
       await pool.query(
         `
@@ -1759,9 +2228,14 @@ app.post(
         `,
         [
           reference,
+
           order.id
         ]
       );
+
+      // -------------------------------------------------
+      // GET UPDATED ORDER
+      // -------------------------------------------------
 
       const updatedResult =
         await pool.query(
@@ -1773,9 +2247,36 @@ app.post(
           [order.id]
         );
 
-      await fulfillDataOrder(
-        updatedResult.rows[0]
-      );
+      // -------------------------------------------------
+      // FULFILL DATA ORDER
+      // -------------------------------------------------
+
+      const fulfillmentResult =
+        await fulfillDataOrder(
+          updatedResult.rows[0]
+        );
+
+      if (
+        !fulfillmentResult.success
+      ) {
+
+        console.error(
+          `DataMart fulfillment failed after Paystack payment: ${order.order_ref}`,
+          fulfillmentResult.error
+        );
+
+        /*
+         * Payment is already confirmed.
+         *
+         * The order has already been marked
+         * Failed by fulfillDataOrder().
+         *
+         * Returning 500 tells Paystack that the
+         * webhook was not completely processed.
+         */
+
+        return res.sendStatus(500);
+      }
 
       return res.sendStatus(200);
 
@@ -1793,6 +2294,8 @@ app.post(
 
 // =====================================================
 // BODY PARSERS
+// IMPORTANT:
+// WEBHOOK ABOVE MUST REMAIN BEFORE express.json()
 // =====================================================
 
 app.use(
@@ -1838,6 +2341,7 @@ app.post(
         );
 
       if (!name) {
+
         return sendError(
           res,
           400,
@@ -1848,6 +2352,7 @@ app.post(
       if (
         !validGhanaPhone(phone)
       ) {
+
         return sendError(
           res,
           400,
@@ -1856,6 +2361,7 @@ app.post(
       }
 
       if (!email) {
+
         return sendError(
           res,
           400,
@@ -1866,6 +2372,7 @@ app.post(
       if (
         password.length < 6
       ) {
+
         return sendError(
           res,
           400,
@@ -1888,7 +2395,10 @@ app.post(
           ]
         );
 
-      if (existing.rows.length) {
+      if (
+        existing.rows.length
+      ) {
+
         return sendError(
           res,
           409,
@@ -1939,7 +2449,10 @@ app.post(
         result.rows[0];
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
 
           req.session.regenerate(
             (error) => {
@@ -1958,7 +2471,10 @@ app.post(
         customer.id;
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
 
           req.session.save(
             (error) => {
@@ -1975,8 +2491,10 @@ app.post(
 
       return res.json({
         success: true,
+
         message:
           "Registration successful.",
+
         customer:
           publicCustomer(
             customer
@@ -2025,6 +2543,7 @@ app.post(
         !identifier ||
         !password
       ) {
+
         return sendError(
           res,
           400,
@@ -2057,7 +2576,10 @@ app.post(
           ]
         );
 
-      if (!result.rows.length) {
+      if (
+        !result.rows.length
+      ) {
+
         return sendError(
           res,
           401,
@@ -2075,6 +2597,7 @@ app.post(
         );
 
       if (!passwordMatches) {
+
         return sendError(
           res,
           401,
@@ -2083,7 +2606,10 @@ app.post(
       }
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
 
           req.session.regenerate(
             (error) => {
@@ -2102,7 +2628,10 @@ app.post(
         customer.id;
 
       await new Promise(
-        (resolve, reject) => {
+        (
+          resolve,
+          reject
+        ) => {
 
           req.session.save(
             (error) => {
@@ -2119,8 +2648,10 @@ app.post(
 
       return res.json({
         success: true,
+
         message:
           "Login successful.",
+
         customer:
           publicCustomer(
             customer
@@ -2157,6 +2688,7 @@ app.get(
         !req.session ||
         !req.session.customerId
       ) {
+
         return sendError(
           res,
           401,
@@ -2184,6 +2716,7 @@ app.get(
 
       return res.json({
         success: true,
+
         customer:
           publicCustomer(
             customer
@@ -2221,10 +2754,13 @@ app.post(
           "dgm.sid",
           {
             httpOnly: true,
+
             secure:
               NODE_ENV ===
               "production",
+
             sameSite: "lax",
+
             path: "/"
           }
         );
@@ -2233,10 +2769,13 @@ app.post(
           "connect.sid",
           {
             httpOnly: true,
+
             secure:
               NODE_ENV ===
               "production",
+
             sameSite: "lax",
+
             path: "/"
           }
         );
@@ -2309,6 +2848,7 @@ app.post(
         );
 
       if (!network) {
+
         return sendError(
           res,
           400,
@@ -2319,6 +2859,7 @@ app.post(
       if (
         !validGhanaPhone(phone)
       ) {
+
         return sendError(
           res,
           400,
@@ -2327,6 +2868,7 @@ app.post(
       }
 
       if (!capacity) {
+
         return sendError(
           res,
           400,
@@ -2340,6 +2882,7 @@ app.post(
         ];
 
       if (!networkPrices) {
+
         return sendError(
           res,
           400,
@@ -2356,6 +2899,7 @@ app.post(
         typeof amount !==
         "number"
       ) {
+
         return sendError(
           res,
           400,
@@ -2397,17 +2941,24 @@ app.post(
           `,
           [
             orderRef,
+
             req.session.customerId,
+
             service,
+
             network,
+
             phone,
+
             amount,
+
             String(capacity)
           ]
         );
 
       return res.json({
         success: true,
+
         order:
           result.rows[0]
       });
@@ -2469,6 +3020,7 @@ app.get(
 
       return res.json({
         success: true,
+
         orders:
           result.rows
       });
@@ -2511,11 +3063,15 @@ app.get(
           `,
           [
             req.params.orderRef,
+
             req.session.customerId
           ]
         );
 
-      if (!result.rows.length) {
+      if (
+        !result.rows.length
+      ) {
+
         return sendError(
           res,
           404,
@@ -2561,6 +3117,7 @@ app.get(
 
       return res.json({
         success: true,
+
         order
       });
 
@@ -2602,11 +3159,15 @@ app.post(
           `,
           [
             req.params.orderRef,
+
             req.session.customerId
           ]
         );
 
-      if (!result.rows.length) {
+      if (
+        !result.rows.length
+      ) {
+
         return sendError(
           res,
           404,
@@ -2617,7 +3178,10 @@ app.post(
       const order =
         result.rows[0];
 
-      if (!order.datamart_reference) {
+      if (
+        !order.datamart_reference
+      ) {
+
         return sendError(
           res,
           400,
@@ -2643,8 +3207,10 @@ app.post(
       return res.json({
         success:
           syncResult.success,
+
         order:
           updatedResult.rows[0],
+
         datamart:
           syncResult
       });
@@ -2677,6 +3243,7 @@ app.post(
     try {
 
       if (!PAYSTACK_SECRET_KEY) {
+
         return sendError(
           res,
           500,
@@ -2691,6 +3258,7 @@ app.post(
         ).trim();
 
       if (!orderRef) {
+
         return sendError(
           res,
           400,
@@ -2709,11 +3277,15 @@ app.post(
           `,
           [
             orderRef,
+
             req.session.customerId
           ]
         );
 
-      if (!result.rows.length) {
+      if (
+        !result.rows.length
+      ) {
+
         return sendError(
           res,
           404,
@@ -2730,9 +3302,12 @@ app.post(
         ).toLowerCase() ===
         "paid"
       ) {
+
         return res.json({
           success: true,
+
           alreadyPaid: true,
+
           order
         });
       }
@@ -2743,6 +3318,7 @@ app.post(
         );
 
       if (!customer) {
+
         return sendError(
           res,
           401,
@@ -2759,6 +3335,7 @@ app.post(
       if (
         amountPesewas <= 0
       ) {
+
         return sendError(
           res,
           400,
@@ -2783,32 +3360,34 @@ app.post(
                 "application/json"
             },
 
-            body: JSON.stringify({
-              email:
-                customer.email,
+            body:
+              JSON.stringify({
+                email:
+                  customer.email,
 
-              amount:
-                amountPesewas,
+                amount:
+                  amountPesewas,
 
-              currency: "GHS",
+                currency:
+                  "GHS",
 
-              callback_url:
-                callbackUrl,
+                callback_url:
+                  callbackUrl,
 
-              metadata: {
-                type:
-                  "data_order",
+                metadata: {
+                  type:
+                    "data_order",
 
-                order_ref:
-                  order.order_ref,
+                  order_ref:
+                    order.order_ref,
 
-                customer_id:
-                  order.customer_id,
+                  customer_id:
+                    order.customer_id,
 
-                service:
-                  order.service
-              }
-            })
+                  service:
+                    order.service
+                }
+              })
           }
         );
 
@@ -2845,6 +3424,7 @@ app.post(
         `,
         [
           reference,
+
           order.id
         ]
       );
@@ -2889,6 +3469,7 @@ app.get(
     try {
 
       if (!PAYSTACK_SECRET_KEY) {
+
         return sendError(
           res,
           500,
@@ -2903,6 +3484,7 @@ app.get(
         ).trim();
 
       if (!reference) {
+
         return sendError(
           res,
           400,
@@ -2924,11 +3506,15 @@ app.get(
           `,
           [
             req.session.customerId,
+
             reference
           ]
         );
 
-      if (!orderResult.rows.length) {
+      if (
+        !orderResult.rows.length
+      ) {
+
         return sendError(
           res,
           404,
@@ -2958,6 +3544,7 @@ app.get(
         !data.status ||
         !data.data
       ) {
+
         return sendError(
           res,
           502,
@@ -2975,6 +3562,7 @@ app.get(
           ""
         ) !== reference
       ) {
+
         return sendError(
           res,
           400,
@@ -2987,11 +3575,15 @@ app.get(
         "success";
 
       if (!paid) {
+
         return res.json({
           success: true,
+
           paid: false,
+
           status:
             transaction.status,
+
           order
         });
       }
@@ -2999,7 +3591,7 @@ app.get(
       const amount =
         Number(
           transaction.amount ||
-            0
+          0
         ) / 100;
 
       if (
@@ -3011,6 +3603,7 @@ app.get(
             100
         )
       ) {
+
         return sendError(
           res,
           400,
@@ -3024,7 +3617,10 @@ app.get(
           ""
         ).toUpperCase();
 
-      if (currency !== "GHS") {
+      if (
+        currency !== "GHS"
+      ) {
+
         return sendError(
           res,
           400,
@@ -3054,6 +3650,7 @@ app.get(
         `,
         [
           transaction.reference,
+
           order.id
         ]
       );
@@ -3081,9 +3678,10 @@ app.get(
         )
       ) {
 
-        await fulfillDataOrder(
-          order
-        );
+        const fulfillmentResult =
+          await fulfillDataOrder(
+            order
+          );
 
         const refreshed =
           await pool.query(
@@ -3097,11 +3695,25 @@ app.get(
 
         order =
           refreshed.rows[0];
+
+        return res.json({
+          success:
+            fulfillmentResult.success,
+
+          paid: true,
+
+          order,
+
+          fulfillment:
+            fulfillmentResult
+        });
       }
 
       return res.json({
         success: true,
+
         paid: true,
+
         order
       });
 
@@ -3133,6 +3745,7 @@ app.post(
     try {
 
       if (!PAYSTACK_SECRET_KEY) {
+
         return sendError(
           res,
           500,
@@ -3148,6 +3761,7 @@ app.post(
       if (
         !Number.isFinite(amount)
       ) {
+
         return sendError(
           res,
           400,
@@ -3163,6 +3777,7 @@ app.post(
       if (
         roundedAmount < 1
       ) {
+
         return sendError(
           res,
           400,
@@ -3173,6 +3788,7 @@ app.post(
       if (
         roundedAmount > 10000
       ) {
+
         return sendError(
           res,
           400,
@@ -3186,6 +3802,7 @@ app.post(
         );
 
       if (!customer) {
+
         return sendError(
           res,
           401,
@@ -3217,7 +3834,9 @@ app.post(
         `,
         [
           customer.id,
+
           reference,
+
           roundedAmount
         ]
       );
@@ -3244,34 +3863,36 @@ app.post(
                 "application/json"
             },
 
-            body: JSON.stringify({
-              email:
-                customer.email,
+            body:
+              JSON.stringify({
+                email:
+                  customer.email,
 
-              amount:
-                amountPesewas,
+                amount:
+                  amountPesewas,
 
-              currency: "GHS",
+                currency:
+                  "GHS",
 
-              reference,
+                reference,
 
-              callback_url:
-                callbackUrl,
+                callback_url:
+                  callbackUrl,
 
-              metadata: {
-                type:
-                  "wallet_topup",
+                metadata: {
+                  type:
+                    "wallet_topup",
 
-                wallet_reference:
-                  reference,
+                  wallet_reference:
+                    reference,
 
-                customer_id:
-                  customer.id,
+                  customer_id:
+                    customer.id,
 
-                customer_email:
-                  customer.email
-              }
-            })
+                  customer_email:
+                    customer.email
+                }
+              })
           }
         );
 
@@ -3308,6 +3929,7 @@ app.post(
 
       return res.json({
         success: true,
+
         amount:
           roundedAmount,
 
@@ -3348,6 +3970,7 @@ app.get(
     try {
 
       if (!PAYSTACK_SECRET_KEY) {
+
         return sendError(
           res,
           500,
@@ -3362,6 +3985,7 @@ app.get(
         ).trim();
 
       if (!reference) {
+
         return sendError(
           res,
           400,
@@ -3380,11 +4004,15 @@ app.get(
           `,
           [
             reference,
+
             req.session.customerId
           ]
         );
 
-      if (!topupResult.rows.length) {
+      if (
+        !topupResult.rows.length
+      ) {
+
         return sendError(
           res,
           404,
@@ -3409,15 +4037,20 @@ app.get(
 
         return res.json({
           success: true,
+
           paid: true,
+
           alreadyCredited: true,
+
           amount:
             Number(topup.amount),
+
           balance:
             Number(
               customer?.balance ||
-                0
+              0
             ),
+
           reference
         });
       }
@@ -3441,6 +4074,7 @@ app.get(
         !data.status ||
         !data.data
       ) {
+
         return sendError(
           res,
           502,
@@ -3458,6 +4092,7 @@ app.get(
           ""
         ) !== reference
       ) {
+
         return sendError(
           res,
           400,
@@ -3469,11 +4104,15 @@ app.get(
         transaction.status !==
         "success"
       ) {
+
         return res.json({
           success: true,
+
           paid: false,
+
           status:
             transaction.status,
+
           reference
         });
       }
@@ -3481,7 +4120,7 @@ app.get(
       const amount =
         Number(
           transaction.amount ||
-            0
+          0
         ) / 100;
 
       const expectedAmount =
@@ -3495,6 +4134,7 @@ app.get(
           expectedAmount * 100
         )
       ) {
+
         return sendError(
           res,
           400,
@@ -3508,7 +4148,10 @@ app.get(
           ""
         ).toUpperCase();
 
-      if (currency !== "GHS") {
+      if (
+        currency !== "GHS"
+      ) {
+
         return sendError(
           res,
           400,
@@ -3528,7 +4171,9 @@ app.get(
 
       return res.json({
         success: true,
+
         paid: true,
+
         credited:
           !creditResult.alreadyCredited,
 
@@ -3538,7 +4183,7 @@ app.get(
         balance:
           Number(
             customer?.balance ||
-              0
+            0
           ),
 
         reference
@@ -3577,6 +4222,7 @@ app.get(
         );
 
       if (!customer) {
+
         return sendError(
           res,
           404,
@@ -3586,10 +4232,11 @@ app.get(
 
       return res.json({
         success: true,
+
         balance:
           Number(
             customer.balance ||
-              0
+            0
           )
       });
 
@@ -3644,6 +4291,7 @@ app.get(
 
       return res.json({
         success: true,
+
         transactions:
           result.rows
       });
@@ -3708,10 +4356,17 @@ app.get(
 
     res.send(`
       <!DOCTYPE html>
-      <html>
+
+      <html lang="en">
+
       <head>
-        <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
+
+        <meta charset="UTF-8">
+
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0"
+        >
 
         <title>
           Payment Processing |
@@ -3719,6 +4374,7 @@ app.get(
         </title>
 
         <style>
+
           * {
             box-sizing: border-box;
           }
@@ -3803,7 +4459,9 @@ app.get(
             background: #17251f;
             color: #ffffff;
           }
+
         </style>
+
       </head>
 
       <body>
@@ -3855,6 +4513,7 @@ app.get(
         </div>
 
         <script>
+
           (async function () {
 
             try {
@@ -3865,6 +4524,7 @@ app.get(
                   {
                     credentials:
                       "include",
+
                     cache:
                       "no-store"
                   }
@@ -3880,8 +4540,10 @@ app.get(
 
                 setTimeout(
                   () => {
+
                     window.location.href =
                       "${destination}";
+
                   },
                   1200
                 );
@@ -3893,19 +4555,22 @@ app.get(
                 "Payment verification error:",
                 error
               );
+
             }
 
           })();
+
         </script>
 
       </body>
+
       </html>
     `);
   }
 );
 
 // =====================================================
-// DATAMART BACKGROUND STATUS SYNC
+// DATAMART BACKGROUND STATUS / FULFILLMENT SYNC
 // =====================================================
 
 let datamartSyncRunning =
@@ -3936,7 +4601,6 @@ async function syncProcessingDataOrders() {
               'data bundles'
           )
           AND status = 'Processing'
-          AND datamart_reference IS NOT NULL
         ORDER BY created_at ASC
         LIMIT 50
         `
@@ -3957,14 +4621,49 @@ async function syncProcessingDataOrders() {
 
       try {
 
-        await syncDataMartOrder(
-          order
+        // ---------------------------------------------
+        // HAS DATAMART REFERENCE
+        // ---------------------------------------------
+
+        if (
+          order.datamart_reference
+        ) {
+
+          await syncDataMartOrder(
+            order
+          );
+
+          continue;
+        }
+
+        // ---------------------------------------------
+        // PAID BUT NO DATAMART REFERENCE
+        //
+        // Retry fulfillment.
+        // The same DGM order reference is used as
+        // the idempotency key.
+        // ---------------------------------------------
+
+        console.log(
+          `DataMart background fulfillment: ${order.order_ref} has no DataMart reference. Retrying fulfillment.`
+        );
+
+        const fulfillmentResult =
+          await fulfillDataOrder(
+            order
+          );
+
+        console.log(
+          `DataMart background fulfillment result: ${order.order_ref} -> ${
+            fulfillmentResult.status ||
+            "unknown"
+          }`
         );
 
       } catch (error) {
 
         console.error(
-          `Background sync failed for ${order.order_ref}:`,
+          `Background DataMart processing failed for ${order.order_ref}:`,
           error.message
         );
       }
@@ -4038,16 +4737,23 @@ app.get(
       );
 
       return res.json({
+
         success: true,
+
         service:
           "DHE GENIUS MEDIA",
-        status: "online",
+
+        status:
+          "online",
+
         database:
           "connected",
+
         datamart:
           DATAMART_API_KEY
             ? "configured"
             : "not configured",
+
         paystack:
           PAYSTACK_SECRET_KEY
             ? "configured"
@@ -4064,15 +4770,23 @@ app.get(
       return res
         .status(500)
         .json({
+
           success: false,
+
           service:
             "DHE GENIUS MEDIA",
-          status: "online",
-          database: "error",
+
+          status:
+            "online",
+
+          database:
+            "error",
+
           datamart:
             DATAMART_API_KEY
               ? "configured"
               : "not configured",
+
           paystack:
             PAYSTACK_SECRET_KEY
               ? "configured"
@@ -4097,7 +4811,9 @@ app.use(
     publicDir,
     {
       extensions: ["html"],
+
       index: false,
+
       redirect: false
     }
   )
@@ -4107,8 +4823,12 @@ app.use(
 // FRONTEND ROUTES
 // =====================================================
 
-function servePage(fileName) {
+function servePage(
+  fileName
+) {
+
   return (req, res) => {
+
     res.sendFile(
       path.join(
         publicDir,
@@ -4123,7 +4843,9 @@ app.get(
     "/",
     "/index.html"
   ],
-  servePage("index.html")
+  servePage(
+    "index.html"
+  )
 );
 
 app.get(
@@ -4131,7 +4853,9 @@ app.get(
     "/login",
     "/login.html"
   ],
-  servePage("login.html")
+  servePage(
+    "login.html"
+  )
 );
 
 app.get(
@@ -4139,7 +4863,9 @@ app.get(
     "/register",
     "/register.html"
   ],
-  servePage("register.html")
+  servePage(
+    "register.html"
+  )
 );
 
 app.get(
@@ -4147,7 +4873,9 @@ app.get(
     "/dashboard",
     "/dashboard.html"
   ],
-  servePage("dashboard.html")
+  servePage(
+    "dashboard.html"
+  )
 );
 
 app.get(
@@ -4156,7 +4884,9 @@ app.get(
     "/buy-data",
     "/data.html"
   ],
-  servePage("data.html")
+  servePage(
+    "data.html"
+  )
 );
 
 app.get(
@@ -4164,7 +4894,9 @@ app.get(
     "/airtime",
     "/airtime.html"
   ],
-  servePage("airtime.html")
+  servePage(
+    "airtime.html"
+  )
 );
 
 app.get(
@@ -4172,7 +4904,9 @@ app.get(
     "/orders",
     "/orders.html"
   ],
-  servePage("orders.html")
+  servePage(
+    "orders.html"
+  )
 );
 
 app.get(
@@ -4180,7 +4914,9 @@ app.get(
     "/account",
     "/account.html"
   ],
-  servePage("account.html")
+  servePage(
+    "account.html"
+  )
 );
 
 app.get(
@@ -4190,7 +4926,9 @@ app.get(
     "/services",
     "/services.html"
   ],
-  servePage("service.html")
+  servePage(
+    "service.html"
+  )
 );
 
 // =====================================================
@@ -4205,6 +4943,7 @@ app.use(
       .status(404)
       .json({
         success: false,
+
         message:
           "API endpoint not found."
       });
@@ -4229,11 +4968,22 @@ app.use(
         .status(404)
         .send(`
           <!DOCTYPE html>
+
           <html>
+
           <head>
+
+            <meta charset="UTF-8">
+
+            <meta
+              name="viewport"
+              content="width=device-width, initial-scale=1.0"
+            >
+
             <title>
               Page Not Found
             </title>
+
           </head>
 
           <body style="
@@ -4288,6 +5038,7 @@ app.use(
             </div>
 
           </body>
+
           </html>
         `);
     }
@@ -4343,7 +5094,7 @@ async function startServer() {
         );
 
         // ---------------------------------------------
-        // DATAMART AUTOMATIC STATUS CHECK
+        // DATAMART AUTOMATIC STATUS / FULFILLMENT CHECK
         // ---------------------------------------------
 
         setTimeout(
