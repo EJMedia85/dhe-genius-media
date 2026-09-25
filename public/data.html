@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
   <meta charset="UTF-8">
 
   <meta
@@ -8,9 +9,12 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <title>Buy Data | DHE GENIUS MEDIA</title>
+  <title>
+    Buy Data | DHE GENIUS MEDIA
+  </title>
 
   <style>
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -20,6 +24,7 @@
     :root {
       --bg: #06131f;
       --card: #0d2030;
+      --card2: #10283b;
       --text: #ffffff;
       --muted: #8ea7b9;
       --blue: #008cff;
@@ -44,13 +49,19 @@
         );
 
       color: var(--text);
+
       min-height: 100vh;
+
       padding-bottom: 90px;
     }
 
     button,
     input {
       font: inherit;
+    }
+
+    button {
+      cursor: pointer;
     }
 
     header {
@@ -75,6 +86,7 @@
 
       display: flex;
       align-items: center;
+
       gap: 13px;
     }
 
@@ -86,9 +98,11 @@
         1px solid var(--border);
 
       background: var(--card);
+
       color: white;
 
       border-radius: 12px;
+
       font-size: 20px;
     }
 
@@ -120,16 +134,23 @@
 
     .header-title span {
       display: block;
+
       color: var(--muted);
+
       font-size: 10px;
+
       margin-top: 2px;
     }
 
     main {
       width: 100%;
+
       max-width: 800px;
+
       margin: auto;
-      padding: 24px 16px 40px;
+
+      padding:
+        24px 16px 40px;
     }
 
     .page-title {
@@ -138,28 +159,98 @@
 
     .page-title h1 {
       font-size: 26px;
+
       margin-bottom: 5px;
     }
 
     .page-title p {
       color: var(--muted);
+
       font-size: 13px;
+
       line-height: 1.5;
+    }
+
+    .wallet-card {
+      background:
+        linear-gradient(
+          135deg,
+          rgba(34,213,138,0.13),
+          rgba(0,140,255,0.08)
+        );
+
+      border:
+        1px solid
+        rgba(34,213,138,0.18);
+
+      border-radius: 18px;
+
+      padding: 16px;
+
+      margin-bottom: 20px;
+
+      display: flex;
+
+      align-items: center;
+
+      justify-content: space-between;
+
+      gap: 12px;
+    }
+
+    .wallet-card small {
+      display: block;
+
+      color: var(--muted);
+
+      font-size: 11px;
+
+      margin-bottom: 5px;
+    }
+
+    .wallet-card strong {
+      font-size: 22px;
+    }
+
+    .wallet-refresh {
+      border: none;
+
+      background:
+        rgba(255,255,255,0.07);
+
+      color: white;
+
+      border-radius: 10px;
+
+      padding: 9px 12px;
+
+      font-size: 11px;
+
+      font-weight: 800;
     }
 
     .phone-card {
       background: var(--card);
-      border: 1px solid var(--border);
+
+      border:
+        1px solid var(--border);
+
       border-radius: 20px;
+
       padding: 18px;
+
       margin-bottom: 20px;
     }
 
     label {
       display: block;
+
       color: #d9e6ef;
+
       font-size: 12px;
+
       font-weight: 800;
+
       margin-bottom: 8px;
     }
 
@@ -179,6 +270,7 @@
       border-radius: 12px;
 
       outline: none;
+
       font-size: 15px;
     }
 
@@ -192,13 +284,19 @@
 
     .section-title {
       font-size: 16px;
-      margin: 22px 0 12px;
+
+      margin:
+        22px 0 12px;
     }
 
     .networks {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+
+      grid-template-columns:
+        repeat(3, 1fr);
+
       gap: 9px;
+
       margin-bottom: 20px;
     }
 
@@ -207,6 +305,7 @@
         1px solid var(--border);
 
       background: var(--card);
+
       color: white;
 
       border-radius: 14px;
@@ -214,6 +313,7 @@
       padding: 13px 8px;
 
       font-size: 12px;
+
       font-weight: 800;
     }
 
@@ -230,7 +330,10 @@
 
     .bundle-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+
+      grid-template-columns:
+        repeat(2, 1fr);
+
       gap: 10px;
     }
 
@@ -270,19 +373,25 @@
 
     .bundle-name {
       font-size: 18px;
+
       font-weight: 900;
+
       margin-bottom: 4px;
     }
 
     .bundle-price {
       color: #65d8ff;
+
       font-size: 15px;
+
       font-weight: 900;
+
       margin-bottom: 8px;
     }
 
     .bundle-validity {
       color: var(--muted);
+
       font-size: 10px;
     }
 
@@ -332,15 +441,21 @@
 
     .summary {
       display: flex;
+
       justify-content: space-between;
+
       align-items: center;
+
       margin-bottom: 17px;
     }
 
     .summary small {
       display: block;
+
       color: var(--muted);
+
       font-size: 11px;
+
       margin-bottom: 4px;
     }
 
@@ -348,7 +463,7 @@
       font-size: 19px;
     }
 
-    .buy-button {
+    .confirm-button {
       width: 100%;
 
       border: none;
@@ -367,6 +482,7 @@
       border-radius: 13px;
 
       font-size: 14px;
+
       font-weight: 900;
 
       box-shadow:
@@ -374,8 +490,87 @@
         rgba(0,114,255,0.22);
     }
 
-    .buy-button:disabled {
+    .confirm-button:disabled {
       opacity: 0.55;
+    }
+
+    .payment-box {
+      display: none;
+
+      margin-top: 18px;
+
+      padding-top: 18px;
+
+      border-top:
+        1px solid var(--border);
+    }
+
+    .payment-box.show {
+      display: block;
+    }
+
+    .payment-title {
+      font-size: 14px;
+
+      font-weight: 900;
+
+      margin-bottom: 6px;
+    }
+
+    .payment-subtitle {
+      color: var(--muted);
+
+      font-size: 11px;
+
+      line-height: 1.5;
+
+      margin-bottom: 14px;
+    }
+
+    .payment-buttons {
+      display: grid;
+
+      gap: 10px;
+    }
+
+    .payment-button {
+      width: 100%;
+
+      border: none;
+
+      border-radius: 13px;
+
+      padding: 15px;
+
+      color: white;
+
+      font-size: 13px;
+
+      font-weight: 900;
+    }
+
+    .wallet-button {
+      background:
+        linear-gradient(
+          135deg,
+          #22d58a,
+          #128c7e
+        );
+    }
+
+    .paystack-button {
+      background:
+        linear-gradient(
+          135deg,
+          #5b5cff,
+          #3434d8
+        );
+    }
+
+    .payment-button:disabled {
+      opacity: 0.55;
+
+      cursor: not-allowed;
     }
 
     .message {
@@ -435,6 +630,7 @@
       color: var(--muted);
 
       font-size: 11px;
+
       line-height: 1.6;
     }
 
@@ -456,6 +652,7 @@
       display: flex;
 
       align-items: center;
+
       justify-content: space-around;
 
       z-index: 100;
@@ -463,6 +660,7 @@
 
     .bottom-nav button {
       border: none;
+
       background: none;
 
       color: #70899c;
@@ -470,6 +668,7 @@
       font-size: 10px;
 
       display: flex;
+
       flex-direction: column;
 
       align-items: center;
@@ -493,7 +692,9 @@
       }
 
     }
+
   </style>
+
 </head>
 
 <body>
@@ -539,10 +740,34 @@
     </h1>
 
     <p>
-      Select your network, choose a bundle,
-      enter the recipient number and continue
-      to secure Paystack payment.
+      Choose your network, select a bundle,
+      enter the recipient number and choose
+      how you want to pay.
     </p>
+
+  </section>
+
+
+  <section class="wallet-card">
+
+    <div>
+
+      <small>
+        Available Wallet Balance
+      </small>
+
+      <strong id="walletBalance">
+        GH₵0.00
+      </strong>
+
+    </div>
+
+    <button
+      class="wallet-refresh"
+      onclick="loadWallet()"
+    >
+      Refresh
+    </button>
 
   </section>
 
@@ -647,23 +872,79 @@
 
 
     <button
-      id="buyButton"
-      class="buy-button"
-      onclick="placeOrder()"
+      id="confirmButton"
+      class="confirm-button"
+      onclick="createOrder()"
     >
-      Continue to Payment
+      Confirm Order
     </button>
+
+
+    <div
+      id="paymentBox"
+      class="payment-box"
+    >
+
+      <div class="payment-title">
+        Choose Payment Method
+      </div>
+
+      <div class="payment-subtitle">
+        Your order has been created. Choose one
+        payment method below. Data delivery starts
+        only after payment is confirmed.
+      </div>
+
+
+      <div class="payment-buttons">
+
+        <button
+          id="walletButton"
+          class="payment-button wallet-button"
+          onclick="payFromWallet()"
+        >
+          🟢 Pay from Wallet
+        </button>
+
+
+        <button
+          id="paystackButton"
+          class="payment-button paystack-button"
+          onclick="payWithPaystack()"
+        >
+          🔵 Pay with Paystack
+        </button>
+
+      </div>
+
+    </div>
 
   </section>
 
 
   <div class="info">
 
-    🔒 Secure payment powered by Paystack.
+    🔒 Secure payments.
 
-    After successful payment, DGM will verify
-    the transaction and continue processing
-    the data order.
+    <br><br>
+
+    <strong>
+      Wallet:
+    </strong>
+    Your wallet is debited before DataMart delivery.
+
+    <br>
+
+    <strong>
+      Paystack:
+    </strong>
+    Paystack payment is verified before DataMart
+    delivery.
+
+    <br><br>
+
+    DataMart delivery only starts after the server
+    confirms payment.
 
   </div>
 
@@ -680,29 +961,46 @@
   </button>
 
   <button class="active">
-    <span class="bottom-icon">📶</span>
+
+    <span class="bottom-icon">
+      📶
+    </span>
+
     Data
+
   </button>
 
   <button
     onclick="window.location.href='/airtime.html'"
   >
-    <span class="bottom-icon">📱</span>
+    <span class="bottom-icon">
+      📱
+    </span>
+
     Airtime
+
   </button>
 
   <button
     onclick="window.location.href='/orders.html'"
   >
-    <span class="bottom-icon">📦</span>
+    <span class="bottom-icon">
+      📦
+    </span>
+
     Orders
+
   </button>
 
   <button
     onclick="window.location.href='/account.html'"
   >
-    <span class="bottom-icon">👤</span>
+    <span class="bottom-icon">
+      👤
+    </span>
+
     Account
+
   </button>
 
 </nav>
@@ -712,7 +1010,8 @@
 
   // =====================================================
   // DHE GENIUS MEDIA
-  // DATA + PAYSTACK
+  // BUY DATA
+  // WALLET + PAYSTACK
   // =====================================================
 
 
@@ -772,9 +1071,118 @@
 
   let selectedBundle = null;
 
+  let currentOrder = null;
+
 
   // =====================================================
-  // RENDER
+  // MESSAGE
+  // =====================================================
+
+  function showMessage(
+    message,
+    type
+  ) {
+
+    const element =
+      document.getElementById(
+        "message"
+      );
+
+    element.textContent =
+      message;
+
+    element.className =
+      "message show " +
+      type;
+
+  }
+
+
+  function clearMessage() {
+
+    const element =
+      document.getElementById(
+        "message"
+      );
+
+    element.textContent = "";
+
+    element.className =
+      "message";
+
+  }
+
+
+  // =====================================================
+  // WALLET
+  // =====================================================
+
+  async function loadWallet() {
+
+    try {
+
+      const response =
+        await fetch(
+          "/api/wallet",
+          {
+            credentials:
+              "include",
+
+            cache:
+              "no-store"
+          }
+        );
+
+      if (
+        response.status === 401
+      ) {
+
+        window.location.href =
+          "/login.html";
+
+        return;
+
+      }
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+
+        throw new Error(
+          data.message ||
+          "Could not load wallet."
+        );
+
+      }
+
+      const balance =
+        Number(
+          data.balance || 0
+        );
+
+      document
+        .getElementById(
+          "walletBalance"
+        )
+        .textContent =
+          "GH₵" +
+          balance.toFixed(2);
+
+    } catch (error) {
+
+      console.error(
+        "Wallet load error:",
+        error
+      );
+
+    }
+
+  }
+
+
+  // =====================================================
+  // RENDER BUNDLES
   // =====================================================
 
   function renderBundles() {
@@ -788,63 +1196,83 @@
 
     selectedBundle = null;
 
+    currentOrder = null;
+
     document
-      .getElementById("orderBox")
+      .getElementById(
+        "orderBox"
+      )
+      .classList.remove("show");
+
+    document
+      .getElementById(
+        "paymentBox"
+      )
       .classList.remove("show");
 
 
     bundles[selectedNetwork]
-      .forEach(function(item) {
+      .forEach(
+        function(item) {
 
-        const size = item[0];
+          const size =
+            item[0];
 
-        const price = Number(item[1]);
-
-
-        const button =
-          document.createElement("button");
-
-        button.type = "button";
-
-        button.className = "bundle";
+          const price =
+            Number(item[1]);
 
 
-        button.innerHTML = `
-
-          <div class="check">
-            ✓
-          </div>
-
-          <div class="bundle-name">
-            ${size}
-          </div>
-
-          <div class="bundle-price">
-            GH₵${price.toFixed(2)}
-          </div>
-
-          <div class="bundle-validity">
-            Validity: 90 days
-          </div>
-
-        `;
-
-
-        button.onclick =
-          function() {
-
-            selectBundle(
-              size,
-              price,
-              button
+          const button =
+            document.createElement(
+              "button"
             );
 
-          };
+          button.type =
+            "button";
+
+          button.className =
+            "bundle";
 
 
-        grid.appendChild(button);
+          button.innerHTML = `
 
-      });
+            <div class="check">
+              ✓
+            </div>
+
+            <div class="bundle-name">
+              ${size}
+            </div>
+
+            <div class="bundle-price">
+              GH₵${price.toFixed(2)}
+            </div>
+
+            <div class="bundle-validity">
+              Validity: 90 days
+            </div>
+
+          `;
+
+
+          button.onclick =
+            function() {
+
+              selectBundle(
+                size,
+                price,
+                button
+              );
+
+            };
+
+
+          grid.appendChild(
+            button
+          );
+
+        }
+      );
 
   }
 
@@ -863,14 +1291,18 @@
 
 
     document
-      .querySelectorAll(".network")
-      .forEach(function(btn) {
+      .querySelectorAll(
+        ".network"
+      )
+      .forEach(
+        function(btn) {
 
-        btn.classList.remove(
-          "active"
-        );
+          btn.classList.remove(
+            "active"
+          );
 
-      });
+        }
+      );
 
 
     button.classList.add(
@@ -894,14 +1326,18 @@
   ) {
 
     document
-      .querySelectorAll(".bundle")
-      .forEach(function(item) {
+      .querySelectorAll(
+        ".bundle"
+      )
+      .forEach(
+        function(item) {
 
-        item.classList.remove(
-          "selected"
-        );
+          item.classList.remove(
+            "selected"
+          );
 
-      });
+        }
+      );
 
 
     button.classList.add(
@@ -947,49 +1383,16 @@
       .classList.add("show");
 
 
+    document
+      .getElementById(
+        "paymentBox"
+      )
+      .classList.remove("show");
+
+
+    currentOrder = null;
+
     clearMessage();
-
-  }
-
-
-  // =====================================================
-  // MESSAGE
-  // =====================================================
-
-  function showMessage(
-    message,
-    type
-  ) {
-
-    const element =
-      document.getElementById(
-        "message"
-      );
-
-
-    element.textContent =
-      message;
-
-
-    element.className =
-      "message show " +
-      type;
-
-  }
-
-
-  function clearMessage() {
-
-    const element =
-      document.getElementById(
-        "message"
-      );
-
-
-    element.textContent = "";
-
-    element.className =
-      "message";
 
   }
 
@@ -1002,26 +1405,38 @@
     phone
   ) {
 
-    return /^(0\d{9}|\+233\d{9})$/
-      .test(phone);
+    return /^0(20|23|24|25|26|27|50|51|53|54|55|59)\d{7}$/
+      .test(
+        phone
+          .replace(
+            /\s+/g,
+            ""
+          )
+      );
 
   }
 
 
   // =====================================================
-  // PLACE ORDER + PAYSTACK
+  // CREATE ORDER
   // =====================================================
 
-  async function placeOrder() {
+  async function createOrder() {
 
     clearMessage();
 
 
     const phone =
       document
-        .getElementById("phone")
+        .getElementById(
+          "phone"
+        )
         .value
-        .trim();
+        .trim()
+        .replace(
+          /\s+/g,
+          ""
+        );
 
 
     if (!phone) {
@@ -1036,7 +1451,11 @@
     }
 
 
-    if (!validGhanaPhone(phone)) {
+    if (
+      !validGhanaPhone(
+        phone
+      )
+    ) {
 
       showMessage(
         "Please enter a valid Ghana phone number.",
@@ -1060,74 +1479,20 @@
     }
 
 
-    if (!selectedBundle.size) {
-
-      showMessage(
-        "Please select the bundle again.",
-        "error"
-      );
-
-      return;
-
-    }
-
-
     const button =
       document.getElementById(
-        "buyButton"
+        "confirmButton"
       );
 
 
-    button.disabled = true;
+    button.disabled =
+      true;
 
     button.textContent =
       "Creating order...";
 
 
-    // =================================================
-    // ORDER PAYLOAD
-    // =================================================
-
-    const orderData = {
-
-      service:
-        "Data Bundle",
-
-      network:
-        selectedNetwork,
-
-      phone:
-        phone,
-
-      capacity:
-        selectedBundle.size,
-
-      data_capacity:
-        selectedBundle.size,
-
-      bundle:
-        selectedBundle.size,
-
-      amount:
-        Number(
-          selectedBundle.price
-        )
-
-    };
-
-
-    console.log(
-      "DGM ORDER DATA:",
-      orderData
-    );
-
-
     try {
-
-      // =================================================
-      // STEP 1
-      // CREATE ORDER
-      // =================================================
 
       const response =
         await fetch(
@@ -1151,15 +1516,27 @@
             },
 
             body:
-              JSON.stringify(
-                orderData
-              )
+              JSON.stringify({
+
+                service:
+                  "Data Bundle",
+
+                network:
+                  selectedNetwork,
+
+                phone:
+                  phone,
+
+                capacity:
+                  selectedBundle.size
+
+              })
 
           }
         );
 
 
-      const result =
+      const data =
         await response
           .json()
           .catch(
@@ -1169,103 +1546,331 @@
           );
 
 
-      console.log(
-        "DGM ORDER RESPONSE:",
-        result
-      );
-
-
-      // =================================================
-      // LOGIN
-      // =================================================
-
       if (
         response.status === 401
       ) {
 
-        showMessage(
-          "Please log in to your DGM account first.",
-          "error"
-        );
-
-
-        setTimeout(
-          function() {
-
-            window.location.href =
-              "/login.html";
-
-          },
-          1200
-        );
-
+        window.location.href =
+          "/login.html";
 
         return;
 
       }
 
 
-      // =================================================
-      // ORDER ERROR
-      // =================================================
+      if (!response.ok) {
+
+        throw new Error(
+          data.message ||
+          "Could not create order."
+        );
+
+      }
+
+
+      if (
+        !data.order ||
+        !data.order.order_ref
+      ) {
+
+        throw new Error(
+          "Order reference was not returned."
+        );
+
+      }
+
+
+      currentOrder =
+        data.order;
+
+
+      document
+        .getElementById(
+          "paymentBox"
+        )
+        .classList.add("show");
+
+
+      showMessage(
+        "Order created successfully. Choose your payment method.",
+        "success"
+      );
+
+
+      button.textContent =
+        "Order Created ✓";
+
+    } catch (error) {
+
+      console.error(
+        "Create order error:",
+        error
+      );
+
+
+      showMessage(
+        error.message ||
+        "Could not create order.",
+        "error"
+      );
+
+
+      button.disabled =
+        false;
+
+      button.textContent =
+        "Confirm Order";
+
+    }
+
+  }
+
+
+  // =====================================================
+  // PAY FROM WALLET
+  // =====================================================
+
+  async function payFromWallet() {
+
+    clearMessage();
+
+
+    if (
+      !currentOrder ||
+      !currentOrder.order_ref
+    ) {
+
+      showMessage(
+        "Please confirm your order first.",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    const button =
+      document.getElementById(
+        "walletButton"
+      );
+
+    const paystackButton =
+      document.getElementById(
+        "paystackButton"
+      );
+
+
+    button.disabled =
+      true;
+
+    paystackButton.disabled =
+      true;
+
+    button.textContent =
+      "Checking Wallet...";
+
+
+    try {
+
+      const response =
+        await fetch(
+          `/api/orders/${encodeURIComponent(
+            currentOrder.order_ref
+          )}/pay-wallet`,
+          {
+
+            method:
+              "POST",
+
+            credentials:
+              "include",
+
+            headers: {
+
+              "Accept":
+                "application/json",
+
+              "Content-Type":
+                "application/json"
+
+            },
+
+            body:
+              JSON.stringify({})
+
+          }
+        );
+
+
+      const data =
+        await response
+          .json()
+          .catch(
+            function() {
+              return {};
+            }
+          );
+
+
+      if (
+        response.status === 401
+      ) {
+
+        window.location.href =
+          "/login.html";
+
+        return;
+
+      }
+
+
+      if (
+        data.code ===
+        "INSUFFICIENT_WALLET_BALANCE"
+      ) {
+
+        showMessage(
+          data.message ||
+          "Insufficient wallet balance. Please add money to your wallet or use Paystack.",
+          "error"
+        );
+
+        button.disabled =
+          false;
+
+        paystackButton.disabled =
+          false;
+
+        button.textContent =
+          "🟢 Pay from Wallet";
+
+        return;
+
+      }
+
 
       if (!response.ok) {
 
         throw new Error(
-          result.message ||
-          result.error ||
-          "Unable to create order."
+          data.message ||
+          "Wallet payment failed."
         );
 
       }
 
 
-      // =================================================
-      // GET ORDER
-      // =================================================
-
-      const order =
-        result.order;
-
-
-      if (!order) {
+      if (
+        !data.paid
+      ) {
 
         throw new Error(
-          "Order was created but no order information was returned."
+          "Wallet payment was not confirmed."
         );
 
       }
 
 
-      const orderRef =
-        order.order_ref;
-
-
-      if (!orderRef) {
-
-        throw new Error(
-          "Order reference was not returned by the server."
-        );
-
-      }
-
-
-      console.log(
-        "DGM ORDER CREATED:",
-        orderRef
+      showMessage(
+        "Payment confirmed. Your data order has been sent for delivery.",
+        "success"
       );
 
 
-      // =================================================
-      // STEP 2
-      // INITIALIZE PAYSTACK
-      // =================================================
+      button.textContent =
+        "Payment Confirmed ✓";
+
+
+      await loadWallet();
+
+
+      setTimeout(
+        function() {
+
+          window.location.href =
+            "/orders.html";
+
+        },
+        1200
+      );
+
+    } catch (error) {
+
+      console.error(
+        "Wallet payment error:",
+        error
+      );
+
+
+      showMessage(
+        error.message ||
+        "Wallet payment failed.",
+        "error"
+      );
+
+
+      button.disabled =
+        false;
+
+      paystackButton.disabled =
+        false;
 
       button.textContent =
-        "Opening Paystack...";
+        "🟢 Pay from Wallet";
+
+    }
+
+  }
 
 
-      const paymentResponse =
+  // =====================================================
+  // PAY WITH PAYSTACK
+  // =====================================================
+
+  async function payWithPaystack() {
+
+    clearMessage();
+
+
+    if (
+      !currentOrder ||
+      !currentOrder.order_ref
+    ) {
+
+      showMessage(
+        "Please confirm your order first.",
+        "error"
+      );
+
+      return;
+
+    }
+
+
+    const button =
+      document.getElementById(
+        "paystackButton"
+      );
+
+    const walletButton =
+      document.getElementById(
+        "walletButton"
+      );
+
+
+    button.disabled =
+      true;
+
+    walletButton.disabled =
+      true;
+
+    button.textContent =
+      "Opening Paystack...";
+
+
+    try {
+
+      const response =
         await fetch(
           "/api/payments/initialize",
           {
@@ -1290,7 +1895,7 @@
               JSON.stringify({
 
                 orderRef:
-                  orderRef
+                  currentOrder.order_ref
 
               })
 
@@ -1298,8 +1903,8 @@
         );
 
 
-      const payment =
-        await paymentResponse
+      const data =
+        await response
           .json()
           .catch(
             function() {
@@ -1308,78 +1913,90 @@
           );
 
 
-      console.log(
-        "DGM PAYSTACK RESPONSE:",
-        payment
-      );
+      if (
+        response.status === 401
+      ) {
+
+        window.location.href =
+          "/login.html";
+
+        return;
+
+      }
 
 
-      // =================================================
-      // PAYSTACK ERROR
-      // =================================================
-
-      if (!paymentResponse.ok) {
+      if (!response.ok) {
 
         throw new Error(
-          payment.message ||
-          payment.error ||
-          "Unable to initialize Paystack payment."
+          data.message ||
+          "Unable to initialize Paystack."
         );
 
       }
 
 
-      // =================================================
-      // PAYSTACK URL
-      // =================================================
+      if (
+        data.alreadyPaid
+      ) {
+
+        showMessage(
+          "This order has already been paid.",
+          "success"
+        );
+
+
+        setTimeout(
+          function() {
+
+            window.location.href =
+              "/orders.html";
+
+          },
+          1000
+        );
+
+        return;
+
+      }
+
 
       if (
-        !payment.authorization_url
+        !data.authorization_url
       ) {
 
         throw new Error(
-          "Paystack did not return a payment link. Check your Paystack configuration on Render."
+          "Paystack did not return a payment link."
         );
 
       }
 
 
-      console.log(
-        "PAYSTACK AUTHORIZATION URL:",
-        payment.authorization_url
-      );
-
-
-      // =================================================
-      // STEP 3
-      // REDIRECT
-      // =================================================
-
       window.location.href =
-        payment.authorization_url;
+        data.authorization_url;
 
-    }
-
-
-    catch (error) {
+    } catch (error) {
 
       console.error(
-        "DGM PAYMENT ERROR:",
+        "Paystack error:",
         error
       );
 
 
       showMessage(
         error.message ||
-        "Unable to start payment.",
+        "Unable to open Paystack.",
         "error"
       );
 
 
-      button.disabled = false;
+      button.disabled =
+        false;
+
+      walletButton.disabled =
+        false;
 
       button.textContent =
-        "Continue to Payment";
+        "🔵 Pay with Paystack";
 
     }
 
@@ -1391,6 +2008,8 @@
   // =====================================================
 
   renderBundles();
+
+  loadWallet();
 
 </script>
 
