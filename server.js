@@ -180,11 +180,6 @@ async function initDatabase() {
 
   // ---------------------------------------------------
   // SAFELY HANDLE BALANCE COLUMNS
-  //
-  // Existing installations may already have these
-  // columns as NOT NULL.
-  //
-  // New installations receive defaults.
   // ---------------------------------------------------
 
   await pool.query(`
@@ -200,10 +195,7 @@ async function initDatabase() {
   `);
 
   // ---------------------------------------------------
-  // BACKFILL NULL BALANCE VALUES IF AN OLDER
-  // DATABASE VERSION DID NOT HAVE THESE COLUMNS.
-  //
-  // Existing records are preserved.
+  // BACKFILL NULL BALANCE VALUES
   // ---------------------------------------------------
 
   await pool.query(`
@@ -1771,7 +1763,11 @@ async function fulfillDataOrder(
 // =====================================================
 // WALLET CREDIT
 // IMPORTANT FIX:
-// balance_before + balance_after are now recorded.
+// - Checks existing transaction BEFORE changing balance.
+// - Explicitly records balance_before.
+// - Explicitly records balance_after.
+// - Prevents duplicate wallet credits.
+// - Uses one database transaction.
 // =====================================================
 
 async function creditWalletFromTopup(
@@ -1787,8 +1783,18 @@ async function creditWalletFromTopup(
       "BEGIN"
     );
 
+    const walletReference =
+      String(reference || "").trim();
+
+    if (!walletReference) {
+
+      throw new Error(
+        "Wallet top-up reference is required."
+      );
+    }
+
     // -------------------------------------------------
-    // LOCK TOP-UP
+    // LOCK WALLET TOP-UP
     // -------------------------------------------------
 
     const topupResult =
@@ -1799,7 +1805,7 @@ async function creditWalletFromTopup(
         WHERE reference = $1
         FOR UPDATE
         `,
-        [reference]
+        [walletReference]
       );
 
     if (
@@ -1870,10 +1876,6 @@ async function creditWalletFromTopup(
       !customerResult.rows.length
     ) {
 
-      await client.query(
-        "ROLLBACK"
-      );
-
       throw new Error(
         "Customer account not found."
       );
@@ -1881,6 +1883,101 @@ async function creditWalletFromTopup(
 
     const customer =
       customerResult.rows[0];
+
+    // -------------------------------------------------
+    // VALIDATE AMOUNT
+    // -------------------------------------------------
+
+    const amount =
+      Number(topup.amount);
+
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
+
+      throw new Error(
+        "Invalid wallet top-up amount."
+      );
+    }
+
+    // -------------------------------------------------
+    // CHECK FOR EXISTING TRANSACTION
+    //
+    // THIS MUST HAPPEN BEFORE MODIFYING THE BALANCE.
+    // -------------------------------------------------
+
+    const existingTransactionResult =
+      await client.query(
+        `
+        SELECT
+          id,
+          customer_id,
+          amount,
+          balance_before,
+          balance_after,
+          status,
+          reference,
+          transaction_ref
+        FROM wallet_transactions
+        WHERE reference = $1
+        FOR UPDATE
+        `,
+        [walletReference]
+      );
+
+    if (
+      existingTransactionResult.rows.length
+    ) {
+
+      const existingTransaction =
+        existingTransactionResult.rows[0];
+
+      // ------------------------------------------------
+      // The reference already belongs to a transaction.
+      // Do NOT add money again.
+      // ------------------------------------------------
+
+      await client.query(
+        `
+        UPDATE wallet_topups
+        SET
+          status = 'Completed',
+          payment_status = 'Paid',
+          paid_at = COALESCE(
+            paid_at,
+            NOW()
+          )
+        WHERE id = $1
+        `,
+        [topup.id]
+      );
+
+      await client.query(
+        "COMMIT"
+      );
+
+      console.log(
+        `WALLET DUPLICATE IGNORED: ${walletReference} | Existing transaction ID: ${existingTransaction.id}`
+      );
+
+      return {
+        success: true,
+
+        alreadyCredited: true,
+
+        amount:
+          Number(
+            existingTransaction.amount
+          ),
+
+        customerId:
+          topup.customer_id,
+
+        transactionId:
+          existingTransaction.id
+      };
+    }
 
     // -------------------------------------------------
     // CURRENT BALANCE
@@ -1898,38 +1995,13 @@ async function creditWalletFromTopup(
       balanceBefore < 0
     ) {
 
-      await client.query(
-        "ROLLBACK"
-      );
-
       throw new Error(
         "Customer wallet balance is invalid."
       );
     }
 
     // -------------------------------------------------
-    // TOP-UP AMOUNT
-    // -------------------------------------------------
-
-    const amount =
-      Number(topup.amount);
-
-    if (
-      !Number.isFinite(amount) ||
-      amount <= 0
-    ) {
-
-      await client.query(
-        "ROLLBACK"
-      );
-
-      throw new Error(
-        "Invalid wallet top-up amount."
-      );
-    }
-
-    // -------------------------------------------------
-    // NEW BALANCE
+    // CALCULATE NEW BALANCE
     // -------------------------------------------------
 
     const balanceAfter =
@@ -1941,26 +2013,40 @@ async function creditWalletFromTopup(
       ) / 100;
 
     // -------------------------------------------------
-    // CREDIT CUSTOMER
+    // UPDATE CUSTOMER BALANCE
     // -------------------------------------------------
 
-    await client.query(
-      `
-      UPDATE customers
-      SET balance = $1
-      WHERE id = $2
-      `,
-      [
-        balanceAfter,
+    const balanceUpdateResult =
+      await client.query(
+        `
+        UPDATE customers
+        SET balance = $1
+        WHERE id = $2
+        RETURNING
+          id,
+          balance
+        `,
+        [
+          balanceAfter,
 
-        topup.customer_id
-      ]
-    );
+          topup.customer_id
+        ]
+      );
+
+    if (
+      !balanceUpdateResult.rows.length
+    ) {
+
+      throw new Error(
+        "Customer wallet balance could not be updated."
+      );
+    }
 
     // -------------------------------------------------
-    // RECORD WALLET TRANSACTION
+    // CREATE WALLET TRANSACTION
     //
-    // THIS WAS THE PREVIOUS BUG.
+    // balance_before AND balance_after ARE BOTH
+    // EXPLICITLY PROVIDED.
     // -------------------------------------------------
 
     const transactionResult =
@@ -1981,22 +2067,32 @@ async function creditWalletFromTopup(
         VALUES
         (
           $1,
-          'Credit',
           $2,
           $3,
           $4,
-          'Wallet top-up via Paystack',
           $5,
-          'Completed',
-          $5
+          $6,
+          $7,
+          $8,
+          $9
         )
-        ON CONFLICT (reference)
-        WHERE reference IS NOT NULL
-        DO NOTHING
-        RETURNING id
+        RETURNING
+          id,
+          customer_id,
+          type,
+          amount,
+          balance_before,
+          balance_after,
+          description,
+          transaction_ref,
+          status,
+          reference,
+          created_at
         `,
         [
           topup.customer_id,
+
+          "Credit",
 
           amount,
 
@@ -2004,75 +2100,30 @@ async function creditWalletFromTopup(
 
           balanceAfter,
 
-          reference
+          "Wallet top-up via Paystack",
+
+          walletReference,
+
+          "Completed",
+
+          walletReference
         ]
       );
-
-    // -------------------------------------------------
-    // DUPLICATE SAFETY
-    //
-    // If the reference already exists, don't credit
-    // the wallet a second time.
-    // -------------------------------------------------
 
     if (
       !transactionResult.rows.length
     ) {
 
-      // Restore wallet balance if the transaction
-      // already existed but this top-up was somehow
-      // still pending.
-      await client.query(
-        `
-        UPDATE customers
-        SET balance = $1
-        WHERE id = $2
-        `,
-        [
-          balanceBefore,
-
-          topup.customer_id
-        ]
+      throw new Error(
+        "Wallet transaction could not be created."
       );
-
-      await client.query(
-        `
-        UPDATE wallet_topups
-        SET
-          status = 'Completed',
-          payment_status = 'Paid',
-          paid_at =
-            COALESCE(
-              paid_at,
-              NOW()
-            )
-        WHERE id = $1
-        `,
-        [topup.id]
-      );
-
-      await client.query(
-        "COMMIT"
-      );
-
-      console.log(
-        `WALLET DUPLICATE IGNORED: ${reference}`
-      );
-
-      return {
-        success: true,
-
-        alreadyCredited: true,
-
-        amount,
-
-        customerId:
-          topup.customer_id
-      };
     }
 
+    const walletTransaction =
+      transactionResult.rows[0];
+
     // -------------------------------------------------
-    // MARK TOP-UP PAID
+    // MARK TOP-UP AS PAID
     // -------------------------------------------------
 
     await client.query(
@@ -2081,11 +2132,10 @@ async function creditWalletFromTopup(
       SET
         status = 'Completed',
         payment_status = 'Paid',
-        paid_at =
-          COALESCE(
-            paid_at,
-            NOW()
-          )
+        paid_at = COALESCE(
+          paid_at,
+          NOW()
+        )
       WHERE id = $1
       `,
       [topup.id]
@@ -2100,7 +2150,11 @@ async function creditWalletFromTopup(
     );
 
     console.log(
-      `WALLET CREDITED: ${reference} GH₵${amount.toFixed(2)} | Before: GH₵${balanceBefore.toFixed(2)} | After: GH₵${balanceAfter.toFixed(2)}`
+      `WALLET CREDITED: ${walletReference} | ` +
+      `GH₵${amount.toFixed(2)} | ` +
+      `Before: GH₵${balanceBefore.toFixed(2)} | ` +
+      `After: GH₵${balanceAfter.toFixed(2)} | ` +
+      `Transaction ID: ${walletTransaction.id}`
     );
 
     return {
@@ -2115,16 +2169,27 @@ async function creditWalletFromTopup(
       balanceAfter,
 
       customerId:
-        topup.customer_id
+        topup.customer_id,
+
+      transactionId:
+        walletTransaction.id
     };
 
   } catch (error) {
 
     try {
+
       await client.query(
         "ROLLBACK"
       );
-    } catch {}
+
+    } catch (rollbackError) {
+
+      console.error(
+        "Wallet rollback error:",
+        rollbackError
+      );
+    }
 
     console.error(
       "Wallet credit error:",
@@ -4360,13 +4425,6 @@ app.get(
 
 // =====================================================
 // WALLET BALANCE
-// =====================================================
-//
-// Correct endpoint:
-// GET /api/wallet
-//
-// There is intentionally no /api/wallet/balance route
-// because /api/wallet already returns the balance.
 // =====================================================
 
 app.get(
