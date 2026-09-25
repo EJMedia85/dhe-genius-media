@@ -1903,8 +1903,6 @@ async function creditWalletFromTopup(
 
     // -------------------------------------------------
     // CHECK FOR EXISTING TRANSACTION
-    //
-    // THIS MUST HAPPEN BEFORE MODIFYING THE BALANCE.
     // -------------------------------------------------
 
     const existingTransactionResult =
@@ -1932,11 +1930,6 @@ async function creditWalletFromTopup(
 
       const existingTransaction =
         existingTransactionResult.rows[0];
-
-      // ------------------------------------------------
-      // The reference already belongs to a transaction.
-      // Do NOT add money again.
-      // ------------------------------------------------
 
       await client.query(
         `
@@ -2044,9 +2037,6 @@ async function creditWalletFromTopup(
 
     // -------------------------------------------------
     // CREATE WALLET TRANSACTION
-    //
-    // balance_before AND balance_after ARE BOTH
-    // EXPLICITLY PROVIDED.
     // -------------------------------------------------
 
     const transactionResult =
@@ -3193,6 +3183,802 @@ app.post(
         500,
         "Could not create order."
       );
+    }
+  }
+);
+
+// =====================================================
+// PAY FOR DATA ORDER FROM WALLET
+//
+// FLOW:
+// 1. Verify logged-in customer
+// 2. Lock the order
+// 3. Lock the customer wallet
+// 4. Verify exact DGM order amount
+// 5. Check sufficient balance
+// 6. Debit wallet atomically
+// 7. Record wallet transaction
+// 8. Mark order as Paid
+// 9. Start DataMart fulfillment
+//
+// IMPORTANT:
+// DataMart is NEVER called before payment is confirmed.
+// =====================================================
+
+app.post(
+  "/api/orders/:orderRef/pay-wallet",
+  requireLogin,
+  async (req, res) => {
+
+    const client =
+      await pool.connect();
+
+    let order = null;
+
+    try {
+
+      await client.query(
+        "BEGIN"
+      );
+
+      const orderRef =
+        String(
+          req.params.orderRef || ""
+        ).trim();
+
+      if (!orderRef) {
+
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return sendError(
+          res,
+          400,
+          "Order reference is required."
+        );
+      }
+
+      // -------------------------------------------------
+      // LOCK ORDER
+      // -------------------------------------------------
+
+      const orderResult =
+        await client.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE order_ref = $1
+            AND customer_id = $2
+          FOR UPDATE
+          `,
+          [
+            orderRef,
+            req.session.customerId
+          ]
+        );
+
+      if (
+        !orderResult.rows.length
+      ) {
+
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return sendError(
+          res,
+          404,
+          "Order not found."
+        );
+      }
+
+      order =
+        orderResult.rows[0];
+
+      // -------------------------------------------------
+      // ONLY DATA ORDERS
+      // -------------------------------------------------
+
+      if (
+        !isDataService(
+          order.service
+        )
+      ) {
+
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return sendError(
+          res,
+          400,
+          "This payment method is only available for data orders."
+        );
+      }
+
+      // -------------------------------------------------
+      // ALREADY PAID
+      // -------------------------------------------------
+
+      if (
+        String(
+          order.payment_status || ""
+        ).toLowerCase() ===
+        "paid"
+      ) {
+
+        await client.query(
+          "COMMIT"
+        );
+
+        const currentCustomer =
+          await getCustomer(
+            req.session.customerId
+          );
+
+        return res.json({
+          success: true,
+
+          alreadyPaid: true,
+
+          paymentMethod:
+            order.paystack_reference
+              ? "Paystack"
+              : "Wallet",
+
+          balance:
+            Number(
+              currentCustomer?.balance ||
+              0
+            ),
+
+          order
+        });
+      }
+
+      // -------------------------------------------------
+      // VERIFY DGM PRICE AGAIN
+      //
+      // NEVER TRUST THE AMOUNT SENT BY THE BROWSER.
+      // -------------------------------------------------
+
+      const capacity =
+        normalizeCapacity(
+          order.capacity
+        );
+
+      const networkPrices =
+        DGM_PRICES[
+          order.network
+        ];
+
+      if (!networkPrices) {
+
+        throw new Error(
+          "Invalid order network."
+        );
+      }
+
+      if (!capacity) {
+
+        throw new Error(
+          "Invalid order data capacity."
+        );
+      }
+
+      const expectedAmount =
+        networkPrices[
+          capacity
+        ];
+
+      if (
+        typeof expectedAmount !==
+        "number"
+      ) {
+
+        throw new Error(
+          "This data bundle is unavailable."
+        );
+      }
+
+      const orderAmount =
+        Number(order.amount);
+
+      if (
+        !Number.isFinite(
+          orderAmount
+        ) ||
+        Math.round(
+          orderAmount * 100
+        ) !==
+        Math.round(
+          expectedAmount * 100
+        )
+      ) {
+
+        throw new Error(
+          "Order amount does not match the current DGM price."
+        );
+      }
+
+      // -------------------------------------------------
+      // LOCK CUSTOMER WALLET
+      // -------------------------------------------------
+
+      const customerResult =
+        await client.query(
+          `
+          SELECT
+            id,
+            name,
+            phone,
+            email,
+            balance
+          FROM customers
+          WHERE id = $1
+          FOR UPDATE
+          `,
+          [
+            req.session.customerId
+          ]
+        );
+
+      if (
+        !customerResult.rows.length
+      ) {
+
+        throw new Error(
+          "Customer account not found."
+        );
+      }
+
+      const customer =
+        customerResult.rows[0];
+
+      // -------------------------------------------------
+      // CURRENT WALLET BALANCE
+      // -------------------------------------------------
+
+      const balanceBefore =
+        Number(
+          customer.balance || 0
+        );
+
+      if (
+        !Number.isFinite(
+          balanceBefore
+        ) ||
+        balanceBefore < 0
+      ) {
+
+        throw new Error(
+          "Your wallet balance is invalid."
+        );
+      }
+
+      // -------------------------------------------------
+      // CHECK SUFFICIENT FUNDS
+      // -------------------------------------------------
+
+      if (
+        balanceBefore <
+        orderAmount
+      ) {
+
+        await client.query(
+          "ROLLBACK"
+        );
+
+        return res.status(400).json({
+
+          success: false,
+
+          code:
+            "INSUFFICIENT_WALLET_BALANCE",
+
+          message:
+            `Insufficient wallet balance. You need GH₵${orderAmount.toFixed(2)} but your wallet has GH₵${balanceBefore.toFixed(2)}.`,
+
+          balance:
+            balanceBefore,
+
+          required:
+            orderAmount,
+
+          shortfall:
+            Math.round(
+              (
+                orderAmount -
+                balanceBefore
+              ) * 100
+            ) / 100
+        });
+      }
+
+      // -------------------------------------------------
+      // CREATE UNIQUE WALLET TRANSACTION REFERENCE
+      //
+      // The order reference is unique, so this prevents
+      // the same data order from being debited twice.
+      // -------------------------------------------------
+
+      const walletReference =
+        `DGM-DATA-${order.order_ref}`;
+
+      // -------------------------------------------------
+      // CHECK WHETHER THIS ORDER WAS ALREADY DEBITED
+      // -------------------------------------------------
+
+      const existingTransaction =
+        await client.query(
+          `
+          SELECT
+            id,
+            customer_id,
+            amount,
+            balance_before,
+            balance_after,
+            status,
+            reference,
+            transaction_ref
+          FROM wallet_transactions
+          WHERE reference = $1
+          FOR UPDATE
+          `,
+          [
+            walletReference
+          ]
+        );
+
+      if (
+        existingTransaction.rows.length
+      ) {
+
+        const transaction =
+          existingTransaction.rows[0];
+
+        // ------------------------------------------------
+        // VERIFY THE EXISTING TRANSACTION BELONGS TO
+        // THE CURRENT CUSTOMER AND HAS THE EXPECTED
+        // AMOUNT.
+        // ------------------------------------------------
+
+        if (
+          Number(
+            transaction.customer_id
+          ) !==
+          Number(
+            customer.id
+          )
+        ) {
+
+          throw new Error(
+            "Wallet transaction ownership mismatch."
+          );
+        }
+
+        if (
+          Math.round(
+            Number(
+              transaction.amount
+            ) * 100
+          ) !==
+          Math.round(
+            orderAmount * 100
+          )
+        ) {
+
+          throw new Error(
+            "Existing wallet transaction amount does not match this order."
+          );
+        }
+
+        // ------------------------------------------------
+        // THE TRANSACTION ALREADY EXISTS.
+        // DO NOT DEBIT THE WALLET AGAIN.
+        // ------------------------------------------------
+
+        await client.query(
+          `
+          UPDATE orders
+          SET
+            payment_status = 'Paid',
+            paid_at =
+              COALESCE(
+                paid_at,
+                NOW()
+              ),
+            status =
+              CASE
+                WHEN status = 'Pending Payment'
+                THEN 'Processing'
+                ELSE status
+              END,
+            paystack_reference = NULL
+          WHERE id = $1
+          `,
+          [
+            order.id
+          ]
+        );
+
+        await client.query(
+          "COMMIT"
+        );
+
+        const refreshed =
+          await pool.query(
+            `
+            SELECT *
+            FROM orders
+            WHERE id = $1
+            `,
+            [order.id]
+          );
+
+        order =
+          refreshed.rows[0];
+
+      } else {
+
+        // -------------------------------------------------
+        // CALCULATE NEW BALANCE
+        // -------------------------------------------------
+
+        const balanceAfter =
+          Math.round(
+            (
+              balanceBefore -
+              orderAmount
+            ) * 100
+          ) / 100;
+
+        // -------------------------------------------------
+        // DEBIT CUSTOMER WALLET
+        // -------------------------------------------------
+
+        const balanceUpdate =
+          await client.query(
+            `
+            UPDATE customers
+            SET balance = $1
+            WHERE id = $2
+            RETURNING
+              id,
+              balance
+            `,
+            [
+              balanceAfter,
+
+              customer.id
+            ]
+          );
+
+        if (
+          !balanceUpdate.rows.length
+        ) {
+
+          throw new Error(
+            "Wallet balance could not be updated."
+          );
+        }
+
+        // -------------------------------------------------
+        // RECORD WALLET DEBIT
+        // -------------------------------------------------
+
+        const transactionResult =
+          await client.query(
+            `
+            INSERT INTO wallet_transactions
+            (
+              customer_id,
+              type,
+              amount,
+              balance_before,
+              balance_after,
+              description,
+              transaction_ref,
+              status,
+              reference
+            )
+            VALUES
+            (
+              $1,
+              $2,
+              $3,
+              $4,
+              $5,
+              $6,
+              $7,
+              $8,
+              $9
+            )
+            RETURNING
+              id,
+              customer_id,
+              type,
+              amount,
+              balance_before,
+              balance_after,
+              description,
+              transaction_ref,
+              status,
+              reference,
+              created_at
+            `,
+            [
+              customer.id,
+
+              "Debit",
+
+              orderAmount,
+
+              balanceBefore,
+
+              balanceAfter,
+
+              `Data purchase - ${order.network} ${order.capacity} - ${order.phone}`,
+
+              order.order_ref,
+
+              "Completed",
+
+              walletReference
+            ]
+          );
+
+        if (
+          !transactionResult.rows.length
+        ) {
+
+          throw new Error(
+            "Wallet debit transaction could not be created."
+          );
+        }
+
+        // -------------------------------------------------
+        // MARK ORDER PAID
+        // -------------------------------------------------
+
+        await client.query(
+          `
+          UPDATE orders
+          SET
+            payment_status = 'Paid',
+            paid_at =
+              COALESCE(
+                paid_at,
+                NOW()
+              ),
+            status = 'Processing',
+            paystack_reference = NULL
+          WHERE id = $1
+          `,
+          [
+            order.id
+          ]
+        );
+
+        // -------------------------------------------------
+        // COMMIT WALLET + ORDER TOGETHER
+        // -------------------------------------------------
+
+        await client.query(
+          "COMMIT"
+        );
+
+        console.log(
+          `WALLET DATA PAYMENT: ${order.order_ref} | ` +
+          `${order.network} ${order.capacity} | ` +
+          `GH₵${orderAmount.toFixed(2)} | ` +
+          `Before: GH₵${balanceBefore.toFixed(2)} | ` +
+          `After: GH₵${balanceAfter.toFixed(2)} | ` +
+          `Transaction: ${transactionResult.rows[0].id}`
+        );
+
+        const refreshed =
+          await pool.query(
+            `
+            SELECT *
+            FROM orders
+            WHERE id = $1
+            `,
+            [order.id]
+          );
+
+        order =
+          refreshed.rows[0];
+      }
+
+      // -------------------------------------------------
+      // START DATAMART DELIVERY
+      //
+      // PAYMENT IS ALREADY CONFIRMED HERE.
+      // -------------------------------------------------
+
+      let fulfillmentResult;
+
+      try {
+
+        fulfillmentResult =
+          await fulfillDataOrder(
+            order
+          );
+
+      } catch (fulfillmentError) {
+
+        console.error(
+          `Wallet-paid DataMart fulfillment error for ${order.order_ref}:`,
+          fulfillmentError
+        );
+
+        // The customer has already paid.
+        // Keep the order Processing so the
+        // background worker can retry it.
+
+        await pool.query(
+          `
+          UPDATE orders
+          SET
+            status = 'Processing',
+            datamart_status = $1
+          WHERE id = $2
+            AND payment_status = 'Paid'
+          `,
+          [
+            `payment_confirmed_pending_fulfillment: ${fulfillmentError.message}`,
+
+            order.id
+          ]
+        );
+
+        fulfillmentResult = {
+          success: false,
+
+          status: "Processing",
+
+          pendingFulfillment: true,
+
+          error:
+            fulfillmentError.message
+        };
+      }
+
+      // -------------------------------------------------
+      // IMPORTANT:
+      //
+      // fulfillDataOrder() can return success:false
+      // without throwing when DataMart rejects the
+      // purchase. Since payment has already happened,
+      // do not refund or mark the wallet debit as
+      // reversed here. The order remains traceable.
+      // -------------------------------------------------
+
+      if (
+        fulfillmentResult &&
+        fulfillmentResult.status ===
+          "Failed"
+      ) {
+
+        await pool.query(
+          `
+          UPDATE orders
+          SET
+            status = 'Processing',
+            datamart_status = $1
+          WHERE id = $2
+            AND payment_status = 'Paid'
+          `,
+          [
+            `payment_confirmed_pending_fulfillment: ${
+              fulfillmentResult.error ||
+              "DataMart fulfillment requires retry."
+            }`,
+
+            order.id
+          ]
+        );
+
+        fulfillmentResult = {
+          ...fulfillmentResult,
+
+          success: false,
+
+          status: "Processing",
+
+          pendingFulfillment: true
+        };
+      }
+
+      // -------------------------------------------------
+      // FINAL ORDER
+      // -------------------------------------------------
+
+      const finalResult =
+        await pool.query(
+          `
+          SELECT *
+          FROM orders
+          WHERE id = $1
+          `,
+          [
+            order.id
+          ]
+        );
+
+      const finalOrder =
+        finalResult.rows[0];
+
+      // -------------------------------------------------
+      // FINAL WALLET BALANCE
+      // -------------------------------------------------
+
+      const finalCustomer =
+        await getCustomer(
+          req.session.customerId
+        );
+
+      const finalBalance =
+        Number(
+          finalCustomer?.balance ||
+          0
+        );
+
+      return res.json({
+
+        success: true,
+
+        paid: true,
+
+        paymentMethod:
+          "Wallet",
+
+        amount:
+          orderAmount,
+
+        balance:
+          finalBalance,
+
+        order:
+          finalOrder,
+
+        fulfillment:
+          fulfillmentResult
+      });
+
+    } catch (error) {
+
+      try {
+
+        await client.query(
+          "ROLLBACK"
+        );
+
+      } catch (rollbackError) {
+
+        console.error(
+          "Wallet data rollback error:",
+          rollbackError
+        );
+      }
+
+      console.error(
+        "Wallet data payment error:",
+        error
+      );
+
+      return sendError(
+        res,
+        500,
+        error.message ||
+          "Wallet payment failed."
+      );
+
+    } finally {
+
+      client.release();
     }
   }
 );
