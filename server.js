@@ -22,6 +22,14 @@ const DATABASE_URL =
 const DATAMART_API_KEY =
   process.env.DATAMART_API_KEY || "";
 
+const DATAMART_API_SECRET =
+  process.env.DATAMART_API_SECRET || "";
+
+const DATAMART_REF_PREFIX =
+  String(
+    process.env.DATAMART_REF_PREFIX || "dgm-"
+  ).trim();
+
 const PAYSTACK_SECRET_KEY =
   process.env.PAYSTACK_SECRET_KEY || "";
 
@@ -330,16 +338,13 @@ async function initDatabase() {
   }
 
   // ===================================================
-  // CLEAN DUPLICATE WALLET REFERENCES
+  // IMPORTANT:
+  // DO NOT DELETE EXISTING WALLET TRANSACTIONS.
+  //
+  // The old duplicate-cleanup query has intentionally
+  // been removed so existing wallet/order history is
+  // preserved.
   // ===================================================
-
-  await pool.query(`
-    DELETE FROM wallet_transactions a
-    USING wallet_transactions b
-    WHERE a.reference IS NOT NULL
-      AND a.reference = b.reference
-      AND a.id < b.id;
-  `);
 
   // ===================================================
   // UNIQUE WALLET REFERENCE
@@ -899,6 +904,30 @@ const NETWORK_MAP = {
 };
 
 // =====================================================
+// DATAMART REFERENCE
+// DataMart Reference Rule is configured to require
+// references beginning with: dgm-
+// =====================================================
+
+function createDataMartReference(
+  orderRef
+) {
+
+  const prefix =
+    DATAMART_REF_PREFIX || "dgm-";
+
+  const normalizedPrefix =
+    prefix.endsWith("-")
+      ? prefix
+      : `${prefix}-`;
+
+  return (
+    normalizedPrefix +
+    String(orderRef || "").trim()
+  );
+}
+
+// =====================================================
 // DATAMART CONFIG
 // =====================================================
 
@@ -922,6 +951,13 @@ async function datamartRequest(
 
     throw new Error(
       "DATAMART_API_KEY is not configured."
+    );
+  }
+
+  if (!DATAMART_API_SECRET) {
+
+    throw new Error(
+      "DATAMART_API_SECRET is not configured."
     );
   }
 
@@ -952,6 +988,9 @@ async function datamartRequest(
             "X-API-Key":
               DATAMART_API_KEY,
 
+            "X-API-Secret":
+              DATAMART_API_SECRET,
+
             ...(options.headers || {})
           }
         }
@@ -981,6 +1020,7 @@ async function datamartRequest(
           `DataMart HTTP ${response.status}: ${
             data.message ||
             data.error ||
+            data.code ||
             text ||
             "Request failed"
           }`
@@ -996,6 +1036,20 @@ async function datamartRequest(
     }
 
     return data;
+
+  } catch (error) {
+
+    if (
+      error.name ===
+      "AbortError"
+    ) {
+
+      throw new Error(
+        "DataMart request timed out after 30 seconds."
+      );
+    }
+
+    throw error;
 
   } finally {
 
@@ -1085,6 +1139,11 @@ async function datamartPurchase(
     combinedError.status =
       developerError.status ||
       primaryError?.status ||
+      null;
+
+    combinedError.data =
+      developerError.data ||
+      primaryError?.data ||
       null;
 
     throw combinedError;
@@ -1485,6 +1544,18 @@ async function fulfillDataOrder(
     );
   }
 
+  // -------------------------------------------------
+  // DATAMART REFERENCE
+  //
+  // Example:
+  // dgm-DGM-MF8ABC-123456
+  // -------------------------------------------------
+
+  const datamartReference =
+    createDataMartReference(
+      order.order_ref
+    );
+
   const payload = {
 
     phoneNumber:
@@ -1495,9 +1566,14 @@ async function fulfillDataOrder(
     network:
       datamartNetwork,
 
-    capacity,
+    capacity:
+      String(capacity),
 
-    gateway: "wallet"
+    gateway:
+      "wallet",
+
+    ref:
+      datamartReference
   };
 
   const idempotencyKey =
@@ -1506,7 +1582,7 @@ async function fulfillDataOrder(
   try {
 
     console.log(
-      `Sending DataMart purchase for ${order.order_ref}`
+      `Sending DataMart purchase for ${order.order_ref} | DataMart ref: ${datamartReference}`
     );
 
     const result =
@@ -1641,7 +1717,7 @@ async function fulfillDataOrder(
     );
 
     console.log(
-      `DataMart purchase created: ${order.order_ref} | reference: ${reference} | status: ${
+      `DataMart purchase created: ${order.order_ref} | reference: ${reference} | request ref: ${datamartReference} | status: ${
         externalStatus ||
         "processing"
       }`
@@ -3189,20 +3265,6 @@ app.post(
 
 // =====================================================
 // PAY FOR DATA ORDER FROM WALLET
-//
-// FLOW:
-// 1. Verify logged-in customer
-// 2. Lock the order
-// 3. Lock the customer wallet
-// 4. Verify exact DGM order amount
-// 5. Check sufficient balance
-// 6. Debit wallet atomically
-// 7. Record wallet transaction
-// 8. Mark order as Paid
-// 9. Start DataMart fulfillment
-//
-// IMPORTANT:
-// DataMart is NEVER called before payment is confirmed.
 // =====================================================
 
 app.post(
@@ -3239,10 +3301,6 @@ app.post(
         );
       }
 
-      // -------------------------------------------------
-      // LOCK ORDER
-      // -------------------------------------------------
-
       const orderResult =
         await client.query(
           `
@@ -3276,10 +3334,6 @@ app.post(
       order =
         orderResult.rows[0];
 
-      // -------------------------------------------------
-      // ONLY DATA ORDERS
-      // -------------------------------------------------
-
       if (
         !isDataService(
           order.service
@@ -3296,10 +3350,6 @@ app.post(
           "This payment method is only available for data orders."
         );
       }
-
-      // -------------------------------------------------
-      // ALREADY PAID
-      // -------------------------------------------------
 
       if (
         String(
@@ -3336,12 +3386,6 @@ app.post(
           order
         });
       }
-
-      // -------------------------------------------------
-      // VERIFY DGM PRICE AGAIN
-      //
-      // NEVER TRUST THE AMOUNT SENT BY THE BROWSER.
-      // -------------------------------------------------
 
       const capacity =
         normalizeCapacity(
@@ -3402,10 +3446,6 @@ app.post(
         );
       }
 
-      // -------------------------------------------------
-      // LOCK CUSTOMER WALLET
-      // -------------------------------------------------
-
       const customerResult =
         await client.query(
           `
@@ -3436,10 +3476,6 @@ app.post(
       const customer =
         customerResult.rows[0];
 
-      // -------------------------------------------------
-      // CURRENT WALLET BALANCE
-      // -------------------------------------------------
-
       const balanceBefore =
         Number(
           customer.balance || 0
@@ -3456,10 +3492,6 @@ app.post(
           "Your wallet balance is invalid."
         );
       }
-
-      // -------------------------------------------------
-      // CHECK SUFFICIENT FUNDS
-      // -------------------------------------------------
 
       if (
         balanceBefore <
@@ -3496,19 +3528,8 @@ app.post(
         });
       }
 
-      // -------------------------------------------------
-      // CREATE UNIQUE WALLET TRANSACTION REFERENCE
-      //
-      // The order reference is unique, so this prevents
-      // the same data order from being debited twice.
-      // -------------------------------------------------
-
       const walletReference =
         `DGM-DATA-${order.order_ref}`;
-
-      // -------------------------------------------------
-      // CHECK WHETHER THIS ORDER WAS ALREADY DEBITED
-      // -------------------------------------------------
 
       const existingTransaction =
         await client.query(
@@ -3537,12 +3558,6 @@ app.post(
 
         const transaction =
           existingTransaction.rows[0];
-
-        // ------------------------------------------------
-        // VERIFY THE EXISTING TRANSACTION BELONGS TO
-        // THE CURRENT CUSTOMER AND HAS THE EXPECTED
-        // AMOUNT.
-        // ------------------------------------------------
 
         if (
           Number(
@@ -3573,11 +3588,6 @@ app.post(
             "Existing wallet transaction amount does not match this order."
           );
         }
-
-        // ------------------------------------------------
-        // THE TRANSACTION ALREADY EXISTS.
-        // DO NOT DEBIT THE WALLET AGAIN.
-        // ------------------------------------------------
 
         await client.query(
           `
@@ -3622,10 +3632,6 @@ app.post(
 
       } else {
 
-        // -------------------------------------------------
-        // CALCULATE NEW BALANCE
-        // -------------------------------------------------
-
         const balanceAfter =
           Math.round(
             (
@@ -3633,10 +3639,6 @@ app.post(
               orderAmount
             ) * 100
           ) / 100;
-
-        // -------------------------------------------------
-        // DEBIT CUSTOMER WALLET
-        // -------------------------------------------------
 
         const balanceUpdate =
           await client.query(
@@ -3663,10 +3665,6 @@ app.post(
             "Wallet balance could not be updated."
           );
         }
-
-        // -------------------------------------------------
-        // RECORD WALLET DEBIT
-        // -------------------------------------------------
 
         const transactionResult =
           await client.query(
@@ -3738,10 +3736,6 @@ app.post(
           );
         }
 
-        // -------------------------------------------------
-        // MARK ORDER PAID
-        // -------------------------------------------------
-
         await client.query(
           `
           UPDATE orders
@@ -3760,10 +3754,6 @@ app.post(
             order.id
           ]
         );
-
-        // -------------------------------------------------
-        // COMMIT WALLET + ORDER TOGETHER
-        // -------------------------------------------------
 
         await client.query(
           "COMMIT"
@@ -3792,12 +3782,6 @@ app.post(
           refreshed.rows[0];
       }
 
-      // -------------------------------------------------
-      // START DATAMART DELIVERY
-      //
-      // PAYMENT IS ALREADY CONFIRMED HERE.
-      // -------------------------------------------------
-
       let fulfillmentResult;
 
       try {
@@ -3813,10 +3797,6 @@ app.post(
           `Wallet-paid DataMart fulfillment error for ${order.order_ref}:`,
           fulfillmentError
         );
-
-        // The customer has already paid.
-        // Keep the order Processing so the
-        // background worker can retry it.
 
         await pool.query(
           `
@@ -3845,16 +3825,6 @@ app.post(
             fulfillmentError.message
         };
       }
-
-      // -------------------------------------------------
-      // IMPORTANT:
-      //
-      // fulfillDataOrder() can return success:false
-      // without throwing when DataMart rejects the
-      // purchase. Since payment has already happened,
-      // do not refund or mark the wallet debit as
-      // reversed here. The order remains traceable.
-      // -------------------------------------------------
 
       if (
         fulfillmentResult &&
@@ -3892,10 +3862,6 @@ app.post(
         };
       }
 
-      // -------------------------------------------------
-      // FINAL ORDER
-      // -------------------------------------------------
-
       const finalResult =
         await pool.query(
           `
@@ -3910,10 +3876,6 @@ app.post(
 
       const finalOrder =
         finalResult.rows[0];
-
-      // -------------------------------------------------
-      // FINAL WALLET BALANCE
-      // -------------------------------------------------
 
       const finalCustomer =
         await getCustomer(
@@ -5744,9 +5706,11 @@ app.get(
           "connected",
 
         datamart:
-          DATAMART_API_KEY
+          DATAMART_API_KEY &&
+          DATAMART_API_SECRET &&
+          DATAMART_REF_PREFIX
             ? "configured"
-            : "not configured",
+            : "incomplete",
 
         paystack:
           PAYSTACK_SECRET_KEY
@@ -5777,9 +5741,11 @@ app.get(
             "error",
 
           datamart:
-            DATAMART_API_KEY
+            DATAMART_API_KEY &&
+            DATAMART_API_SECRET &&
+            DATAMART_REF_PREFIX
               ? "configured"
-              : "not configured",
+              : "incomplete",
 
           paystack:
             PAYSTACK_SECRET_KEY
@@ -6081,7 +6047,23 @@ async function startServer() {
 
         console.log(
           `DataMart: ${
-            DATAMART_API_KEY
+            DATAMART_API_KEY &&
+            DATAMART_API_SECRET &&
+            DATAMART_REF_PREFIX
+              ? "configured"
+              : "INCOMPLETE"
+          }`
+        );
+
+        console.log(
+          `DataMart reference prefix: ${
+            DATAMART_REF_PREFIX || "MISSING"
+          }`
+        );
+
+        console.log(
+          `DataMart second secret: ${
+            DATAMART_API_SECRET
               ? "configured"
               : "MISSING"
           }`
