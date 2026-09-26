@@ -388,11 +388,82 @@
 
     .quick-grid {
       display: grid;
-
-      grid-template-columns:
-        repeat(2, 1fr);
-
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 17px;
+      padding: 15px;
+    }
+
+    .stat-icon { font-size: 18px; margin-bottom: 9px; }
+
+    .stat-card strong {
+      display: block;
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .stat-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 5px;
+    }
+
+    .refresh-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 24px 0 12px;
+    }
+
+    .refresh-row .section-title { margin: 0; }
+
+    .refresh-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: #c9d9e4;
+      border-radius: 10px;
+      padding: 8px 11px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .order { cursor: pointer; transition: background .18s ease; }
+    .order:hover { background: var(--card2); }
+
+    .order-status.completed {
+      color: var(--green);
+      background: rgba(32,216,137,.10);
+    }
+
+    .order-status.failed {
+      color: var(--red);
+      background: rgba(255,98,98,.10);
+    }
+
+    .order-status.processing { color: var(--yellow); }
+
+    .health-time {
+      color: var(--muted);
+      font-size: 10px;
+      margin-top: 3px;
+    }
+
+    @media (max-width: 380px) {
+      .stats-grid { gap: 7px; }
+      .stat-card { padding: 12px 10px; }
+      .stat-card strong { font-size: 16px; }
     }
 
     .quick-card {
@@ -711,8 +782,11 @@
       }
 
       .quick-grid {
-        grid-template-columns:
-          repeat(4, 1fr);
+        grid-template-columns: repeat(4, 1fr);
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
       }
 
       .balance-card {
@@ -983,6 +1057,26 @@
     </section>
 
 
+    <!-- ACCOUNT SNAPSHOT -->
+
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon">📦</div>
+        <strong id="totalOrders">0</strong>
+        <span>Total Orders</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⏳</div>
+        <strong id="processingOrders">0</strong>
+        <span>Processing</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <strong id="completedOrders">0</strong>
+        <span>Completed</span>
+      </div>
+    </section>
+
     <!-- QUICK ACTIONS -->
 
     <h2 class="section-title">
@@ -1126,8 +1220,9 @@
 
       </div>
 
-      <div class="online">
-        ONLINE
+      <div style="text-align:right">
+        <div class="online" id="serviceStatus">CHECKING</div>
+        <div class="health-time" id="healthTime">Checking system...</div>
       </div>
 
     </section>
@@ -1135,9 +1230,10 @@
 
     <!-- RECENT ORDERS -->
 
-    <h2 class="section-title">
-      Recent Orders
-    </h2>
+    <div class="refresh-row">
+      <h2 class="section-title">Recent Orders</h2>
+      <button class="refresh-btn" type="button" onclick="refreshDashboard()">↻ Refresh</button>
+    </div>
 
 
     <section
@@ -1535,6 +1631,8 @@
         container.innerHTML = "";
 
 
+        updateOrderStats(result.orders);
+
         result.orders
           .slice(0, 5)
           .forEach(
@@ -1546,8 +1644,11 @@
                 );
 
 
-              item.className =
-                "order";
+              item.className = "order";
+
+              item.addEventListener("click", function() {
+                window.location.assign("/orders.html");
+              });
 
 
               const service =
@@ -1564,11 +1665,15 @@
                 );
 
 
-              const status =
-                escapeHTML(
-                  order.status ||
-                  "Processing"
-                );
+              const rawStatus = String(order.status || "Processing");
+              const status = escapeHTML(rawStatus);
+              const statusClass = rawStatus.toLowerCase().includes("complete")
+                ? "completed"
+                : rawStatus.toLowerCase().includes("fail")
+                  ? "failed"
+                  : rawStatus.toLowerCase().includes("process")
+                    ? "processing"
+                    : "";
 
 
               const amount =
@@ -1597,7 +1702,7 @@
                     GH₵${amount.toFixed(2)}
                   </div>
 
-                  <span class="order-status">
+                  <span class="order-status ${statusClass}">
                     ${status}
                   </span>
 
@@ -1646,6 +1751,79 @@
 
 
     // ================================
+    // ORDER STATS
+    // ================================
+
+    function updateOrderStats(orders) {
+      const list = Array.isArray(orders) ? orders : [];
+
+      const total = list.length;
+
+      const processing = list.filter(order =>
+        ["processing", "pending", "initiated", "queued", "in progress", "in-progress"]
+          .includes(String(order.status || "").toLowerCase())
+      ).length;
+
+      const completed = list.filter(order =>
+        ["completed", "complete", "success", "successful", "delivered"]
+          .includes(String(order.status || "").toLowerCase())
+      ).length;
+
+      document.getElementById("totalOrders").textContent = total;
+      document.getElementById("processingOrders").textContent = processing;
+      document.getElementById("completedOrders").textContent = completed;
+    }
+
+
+    // ================================
+    // SERVICE HEALTH
+    // ================================
+
+    async function loadServiceHealth() {
+      const statusEl = document.getElementById("serviceStatus");
+      const timeEl = document.getElementById("healthTime");
+
+      try {
+        const response = await fetch("/api/health", {
+          method: "GET",
+          cache: "no-store",
+          headers: { "Accept": "application/json" }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result && result.success && result.status === "online") {
+          statusEl.textContent = "ONLINE";
+          statusEl.style.color = "var(--green)";
+          timeEl.textContent = "All core systems responding";
+        } else {
+          statusEl.textContent = "CHECK";
+          statusEl.style.color = "var(--yellow)";
+          timeEl.textContent = "Some services need attention";
+        }
+      } catch (error) {
+        console.error("Health check error:", error);
+        statusEl.textContent = "OFFLINE";
+        statusEl.style.color = "var(--red)";
+        timeEl.textContent = "Unable to reach DGM";
+      }
+    }
+
+
+    // ================================
+    // REFRESH DASHBOARD
+    // ================================
+
+    async function refreshDashboard() {
+      await Promise.all([
+        loadCustomer(),
+        loadOrders(),
+        loadServiceHealth()
+      ]);
+    }
+
+
+    // ================================
     // HTML ESCAPE
     // ================================
 
@@ -1689,9 +1867,7 @@
       "DOMContentLoaded",
       function() {
 
-        loadCustomer();
-
-        loadOrders();
+        refreshDashboard();
 
       }
     );
