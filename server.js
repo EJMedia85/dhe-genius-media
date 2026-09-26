@@ -3056,6 +3056,180 @@ app.get(
 );
 
 // =====================================================
+// CHANGE PASSWORD
+// =====================================================
+
+app.post(
+  "/api/account/change-password",
+  async (req, res) => {
+    try {
+      if (!req.session || !req.session.customerId) {
+        return sendError(res, 401, "Not logged in.");
+      }
+
+      const currentPassword = String(req.body.currentPassword || "");
+      const newPassword = String(req.body.newPassword || "");
+      const confirmPassword = String(req.body.confirmPassword || "");
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        return sendError(res, 400, "Please complete all password fields.");
+      }
+
+      if (newPassword.length < 8) {
+        return sendError(res, 400, "New password must be at least 8 characters.");
+      }
+
+      if (newPassword !== confirmPassword) {
+        return sendError(res, 400, "New passwords do not match.");
+      }
+
+      const result = await pool.query(
+        `
+        SELECT id, password
+        FROM customers
+        WHERE id = $1
+        LIMIT 1
+        `,
+        [req.session.customerId]
+      );
+
+      if (!result.rows.length) {
+        return sendError(res, 404, "Account not found.");
+      }
+
+      const customer = result.rows[0];
+      const matches = await bcrypt.compare(
+        currentPassword,
+        customer.password
+      );
+
+      if (!matches) {
+        return sendError(res, 401, "Current password is incorrect.");
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+      await pool.query(
+        `
+        UPDATE customers
+        SET password = $1
+        WHERE id = $2
+        `,
+        [hashedPassword, customer.id]
+      );
+
+      return res.json({
+        success: true,
+        message: "Password changed successfully."
+      });
+    } catch (error) {
+      console.error("Change password error:", error);
+      return sendError(res, 500, "Could not change password.");
+    }
+  }
+);
+
+// =====================================================
+// ACCOUNT SETTINGS
+// =====================================================
+
+app.put(
+  "/api/account/settings",
+  async (req, res) => {
+    try {
+      if (!req.session || !req.session.customerId) {
+        return sendError(res, 401, "Not logged in.");
+      }
+
+      const name = String(req.body.name || "").trim();
+      const email = cleanEmail(req.body.email || "");
+      const phone = normalizeGhanaPhone(req.body.phone || "");
+
+      if (!name) {
+        return sendError(res, 400, "Full name is required.");
+      }
+
+      if (!email || !email.includes("@")) {
+        return sendError(res, 400, "Enter a valid email address.");
+      }
+
+      if (!phone || phone.length < 10) {
+        return sendError(res, 400, "Enter a valid Ghana phone number.");
+      }
+
+      const existing = await pool.query(
+        `
+        SELECT id
+        FROM customers
+        WHERE (phone = $1 OR email = $2)
+          AND id <> $3
+        LIMIT 1
+        `,
+        [
+          phone,
+          email,
+          req.session.customerId
+        ]
+      );
+
+      if (existing.rows.length) {
+        return sendError(
+          res,
+          409,
+          "That phone number or email is already used by another account."
+        );
+      }
+
+      const result = await pool.query(
+        `
+        UPDATE customers
+        SET
+          name = $1,
+          phone = $2,
+          email = $3
+        WHERE id = $4
+        RETURNING
+          id,
+          name,
+          phone,
+          email,
+          balance,
+          created_at
+        `,
+        [
+          name,
+          phone,
+          email,
+          req.session.customerId
+        ]
+      );
+
+      if (!result.rows.length) {
+        return sendError(res, 404, "Account not found.");
+      }
+
+      return res.json({
+        success: true,
+        message: "Account settings updated successfully.",
+        customer: publicCustomer(result.rows[0])
+      });
+    } catch (error) {
+      console.error("Account settings error:", error);
+
+      if (error.code === "23505") {
+        return sendError(
+          res,
+          409,
+          "That phone number or email is already in use."
+        );
+      }
+
+      return sendError(res, 500, "Could not update account settings.");
+    }
+  }
+);
+
+// =====================================================
 // LOGOUT
 // =====================================================
 
