@@ -1571,6 +1571,7 @@ async function syncKingflexyAirtimeOrders() {
         let data = null;
         let lastError = null;
 
+        // First try the exact provider/DGM reference endpoint.
         for (const lookupReference of lookupReferences) {
           try {
             data = await kingflexyRequest(
@@ -1603,20 +1604,94 @@ async function syncKingflexyAirtimeOrders() {
           }
         }
 
+        // A 404 does NOT immediately mean the airtime order failed.
+        // KingFlexy may expose the order in the recent-orders endpoint
+        // under its provider reference/order ID instead.
+        if (!data) {
+          try {
+            const recent = await kingflexyRequest(
+              "/airtime/orders",
+              { method: "GET" }
+            );
+
+            const root = recent && typeof recent === "object"
+              ? recent
+              : {};
+
+            const candidates = [];
+
+            const addCandidates = (value) => {
+              if (Array.isArray(value)) candidates.push(...value);
+            };
+
+            addCandidates(root.orders);
+            addCandidates(root.results);
+            addCandidates(root.data);
+            addCandidates(root.data?.orders);
+            addCandidates(root.data?.results);
+
+            const wanted = new Set(
+              lookupReferences.map((value) => String(value))
+            );
+
+            const matched = candidates.find((item) => {
+              const parsed = parseKingflexyOrder(item);
+              return [
+                parsed.orderId,
+                parsed.reference
+              ]
+                .filter(Boolean)
+                .some((value) => wanted.has(String(value)));
+            });
+
+            if (matched) {
+              data = matched;
+
+              console.log(
+                "KINGFLEXY AIRTIME STATUS FOUND IN RECENT ORDERS: " +
+                order.order_ref
+              );
+            }
+          } catch (listError) {
+            console.warn(
+              "KINGFLEXY AIRTIME RECENT ORDERS LOOKUP FAILED: " +
+              order.order_ref +
+              " | " +
+              listError.message
+            );
+          }
+        }
+
         if (!data) {
           const isNotFound =
             Number(lastError?.status || lastError?.data?.code || 0) === 404;
 
           if (isNotFound) {
-            await refundAirtimeOrder(
-              order.id,
-              "KingFlexy could not find this airtime order using the provider reference or DGM reference. The DGM wallet payment has been refunded."
-            );
+            const ageMs =
+              Date.now() -
+              new Date(order.created_at).getTime();
 
-            console.warn(
-              "KINGFLEXY AIRTIME ORDER NOT FOUND — REFUNDED: " +
-              order.order_ref
-            );
+            // Never refund immediately on a provider 404. Give the
+            // provider time to expose a newly-created order.
+            // After 10 minutes with no matching provider order,
+            // refund the customer rather than leaving funds stranded.
+            if (Number.isFinite(ageMs) && ageMs >= 10 * 60 * 1000) {
+              await refundAirtimeOrder(
+                order.id,
+                "KingFlexy could not find this airtime order after repeated status checks for 10 minutes. The DGM wallet payment has been refunded."
+              );
+
+              console.warn(
+                "KINGFLEXY AIRTIME ORDER NOT FOUND AFTER 10 MINUTES — REFUNDED: " +
+                order.order_ref
+              );
+            } else {
+              console.warn(
+                "KINGFLEXY AIRTIME ORDER NOT FOUND YET — KEEPING PROCESSING: " +
+                order.order_ref
+              );
+            }
+
             continue;
           }
 
@@ -1628,7 +1703,9 @@ async function syncKingflexyAirtimeOrders() {
       } catch (error) {
         console.error(
           "KingFlexy airtime status check failed for " +
-          order.order_ref + ": " + error.message
+          order.order_ref +
+          ": " +
+          error.message
         );
       }
     }
