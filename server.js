@@ -1340,7 +1340,6 @@ async function refundAirtimeOrder(orderId, reason) {
       INSERT INTO wallet_transactions
       (customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference)
       VALUES ($1,'Credit',$2,$3,$4,$5,$6,'Completed',$7)
-      ON CONFLICT (reference) DO NOTHING
       `,
       [
         order.customer_id,
