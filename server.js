@@ -41,6 +41,9 @@ const BASE_URL =
   process.env.BASE_URL ||
   "https://dhe-genius-media.onrender.com";
 
+const DGM_API_KEY =
+  process.env.DGM_API_KEY || "";
+
 // =====================================================
 // APP CONFIG
 // =====================================================
@@ -308,6 +311,34 @@ async function initDatabase() {
 
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  // ---------------------------------------------------
+  // DGM PUBLIC AIRTIME API ORDERS
+  // ---------------------------------------------------
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS api_airtime_orders (
+      id SERIAL PRIMARY KEY,
+      reference TEXT UNIQUE NOT NULL,
+      idempotency_key TEXT UNIQUE,
+      network TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Pending',
+      message TEXT,
+      provider_reference TEXT,
+      provider_status TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at TIMESTAMPTZ
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS
+    api_airtime_orders_status_created_idx
+    ON api_airtime_orders(status, created_at);
   `);
 
   // ===================================================
@@ -708,6 +739,77 @@ function sendError(
       success: false,
       message
     });
+}
+
+function getDgmApiKey(req) {
+  const key = String(req.get("X-DGM-API-Key") || "").trim();
+  if (key) return key;
+
+  const authorization = String(req.get("Authorization") || "").trim();
+  if (authorization.toLowerCase().startsWith("bearer ")) {
+    return authorization.slice(7).trim();
+  }
+
+  return "";
+}
+
+function requireDgmApiKey(req, res, next) {
+  if (!DGM_API_KEY) {
+    return sendError(res, 503, "DGM API authentication is not configured.");
+  }
+
+  const supplied = getDgmApiKey(req);
+
+  if (
+    !supplied ||
+    supplied.length !== DGM_API_KEY.length ||
+    !crypto.timingSafeEqual(
+      Buffer.from(supplied),
+      Buffer.from(DGM_API_KEY)
+    )
+  ) {
+    return sendError(res, 401, "Invalid or missing DGM API key.");
+  }
+
+  next();
+}
+
+const dgmApiRateState = new Map();
+
+function dgmApiRateLimit(req, res, next) {
+  const ip = String(req.ip || req.socket?.remoteAddress || "unknown");
+  const now = Date.now();
+  const windowMs = 60 * 1000;
+  const maxRequests = 60;
+  const existing = dgmApiRateState.get(ip);
+
+  if (!existing || now - existing.startedAt >= windowMs) {
+    dgmApiRateState.set(ip, {
+      startedAt: now,
+      count: 1
+    });
+    return next();
+  }
+
+  existing.count += 1;
+
+  if (existing.count > maxRequests) {
+    return res.status(429).json({
+      success: false,
+      message: "Too many API requests. Please try again later."
+    });
+  }
+
+  next();
+}
+
+function createAirtimeApiReference() {
+  return (
+    "DGM-AIR-" +
+    Date.now().toString(36).toUpperCase() +
+    "-" +
+    crypto.randomBytes(4).toString("hex").toUpperCase()
+  );
 }
 
 function requireLogin(
@@ -6321,6 +6423,363 @@ app.get(
   servePage(
     "service.html"
   )
+);
+
+// =====================================================
+// DGM PUBLIC AIRTIME API v1
+// =====================================================
+
+app.get(
+  "/api/v1",
+  requireDgmApiKey,
+  dgmApiRateLimit,
+  (req, res) => {
+    return res.json({
+      success: true,
+      name: "DHE GENIUS MEDIA API",
+      version: "1.0.0",
+      base_url: `${BASE_URL}/api/v1`,
+      authentication: {
+        type: "API Key",
+        header: "X-DGM-API-Key",
+        alternative: "Authorization: Bearer <API_KEY>"
+      },
+      endpoints: {
+        purchase: "POST /airtime/purchase",
+        status: "GET /airtime/status/:reference",
+        networks: "GET /networks",
+        health: "GET /health",
+        documentation: "GET /docs"
+      }
+    });
+  }
+);
+
+app.get(
+  "/api/v1/health",
+  requireDgmApiKey,
+  dgmApiRateLimit,
+  (req, res) => {
+    return res.json({
+      success: true,
+      service: "DHE GENIUS MEDIA API",
+      version: "1.0.0",
+      status: "online",
+      airtime_fulfillment: "not_connected"
+    });
+  }
+);
+
+app.get(
+  "/api/v1/networks",
+  requireDgmApiKey,
+  dgmApiRateLimit,
+  (req, res) => {
+    return res.json({
+      success: true,
+      networks: [
+        { code: "MTN", name: "MTN Ghana" },
+        { code: "Telecel", name: "Telecel Ghana" },
+        { code: "AirtelTigo", name: "AirtelTigo Ghana" }
+      ]
+    });
+  }
+);
+
+app.get(
+  "/api/v1/docs",
+  requireDgmApiKey,
+  dgmApiRateLimit,
+  (req, res) => {
+    return res.json({
+      openapi: "3.1.0",
+      info: {
+        title: "DHE GENIUS MEDIA API",
+        version: "1.0.0",
+        description:
+          "DGM Airtime API. Airtime requests remain Pending until an authorized fulfillment provider is connected."
+      },
+      servers: [{ url: `${BASE_URL}/api/v1` }],
+      security: [{ DgmApiKey: [] }],
+      components: {
+        securitySchemes: {
+          DgmApiKey: {
+            type: "apiKey",
+            in: "header",
+            name: "X-DGM-API-Key"
+          }
+        }
+      },
+      paths: {
+        "/airtime/purchase": {
+          post: {
+            summary: "Create an airtime purchase",
+            parameters: [{
+              name: "X-Idempotency-Key",
+              in: "header",
+              required: false,
+              schema: { type: "string" }
+            }],
+            requestBody: {
+              required: true,
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    required: ["network", "phone", "amount"],
+                    properties: {
+                      network: {
+                        type: "string",
+                        enum: ["MTN", "Telecel", "AirtelTigo"]
+                      },
+                      phone: {
+                        type: "string",
+                        example: "0241518385"
+                      },
+                      amount: {
+                        type: "number",
+                        minimum: 1,
+                        maximum: 500,
+                        example: 10
+                      },
+                      reference: {
+                        type: "string",
+                        example: "MY-ORDER-001"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "/airtime/status/{reference}": {
+          get: {
+            summary: "Get airtime order status",
+            parameters: [{
+              name: "reference",
+              in: "path",
+              required: true,
+              schema: { type: "string" }
+            }]
+          }
+        }
+      }
+    });
+  }
+);
+
+app.post(
+  "/api/v1/airtime/purchase",
+  requireDgmApiKey,
+  dgmApiRateLimit,
+  async (req, res) => {
+    try {
+      const network = String(req.body?.network || "").trim();
+      const phone = normalizeGhanaPhone(req.body?.phone);
+      const amount = Number(req.body?.amount);
+      const clientReference = String(
+        req.body?.reference ||
+        req.get("X-Idempotency-Key") ||
+        ""
+      ).trim();
+      const idempotencyKey = String(
+        req.get("X-Idempotency-Key") ||
+        clientReference ||
+        ""
+      ).trim();
+
+      const allowedNetworks = ["MTN", "Telecel", "AirtelTigo"];
+
+      if (!allowedNetworks.includes(network)) {
+        return sendError(
+          res,
+          400,
+          "Invalid network. Use MTN, Telecel, or AirtelTigo."
+        );
+      }
+
+      if (!validGhanaPhone(phone)) {
+        return sendError(res, 400, "Invalid Ghana phone number.");
+      }
+
+      if (!Number.isFinite(amount) || amount < 1 || amount > 500) {
+        return sendError(
+          res,
+          400,
+          "Airtime amount must be between GH₵1 and GH₵500."
+        );
+      }
+
+      if (idempotencyKey.length > 150) {
+        return sendError(res, 400, "Idempotency key is too long.");
+      }
+
+      if (idempotencyKey) {
+        const existing = await pool.query(
+          `
+          SELECT *
+          FROM api_airtime_orders
+          WHERE idempotency_key = $1
+          LIMIT 1
+          `,
+          [idempotencyKey]
+        );
+
+        if (existing.rows.length) {
+          return res.json({
+            success: true,
+            duplicate: true,
+            order: existing.rows[0],
+            message:
+              "Existing airtime request returned for this idempotency key."
+          });
+        }
+      }
+
+      const reference =
+        clientReference || createAirtimeApiReference();
+
+      const existingReference = await pool.query(
+        `
+        SELECT *
+        FROM api_airtime_orders
+        WHERE reference = $1
+        LIMIT 1
+        `,
+        [reference]
+      );
+
+      if (existingReference.rows.length) {
+        return res.status(409).json({
+          success: false,
+          message: "This airtime reference already exists.",
+          order: existingReference.rows[0]
+        });
+      }
+
+      const result = await pool.query(
+        `
+        INSERT INTO api_airtime_orders (
+          reference,
+          idempotency_key,
+          network,
+          phone,
+          amount,
+          status,
+          message
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          'Pending',
+          $6
+        )
+        RETURNING *
+        `,
+        [
+          reference,
+          idempotencyKey || null,
+          network,
+          phone,
+          amount,
+          "Airtime request accepted. Fulfillment provider is not connected yet."
+        ]
+      );
+
+      return res.status(202).json({
+        success: true,
+        status: "Pending",
+        reference,
+        order: result.rows[0],
+        message:
+          "Airtime request accepted. Delivery remains Pending until an authorized airtime fulfillment provider is connected."
+      });
+    } catch (error) {
+      console.error("DGM Airtime API purchase error:", error);
+      return sendError(
+        res,
+        500,
+        "Could not create airtime API order."
+      );
+    }
+  }
+);
+
+app.get(
+  "/api/v1/airtime/status/:reference",
+  requireDgmApiKey,
+  dgmApiRateLimit,
+  async (req, res) => {
+    try {
+      const reference =
+        String(req.params.reference || "").trim();
+
+      if (!reference) {
+        return sendError(
+          res,
+          400,
+          "Airtime reference is required."
+        );
+      }
+
+      const result = await pool.query(
+        `
+        SELECT
+          reference,
+          network,
+          phone,
+          amount,
+          status,
+          message,
+          provider_reference,
+          provider_status,
+          created_at,
+          updated_at,
+          completed_at
+        FROM api_airtime_orders
+        WHERE reference = $1
+        LIMIT 1
+        `,
+        [reference]
+      );
+
+      if (!result.rows.length) {
+        return sendError(
+          res,
+          404,
+          "Airtime order not found."
+        );
+      }
+
+      const order = result.rows[0];
+
+      return res.json({
+        success: true,
+        reference: order.reference,
+        status: order.status,
+        network: order.network,
+        phone: order.phone,
+        amount: Number(order.amount || 0),
+        message: order.message,
+        provider_reference: order.provider_reference,
+        provider_status: order.provider_status,
+        created_at: order.created_at,
+        updated_at: order.updated_at,
+        completed_at: order.completed_at
+      });
+    } catch (error) {
+      console.error("DGM Airtime API status error:", error);
+      return sendError(
+        res,
+        500,
+        "Could not load airtime order status."
+      );
+    }
+  }
 );
 
 // =====================================================
