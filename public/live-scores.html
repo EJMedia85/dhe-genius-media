@@ -1,1 +1,96 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Live Scores • DGM</title><style>body{margin:0;background:#07131f;color:#fff;font-family:Arial,sans-serif}header{padding:16px;background:#0b1d2d;border-bottom:1px solid #ffffff12}main{max-width:800px;margin:auto;padding:24px 16px}.hero,.score{background:#0d2030;border:1px solid #ffffff12;border-radius:20px;padding:20px;margin-bottom:12px}.hero h1{margin:0 0 8px}.hero p,.score p{color:#91a7b8;line-height:1.55;font-size:13px}.score{display:flex;justify-content:space-between;align-items:center}.btn{display:inline-block;padding:12px 16px;background:#087fe8;border-radius:11px;font-weight:800;color:#fff;margin-top:8px}@media(max-width:480px){.score{display:block}}</style></head><body><header><a href="/entertainment.html">‹ Entertainment</a></header><main><section class="hero"><h1>⚽ Live Scores</h1><p>Use the live-score providers below for current fixtures and results. This page is ready for a dedicated sports-data API integration later.</p></section><section class="score"><div><strong>ESPN Scores</strong><p>Live scores, fixtures and results across major sports.</p></div><a class="btn" href="https://www.espn.com/soccer/scoreboard" target="_blank" rel="noopener noreferrer">Open Scores</a></section><section class="score"><div><strong>Flashscore</strong><p>Live scores and fixtures across football and many other sports.</p></div><a class="btn" href="https://www.flashscore.com/" target="_blank" rel="noopener noreferrer">Open Flashscore</a></section><section class="score"><div><strong>BBC Sport Scores</strong><p>Scores, fixtures and sports results.</p></div><a class="btn" href="https://www.bbc.com/sport" target="_blank" rel="noopener noreferrer">Open BBC Sport</a></section></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07131f">
+<title>Live Scores • DHE GENIUS MEDIA</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07131f;color:#fff;font-family:Arial,sans-serif;min-height:100vh;padding-bottom:30px}
+header{padding:15px 16px;background:rgba(7,19,31,.96);border-bottom:1px solid #ffffff12;position:sticky;top:0;z-index:10;backdrop-filter:blur(14px)}
+header a{color:#fff;text-decoration:none}.wrap{max-width:900px;margin:auto;padding:20px 15px}
+.hero{background:linear-gradient(135deg,#087fe8,#0b465f);border-radius:22px;padding:22px;margin-bottom:15px;box-shadow:0 18px 40px #0003}
+.hero h1{margin:0 0 7px;font-size:28px}.hero p{margin:0;color:#d9edf7;font-size:13px;line-height:1.55}
+.bar{display:flex;gap:9px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}
+.live{font-size:12px;color:#25d366;font-weight:800}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#25d366;margin-right:6px;box-shadow:0 0 10px #25d366}
+.refresh{border:1px solid #ffffff15;background:#0d2030;color:#fff;padding:10px 13px;border-radius:10px;font-weight:800}
+.info{color:#91a7b8;font-size:11px}.error,.empty{background:#0d2030;border:1px solid #ffffff12;border-radius:18px;padding:22px;color:#91a7b8;text-align:center}
+.match{background:#0d2030;border:1px solid #ffffff12;border-radius:18px;padding:15px;margin-bottom:10px}
+.league{display:flex;align-items:center;gap:8px;color:#91a7b8;font-size:11px;margin-bottom:13px}.league img{width:20px;height:20px;object-fit:contain;border-radius:50%}
+.matchtop{display:flex;justify-content:space-between;gap:10px;align-items:center}.team{width:38%;font-weight:800;font-size:13px}.team.right{text-align:right}.team img{width:28px;height:28px;display:block;margin-bottom:7px;object-fit:contain}.right img{margin-left:auto}
+.score{font-size:24px;font-weight:900;text-align:center;min-width:70px}.status{display:block;color:#25d366;font-size:10px;margin-top:4px}.ended{color:#91a7b8}.updated{text-align:center;color:#70899c;font-size:10px;margin-top:14px}
+@media(max-width:480px){.hero h1{font-size:24px}.team{font-size:12px}.score{font-size:21px;min-width:60px}}
+</style>
+</head>
+<body>
+<header><a href="/entertainment.html">‹ Entertainment</a></header>
+<main class="wrap">
+<section class="hero">
+<h1>⚽ Live Scores</h1>
+<p>Live football scores delivered directly inside DHE GENIUS MEDIA. Scores refresh automatically while matches are in progress.</p>
+</section>
+<div class="bar"><div class="live"><span class="dot"></span><span id="liveCount">Checking live matches...</span></div><button class="refresh" id="refreshBtn">↻ Refresh</button></div>
+<div id="updated" class="info">Connecting to sports data...</div>
+<section id="matches" style="margin-top:12px"><div class="empty">Loading live scores...</div></section>
+<div class="updated">Powered by API-Football • Automatic refresh every 15 seconds</div>
+</main>
+<script>
+const matchesEl=document.getElementById("matches");
+const liveCountEl=document.getElementById("liveCount");
+const updatedEl=document.getElementById("updated");
+const refreshBtn=document.getElementById("refreshBtn");
+let loading=false;
+
+function esc(v){
+ return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+}
+function statusText(m){
+ const s=m.status||{};
+ if(s.short==="HT") return "HALF TIME";
+ if(s.elapsed!=null && ["1H","2H","ET","P","BT"].includes(s.short)) return (s.elapsed+"′");
+ return s.long||s.short||"LIVE";
+}
+function render(matches){
+ if(!matches.length){
+   liveCountEl.textContent="No matches live right now";
+   matchesEl.innerHTML='<div class="empty">No live football matches are currently being returned by the sports provider.<br><br>Upcoming fixtures can be added next.</div>';
+   return;
+ }
+ liveCountEl.textContent=matches.length+" live match"+(matches.length===1?"":"es");
+ matchesEl.innerHTML=matches.map(m=>{
+   const home=m.teams?.home||{},away=m.teams?.away||{},score=m.score||{};
+   return '<article class="match">'+
+    '<div class="league">'+(m.league?.logo?'<img src="'+esc(m.league.logo)+'" alt="">':"")+
+    esc(m.league?.name||"Football")+(m.league?.country?" • "+esc(m.league.country):"")+'</div>'+
+    '<div class="matchtop">'+
+    '<div class="team"><img src="'+esc(home.logo||"")+'" alt="">'+esc(home.name)+'</div>'+
+    '<div class="score">'+esc(score.home)+" - "+esc(score.away)+'<span class="status">'+esc(statusText(m))+'</span></div>'+
+    '<div class="team right"><img src="'+esc(away.logo||"")+'" alt="">'+esc(away.name)+'</div>'+
+    '</div></article>';
+ }).join("");
+}
+async function loadLive(){
+ if(loading)return;
+ loading=true;refreshBtn.disabled=true;
+ try{
+  const response=await fetch("/api/sports/live",{cache:"no-store",headers:{"Accept":"application/json"}});
+  const data=await response.json();
+  if(!response.ok||!data.success){
+    throw new Error(data.message||"Live scores unavailable.");
+  }
+  render(data.matches||[]);
+  updatedEl.textContent="Last updated: "+new Date(data.updated_at||Date.now()).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+ }catch(error){
+  liveCountEl.textContent="Live scores unavailable";
+  matchesEl.innerHTML='<div class="error">'+esc(error.message||"Could not load live scores.")+'<br><br>Try again in a few seconds.</div>';
+  updatedEl.textContent="Unable to reach the sports data service.";
+ }finally{
+  loading=false;refreshBtn.disabled=false;
+ }
+}
+refreshBtn.addEventListener("click",loadLive);
+loadLive();
+setInterval(loadLive,15000);
+</script>
+</body>
+</html>
