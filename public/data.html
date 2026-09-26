@@ -229,7 +229,7 @@
       font-weight: 800;
     }
 
-    .phone-card {
+     .phone-card {
       background: var(--card);
 
       border:
@@ -808,10 +808,19 @@
   </section>
 
 
-  <section class="phone-card">
+  <h2 class="section-title">
+    Select Bundle
+  </h2>
+
+  <section
+    id="bundleGrid"
+    class="bundle-grid"
+  ></section>
+
+  <section class="phone-card purchase-card">
 
     <label for="phone">
-      Recipient Phone Number
+      Customer / Recipient Phone Number
     </label>
 
     <input
@@ -821,167 +830,78 @@
       autocomplete="tel"
     >
 
-  </section>
-
-
-  <h2 class="section-title">
-    Select Network
-  </h2>
-
-
-  <section class="networks">
-
-    <button
-      class="network active"
-      aria-label="MTN"
-      onclick="selectNetwork('MTN', this)"
-    >
-      <span class="network-logo" aria-hidden="true">
-        <svg viewBox="0 0 64 64" role="img">
-          <circle cx="32" cy="32" r="30" fill="#ffcb05"/>
-          <circle cx="32" cy="32" r="27" fill="none" stroke="#111" stroke-width="2"/>
-          <text x="32" y="38" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="#111">MTN</text>
-        </svg>
-      </span>
-      <span class="network-name">MTN</span>
-    </button>
-
-    <button
-      class="network"
-      aria-label="AirtelTigo / AT"
-      onclick="selectNetwork('AirtelTigo', this)"
-    >
-      <span class="network-logo" aria-hidden="true">
-        <svg viewBox="0 0 64 64" role="img">
-          <rect x="2" y="2" width="60" height="60" rx="17" fill="#fff"/>
-          <path d="M15 43 C18 27, 27 15, 45 15" fill="none" stroke="#e21b2d" stroke-width="7" stroke-linecap="round"/>
-          <path d="M27 48 C34 42, 41 36, 48 27" fill="none" stroke="#1670c9" stroke-width="7" stroke-linecap="round"/>
-          <text x="32" y="37" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="#e21b2d">AT</text>
-        </svg>
-      </span>
-      <span class="network-name">AirtelTigo / AT</span>
-    </button>
-
-    <button
-      class="network"
-      aria-label="Telecel"
-      onclick="selectNetwork('Telecel', this)"
-    >
-      <span class="network-logo" aria-hidden="true">
-        <svg viewBox="0 0 64 64" role="img">
-          <circle cx="32" cy="32" r="30" fill="#e31b35"/>
-          <path d="M18 20 H46 M32 20 V46" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
-          <circle cx="32" cy="32" r="7" fill="#fff"/>
-        </svg>
-      </span>
-      <span class="network-name">Telecel</span>
-    </button>
-
-  </section>
-
-
-  <h2 class="section-title">
-    Select Bundle
-  </h2>
-
-
-  <section
-    id="bundleGrid"
-    class="bundle-grid"
-  ></section>
-
-
-  <section
-    id="orderBox"
-    class="order-box"
-  >
-
     <div
-      id="message"
-      class="message"
-    ></div>
-
-
-    <div class="summary">
-
-      <div>
-
-        <small>
-          Selected bundle
-        </small>
-
-        <strong id="selectedBundle">
-          —
-        </strong>
-
-      </div>
-
-
-      <div style="text-align:right">
-
-        <small>
-          Amount
-        </small>
-
-        <strong id="selectedPrice">
-          GH₵0.00
-        </strong>
-
-      </div>
-
-    </div>
-
-
-    <button
-      id="confirmButton"
-      class="confirm-button"
-      onclick="createOrder()"
-    >
-      Confirm Order
-    </button>
-
-
-    <div
-      id="paymentBox"
-      class="payment-box"
+      id="orderBox"
+      class="order-box show"
     >
 
-      <div class="payment-title">
-        Choose Payment Method
+      <div
+        id="message"
+        class="message"
+      ></div>
+
+      <div class="summary">
+
+        <div>
+          <small>Selected bundle</small>
+          <strong id="selectedBundle">—</strong>
+        </div>
+
+        <div style="text-align:right">
+          <small>Amount</small>
+          <strong id="selectedPrice">GH₵0.00</strong>
+        </div>
+
       </div>
 
-      <div class="payment-subtitle">
-        Your order has been created. Choose one
-        payment method below. Data delivery starts
-        only after payment is confirmed.
-      </div>
+      <button
+        id="confirmButton"
+        class="confirm-button"
+        onclick="createOrder()"
+      >
+        Confirm Order
+      </button>
 
+      <div
+        id="paymentBox"
+        class="payment-box"
+      >
 
-      <div class="payment-buttons">
+        <div class="payment-title">
+          Choose Payment Method
+        </div>
 
-        <button
-          id="walletButton"
-          class="payment-button wallet-button"
-          onclick="payFromWallet()"
-        >
-          🟢 Pay from Wallet
-        </button>
+        <div class="payment-subtitle">
+          Your order has been created. Choose one
+          payment method below. Data delivery starts
+          only after payment is confirmed.
+        </div>
 
+        <div class="payment-buttons">
 
-        <button
-          id="paystackButton"
-          class="payment-button paystack-button"
-          onclick="payWithPaystack()"
-        >
-          🔵 Pay with Paystack
-        </button>
+          <button
+            id="walletButton"
+            class="payment-button wallet-button"
+            onclick="payFromWallet()"
+          >
+            🟢 Pay from Wallet
+          </button>
+
+          <button
+            id="paystackButton"
+            class="payment-button paystack-button"
+            onclick="payWithPaystack()"
+          >
+            🔵 Pay with Paystack
+          </button>
+
+        </div>
 
       </div>
 
     </div>
 
   </section>
-
 
   <div class="info">
 
