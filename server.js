@@ -4630,63 +4630,6 @@ app.post(
 );
 
 // =====================================================
-// CUSTOMER DASHBOARD API
-// =====================================================
-
-app.get(
-  "/api/orders",
-  requireLogin,
-  async (req, res) => {
-    try {
-      const result = await pool.query(
-        `
-        SELECT *
-        FROM orders
-        WHERE customer_id = $1
-        ORDER BY created_at DESC
-        LIMIT 50
-        `,
-        [req.session.customerId]
-      );
-
-      return res.json({
-        success: true,
-        orders: result.rows
-      });
-    } catch (error) {
-      console.error("Customer orders error:", error);
-      return sendError(res, 500, "Could not load your orders.");
-    }
-  }
-);
-
-app.get(
-  "/api/health",
-  async (req, res) => {
-    try {
-      await pool.query("SELECT 1");
-
-      return res.json({
-        success: true,
-        status: "online",
-        database: "online",
-        paystack: Boolean(PAYSTACK_SECRET_KEY),
-        datamart: Boolean(DATAMART_API_KEY),
-        airtime: Boolean(KINGFLEXY_API_KEY),
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error("Health check error:", error);
-      return res.status(503).json({
-        success: false,
-        status: "offline",
-        message: "Core database is unavailable."
-      });
-    }
-  }
-);
-
-// =====================================================
 // CREATE DATA ORDER
 // =====================================================
 
