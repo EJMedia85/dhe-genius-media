@@ -1210,13 +1210,35 @@ function normalizeKingflexyStatus(value) {
 function parseKingflexyOrder(data) {
   const root = data && typeof data === "object" ? data : {};
   const payload =
-    root.data && typeof root.data === "object" ? root.data :
-    root.order && typeof root.order === "object" ? root.order : root;
+    root.data && typeof root.data === "object"
+      ? root.data.order && typeof root.data.order === "object"
+        ? root.data.order
+        : root.data
+      : root.order && typeof root.order === "object"
+        ? root.order
+        : root;
 
   return {
-    orderId: payload.order_id || root.order_id || null,
-    reference: payload.reference || root.reference || null,
-    status: payload.status || root.status || null,
+    orderId:
+      payload.order_id ||
+      payload.orderId ||
+      root.order_id ||
+      root.orderId ||
+      null,
+    reference:
+      payload.reference ||
+      payload.reference_code ||
+      payload.referenceCode ||
+      root.reference ||
+      root.reference_code ||
+      root.referenceCode ||
+      null,
+    status:
+      payload.status ||
+      payload.order_status ||
+      root.status ||
+      root.order_status ||
+      null,
     reason:
       payload.reason ||
       payload.message ||
@@ -1456,6 +1478,22 @@ async function submitKingflexyAirtime(order) {
     });
 
     const parsed = parseKingflexyOrder(data);
+
+    console.log(
+      "KINGFLEXY AIRTIME PURCHASE RESPONSE: " +
+      order.order_ref + " | " +
+      JSON.stringify(data)
+    );
+
+    console.log(
+      "KINGFLEXY AIRTIME PARSED: " +
+      order.order_ref +
+      " | provider_reference: " +
+      String(parsed.orderId || parsed.reference || "none") +
+      " | status: " +
+      String(parsed.status || "none")
+    );
+
     await pool.query(
       `
       UPDATE orders
@@ -1523,37 +1561,75 @@ async function syncKingflexyAirtimeOrders() {
 
     for (const order of result.rows) {
       try {
-        const data = await kingflexyRequest(
-          "/airtime/orders/" + encodeURIComponent(order.order_ref),
-          { method: "GET" }
+        const lookupReferences = [
+          order.provider_reference,
+          order.order_ref
+        ].filter(Boolean).filter(
+          (value, index, array) => array.indexOf(value) === index
         );
-        await applyKingflexyStatus(order.id, data);
-      } catch (error) {
-        const isNotFound =
-          Number(error?.status || error?.data?.code || 0) === 404;
 
-        if (isNotFound) {
+        let data = null;
+        let lastError = null;
+
+        for (const lookupReference of lookupReferences) {
           try {
+            data = await kingflexyRequest(
+              "/airtime/orders/" + encodeURIComponent(lookupReference),
+              { method: "GET" }
+            );
+
+            console.log(
+              "KINGFLEXY AIRTIME STATUS LOOKUP: " +
+              order.order_ref +
+              " | reference used: " +
+              lookupReference
+            );
+
+            break;
+          } catch (lookupError) {
+            lastError = lookupError;
+
+            const isNotFound =
+              Number(lookupError?.status || lookupError?.data?.code || 0) === 404;
+
+            if (!isNotFound) throw lookupError;
+
+            console.warn(
+              "KINGFLEXY AIRTIME STATUS 404: " +
+              order.order_ref +
+              " | reference tried: " +
+              lookupReference
+            );
+          }
+        }
+
+        if (!data) {
+          const isNotFound =
+            Number(lastError?.status || lastError?.data?.code || 0) === 404;
+
+          if (isNotFound) {
             await refundAirtimeOrder(
               order.id,
-              "KingFlexy could not find this airtime order reference. The DGM wallet payment has been refunded."
+              "KingFlexy could not find this airtime order using the provider reference or DGM reference. The DGM wallet payment has been refunded."
             );
+
             console.warn(
               "KINGFLEXY AIRTIME ORDER NOT FOUND — REFUNDED: " +
               order.order_ref
             );
-          } catch (refundError) {
-            console.error(
-              "KingFlexy airtime 404 refund failed for " +
-              order.order_ref + ": " + refundError.message
-            );
+            continue;
           }
-        } else {
-          console.error(
-            "KingFlexy airtime status check failed for " +
-            order.order_ref + ": " + error.message
-          );
+
+          throw lastError || new Error("KingFlexy status lookup failed.");
         }
+
+        await applyKingflexyStatus(order.id, data);
+
+      } catch (error) {
+        console.error(
+          "KingFlexy airtime status check failed for " +
+          order.order_ref + ": " + error.message
+        );
       }
     }
   } catch (error) {
