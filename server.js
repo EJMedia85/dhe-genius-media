@@ -6467,7 +6467,7 @@ app.get("/api/sports/fixtures", async (req, res) => {
     const league = String(req.query.league || "").trim();
     const season = String(req.query.season || "").trim();
 
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return res.status(400).json({
         success: false,
         message: "A valid date is required in YYYY-MM-DD format."
