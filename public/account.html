@@ -620,7 +620,11 @@
       padding: 16px;
     }
 
-    .account-modal.show { display:flex; }
+    .account-modal.show {
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+    }
 
     .account-modal-box {
       width:100%;
@@ -1397,7 +1401,8 @@
         <button
           type="button"
           class="security-btn"
-          onclick="openPasswordModal()">
+          id="changePasswordAction"
+          aria-label="Change Password">
 
           <div class="security-left">
 
@@ -1429,7 +1434,8 @@
         <button
           type="button"
           class="security-btn"
-          onclick="openSettingsModal()">
+          id="accountSettingsAction"
+          aria-label="Account Settings">
 
           <div class="security-left">
 
@@ -2927,6 +2933,34 @@
     document.addEventListener(
       "DOMContentLoaded",
       function() {
+
+        const changePasswordAction =
+          document.getElementById("changePasswordAction");
+
+        const accountSettingsAction =
+          document.getElementById("accountSettingsAction");
+
+        if (changePasswordAction) {
+          changePasswordAction.addEventListener(
+            "click",
+            function(event) {
+              event.preventDefault();
+              event.stopPropagation();
+              openPasswordModal();
+            }
+          );
+        }
+
+        if (accountSettingsAction) {
+          accountSettingsAction.addEventListener(
+            "click",
+            function(event) {
+              event.preventDefault();
+              event.stopPropagation();
+              openSettingsModal();
+            }
+          );
+        }
 
         loadAccount();
 
