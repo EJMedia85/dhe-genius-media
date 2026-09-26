@@ -5493,13 +5493,6 @@ async function startServer() {
         setTimeout(
           () => {
 
-            syncProcessingDataOrders();
-
-            setInterval(
-              syncProcessingDataOrders,
-              15000
-            );
-
             syncKingflexyAirtimeOrders();
 
             setInterval(
