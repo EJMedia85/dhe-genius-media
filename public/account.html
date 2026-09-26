@@ -609,6 +609,260 @@
       font-size: 18px;
     }
 
+    .account-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: rgba(0,0,0,.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .account-modal.show { display:flex; }
+
+    .account-modal-box {
+      width:100%;
+      max-width:520px;
+      max-height:90vh;
+      overflow:auto;
+      background:#0b1717;
+      border:1px solid rgba(255,255,255,.09);
+      border-radius:24px;
+      padding:22px;
+      box-shadow:0 20px 70px rgba(0,0,0,.55);
+    }
+
+    .account-modal-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:18px;
+    }
+
+    .account-modal-head h2 { font-size:20px; }
+
+    .account-close {
+      width:36px;
+      height:36px;
+      border:0;
+      border-radius:10px;
+      background:rgba(255,255,255,.07);
+      color:#fff;
+      cursor:pointer;
+      font-size:20px;
+    }
+
+    .account-form-group { margin-bottom:13px; }
+
+    .account-form-label {
+      display:block;
+      color:#91a7a7;
+      font-size:11px;
+      margin-bottom:7px;
+    }
+
+    .account-input {
+      width:100%;
+      padding:13px 14px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.1);
+      background:#061010;
+      color:#fff;
+      outline:none;
+    }
+
+    .account-input:focus { border-color:#25d366; }
+
+    .account-save {
+      width:100%;
+      padding:14px;
+      border:0;
+      border-radius:13px;
+      background:#25d366;
+      color:#001b0b;
+      font-weight:900;
+      cursor:pointer;
+      margin-top:4px;
+    }
+
+    .account-save:disabled { opacity:.6; cursor:not-allowed; }
+
+    .account-modal-message {
+      min-height:18px;
+      margin-top:10px;
+      text-align:center;
+      font-size:11px;
+      line-height:1.5;
+      color:#ff8585;
+    }
+
+    .account-modal-message.success { color:#25d366; }
+
+    /* =========================
+       ACCOUNT SECURITY
+    ========================= */
+
+    function openPasswordModal() {
+      const modal = document.getElementById("passwordModal");
+      document.getElementById("passwordMessage").textContent = "";
+      document.getElementById("passwordMessage").className = "account-modal-message";
+      modal.classList.add("show");
+      setTimeout(() => {
+        document.getElementById("currentPassword").focus();
+      }, 100);
+    }
+
+    function openSettingsModal() {
+      const modal = document.getElementById("settingsModal");
+      const name = currentUser?.name || currentUser?.full_name || "";
+      const phone = currentUser?.phone || currentUser?.phone_number || "";
+      const email = currentUser?.email || "";
+
+      document.getElementById("settingsName").value = name;
+      document.getElementById("settingsPhone").value = phone;
+      document.getElementById("settingsEmail").value = email;
+      document.getElementById("settingsMessage").textContent = "";
+      document.getElementById("settingsMessage").className = "account-modal-message";
+      modal.classList.add("show");
+    }
+
+    function closeAccountModal(event, id) {
+      if (event && event.target && event.target.id !== id) return;
+      document.getElementById(id).classList.remove("show");
+    }
+
+    async function changePassword() {
+      const button = document.getElementById("passwordSaveBtn");
+      const message = document.getElementById("passwordMessage");
+
+      const currentPassword = document.getElementById("currentPassword").value;
+      const newPassword = document.getElementById("newPassword").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
+
+      message.className = "account-modal-message";
+      message.textContent = "";
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        message.textContent = "Please complete all password fields.";
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        message.textContent = "New password must be at least 8 characters.";
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        message.textContent = "New passwords do not match.";
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Updating...";
+
+      try {
+        const response = await fetch("/api/account/change-password", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+            confirmPassword
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.message || data.error || "Could not change password.");
+        }
+
+        message.className = "account-modal-message success";
+        message.textContent = data.message || "Password changed successfully.";
+
+        document.getElementById("currentPassword").value = "";
+        document.getElementById("newPassword").value = "";
+        document.getElementById("confirmPassword").value = "";
+
+        setTimeout(() => {
+          closeAccountModal(null, "passwordModal");
+        }, 1200);
+      } catch (error) {
+        console.error("Change password error:", error);
+        message.textContent = error.message || "Could not change password.";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Update Password";
+      }
+    }
+
+    async function saveAccountSettings() {
+      const button = document.getElementById("settingsSaveBtn");
+      const message = document.getElementById("settingsMessage");
+
+      const name = document.getElementById("settingsName").value.trim();
+      const phone = document.getElementById("settingsPhone").value.trim();
+      const email = document.getElementById("settingsEmail").value.trim();
+
+      message.className = "account-modal-message";
+      message.textContent = "";
+
+      if (!name || !phone || !email) {
+        message.textContent = "Please complete all account fields.";
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Saving...";
+
+      try {
+        const response = await fetch("/api/account/settings", {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ name, phone, email })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+          window.location.href = "/login.html";
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(data.message || data.error || "Could not update account settings.");
+        }
+
+        currentUser = data.customer || currentUser;
+
+        renderAccount(currentUser);
+
+        message.className = "account-modal-message success";
+        message.textContent = data.message || "Account settings updated successfully.";
+
+        setTimeout(() => {
+          closeAccountModal(null, "settingsModal");
+        }, 1200);
+      } catch (error) {
+        console.error("Account settings error:", error);
+        message.textContent = error.message || "Could not update account settings.";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Save Changes";
+      }
+    }
+
     /* =========================
        LOGOUT
     ========================= */
@@ -1305,7 +1559,7 @@
         <button
           type="button"
           class="security-btn"
-          onclick="comingSoon('Change Password')">
+          onclick="openPasswordModal()">
 
           <div class="security-left">
 
@@ -1337,7 +1591,7 @@
         <button
           type="button"
           class="security-btn"
-          onclick="comingSoon('Account Settings')">
+          onclick="openSettingsModal()">
 
           <div class="security-left">
 
@@ -1497,6 +1751,133 @@
 
     </div>
 
+  </div>
+
+
+  <!-- =========================
+       CHANGE PASSWORD MODAL
+  ========================= -->
+
+  <div
+    class="account-modal"
+    id="passwordModal"
+    onclick="closeAccountModal(event, 'passwordModal')">
+
+    <div class="account-modal-box">
+
+      <div class="account-modal-head">
+        <h2>Change Password</h2>
+        <button
+          type="button"
+          class="account-close"
+          onclick="closeAccountModal(null, 'passwordModal')">×</button>
+      </div>
+
+      <div class="account-form-group">
+        <label class="account-form-label" for="currentPassword">Current Password</label>
+        <input
+          id="currentPassword"
+          class="account-input"
+          type="password"
+          autocomplete="current-password"
+          placeholder="Enter current password">
+      </div>
+
+      <div class="account-form-group">
+        <label class="account-form-label" for="newPassword">New Password</label>
+        <input
+          id="newPassword"
+          class="account-input"
+          type="password"
+          autocomplete="new-password"
+          placeholder="At least 8 characters">
+      </div>
+
+      <div class="account-form-group">
+        <label class="account-form-label" for="confirmPassword">Confirm New Password</label>
+        <input
+          id="confirmPassword"
+          class="account-input"
+          type="password"
+          autocomplete="new-password"
+          placeholder="Repeat new password">
+      </div>
+
+      <button
+        type="button"
+        id="passwordSaveBtn"
+        class="account-save"
+        onclick="changePassword()">
+        Update Password
+      </button>
+
+      <div id="passwordMessage" class="account-modal-message"></div>
+
+    </div>
+  </div>
+
+
+  <!-- =========================
+       ACCOUNT SETTINGS MODAL
+  ========================= -->
+
+  <div
+    class="account-modal"
+    id="settingsModal"
+    onclick="closeAccountModal(event, 'settingsModal')">
+
+    <div class="account-modal-box">
+
+      <div class="account-modal-head">
+        <h2>Account Settings</h2>
+        <button
+          type="button"
+          class="account-close"
+          onclick="closeAccountModal(null, 'settingsModal')">×</button>
+      </div>
+
+      <div class="account-form-group">
+        <label class="account-form-label" for="settingsName">Full Name</label>
+        <input
+          id="settingsName"
+          class="account-input"
+          type="text"
+          autocomplete="name"
+          placeholder="Your full name">
+      </div>
+
+      <div class="account-form-group">
+        <label class="account-form-label" for="settingsPhone">Phone Number</label>
+        <input
+          id="settingsPhone"
+          class="account-input"
+          type="tel"
+          inputmode="tel"
+          autocomplete="tel"
+          placeholder="0241234567">
+      </div>
+
+      <div class="account-form-group">
+        <label class="account-form-label" for="settingsEmail">Email Address</label>
+        <input
+          id="settingsEmail"
+          class="account-input"
+          type="email"
+          autocomplete="email"
+          placeholder="you@example.com">
+      </div>
+
+      <button
+        type="button"
+        id="settingsSaveBtn"
+        class="account-save"
+        onclick="saveAccountSettings()">
+        Save Changes
+      </button>
+
+      <div id="settingsMessage" class="account-modal-message"></div>
+
+    </div>
   </div>
 
 
