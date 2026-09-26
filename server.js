@@ -553,6 +553,25 @@ async function initDatabase() {
   `);
 
   // ---------------------------------------------------
+  // MOVIE PLAYBACK SOURCES
+  // Stores only authorized DGM-controlled/licensed playback URLs.
+  // ---------------------------------------------------
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS movie_playback (
+      id SERIAL PRIMARY KEY,
+      tmdb_id INTEGER UNIQUE NOT NULL,
+      title TEXT,
+      playback_url TEXT NOT NULL,
+      playback_type TEXT NOT NULL DEFAULT 'hls',
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  // ---------------------------------------------------
   // ORDERS
   // ---------------------------------------------------
 
@@ -7059,6 +7078,126 @@ app.get("/api/sports/events/:id", async (req, res) => {
       success: false,
       message: "Could not load match events right now.",
       configured: Boolean(SPORTS_API_KEY)
+    });
+  }
+});
+
+// =====================================================
+// DGM MOVIE PLAYBACK
+// Only DGM-controlled or otherwise authorized/licensed video
+// sources should be registered here.
+// =====================================================
+
+app.get("/api/movies/playback/:id", async (req, res) => {
+  try {
+    const tmdbId = Number(req.params.id);
+    if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid movie ID." });
+    }
+
+    const result = await pool.query(
+      `
+      SELECT tmdb_id, title, playback_url, playback_type, expires_at
+      FROM movie_playback
+      WHERE tmdb_id = $1
+        AND active = TRUE
+        AND (expires_at IS NULL OR expires_at > NOW())
+      LIMIT 1
+      `,
+      [tmdbId]
+    );
+
+    if (!result.rows.length) {
+      return res.json({
+        success: true,
+        available: false,
+        message: "Full-movie playback is not configured for this title."
+      });
+    }
+
+    const row = result.rows[0];
+
+    return res.json({
+      success: true,
+      available: true,
+      tmdb_id: row.tmdb_id,
+      title: row.title || "",
+      playback_type: row.playback_type,
+      playback_url: row.playback_url,
+      expires_at: row.expires_at
+    });
+  } catch (error) {
+    console.error("Movie playback lookup error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Could not load movie playback."
+    });
+  }
+});
+
+app.post("/api/admin/movies/playback", async (req, res) => {
+  try {
+    const adminToken = String(process.env.MOVIE_ADMIN_TOKEN || "").trim();
+    const suppliedToken = String(req.get("X-DGM-Movie-Admin-Token") || "").trim();
+
+    if (!adminToken || !suppliedToken || suppliedToken !== adminToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Movie administration is not authorized."
+      });
+    }
+
+    const tmdbId = Number(req.body?.tmdb_id);
+    const title = String(req.body?.title || "").trim().slice(0, 300);
+    const playbackUrl = String(req.body?.playback_url || "").trim();
+    const playbackType = String(req.body?.playback_type || "hls").trim().toLowerCase();
+    const expiresAt = req.body?.expires_at ? new Date(req.body.expires_at) : null;
+
+    if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
+      return res.status(400).json({ success: false, message: "A valid TMDB movie ID is required." });
+    }
+
+    if (!/^https:\/\//i.test(playbackUrl)) {
+      return res.status(400).json({ success: false, message: "Playback URL must use HTTPS." });
+    }
+
+    if (!["hls", "mp4"].includes(playbackType)) {
+      return res.status(400).json({ success: false, message: "playback_type must be hls or mp4." });
+    }
+
+    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
+      return res.status(400).json({ success: false, message: "Invalid expires_at value." });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO movie_playback
+        (tmdb_id, title, playback_url, playback_type, active, expires_at, updated_at)
+      VALUES
+        ($1, $2, $3, $4, TRUE, $5, NOW())
+      ON CONFLICT (tmdb_id)
+      DO UPDATE SET
+        title = EXCLUDED.title,
+        playback_url = EXCLUDED.playback_url,
+        playback_type = EXCLUDED.playback_type,
+        active = TRUE,
+        expires_at = EXCLUDED.expires_at,
+        updated_at = NOW()
+      RETURNING tmdb_id, title, playback_type, active, expires_at, updated_at
+      `,
+      [tmdbId, title || null, playbackUrl, playbackType, expiresAt]
+    );
+
+    return res.json({
+      success: true,
+      message: "Authorized movie playback source saved.",
+      movie: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Movie playback admin error:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Could not save movie playback source."
     });
   }
 });
