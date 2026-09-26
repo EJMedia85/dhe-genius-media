@@ -44,6 +44,12 @@ const BASE_URL =
 const DGM_API_KEY =
   process.env.DGM_API_KEY || "";
 
+const SPORTS_API_KEY =
+  process.env.SPORTS_API_KEY || "";
+
+const SPORTS_API_BASE =
+  "https://v3.football.api-sports.io";
+
 // =====================================================
 // APP CONFIG
 // =====================================================
@@ -6289,6 +6295,207 @@ app.get(
     }
   }
 );
+
+// =====================================================
+// LIVE SPORTS API
+// =====================================================
+
+async function sportsApiRequest(endpoint, params = {}) {
+  if (!SPORTS_API_KEY) {
+    const error = new Error("SPORTS_API_KEY is not configured.");
+    error.code = "SPORTS_API_NOT_CONFIGURED";
+    throw error;
+  }
+
+  const url = new URL(SPORTS_API_BASE + endpoint);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-apisports-key": SPORTS_API_KEY,
+        "Accept": "application/json"
+      },
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { message: text };
+    }
+
+    if (!response.ok) {
+      const error = new Error(
+        "Sports API HTTP " + response.status + ": " +
+        (data.message || data.errors?.message || text || "Request failed")
+      );
+      error.status = response.status;
+      throw error;
+    }
+
+    if (Array.isArray(data.errors) && data.errors.length) {
+      const message = Object.values(data.errors).join("; ");
+      const error = new Error("Sports API error: " + message);
+      error.status = 502;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error("Sports API request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeLiveFixture(fixture) {
+  const f = fixture?.fixture || {};
+  const teams = fixture?.teams || {};
+  const goals = fixture?.goals || {};
+  const league = fixture?.league || {};
+  const status = f.status || {};
+
+  return {
+    id: f.id,
+    date: f.date,
+    timestamp: f.timestamp,
+    timezone: f.timezone || "UTC",
+    status: {
+      short: status.short || "",
+      long: status.long || "",
+      elapsed: status.elapsed ?? null
+    },
+    league: {
+      id: league.id,
+      name: league.name || "",
+      country: league.country || "",
+      logo: league.logo || ""
+    },
+    teams: {
+      home: {
+        id: teams.home?.id,
+        name: teams.home?.name || "",
+        logo: teams.home?.logo || "",
+        winner: teams.home?.winner ?? null
+      },
+      away: {
+        id: teams.away?.id,
+        name: teams.away?.name || "",
+        logo: teams.away?.logo || "",
+        winner: teams.away?.winner ?? null
+      }
+    },
+    score: {
+      home: goals.home ?? 0,
+      away: goals.away ?? 0,
+      halftime_home: goals.halftime?.home ?? null,
+      halftime_away: goals.halftime?.away ?? null
+    }
+  };
+}
+
+app.get("/api/sports/status", async (req, res) => {
+  return res.json({
+    success: true,
+    configured: Boolean(SPORTS_API_KEY),
+    provider: "API-Football",
+    live_update_source: "fixtures?live=all"
+  });
+});
+
+app.get("/api/sports/live", async (req, res) => {
+  try {
+    if (!SPORTS_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        message: "Live scores are not configured yet. Add SPORTS_API_KEY in Render environment variables."
+      });
+    }
+
+    const data = await sportsApiRequest("/fixtures", { live: "all" });
+    const matches = Array.isArray(data.response)
+      ? data.response.map(normalizeLiveFixture)
+      : [];
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      updated_at: new Date().toISOString(),
+      count: matches.length,
+      matches
+    });
+  } catch (error) {
+    console.error("Live sports API error:", error.message);
+    return res.status(502).json({
+      success: false,
+      message: "Could not load live scores right now.",
+      configured: Boolean(SPORTS_API_KEY)
+    });
+  }
+});
+
+app.get("/api/sports/fixtures", async (req, res) => {
+  try {
+    if (!SPORTS_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        message: "Sports API is not configured."
+      });
+    }
+
+    const date = String(req.query.date || "").trim();
+    const league = String(req.query.league || "").trim();
+    const season = String(req.query.season || "").trim();
+
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid date is required in YYYY-MM-DD format."
+      });
+    }
+
+    const params = { date };
+    if (league) params.league = league;
+    if (season) params.season = season;
+
+    const data = await sportsApiRequest("/fixtures", params);
+    const matches = Array.isArray(data.response)
+      ? data.response.map(normalizeLiveFixture)
+      : [];
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      date,
+      updated_at: new Date().toISOString(),
+      count: matches.length,
+      matches
+    });
+  } catch (error) {
+    console.error("Sports fixtures API error:", error.message);
+    return res.status(502).json({
+      success: false,
+      message: "Could not load fixtures right now.",
+      configured: Boolean(SPORTS_API_KEY)
+    });
+  }
+});
 
 // =====================================================
 // STATIC FILES
