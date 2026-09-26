@@ -1254,9 +1254,19 @@ async function kingflexyRequest(endpoint, options = {}) {
     catch { data = { raw: text }; }
 
     if (!response.ok) {
-      const error = new Error(
-        data.message || data.error || ("KingFlexy HTTP " + response.status)
-      );
+      const rawMessage =
+        data && typeof data === "object"
+          ? (data.message ?? data.error ?? data.reason ?? null)
+          : null;
+
+      const message =
+        typeof rawMessage === "string"
+          ? rawMessage
+          : rawMessage
+            ? JSON.stringify(rawMessage)
+            : "KingFlexy HTTP " + response.status;
+
+      const error = new Error(String(message));
       error.status = response.status;
       error.data = data;
       throw error;
@@ -5504,19 +5514,11 @@ async function startServer() {
           5000
         );
 
-        setTimeout(
-          () => {
-
-            cleanupExpiredSessions();
-
-            setInterval(
-              cleanupExpiredSessions,
-              60 * 60 * 1000
-            );
-
-          },
-          10000
-        );
+        // Session cleanup timer removed: cleanupExpiredSessions is not
+        // defined in the current PostgreSQL/session implementation.
+        // Express-session handles active session expiry through the
+        // configured store; the missing legacy cleanup job must not
+        // terminate the production server.
       }
     );
 
