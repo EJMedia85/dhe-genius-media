@@ -1340,7 +1340,9 @@
       )
       .textContent =
         selectedNetwork +
-        " " +
+        " / " +
+        (selectedNetwork === "MTN" ? "YELLO" : selectedNetwork === "AirtelTigo" ? "AT_PREMIUM" : "TELECEL") +
+        " • " +
         selectedBundle.size;
 
 
