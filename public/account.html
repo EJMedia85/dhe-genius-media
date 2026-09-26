@@ -1898,20 +1898,41 @@
        LOAD ACCOUNT
     ========================= */
 
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        return await fetch(url, {
+          ...options,
+          signal: controller.signal
+        });
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          throw new Error("The server took too long to respond. Please try again.");
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+
     async function loadAccount() {
 
       try {
 
         const response =
-          await fetch(
+          await fetchWithTimeout(
             "/api/me",
             {
               method: "GET",
               credentials: "include",
               headers: {
                 "Accept": "application/json"
-              }
-            }
+              },
+              cache: "no-store"
+            },
+            12000
           );
 
 
@@ -1957,17 +1978,24 @@
         );
 
 
-        await loadTransactions();
-
-
+        /*
+          Render the account immediately. Wallet history is
+          secondary and must never block the account page.
+        */
         document
           .getElementById("loading")
           .style.display = "none";
 
-
         document
           .getElementById("content")
           .style.display = "block";
+
+        loadTransactions().catch((error) => {
+          console.error(
+            "Background transaction loading error:",
+            error
+          );
+        });
 
 
         handlePaymentReturn();
