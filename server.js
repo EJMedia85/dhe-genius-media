@@ -5635,6 +5635,38 @@ app.post(
 );
 
 // =====================================================
+// FRONTEND STATIC FILES + HEALTH CHECK
+// =====================================================
+
+app.use(express.static(path.join(__dirname, "public"), {
+  extensions: ["html"],
+  index: "index.html"
+}));
+
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    return res.status(200).json({
+      success: true,
+      status: "online",
+      database: "online",
+      paystack: Boolean(PAYSTACK_SECRET_KEY),
+      datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
+      airtime: Boolean(KINGFLEXY_API_KEY),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Health check failed:", error.message);
+    return res.status(503).json({
+      success: false,
+      status: "offline",
+      database: "offline",
+      message: "Database unavailable."
+    });
+  }
+});
+
+// =====================================================
 // API 404
 // =====================================================
 
