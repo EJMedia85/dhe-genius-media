@@ -6,91 +6,257 @@
 <meta name="theme-color" content="#07131f">
 <title>Live Scores • DHE GENIUS MEDIA</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#07131f;color:#fff;font-family:Arial,sans-serif;min-height:100vh;padding-bottom:30px}
-header{padding:15px 16px;background:rgba(7,19,31,.96);border-bottom:1px solid #ffffff12;position:sticky;top:0;z-index:10;backdrop-filter:blur(14px)}
-header a{color:#fff;text-decoration:none}.wrap{max-width:900px;margin:auto;padding:20px 15px}
+*{box-sizing:border-box}
+body{margin:0;background:#07131f;color:#fff;font-family:Arial,sans-serif;min-height:100vh;padding-bottom:35px}
+header{padding:15px 16px;background:rgba(7,19,31,.96);border-bottom:1px solid #ffffff12;position:sticky;top:0;z-index:20;backdrop-filter:blur(14px)}
+header a{color:#fff;text-decoration:none;font-weight:700}
+.wrap{max-width:900px;margin:auto;padding:20px 15px}
 .hero{background:linear-gradient(135deg,#087fe8,#0b465f);border-radius:22px;padding:22px;margin-bottom:15px;box-shadow:0 18px 40px #0003}
-.hero h1{margin:0 0 7px;font-size:28px}.hero p{margin:0;color:#d9edf7;font-size:13px;line-height:1.55}
-.bar{display:flex;gap:9px;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap}
-.live{font-size:12px;color:#25d366;font-weight:800}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#25d366;margin-right:6px;box-shadow:0 0 10px #25d366}
+.hero h1{margin:0 0 7px;font-size:28px}
+.hero p{margin:0;color:#d9edf7;font-size:13px;line-height:1.55}
+.controls{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
+.tab{border:1px solid #ffffff15;background:#0d2030;color:#aebdca;padding:10px 14px;border-radius:11px;font-weight:800;white-space:nowrap}
+.tab.active{background:#25d366;color:#07131f;border-color:#25d366}
+.bar{display:flex;gap:9px;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap}
+.live{font-size:12px;color:#25d366;font-weight:800}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#25d366;margin-right:6px;box-shadow:0 0 10px #25d366}
 .refresh{border:1px solid #ffffff15;background:#0d2030;color:#fff;padding:10px 13px;border-radius:10px;font-weight:800}
-.info{color:#91a7b8;font-size:11px}.error,.empty{background:#0d2030;border:1px solid #ffffff12;border-radius:18px;padding:22px;color:#91a7b8;text-align:center}
+.refresh:disabled{opacity:.5}
+.info{color:#91a7b8;font-size:11px}
+.section-title{font-size:17px;font-weight:900;margin:20px 0 10px}
+.error,.empty{background:#0d2030;border:1px solid #ffffff12;border-radius:18px;padding:22px;color:#91a7b8;text-align:center;line-height:1.5}
 .match{background:#0d2030;border:1px solid #ffffff12;border-radius:18px;padding:15px;margin-bottom:10px}
-.league{display:flex;align-items:center;gap:8px;color:#91a7b8;font-size:11px;margin-bottom:13px}.league img{width:20px;height:20px;object-fit:contain;border-radius:50%}
-.matchtop{display:flex;justify-content:space-between;gap:10px;align-items:center}.team{width:38%;font-weight:800;font-size:13px}.team.right{text-align:right}.team img{width:28px;height:28px;display:block;margin-bottom:7px;object-fit:contain}.right img{margin-left:auto}
-.score{font-size:24px;font-weight:900;text-align:center;min-width:70px}.status{display:block;color:#25d366;font-size:10px;margin-top:4px}.ended{color:#91a7b8}.updated{text-align:center;color:#70899c;font-size:10px;margin-top:14px}
-@media(max-width:480px){.hero h1{font-size:24px}.team{font-size:12px}.score{font-size:21px;min-width:60px}}
+.match.live-match{border-color:#25d36655}
+.league{display:flex;align-items:center;gap:8px;color:#91a7b8;font-size:11px;margin-bottom:13px}
+.league img{width:20px;height:20px;object-fit:contain;border-radius:50%}
+.matchtop{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.team{width:38%;font-weight:800;font-size:13px}
+.team.right{text-align:right}
+.team img{width:28px;height:28px;display:block;margin-bottom:7px;object-fit:contain}
+.right img{margin-left:auto}
+.score{font-size:24px;font-weight:900;text-align:center;min-width:75px}
+.status{display:block;color:#25d366;font-size:10px;margin-top:4px}
+.scheduled{color:#8ec9ff}
+.finished{color:#91a7b8}
+.updated{text-align:center;color:#70899c;font-size:10px;margin-top:14px}
+.badge{display:inline-block;margin-left:7px;padding:3px 6px;border-radius:6px;background:#25d3661a;color:#25d366;font-size:9px}
+@media(max-width:480px){
+ .hero h1{font-size:24px}
+ .team{font-size:12px}
+ .score{font-size:21px;min-width:62px}
+}
 </style>
 </head>
 <body>
 <header><a href="/entertainment.html">‹ Entertainment</a></header>
+
 <main class="wrap">
 <section class="hero">
-<h1>⚽ Live Scores</h1>
-<p>Live football scores delivered directly inside DHE GENIUS MEDIA. Scores refresh automatically while matches are in progress.</p>
+<h1>⚽ Football Scores</h1>
+<p>Live scores, today's matches and upcoming fixtures delivered directly inside DHE GENIUS MEDIA.</p>
 </section>
-<div class="bar"><div class="live"><span class="dot"></span><span id="liveCount">Checking live matches...</span></div><button class="refresh" id="refreshBtn">↻ Refresh</button></div>
-<div id="updated" class="info">Connecting to sports data...</div>
-<section id="matches" style="margin-top:12px"><div class="empty">Loading live scores...</div></section>
-<div class="updated">Powered by API-Football • Automatic refresh every 15 seconds</div>
+
+<div class="controls">
+<button class="tab active" data-view="live">🔴 Live Now</button>
+<button class="tab" data-view="today">📅 Today's Matches</button>
+<button class="tab" data-view="upcoming">⏭️ Upcoming</button>
+</div>
+
+<div class="bar">
+<div class="live"><span class="dot"></span><span id="summary">Checking scores...</span></div>
+<button class="refresh" id="refreshBtn">↻ Refresh</button>
+</div>
+
+<div id="updated" class="info">Connecting to API-Football...</div>
+<section id="matches" style="margin-top:12px"><div class="empty">Loading scores...</div></section>
+
+<div class="updated">Powered by API-Football • Live refresh every 15 seconds</div>
 </main>
+
 <script>
 const matchesEl=document.getElementById("matches");
-const liveCountEl=document.getElementById("liveCount");
+const summaryEl=document.getElementById("summary");
 const updatedEl=document.getElementById("updated");
 const refreshBtn=document.getElementById("refreshBtn");
+const tabs=[...document.querySelectorAll(".tab")];
+
 let loading=false;
+let currentView="live";
+let liveMatches=[];
+let todayMatches=[];
 
 function esc(v){
  return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
 }
-function statusText(m){
- const s=m.status||{};
- if(s.short==="HT") return "HALF TIME";
- if(s.elapsed!=null && ["1H","2H","ET","P","BT"].includes(s.short)) return (s.elapsed+"′");
- return s.long||s.short||"LIVE";
+
+function localDate(){
+ const d=new Date();
+ const y=d.getFullYear();
+ const m=String(d.getMonth()+1).padStart(2,"0");
+ const day=String(d.getDate()).padStart(2,"0");
+ return y+"-"+m+"-"+day;
 }
-function render(matches){
- if(!matches.length){
-   liveCountEl.textContent="No matches live right now";
-   matchesEl.innerHTML='<div class="empty">No live football matches are currently being returned by the sports provider.<br><br>Upcoming fixtures can be added next.</div>';
+
+function isLive(m){
+ const s=m?.status?.short||"";
+ return ["1H","HT","2H","ET","BT","P","LIVE"].includes(s);
+}
+
+function isFinished(m){
+ const s=m?.status?.short||"";
+ return ["FT","AET","PEN","CANC","ABD","AWD","WO"].includes(s);
+}
+
+function statusText(m){
+ const s=m?.status||{};
+ if(s.short==="HT") return "HALF TIME";
+ if(s.elapsed!=null && ["1H","2H","ET","P","BT"].includes(s.short)) return s.elapsed+"′";
+ if(isFinished(m)) return s.long||s.short||"FINISHED";
+ return s.long||s.short||"SCHEDULED";
+}
+
+function kickoffText(m){
+ if(!m?.date) return "Scheduled";
+ try{
+   return new Date(m.date).toLocaleTimeString([],{
+     hour:"2-digit",
+     minute:"2-digit"
+   });
+ }catch{
+   return "Scheduled";
+ }
+}
+
+function matchCard(m){
+ const home=m.teams?.home||{};
+ const away=m.teams?.away||{};
+ const score=m.score||{};
+ const live=isLive(m);
+ const finished=isFinished(m);
+ const homeScore=score.home==null?"-":score.home;
+ const awayScore=score.away==null?"-":score.away;
+
+ return '<article class="match '+(live?"live-match":"")+'">'+
+   '<div class="league">'+
+   (m.league?.logo?'<img src="'+esc(m.league.logo)+'" alt="">':"")+
+   esc(m.league?.name||"Football")+
+   (m.league?.country?" • "+esc(m.league.country):"")+
+   (live?'<span class="badge">LIVE</span>':"")+
+   '</div>'+
+   '<div class="matchtop">'+
+   '<div class="team"><img src="'+esc(home.logo||"")+'" alt="">'+esc(home.name||"Home")+'</div>'+
+   '<div class="score">'+
+   (live||finished
+     ? esc(homeScore)+" - "+esc(awayScore)
+     : '<span style="font-size:14px">'+esc(kickoffText(m))+'</span>')+
+   '<span class="status '+(finished?"finished":(live?"":"scheduled"))+'">'+
+   esc(live||finished?statusText(m):"UPCOMING")+
+   '</span></div>'+
+   '<div class="team right"><img src="'+esc(away.logo||"")+'" alt="">'+esc(away.name||"Away")+'</div>'+
+   '</div></article>';
+}
+
+function render(){
+ let list=[];
+ let title="";
+
+ if(currentView==="live"){
+   list=liveMatches;
+   title=list.length?"Live matches":"No matches live right now";
+   summaryEl.textContent=list.length
+     ? list.length+" live match"+(list.length===1?"":"es")
+     : "No matches live right now";
+ }else if(currentView==="today"){
+   list=todayMatches;
+   title="Today's matches";
+   summaryEl.textContent=list.length
+     ? list.length+" match"+(list.length===1?"":"es")+" today"
+     : "No matches found today";
+ }else{
+   list=todayMatches.filter(m=>!isLive(m)&&!isFinished(m));
+   title="Upcoming today";
+   summaryEl.textContent=list.length
+     ? list.length+" upcoming match"+(list.length===1?"":"es")
+     : "No upcoming matches found today";
+ }
+
+ if(!list.length){
+   matchesEl.innerHTML='<div class="empty">'+esc(title)+
+     '<br><br>'+(
+       currentView==="live"
+       ?"There are currently no football matches being returned as live by the provider."
+       :currentView==="today"
+       ?"API-Football returned no fixtures for today."
+       :"There are no remaining scheduled matches today."
+     )+'</div>';
    return;
  }
- liveCountEl.textContent=matches.length+" live match"+(matches.length===1?"":"es");
- matchesEl.innerHTML=matches.map(m=>{
-   const home=m.teams?.home||{},away=m.teams?.away||{},score=m.score||{};
-   return '<article class="match">'+
-    '<div class="league">'+(m.league?.logo?'<img src="'+esc(m.league.logo)+'" alt="">':"")+
-    esc(m.league?.name||"Football")+(m.league?.country?" • "+esc(m.league.country):"")+'</div>'+
-    '<div class="matchtop">'+
-    '<div class="team"><img src="'+esc(home.logo||"")+'" alt="">'+esc(home.name)+'</div>'+
-    '<div class="score">'+esc(score.home)+" - "+esc(score.away)+'<span class="status">'+esc(statusText(m))+'</span></div>'+
-    '<div class="team right"><img src="'+esc(away.logo||"")+'" alt="">'+esc(away.name)+'</div>'+
-    '</div></article>';
- }).join("");
+
+ matchesEl.innerHTML=list.map(matchCard).join("");
 }
-async function loadLive(){
+
+async function loadData(){
  if(loading)return;
- loading=true;refreshBtn.disabled=true;
+ loading=true;
+ refreshBtn.disabled=true;
+
  try{
-  const response=await fetch("/api/sports/live",{cache:"no-store",headers:{"Accept":"application/json"}});
-  const data=await response.json();
-  if(!response.ok||!data.success){
-    throw new Error(data.message||"Live scores unavailable.");
-  }
-  render(data.matches||[]);
-  updatedEl.textContent="Last updated: "+new Date(data.updated_at||Date.now()).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+   const date=localDate();
+
+   const [liveResponse,todayResponse]=await Promise.all([
+     fetch("/api/sports/live",{cache:"no-store",headers:{"Accept":"application/json"}}),
+     fetch("/api/sports/fixtures?date="+encodeURIComponent(date),{cache:"no-store",headers:{"Accept":"application/json"}})
+   ]);
+
+   const liveData=await liveResponse.json();
+   const todayData=await todayResponse.json();
+
+   if(!liveResponse.ok||!liveData.success){
+     throw new Error(liveData.message||"Live scores unavailable.");
+   }
+
+   if(!todayResponse.ok||!todayData.success){
+     throw new Error(todayData.message||"Today's fixtures unavailable.");
+   }
+
+   liveMatches=Array.isArray(liveData.matches)?liveData.matches:[];
+   todayMatches=Array.isArray(todayData.matches)?todayData.matches:[];
+
+   render();
+
+   const liveText=liveMatches.length
+     ? liveMatches.length+" live"
+     : "No live matches";
+   updatedEl.textContent=
+     "Today: "+date+" • "+liveText+
+     " • Updated "+new Date().toLocaleTimeString([],{
+       hour:"2-digit",minute:"2-digit",second:"2-digit"
+     });
+
  }catch(error){
-  liveCountEl.textContent="Live scores unavailable";
-  matchesEl.innerHTML='<div class="error">'+esc(error.message||"Could not load live scores.")+'<br><br>Try again in a few seconds.</div>';
-  updatedEl.textContent="Unable to reach the sports data service.";
+   summaryEl.textContent="Scores unavailable";
+   matchesEl.innerHTML='<div class="error">'+
+     esc(error.message||"Could not load football scores.")+
+     '<br><br>Try again in a few seconds.</div>';
+   updatedEl.textContent="Unable to reach the sports data service.";
  }finally{
-  loading=false;refreshBtn.disabled=false;
+   loading=false;
+   refreshBtn.disabled=false;
  }
 }
-refreshBtn.addEventListener("click",loadLive);
-loadLive();
-setInterval(loadLive,15000);
+
+tabs.forEach(tab=>{
+ tab.addEventListener("click",()=>{
+   tabs.forEach(t=>t.classList.remove("active"));
+   tab.classList.add("active");
+   currentView=tab.dataset.view;
+   render();
+ });
+});
+
+refreshBtn.addEventListener("click",loadData);
+loadData();
+setInterval(loadData,15000);
 </script>
 </body>
 </html>
