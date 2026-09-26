@@ -44,6 +44,19 @@ const BASE_URL =
 const DGM_API_KEY =
   process.env.DGM_API_KEY || "";
 
+// =====================================================
+// KINGFLEXY AIRTIME API
+// =====================================================
+
+const KINGFLEXY_API_KEY =
+  process.env.KINGFLEXY_API_KEY || "";
+
+const KINGFLEXY_API_BASE =
+  String(
+    process.env.KINGFLEXY_API_BASE ||
+      "https://api.kingflexygh.com/api/v2"
+  ).replace(/\/$/, "");
+
 const API_FOOTBALL_KEY =
   process.env.API_FOOTBALL_KEY || "";
 
@@ -816,7 +829,12 @@ async function initDatabase() {
     ["capacity", "TEXT"],
     ["paystack_reference", "TEXT"],
     ["payment_status", "TEXT DEFAULT 'Pending'"],
-    ["paid_at", "TIMESTAMPTZ"]
+    ["paid_at", "TIMESTAMPTZ"],
+    ["provider_reference", "TEXT"],
+    ["provider_status", "TEXT"],
+    ["provider_message", "TEXT"],
+    ["provider_updated_at", "TIMESTAMPTZ"],
+    ["completed_at", "TIMESTAMPTZ"]
   ];
 
   for (
@@ -1173,6 +1191,344 @@ function createOrderReference() {
       .toString("hex")
       .toUpperCase()
   );
+}
+
+
+// =====================================================
+// KINGFLEXY AIRTIME HELPERS
+// =====================================================
+
+function normalizeKingflexyStatus(value) {
+  const status = String(value || "").trim().toLowerCase();
+  if (["completed","success","successful"].includes(status)) return "Completed";
+  if (status === "failed") return "Failed";
+  if (["refunded","refund"].includes(status)) return "Refunded";
+  if (status === "pending") return "Pending";
+  return "Processing";
+}
+
+function parseKingflexyOrder(data) {
+  const root = data && typeof data === "object" ? data : {};
+  const payload =
+    root.data && typeof root.data === "object" ? root.data :
+    root.order && typeof root.order === "object" ? root.order : root;
+
+  return {
+    orderId: payload.order_id || root.order_id || null,
+    reference: payload.reference || root.reference || null,
+    status: payload.status || root.status || null,
+    reason:
+      payload.reason ||
+      payload.message ||
+      root.reason ||
+      root.message ||
+      null
+  };
+}
+
+async function kingflexyRequest(endpoint, options = {}) {
+  if (!KINGFLEXY_API_KEY) {
+    const error = new Error("KINGFLEXY_API_KEY is not configured.");
+    error.code = "KINGFLEXY_NOT_CONFIGURED";
+    throw error;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(KINGFLEXY_API_BASE + endpoint, {
+      ...options,
+      headers: {
+        Authorization: KINGFLEXY_API_KEY,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        ...(options.headers || {})
+      },
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; }
+    catch { data = { raw: text }; }
+
+    if (!response.ok) {
+      const error = new Error(
+        data.message || data.error || ("KingFlexy HTTP " + response.status)
+      );
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = new Error(
+        "KingFlexy request timed out. The order will remain Processing."
+      );
+      timeoutError.code = "KINGFLEXY_TIMEOUT";
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function refundAirtimeOrder(orderId, reason) {
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const orderResult = await client.query(
+      `
+      SELECT *
+      FROM orders
+      WHERE id = $1
+      FOR UPDATE
+      `,
+      [orderId]
+    );
+
+    if (!orderResult.rows.length) throw new Error("Airtime order not found.");
+    const order = orderResult.rows[0];
+
+    if (order.payment_status === "Refunded") {
+      await client.query("COMMIT");
+      return order;
+    }
+
+    const customerResult = await client.query(
+      `
+      SELECT id, balance
+      FROM customers
+      WHERE id = $1
+      FOR UPDATE
+      `,
+      [order.customer_id]
+    );
+
+    if (!customerResult.rows.length) {
+      throw new Error("Customer account not found for refund.");
+    }
+
+    const before = Number(customerResult.rows[0].balance || 0);
+    const amount = Number(order.amount || 0);
+    const after = Math.round((before + amount) * 100) / 100;
+    const refundRef = "DGM-REFUND-" + order.order_ref;
+
+    await client.query(
+      "UPDATE customers SET balance = $1 WHERE id = $2",
+      [after, order.customer_id]
+    );
+
+    await client.query(
+      `
+      INSERT INTO wallet_transactions
+      (customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference)
+      VALUES ($1,'Credit',$2,$3,$4,$5,$6,'Completed',$7)
+      ON CONFLICT (reference) DO NOTHING
+      `,
+      [
+        order.customer_id,
+        amount,
+        before,
+        after,
+        "Airtime refund - " + order.order_ref,
+        refundRef,
+        refundRef
+      ]
+    );
+
+    const updated = await client.query(
+      `
+      UPDATE orders
+      SET status = 'Refunded',
+          payment_status = 'Refunded',
+          provider_message = $1,
+          provider_updated_at = NOW()
+      WHERE id = $2
+      RETURNING *
+      `,
+      [
+        String(reason || "KingFlexy refunded the airtime transaction.").slice(0,1000),
+        orderId
+      ]
+    );
+
+    await client.query("COMMIT");
+    console.log(
+      "KINGFLEXY AIRTIME REFUND: " + order.order_ref +
+      " | GH₵" + amount.toFixed(2)
+    );
+    return updated.rows[0];
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch {}
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function applyKingflexyStatus(orderId, data) {
+  const parsed = parseKingflexyOrder(data);
+  const status = normalizeKingflexyStatus(parsed.status);
+
+  if (status === "Failed" || status === "Refunded") {
+    return refundAirtimeOrder(
+      orderId,
+      parsed.reason || ("KingFlexy status: " + status)
+    );
+  }
+
+  const result = await pool.query(
+    `
+    UPDATE orders
+    SET status = $1,
+        provider_reference = COALESCE($2, provider_reference),
+        provider_status = $3,
+        provider_message = $4,
+        provider_updated_at = NOW(),
+        completed_at =
+          CASE WHEN $1 = 'Completed' THEN NOW()
+               ELSE completed_at END
+    WHERE id = $5
+    RETURNING *
+    `,
+    [
+      status,
+      parsed.orderId || parsed.reference || null,
+      parsed.status || status,
+      parsed.reason || null,
+      orderId
+    ]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function submitKingflexyAirtime(order) {
+  if (!KINGFLEXY_API_KEY) {
+    await pool.query(
+      `
+      UPDATE orders
+      SET status = 'Processing',
+          provider_status = 'not_configured',
+          provider_message = $1,
+          provider_updated_at = NOW()
+      WHERE id = $2
+      `,
+      [
+        "KingFlexy Airtime API is not configured. Add KINGFLEXY_API_KEY in Render.",
+        order.id
+      ]
+    );
+
+    return {
+      success: false,
+      pending: true,
+      status: "Processing",
+      message: "KingFlexy Airtime API is not configured."
+    };
+  }
+
+  try {
+    const data = await kingflexyRequest("/airtime/purchase", {
+      method: "POST",
+      body: JSON.stringify({
+        network: order.network,
+        beneficiary_phone: order.phone,
+        amount: Number(order.amount),
+        reference: order.order_ref
+      })
+    });
+
+    const parsed = parseKingflexyOrder(data);
+    await pool.query(
+      `
+      UPDATE orders
+      SET provider_reference = COALESCE($1, provider_reference),
+          provider_status = COALESCE($2, provider_status),
+          provider_message = COALESCE($3, provider_message),
+          provider_updated_at = NOW()
+      WHERE id = $4
+      `,
+      [
+        parsed.orderId || parsed.reference || null,
+        parsed.status || null,
+        parsed.reason || data.message || null,
+        order.id
+      ]
+    );
+
+    return applyKingflexyStatus(order.id, data);
+  } catch (error) {
+    console.error(
+      "KingFlexy airtime purchase error for " + order.order_ref + ":",
+      error.message
+    );
+
+    await pool.query(
+      `
+      UPDATE orders
+      SET status = 'Processing',
+          payment_status = 'Paid',
+          provider_message = $1,
+          provider_updated_at = NOW()
+      WHERE id = $2
+      `,
+      [
+        String(error.message || "KingFlexy request failed.").slice(0,1000),
+        order.id
+      ]
+    );
+
+    return {
+      success: false,
+      pending: true,
+      status: "Processing",
+      message:
+        "Wallet payment confirmed. KingFlexy fulfillment is being checked automatically."
+    };
+  }
+}
+
+async function syncKingflexyAirtimeOrders() {
+  if (!KINGFLEXY_API_KEY) return;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM orders
+      WHERE service = 'Airtime'
+        AND payment_status = 'Paid'
+        AND status IN ('Pending','Processing')
+      ORDER BY created_at ASC
+      LIMIT 25
+      `
+    );
+
+    for (const order of result.rows) {
+      try {
+        const data = await kingflexyRequest(
+          "/airtime/orders/" + encodeURIComponent(order.order_ref),
+          { method: "GET" }
+        );
+        await applyKingflexyStatus(order.id, data);
+      } catch (error) {
+        console.error(
+          "KingFlexy airtime status check failed for " +
+          order.order_ref + ": " + error.message
+        );
+      }
+    }
+  } catch (error) {
+    console.error("KingFlexy airtime sync error:", error);
+  }
 }
 
 function createWalletReference() {
@@ -4817,22 +5173,20 @@ app.post(
       const phone = normalizeGhanaPhone(req.body.phone);
       const amount = Number(req.body.amount);
 
-      if (!["MTN", "AirtelTigo", "Telecel"].includes(network)) {
+      if (!["MTN","AirtelTigo","Telecel"].includes(network)) {
         await client.query("ROLLBACK");
-        return sendError(res, 400, "Invalid airtime network.");
+        return sendError(res,400,"Invalid airtime network.");
       }
 
       if (!validGhanaPhone(phone)) {
         await client.query("ROLLBACK");
-        return sendError(res, 400, "Enter a valid Ghana phone number.");
+        return sendError(res,400,"Enter a valid Ghana phone number.");
       }
 
       if (!Number.isFinite(amount) || amount < 1 || amount > 500) {
         await client.query("ROLLBACK");
         return sendError(
-          res,
-          400,
-          "Airtime amount must be between GH₵1 and GH₵500."
+          res,400,"Airtime amount must be between GH₵1 and GH₵500."
         );
       }
 
@@ -4840,7 +5194,7 @@ app.post(
 
       const customerResult = await client.query(
         `
-        SELECT id, balance
+        SELECT id,balance
         FROM customers
         WHERE id = $1
         FOR UPDATE
@@ -4850,80 +5204,44 @@ app.post(
 
       if (!customerResult.rows.length) {
         await client.query("ROLLBACK");
-        return sendError(res, 404, "Customer account not found.");
+        return sendError(res,404,"Customer account not found.");
       }
 
       const customer = customerResult.rows[0];
       const balanceBefore = Number(customer.balance || 0);
 
-      if (!Number.isFinite(balanceBefore) || balanceBefore < 0) {
-        throw new Error("Your wallet balance is invalid.");
-      }
-
       if (balanceBefore < roundedAmount) {
         await client.query("ROLLBACK");
-
         return res.status(400).json({
-          success: false,
-          code: "INSUFFICIENT_WALLET_BALANCE",
+          success:false,
+          code:"INSUFFICIENT_WALLET_BALANCE",
           message:
-            `Insufficient wallet balance. You need GH₵${roundedAmount.toFixed(2)} but your wallet has GH₵${balanceBefore.toFixed(2)}.`,
-          balance: balanceBefore,
-          required: roundedAmount,
+            "Insufficient wallet balance. You need GH₵" +
+            roundedAmount.toFixed(2) +
+            " but your wallet has GH₵" +
+            balanceBefore.toFixed(2) + ".",
+          balance:balanceBefore,
+          required:roundedAmount,
           shortfall:
-            Math.round(
-              (roundedAmount - balanceBefore) * 100
-            ) / 100
+            Math.round((roundedAmount - balanceBefore) * 100) / 100
         });
       }
 
       const orderRef = createOrderReference();
-      const walletReference = `DGM-AIRTIME-${orderRef}`;
+      const walletReference = "DGM-AIRTIME-" + orderRef;
       const balanceAfter =
-        Math.round(
-          (balanceBefore - roundedAmount) * 100
-        ) / 100;
+        Math.round((balanceBefore - roundedAmount) * 100) / 100;
 
-      const balanceUpdate = await client.query(
-        `
-        UPDATE customers
-        SET balance = $1
-        WHERE id = $2
-        RETURNING id, balance
-        `,
-        [balanceAfter, customer.id]
+      await client.query(
+        "UPDATE customers SET balance = $1 WHERE id = $2",
+        [balanceAfter,customer.id]
       );
-
-      if (!balanceUpdate.rows.length) {
-        throw new Error("Wallet balance could not be updated.");
-      }
 
       const orderResult = await client.query(
         `
         INSERT INTO orders
-        (
-          order_ref,
-          customer_id,
-          service,
-          network,
-          phone,
-          amount,
-          status,
-          payment_status,
-          paid_at
-        )
-        VALUES
-        (
-          $1,
-          $2,
-          'Airtime',
-          $3,
-          $4,
-          $5,
-          'Pending',
-          'Paid',
-          NOW()
-        )
+        (order_ref,customer_id,service,network,phone,amount,status,payment_status,paid_at,provider_status)
+        VALUES ($1,$2,'Airtime',$3,$4,$5,'Pending','Paid',NOW(),'pending')
         RETURNING *
         `,
         [
@@ -4938,2834 +5256,57 @@ app.post(
       const transactionResult = await client.query(
         `
         INSERT INTO wallet_transactions
-        (
-          customer_id,
-          type,
-          amount,
-          balance_before,
-          balance_after,
-          description,
-          transaction_ref,
-          status,
-          reference
-        )
-        VALUES
-        (
-          $1,
-          'Debit',
-          $2,
-          $3,
-          $4,
-          $5,
-          $6,
-          'Completed',
-          $7
-        )
-        RETURNING
-          id,
-          amount,
-          balance_before,
-          balance_after,
-          description,
-          transaction_ref,
-          status,
-          reference,
-          created_at
+        (customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference)
+        VALUES ($1,'Debit',$2,$3,$4,$5,$6,'Completed',$7)
+        RETURNING id,amount,balance_before,balance_after,description,transaction_ref,status,reference,created_at
         `,
         [
           customer.id,
           roundedAmount,
           balanceBefore,
           balanceAfter,
-          `Airtime purchase - ${network} - ${phone}`,
+          "Airtime purchase - " + network + " - " + phone,
           orderRef,
           walletReference
         ]
       );
 
-      if (!transactionResult.rows.length) {
-        throw new Error("Wallet debit transaction could not be created.");
-      }
-
       await client.query("COMMIT");
 
-      console.log(
-        `WALLET AIRTIME PAYMENT: ${orderRef} | ${network} | ${phone} | GH₵${roundedAmount.toFixed(2)} | Before: GH₵${balanceBefore.toFixed(2)} | After: GH₵${balanceAfter.toFixed(2)}`
+      const fulfillment =
+        await submitKingflexyAirtime(orderResult.rows[0]);
+
+      const finalResult = await pool.query(
+        "SELECT * FROM orders WHERE id = $1 LIMIT 1",
+        [orderResult.rows[0].id]
       );
 
+      const finalOrder =
+        finalResult.rows[0] || orderResult.rows[0];
+
       return res.json({
-        success: true,
-        paid: true,
-        paymentMethod: "Wallet",
-        order: orderResult.rows[0],
-        transaction: transactionResult.rows[0],
-        balance: balanceAfter,
+        success:true,
+        paid:true,
+        paymentMethod:"Wallet",
+        order:finalOrder,
+        transaction:transactionResult.rows[0],
+        balance:balanceAfter,
+        fulfillment,
         message:
-          "Airtime order created and wallet payment confirmed. Delivery is pending provider fulfillment."
+          finalOrder.status === "Completed"
+            ? "Airtime delivered successfully."
+            : finalOrder.status === "Refunded"
+              ? "Airtime provider refunded the transaction and your wallet was credited."
+              : "Wallet payment confirmed. KingFlexy is processing the airtime."
       });
     } catch (error) {
-      try {
-        await client.query("ROLLBACK");
-      } catch (rollbackError) {
-        console.error("Airtime rollback error:", rollbackError);
-      }
-
-      console.error("Create airtime order error:", error);
-
+      try { await client.query("ROLLBACK"); } catch {}
+      console.error("Create airtime order error:",error);
       return sendError(
-        res,
-        500,
-        error.message || "Could not create airtime order."
+        res,500,error.message || "Could not create airtime order."
       );
     } finally {
       client.release();
-    }
-  }
-);
-
-// =====================================================
-// GET ORDERS
-// =====================================================
-
-app.get(
-  "/api/orders",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      const result =
-        await pool.query(
-          `
-          SELECT
-            id,
-            order_ref,
-            service,
-            network,
-            phone,
-            amount,
-            status,
-            capacity,
-            payment_status,
-            paystack_reference,
-            datamart_reference,
-            datamart_transaction_reference,
-            datamart_status,
-            created_at,
-            paid_at
-          FROM orders
-          WHERE customer_id = $1
-          ORDER BY created_at DESC
-          `,
-          [
-            req.session.customerId
-          ]
-        );
-
-      return res.json({
-        success: true,
-
-        orders:
-          result.rows
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Orders error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Could not load orders."
-      );
-    }
-  }
-);
-
-// =====================================================
-// SINGLE ORDER
-// =====================================================
-
-app.get(
-  "/api/orders/:orderRef",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      const result =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE order_ref = $1
-            AND customer_id = $2
-          LIMIT 1
-          `,
-          [
-            req.params.orderRef,
-
-            req.session.customerId
-          ]
-        );
-
-      if (
-        !result.rows.length
-      ) {
-
-        return sendError(
-          res,
-          404,
-          "Order not found."
-        );
-      }
-
-      let order =
-        result.rows[0];
-
-      if (
-        order.datamart_reference &&
-        isDataService(
-          order.service
-        ) &&
-        String(
-          order.payment_status ||
-          ""
-        ).toLowerCase() ===
-          "paid" &&
-        order.status ===
-          "Processing"
-      ) {
-
-        await syncDataMartOrder(
-          order
-        );
-
-        const refreshed =
-          await pool.query(
-            `
-            SELECT *
-            FROM orders
-            WHERE id = $1
-            `,
-            [order.id]
-          );
-
-        order =
-          refreshed.rows[0] ||
-          order;
-      }
-
-      return res.json({
-        success: true,
-
-        order
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Single order error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Could not load order."
-      );
-    }
-  }
-);
-
-// =====================================================
-// MANUAL DATAMART ORDER SYNC
-// =====================================================
-
-app.post(
-  "/api/orders/:orderRef/sync",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      const result =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE order_ref = $1
-            AND customer_id = $2
-          LIMIT 1
-          `,
-          [
-            req.params.orderRef,
-
-            req.session.customerId
-          ]
-        );
-
-      if (
-        !result.rows.length
-      ) {
-
-        return sendError(
-          res,
-          404,
-          "Order not found."
-        );
-      }
-
-      const order =
-        result.rows[0];
-
-      if (
-        !order.datamart_reference
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "This order does not have a DataMart reference yet."
-        );
-      }
-
-      const syncResult =
-        await syncDataMartOrder(
-          order
-        );
-
-      const updatedResult =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE id = $1
-          `,
-          [order.id]
-        );
-
-      return res.json({
-        success:
-          syncResult.success,
-
-        order:
-          updatedResult.rows[0],
-
-        datamart:
-          syncResult
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Manual order sync error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Unable to synchronize order status."
-      );
-    }
-  }
-);
-
-// =====================================================
-// PAYSTACK INITIALIZE DATA ORDER
-// =====================================================
-
-app.post(
-  "/api/payments/initialize",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      if (!PAYSTACK_SECRET_KEY) {
-
-        return sendError(
-          res,
-          500,
-          "Paystack is not configured."
-        );
-      }
-
-      const orderRef =
-        String(
-          req.body.orderRef ||
-          ""
-        ).trim();
-
-      if (!orderRef) {
-
-        return sendError(
-          res,
-          400,
-          "Order reference is required."
-        );
-      }
-
-      const result =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE order_ref = $1
-            AND customer_id = $2
-          LIMIT 1
-          `,
-          [
-            orderRef,
-
-            req.session.customerId
-          ]
-        );
-
-      if (
-        !result.rows.length
-      ) {
-
-        return sendError(
-          res,
-          404,
-          "Order not found."
-        );
-      }
-
-      const order =
-        result.rows[0];
-
-      if (
-        String(
-          order.payment_status
-        ).toLowerCase() ===
-        "paid"
-      ) {
-
-        return res.json({
-          success: true,
-
-          alreadyPaid: true,
-
-          order
-        });
-      }
-
-      const customer =
-        await getCustomer(
-          req.session.customerId
-        );
-
-      if (!customer) {
-
-        return sendError(
-          res,
-          401,
-          "Customer account not found."
-        );
-      }
-
-      const amountPesewas =
-        Math.round(
-          Number(order.amount) *
-            100
-        );
-
-      if (
-        amountPesewas <= 0
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Invalid order amount."
-        );
-      }
-
-      const callbackUrl =
-        `${BASE_URL}/payment-success`;
-
-      const paystackResponse =
-        await fetch(
-          "https://api.paystack.co/transaction/initialize",
-          {
-            method: "POST",
-
-            headers: {
-              Authorization:
-                `Bearer ${PAYSTACK_SECRET_KEY}`,
-
-              "Content-Type":
-                "application/json"
-            },
-
-            body:
-              JSON.stringify({
-                email:
-                  customer.email,
-
-                amount:
-                  amountPesewas,
-
-                currency:
-                  "GHS",
-
-                callback_url:
-                  callbackUrl,
-
-                metadata: {
-                  type:
-                    "data_order",
-
-                  order_ref:
-                    order.order_ref,
-
-                  customer_id:
-                    order.customer_id,
-
-                  service:
-                    order.service
-                }
-              })
-          }
-        );
-
-      const data =
-        await paystackResponse.json();
-
-      if (
-        !paystackResponse.ok ||
-        !data.status ||
-        !data.data
-      ) {
-
-        console.error(
-          "Paystack initialize failed:",
-          data
-        );
-
-        return sendError(
-          res,
-          502,
-          data.message ||
-            "Could not initialize payment."
-        );
-      }
-
-      const reference =
-        data.data.reference;
-
-      await pool.query(
-        `
-        UPDATE orders
-        SET paystack_reference = $1
-        WHERE id = $2
-        `,
-        [
-          reference,
-
-          order.id
-        ]
-      );
-
-      return res.json({
-        success: true,
-
-        authorization_url:
-          data.data.authorization_url,
-
-        access_code:
-          data.data.access_code,
-
-        reference
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Payment initialize error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Payment initialization failed."
-      );
-    }
-  }
-);
-
-// =====================================================
-// PAYSTACK VERIFY DATA ORDER
-// =====================================================
-
-app.get(
-  "/api/payments/verify/:reference",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      if (!PAYSTACK_SECRET_KEY) {
-
-        return sendError(
-          res,
-          500,
-          "Paystack is not configured."
-        );
-      }
-
-      const reference =
-        String(
-          req.params.reference ||
-          ""
-        ).trim();
-
-      if (!reference) {
-
-        return sendError(
-          res,
-          400,
-          "Payment reference is required."
-        );
-      }
-
-      const orderResult =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE customer_id = $1
-            AND (
-              order_ref = $2
-              OR paystack_reference = $2
-            )
-          LIMIT 1
-          `,
-          [
-            req.session.customerId,
-
-            reference
-          ]
-        );
-
-      if (
-        !orderResult.rows.length
-      ) {
-
-        return sendError(
-          res,
-          404,
-          "Payment order not found."
-        );
-      }
-
-      let order =
-        orderResult.rows[0];
-
-      const verifyResponse =
-        await fetch(
-          `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-          {
-            headers: {
-              Authorization:
-                `Bearer ${PAYSTACK_SECRET_KEY}`
-            }
-          }
-        );
-
-      const data =
-        await verifyResponse.json();
-
-      if (
-        !verifyResponse.ok ||
-        !data.status ||
-        !data.data
-      ) {
-
-        return sendError(
-          res,
-          502,
-          data.message ||
-            "Could not verify payment."
-        );
-      }
-
-      const transaction =
-        data.data;
-
-      if (
-        String(
-          transaction.reference ||
-          ""
-        ) !== reference
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Payment reference mismatch."
-        );
-      }
-
-      const paid =
-        transaction.status ===
-        "success";
-
-      if (!paid) {
-
-        return res.json({
-          success: true,
-
-          paid: false,
-
-          status:
-            transaction.status,
-
-          order
-        });
-      }
-
-      const amount =
-        Number(
-          transaction.amount ||
-          0
-        ) / 100;
-
-      if (
-        Math.round(
-          amount * 100
-        ) !==
-        Math.round(
-          Number(order.amount) *
-            100
-        )
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Payment amount does not match the order."
-        );
-      }
-
-      const currency =
-        String(
-          transaction.currency ||
-          ""
-        ).toUpperCase();
-
-      if (
-        currency !== "GHS"
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Payment currency is invalid."
-        );
-      }
-
-      await pool.query(
-        `
-        UPDATE orders
-        SET
-          payment_status = 'Paid',
-          paid_at =
-            COALESCE(
-              paid_at,
-              NOW()
-            ),
-          paystack_reference = $1,
-          status =
-            CASE
-              WHEN status =
-                'Pending Payment'
-              THEN 'Processing'
-              ELSE status
-            END
-        WHERE id = $2
-        `,
-        [
-          transaction.reference,
-
-          order.id
-        ]
-      );
-
-      const updated =
-        await pool.query(
-          `
-          SELECT *
-          FROM orders
-          WHERE id = $1
-          `,
-          [order.id]
-        );
-
-      order =
-        updated.rows[0];
-
-      if (
-        String(
-          order.payment_status
-        ).toLowerCase() ===
-          "paid" &&
-        isDataService(
-          order.service
-        )
-      ) {
-
-        const fulfillmentResult =
-          await fulfillDataOrder(
-            order
-          );
-
-        const refreshed =
-          await pool.query(
-            `
-            SELECT *
-            FROM orders
-            WHERE id = $1
-            `,
-            [order.id]
-          );
-
-        order =
-          refreshed.rows[0];
-
-        return res.json({
-          success:
-            fulfillmentResult.success,
-
-          paid: true,
-
-          order,
-
-          fulfillment:
-            fulfillmentResult
-        });
-      }
-
-      return res.json({
-        success: true,
-
-        paid: true,
-
-        order
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Payment verify error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Payment verification failed."
-      );
-    }
-  }
-);
-
-// =====================================================
-// WALLET INITIALIZE TOP-UP
-// =====================================================
-
-app.post(
-  "/api/wallet/deposit",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      if (!PAYSTACK_SECRET_KEY) {
-
-        return sendError(
-          res,
-          500,
-          "Paystack is not configured."
-        );
-      }
-
-      const amount =
-        Number(
-          req.body.amount
-        );
-
-      if (
-        !Number.isFinite(amount)
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Enter a valid amount."
-        );
-      }
-
-      const roundedAmount =
-        Math.round(
-          amount * 100
-        ) / 100;
-
-      if (
-        roundedAmount < 1
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Minimum wallet top-up is GH₵1.00."
-        );
-      }
-
-      if (
-        roundedAmount > 10000
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Maximum wallet top-up is GH₵10,000.00."
-        );
-      }
-
-      const customer =
-        await getCustomer(
-          req.session.customerId
-        );
-
-      if (!customer) {
-
-        return sendError(
-          res,
-          401,
-          "Customer account not found."
-        );
-      }
-
-      const reference =
-        createWalletReference();
-
-      await pool.query(
-        `
-        INSERT INTO wallet_topups
-        (
-          customer_id,
-          reference,
-          amount,
-          status,
-          payment_status
-        )
-        VALUES
-        (
-          $1,
-          $2,
-          $3,
-          'Pending',
-          'Pending'
-        )
-        `,
-        [
-          customer.id,
-
-          reference,
-
-          roundedAmount
-        ]
-      );
-
-      const amountPesewas =
-        Math.round(
-          roundedAmount * 100
-        );
-
-      const callbackUrl =
-        `${BASE_URL}/payment-success?type=wallet&reference=${encodeURIComponent(reference)}`;
-
-      const paystackResponse =
-        await fetch(
-          "https://api.paystack.co/transaction/initialize",
-          {
-            method: "POST",
-
-            headers: {
-              Authorization:
-                `Bearer ${PAYSTACK_SECRET_KEY}`,
-
-              "Content-Type":
-                "application/json"
-            },
-
-            body:
-              JSON.stringify({
-                email:
-                  customer.email,
-
-                amount:
-                  amountPesewas,
-
-                currency:
-                  "GHS",
-
-                reference,
-
-                callback_url:
-                  callbackUrl,
-
-                metadata: {
-                  type:
-                    "wallet_topup",
-
-                  wallet_reference:
-                    reference,
-
-                  customer_id:
-                    customer.id,
-
-                  customer_email:
-                    customer.email
-                }
-              })
-          }
-        );
-
-      const data =
-        await paystackResponse.json();
-
-      if (
-        !paystackResponse.ok ||
-        !data.status ||
-        !data.data
-      ) {
-
-        console.error(
-          "Wallet Paystack initialize failed:",
-          data
-        );
-
-        await pool.query(
-          `
-          UPDATE wallet_topups
-          SET status = 'Failed'
-          WHERE reference = $1
-          `,
-          [reference]
-        );
-
-        return sendError(
-          res,
-          502,
-          data.message ||
-            "Could not initialize wallet payment."
-        );
-      }
-
-      return res.json({
-        success: true,
-
-        amount:
-          roundedAmount,
-
-        reference,
-
-        authorization_url:
-          data.data.authorization_url,
-
-        access_code:
-          data.data.access_code
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Wallet deposit initialize error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Wallet payment initialization failed."
-      );
-    }
-  }
-);
-
-// =====================================================
-// WALLET VERIFY TOP-UP
-// =====================================================
-
-app.get(
-  "/api/wallet/deposit/verify/:reference",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      if (!PAYSTACK_SECRET_KEY) {
-
-        return sendError(
-          res,
-          500,
-          "Paystack is not configured."
-        );
-      }
-
-      const reference =
-        String(
-          req.params.reference ||
-          ""
-        ).trim();
-
-      if (!reference) {
-
-        return sendError(
-          res,
-          400,
-          "Payment reference is required."
-        );
-      }
-
-      const topupResult =
-        await pool.query(
-          `
-          SELECT *
-          FROM wallet_topups
-          WHERE reference = $1
-            AND customer_id = $2
-          LIMIT 1
-          `,
-          [
-            reference,
-
-            req.session.customerId
-          ]
-        );
-
-      if (
-        !topupResult.rows.length
-      ) {
-
-        return sendError(
-          res,
-          404,
-          "Wallet top-up not found."
-        );
-      }
-
-      const topup =
-        topupResult.rows[0];
-
-      if (
-        String(
-          topup.payment_status || ""
-        ).toLowerCase() ===
-        "paid"
-      ) {
-
-        const customer =
-          await getCustomer(
-            req.session.customerId
-          );
-
-        return res.json({
-          success: true,
-
-          paid: true,
-
-          alreadyCredited: true,
-
-          amount:
-            Number(topup.amount),
-
-          balance:
-            Number(
-              customer?.balance ||
-              0
-            ),
-
-          reference
-        });
-      }
-
-      const verifyResponse =
-        await fetch(
-          `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
-          {
-            headers: {
-              Authorization:
-                `Bearer ${PAYSTACK_SECRET_KEY}`
-            }
-          }
-        );
-
-      const data =
-        await verifyResponse.json();
-
-      if (
-        !verifyResponse.ok ||
-        !data.status ||
-        !data.data
-      ) {
-
-        return sendError(
-          res,
-          502,
-          data.message ||
-            "Could not verify wallet payment."
-        );
-      }
-
-      const transaction =
-        data.data;
-
-      if (
-        String(
-          transaction.reference ||
-          ""
-        ) !== reference
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Payment reference mismatch."
-        );
-      }
-
-      if (
-        transaction.status !==
-        "success"
-      ) {
-
-        return res.json({
-          success: true,
-
-          paid: false,
-
-          status:
-            transaction.status,
-
-          reference
-        });
-      }
-
-      const amount =
-        Number(
-          transaction.amount ||
-          0
-        ) / 100;
-
-      const expectedAmount =
-        Number(topup.amount);
-
-      if (
-        Math.round(
-          amount * 100
-        ) !==
-        Math.round(
-          expectedAmount * 100
-        )
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Payment amount does not match wallet top-up."
-        );
-      }
-
-      const currency =
-        String(
-          transaction.currency ||
-          ""
-        ).toUpperCase();
-
-      if (
-        currency !== "GHS"
-      ) {
-
-        return sendError(
-          res,
-          400,
-          "Payment currency is invalid."
-        );
-      }
-
-      const creditResult =
-        await creditWalletFromTopup(
-          reference
-        );
-
-      const customer =
-        await getCustomer(
-          req.session.customerId
-        );
-
-      return res.json({
-        success: true,
-
-        paid: true,
-
-        credited:
-          !creditResult.alreadyCredited,
-
-        amount:
-          expectedAmount,
-
-        balance:
-          Number(
-            customer?.balance ||
-            0
-          ),
-
-        reference
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Wallet verify error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Wallet payment verification failed."
-      );
-    }
-  }
-);
-
-// =====================================================
-// WALLET BALANCE
-// =====================================================
-
-app.get(
-  "/api/wallet",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      const customer =
-        await getCustomer(
-          req.session.customerId
-        );
-
-      if (!customer) {
-
-        return sendError(
-          res,
-          404,
-          "Customer account not found."
-        );
-      }
-
-      return res.json({
-        success: true,
-
-        balance:
-          Number(
-            customer.balance ||
-            0
-          )
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Wallet balance error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Could not load wallet balance."
-      );
-    }
-  }
-);
-
-// =====================================================
-// WALLET TRANSACTIONS
-// =====================================================
-
-app.get(
-  "/api/wallet/transactions",
-  requireLogin,
-  async (req, res) => {
-
-    try {
-
-      const result =
-        await pool.query(
-          `
-          SELECT
-            id,
-            type,
-            amount,
-            balance_before,
-            balance_after,
-            description,
-            status,
-            reference,
-            transaction_ref,
-            created_at
-          FROM wallet_transactions
-          WHERE customer_id = $1
-          ORDER BY created_at DESC
-          LIMIT 50
-          `,
-          [
-            req.session.customerId
-          ]
-        );
-
-      return res.json({
-        success: true,
-
-        transactions:
-          result.rows
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Wallet transactions error:",
-        error
-      );
-
-      return sendError(
-        res,
-        500,
-        "Could not load wallet transactions."
-      );
-    }
-  }
-);
-
-// =====================================================
-// PAYMENT SUCCESS
-// =====================================================
-
-app.get(
-  "/payment-success",
-  (req, res) => {
-
-    const type =
-      String(
-        req.query.type || ""
-      ).toLowerCase();
-
-    const reference =
-      String(
-        req.query.reference ||
-        ""
-      ).trim();
-
-    const isWallet =
-      type === "wallet";
-
-    const safeReference =
-      escapeHtml(
-        reference
-      );
-
-    const encodedReference =
-      encodeURIComponent(
-        reference
-      );
-
-    const verifyEndpoint =
-      isWallet
-        ? `/api/wallet/deposit/verify/${encodedReference}`
-        : `/api/payments/verify/${encodedReference}`;
-
-    const destination =
-      isWallet
-        ? "/account.html"
-        : "/orders.html";
-
-    res.send(`
-      <!DOCTYPE html>
-
-      <html lang="en">
-
-      <head>
-
-        <meta charset="UTF-8">
-
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1.0"
-        >
-
-        <title>
-          Payment Processing |
-          DHE GENIUS MEDIA
-        </title>
-
-        <style>
-
-          * {
-            box-sizing: border-box;
-          }
-
-          body {
-            margin: 0;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #07110d;
-            color: #ffffff;
-            font-family: Arial, sans-serif;
-            padding: 20px;
-          }
-
-          .card {
-            width: 100%;
-            max-width: 460px;
-            background: #0d1b15;
-            border: 1px solid
-              rgba(37, 211, 102, 0.25);
-            border-radius: 24px;
-            padding: 35px 25px;
-            text-align: center;
-            box-shadow:
-              0 20px 70px
-              rgba(0, 0, 0, 0.35);
-          }
-
-          .icon {
-            width: 70px;
-            height: 70px;
-            margin: 0 auto 20px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #25d366;
-            color: #07110d;
-            font-size: 34px;
-            font-weight: bold;
-          }
-
-          h1 {
-            margin: 0 0 10px;
-            font-size: 26px;
-          }
-
-          p {
-            color: #b9c9c1;
-            line-height: 1.6;
-          }
-
-          .reference {
-            margin: 22px 0;
-            padding: 15px;
-            background: #07110d;
-            border-radius: 14px;
-            color: #aab9b2;
-          }
-
-          .reference strong {
-            display: block;
-            margin-top: 5px;
-            color: #25d366;
-            word-break: break-all;
-          }
-
-          a {
-            display: block;
-            text-decoration: none;
-            background: #25d366;
-            color: #07110d;
-            padding: 14px;
-            border-radius: 12px;
-            font-weight: bold;
-            margin-top: 12px;
-          }
-
-          a.secondary {
-            background: #17251f;
-            color: #ffffff;
-          }
-
-        </style>
-
-      </head>
-
-      <body>
-
-        <div class="card">
-
-          <div class="icon">
-            ✓
-          </div>
-
-          <h1>
-            Verifying Payment
-          </h1>
-
-          <p>
-            Please wait while we securely
-            confirm your payment and update
-            your account.
-          </p>
-
-          ${
-            safeReference
-              ? `
-                <div class="reference">
-                  Reference:
-                  <strong>
-                    ${safeReference}
-                  </strong>
-                </div>
-              `
-              : ""
-          }
-
-          <a href="${destination}">
-            ${
-              isWallet
-                ? "View My Wallet"
-                : "View My Orders"
-            }
-          </a>
-
-          <a
-            href="/dashboard.html"
-            class="secondary"
-          >
-            Back to Dashboard
-          </a>
-
-        </div>
-
-        <script>
-
-          (async function () {
-
-            try {
-
-              const response =
-                await fetch(
-                  "${verifyEndpoint}",
-                  {
-                    credentials:
-                      "include",
-
-                    cache:
-                      "no-store"
-                  }
-                );
-
-              const data =
-                await response.json();
-
-              if (
-                data &&
-                data.success
-              ) {
-
-                setTimeout(
-                  () => {
-
-                    window.location.href =
-                      "${destination}";
-
-                  },
-                  1200
-                );
-              }
-
-            } catch (error) {
-
-              console.error(
-                "Payment verification error:",
-                error
-              );
-
-            }
-
-          })();
-
-        </script>
-
-      </body>
-
-      </html>
-    `);
-  }
-);
-
-// =====================================================
-// DATAMART BACKGROUND STATUS / FULFILLMENT SYNC
-// =====================================================
-
-let datamartSyncRunning =
-  false;
-
-async function syncProcessingDataOrders() {
-
-  if (datamartSyncRunning) {
-    return;
-  }
-
-  datamartSyncRunning =
-    true;
-
-  try {
-
-    const result =
-      await pool.query(
-        `
-        SELECT *
-        FROM orders
-        WHERE payment_status = 'Paid'
-          AND (
-            LOWER(service) = 'data'
-            OR LOWER(service) =
-              'data bundle'
-            OR LOWER(service) =
-              'data bundles'
-          )
-          AND status = 'Processing'
-        ORDER BY created_at ASC
-        LIMIT 50
-        `
-      );
-
-    if (!result.rows.length) {
-      return;
-    }
-
-    console.log(
-      `DataMart background sync: checking ${result.rows.length} processing order(s).`
-    );
-
-    for (
-      const order
-      of result.rows
-    ) {
-
-      try {
-
-        if (
-          order.datamart_reference
-        ) {
-
-          await syncDataMartOrder(
-            order
-          );
-
-          continue;
-        }
-
-        console.log(
-          `DataMart background fulfillment: ${order.order_ref} has no DataMart reference. Retrying fulfillment.`
-        );
-
-        const fulfillmentResult =
-          await fulfillDataOrder(
-            order
-          );
-
-        console.log(
-          `DataMart background fulfillment result: ${order.order_ref} -> ${
-            fulfillmentResult.status ||
-            "unknown"
-          }`
-        );
-
-      } catch (error) {
-
-        console.error(
-          `Background DataMart processing failed for ${order.order_ref}:`,
-          error.message
-        );
-      }
-    }
-
-  } catch (error) {
-
-    console.error(
-      "DataMart background sync error:",
-      error.message
-    );
-
-  } finally {
-
-    datamartSyncRunning =
-      false;
-  }
-}
-
-// =====================================================
-// SESSION CLEANUP
-// =====================================================
-
-let sessionCleanupRunning =
-  false;
-
-async function cleanupExpiredSessions() {
-
-  if (sessionCleanupRunning) {
-    return;
-  }
-
-  sessionCleanupRunning =
-    true;
-
-  try {
-
-    await pool.query(
-      `
-      DELETE FROM user_sessions
-      WHERE expire <= NOW()
-      `
-    );
-
-  } catch (error) {
-
-    console.error(
-      "Session cleanup error:",
-      error.message
-    );
-
-  } finally {
-
-    sessionCleanupRunning =
-      false;
-  }
-}
-
-// =====================================================
-// HEALTH CHECK
-// =====================================================
-
-app.get(
-  "/api/health",
-  async (req, res) => {
-
-    try {
-
-      await pool.query(
-        "SELECT 1"
-      );
-
-      return res.json({
-
-        success: true,
-
-        service:
-          "DHE GENIUS MEDIA",
-
-        status:
-          "online",
-
-        database:
-          "connected",
-
-        datamart:
-          DATAMART_API_KEY &&
-          DATAMART_API_SECRET &&
-          DATAMART_REF_PREFIX
-            ? "configured"
-            : "incomplete",
-
-        paystack:
-          PAYSTACK_SECRET_KEY
-            ? "configured"
-            : "not configured"
-      });
-
-    } catch (error) {
-
-      console.error(
-        "Health check error:",
-        error
-      );
-
-      return res
-        .status(500)
-        .json({
-
-          success: false,
-
-          service:
-            "DHE GENIUS MEDIA",
-
-          status:
-            "online",
-
-          database:
-            "error",
-
-          datamart:
-            DATAMART_API_KEY &&
-            DATAMART_API_SECRET &&
-            DATAMART_REF_PREFIX
-              ? "configured"
-              : "incomplete",
-
-          paystack:
-            PAYSTACK_SECRET_KEY
-              ? "configured"
-              : "not configured"
-        });
-    }
-  }
-);
-
-// =====================================================
-// LIVE SPORTS API
-// =====================================================
-
-async function sportsApiRequest(endpoint, params = {}) {
-  if (!SPORTS_API_KEY) {
-    const error = new Error("SPORTS_API_KEY is not configured.");
-    error.code = "SPORTS_API_NOT_CONFIGURED";
-    throw error;
-  }
-
-  const url = new URL(SPORTS_API_BASE + endpoint);
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== "") {
-      url.searchParams.set(key, String(value));
-    }
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10000);
-
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        "x-apisports-key": SPORTS_API_KEY,
-        "Accept": "application/json"
-      },
-      signal: controller.signal
-    });
-
-    const text = await response.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = { message: text };
-    }
-
-    if (!response.ok) {
-      const error = new Error(
-        "Sports API HTTP " + response.status + ": " +
-        (data.message || data.errors?.message || text || "Request failed")
-      );
-      error.status = response.status;
-      throw error;
-    }
-
-    if (Array.isArray(data.errors) && data.errors.length) {
-      const message = Object.values(data.errors).join("; ");
-      const error = new Error("Sports API error: " + message);
-      error.status = 502;
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    if (error.name === "AbortError") {
-      throw new Error("Sports API request timed out.");
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function normalizeLiveFixture(fixture) {
-  const f = fixture?.fixture || {};
-  const teams = fixture?.teams || {};
-  const goals = fixture?.goals || {};
-  const league = fixture?.league || {};
-  const status = f.status || {};
-
-  return {
-    id: f.id,
-    date: f.date,
-    timestamp: f.timestamp,
-    timezone: f.timezone || "UTC",
-    status: {
-      short: status.short || "",
-      long: status.long || "",
-      elapsed: status.elapsed ?? null
-    },
-    league: {
-      id: league.id,
-      name: league.name || "",
-      country: league.country || "",
-      logo: league.logo || ""
-    },
-    teams: {
-      home: {
-        id: teams.home?.id,
-        name: teams.home?.name || "",
-        logo: teams.home?.logo || "",
-        winner: teams.home?.winner ?? null
-      },
-      away: {
-        id: teams.away?.id,
-        name: teams.away?.name || "",
-        logo: teams.away?.logo || "",
-        winner: teams.away?.winner ?? null
-      }
-    },
-    score: {
-      home: goals.home ?? 0,
-      away: goals.away ?? 0,
-      halftime_home: goals.halftime?.home ?? null,
-      halftime_away: goals.halftime?.away ?? null
-    }
-  };
-}
-
-app.get("/api/sports/status", async (req, res) => {
-  return res.json({
-    success: true,
-    configured: Boolean(SPORTS_API_KEY),
-    provider: "API-Football",
-    live_update_source: "fixtures?live=all"
-  });
-});
-
-app.get("/api/sports/live", async (req, res) => {
-  try {
-    if (!SPORTS_API_KEY) {
-      return res.status(503).json({
-        success: false,
-        configured: false,
-        message: "Live scores are not configured yet. Add SPORTS_API_KEY in Render environment variables."
-      });
-    }
-
-    const data = await sportsApiRequest("/fixtures", { live: "all" });
-    const matches = Array.isArray(data.response)
-      ? data.response.map(normalizeLiveFixture)
-      : [];
-
-    return res.json({
-      success: true,
-      provider: "API-Football",
-      updated_at: new Date().toISOString(),
-      count: matches.length,
-      matches
-    });
-  } catch (error) {
-    console.error("Live sports API error:", error.message);
-    return res.status(502).json({
-      success: false,
-      message: "Could not load live scores right now.",
-      configured: Boolean(SPORTS_API_KEY)
-    });
-  }
-});
-
-app.get("/api/sports/fixtures", async (req, res) => {
-  try {
-    if (!SPORTS_API_KEY) {
-      return res.status(503).json({
-        success: false,
-        configured: false,
-        message: "Sports API is not configured."
-      });
-    }
-
-    const date = String(req.query.date || "").trim();
-    const league = String(req.query.league || "").trim();
-    const season = String(req.query.season || "").trim();
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid date is required in YYYY-MM-DD format."
-      });
-    }
-
-    const params = { date };
-    if (league) params.league = league;
-    if (season) params.season = season;
-
-    const data = await sportsApiRequest("/fixtures", params);
-    const matches = Array.isArray(data.response)
-      ? data.response.map(normalizeLiveFixture)
-      : [];
-
-    return res.json({
-      success: true,
-      provider: "API-Football",
-      date,
-      updated_at: new Date().toISOString(),
-      count: matches.length,
-      matches
-    });
-  } catch (error) {
-    console.error("Sports fixtures API error:", error.message);
-    return res.status(502).json({
-      success: false,
-      message: "Could not load fixtures right now.",
-      configured: Boolean(SPORTS_API_KEY)
-    });
-  }
-});
-
-// =====================================================
-// LIVE MATCH DETAILS
-// =====================================================
-
-app.get("/api/sports/match/:id", async (req, res) => {
-  try {
-    if (!SPORTS_API_KEY) {
-      return res.status(503).json({
-        success: false,
-        configured: false,
-        message: "Sports API is not configured."
-      });
-    }
-
-    const fixtureId = String(req.params.id || "").trim();
-
-    if (!/^\d+$/.test(fixtureId)) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid fixture ID is required."
-      });
-    }
-
-    const [fixtureData, eventsData, statsData, lineupsData] =
-      await Promise.all([
-        sportsApiRequest("/fixtures", { id: fixtureId }),
-        sportsApiRequest("/fixtures/events", { fixture: fixtureId }),
-        sportsApiRequest("/fixtures/statistics", { fixture: fixtureId }),
-        sportsApiRequest("/fixtures/lineups", { fixture: fixtureId })
-      ]);
-
-    const fixture = Array.isArray(fixtureData.response)
-      ? fixtureData.response[0]
-      : null;
-
-    if (!fixture) {
-      return res.status(404).json({
-        success: false,
-        message: "Match not found."
-      });
-    }
-
-    const events = Array.isArray(eventsData.response)
-      ? eventsData.response.map(event => ({
-          time: event.time || {},
-          team: event.team || {},
-          player: event.player || {},
-          assist: event.assist || {},
-          type: event.type || "",
-          detail: event.detail || "",
-          comments: event.comments || null
-        }))
-      : [];
-
-    const statistics = Array.isArray(statsData.response)
-      ? statsData.response
-      : [];
-
-    const lineups = Array.isArray(lineupsData.response)
-      ? lineupsData.response
-      : [];
-
-    return res.json({
-      success: true,
-      provider: "API-Football",
-      updated_at: new Date().toISOString(),
-      match: normalizeLiveFixture(fixture),
-      venue: fixture.fixture?.venue || {},
-      referee: fixture.fixture?.referee || null,
-      events,
-      statistics,
-      lineups
-    });
-  } catch (error) {
-    console.error("Sports match details error:", error.message);
-    return res.status(502).json({
-      success: false,
-      message: "Could not load match details right now.",
-      configured: Boolean(SPORTS_API_KEY)
-    });
-  }
-});
-
-app.get("/api/sports/events/:id", async (req, res) => {
-  try {
-    if (!SPORTS_API_KEY) {
-      return res.status(503).json({
-        success: false,
-        configured: false,
-        message: "Sports API is not configured."
-      });
-    }
-
-    const fixtureId = String(req.params.id || "").trim();
-
-    if (!/^\d+$/.test(fixtureId)) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid fixture ID is required."
-      });
-    }
-
-    const data = await sportsApiRequest("/fixtures/events", {
-      fixture: fixtureId
-    });
-
-    const events = Array.isArray(data.response)
-      ? data.response
-      : [];
-
-    return res.json({
-      success: true,
-      provider: "API-Football",
-      updated_at: new Date().toISOString(),
-      fixture_id: Number(fixtureId),
-      count: events.length,
-      events
-    });
-  } catch (error) {
-    console.error("Sports match events error:", error.message);
-    return res.status(502).json({
-      success: false,
-      message: "Could not load match events right now.",
-      configured: Boolean(SPORTS_API_KEY)
-    });
-  }
-});
-
-// =====================================================
-// DGM MOVIE PLAYBACK
-// Only DGM-controlled or otherwise authorized/licensed video
-// sources should be registered here.
-// =====================================================
-
-app.get("/api/movies/playback/:id", async (req, res) => {
-  try {
-    const tmdbId = Number(req.params.id);
-    if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
-      return res.status(400).json({ success: false, message: "Invalid movie ID." });
-    }
-
-    const result = await pool.query(
-      `
-      SELECT tmdb_id, title, playback_url, playback_type, expires_at
-      FROM movie_playback
-      WHERE tmdb_id = $1
-        AND active = TRUE
-        AND (expires_at IS NULL OR expires_at > NOW())
-      LIMIT 1
-      `,
-      [tmdbId]
-    );
-
-    if (!result.rows.length) {
-      return res.json({
-        success: true,
-        available: false,
-        message: "Full-movie playback is not configured for this title."
-      });
-    }
-
-    const row = result.rows[0];
-
-    return res.json({
-      success: true,
-      available: true,
-      tmdb_id: row.tmdb_id,
-      title: row.title || "",
-      playback_type: row.playback_type,
-      playback_url: row.playback_url,
-      expires_at: row.expires_at
-    });
-  } catch (error) {
-    console.error("Movie playback lookup error:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Could not load movie playback."
-    });
-  }
-});
-
-app.post("/api/admin/movies/playback", async (req, res) => {
-  try {
-    if (!req.session || !req.session.adminAuthenticated) return res.status(401).json({ success: false, message: "Admin authentication required." });
-
-    const tmdbId = Number(req.body?.tmdb_id);
-    const title = String(req.body?.title || "").trim().slice(0, 300);
-    const playbackUrl = String(req.body?.playback_url || "").trim();
-    const playbackType = String(req.body?.playback_type || "hls").trim().toLowerCase();
-    const expiresAt = req.body?.expires_at ? new Date(req.body.expires_at) : null;
-
-    if (!Number.isInteger(tmdbId) || tmdbId <= 0) {
-      return res.status(400).json({ success: false, message: "A valid TMDB movie ID is required." });
-    }
-
-    if (!/^https:\/\//i.test(playbackUrl)) {
-      return res.status(400).json({ success: false, message: "Playback URL must use HTTPS." });
-    }
-
-    if (!["hls", "mp4"].includes(playbackType)) {
-      return res.status(400).json({ success: false, message: "playback_type must be hls or mp4." });
-    }
-
-    if (expiresAt && Number.isNaN(expiresAt.getTime())) {
-      return res.status(400).json({ success: false, message: "Invalid expires_at value." });
-    }
-
-    const result = await pool.query(
-      `
-      INSERT INTO movie_playback
-        (tmdb_id, title, playback_url, playback_type, active, expires_at, updated_at)
-      VALUES
-        ($1, $2, $3, $4, TRUE, $5, NOW())
-      ON CONFLICT (tmdb_id)
-      DO UPDATE SET
-        title = EXCLUDED.title,
-        playback_url = EXCLUDED.playback_url,
-        playback_type = EXCLUDED.playback_type,
-        active = TRUE,
-        expires_at = EXCLUDED.expires_at,
-        updated_at = NOW()
-      RETURNING tmdb_id, title, playback_type, active, expires_at, updated_at
-      `,
-      [tmdbId, title || null, playbackUrl, playbackType, expiresAt]
-    );
-
-    return res.json({
-      success: true,
-      message: "Authorized movie playback source saved.",
-      movie: result.rows[0]
-    });
-  } catch (error) {
-    console.error("Movie playback admin error:", error.message);
-    return res.status(500).json({
-      success: false,
-      message: "Could not save movie playback source."
-    });
-  }
-});
-
-// =====================================================
-// STATIC FILES
-// =====================================================
-
-const publicDir =
-  path.join(
-    __dirname,
-    "public"
-  );
-
-app.use(
-  express.static(
-    publicDir,
-    {
-      extensions: ["html"],
-
-      index: false,
-
-      redirect: false
-    }
-  )
-);
-
-// =====================================================
-// FRONTEND ROUTES
-// =====================================================
-
-function servePage(
-  fileName
-) {
-
-  return (req, res) => {
-
-    res.sendFile(
-      path.join(
-        publicDir,
-        fileName
-      )
-    );
-  };
-}
-
-app.get(["/admin", "/admin.html"], servePage("admin.html"));
-app.get(["/admin-login", "/admin-login.html"], servePage("admin-login.html"));
-
-app.get(
-  [
-    "/",
-    "/index.html"
-  ],
-  servePage(
-    "index.html"
-  )
-);
-
-app.get(
-  [
-    "/login",
-    "/login.html"
-  ],
-  servePage(
-    "login.html"
-  )
-);
-
-app.get(
-  [
-    "/register",
-    "/register.html"
-  ],
-  servePage(
-    "register.html"
-  )
-);
-
-app.get(
-  [
-    "/dashboard",
-    "/dashboard.html"
-  ],
-  servePage(
-    "dashboard.html"
-  )
-);
-
-app.get(
-  [
-    "/data",
-    "/buy-data",
-    "/data.html"
-  ],
-  servePage(
-    "data.html"
-  )
-);
-
-app.get(
-  [
-    "/airtime",
-    "/airtime.html"
-  ],
-  servePage(
-    "airtime.html"
-  )
-);
-
-app.get(
-  [
-    "/orders",
-    "/orders.html"
-  ],
-  servePage(
-    "orders.html"
-  )
-);
-
-app.get(
-  [
-    "/account",
-    "/account.html"
-  ],
-  servePage(
-    "account.html"
-  )
-);
-
-app.get(
-  [
-    "/service",
-    "/service.html",
-    "/services",
-    "/services.html"
-  ],
-  servePage(
-    "service.html"
-  )
-);
-
-// =====================================================
-// DGM PUBLIC AIRTIME API v1
-// =====================================================
-
-app.get(
-  "/api/v1",
-  requireDgmApiKey,
-  dgmApiRateLimit,
-  (req, res) => {
-    return res.json({
-      success: true,
-      name: "DHE GENIUS MEDIA API",
-      version: "1.0.0",
-      base_url: `${BASE_URL}/api/v1`,
-      authentication: {
-        type: "API Key",
-        header: "X-DGM-API-Key",
-        alternative: "Authorization: Bearer <API_KEY>"
-      },
-      endpoints: {
-        purchase: "POST /airtime/purchase",
-        status: "GET /airtime/status/:reference",
-        networks: "GET /networks",
-        health: "GET /health",
-        documentation: "GET /docs"
-      }
-    });
-  }
-);
-
-app.get(
-  "/api/v1/health",
-  requireDgmApiKey,
-  dgmApiRateLimit,
-  (req, res) => {
-    return res.json({
-      success: true,
-      service: "DHE GENIUS MEDIA API",
-      version: "1.0.0",
-      status: "online",
-      airtime_fulfillment: "not_connected"
-    });
-  }
-);
-
-app.get(
-  "/api/v1/networks",
-  requireDgmApiKey,
-  dgmApiRateLimit,
-  (req, res) => {
-    return res.json({
-      success: true,
-      networks: [
-        { code: "MTN", name: "MTN Ghana" },
-        { code: "Telecel", name: "Telecel Ghana" },
-        { code: "AirtelTigo", name: "AirtelTigo Ghana" }
-      ]
-    });
-  }
-);
-
-app.get(
-  "/api/v1/docs",
-  requireDgmApiKey,
-  dgmApiRateLimit,
-  (req, res) => {
-    return res.json({
-      openapi: "3.1.0",
-      info: {
-        title: "DHE GENIUS MEDIA API",
-        version: "1.0.0",
-        description:
-          "DGM Airtime API. Airtime requests remain Pending until an authorized fulfillment provider is connected."
-      },
-      servers: [{ url: `${BASE_URL}/api/v1` }],
-      security: [{ DgmApiKey: [] }],
-      components: {
-        securitySchemes: {
-          DgmApiKey: {
-            type: "apiKey",
-            in: "header",
-            name: "X-DGM-API-Key"
-          }
-        }
-      },
-      paths: {
-        "/airtime/purchase": {
-          post: {
-            summary: "Create an airtime purchase",
-            parameters: [{
-              name: "X-Idempotency-Key",
-              in: "header",
-              required: false,
-              schema: { type: "string" }
-            }],
-            requestBody: {
-              required: true,
-              content: {
-                "application/json": {
-                  schema: {
-                    type: "object",
-                    required: ["network", "phone", "amount"],
-                    properties: {
-                      network: {
-                        type: "string",
-                        enum: ["MTN", "Telecel", "AirtelTigo"]
-                      },
-                      phone: {
-                        type: "string",
-                        example: "0241518385"
-                      },
-                      amount: {
-                        type: "number",
-                        minimum: 1,
-                        maximum: 500,
-                        example: 10
-                      },
-                      reference: {
-                        type: "string",
-                        example: "MY-ORDER-001"
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "/airtime/status/{reference}": {
-          get: {
-            summary: "Get airtime order status",
-            parameters: [{
-              name: "reference",
-              in: "path",
-              required: true,
-              schema: { type: "string" }
-            }]
-          }
-        }
-      }
-    });
-  }
-);
-
-app.post(
-  "/api/v1/airtime/purchase",
-  requireDgmApiKey,
-  dgmApiRateLimit,
-  async (req, res) => {
-    try {
-      const network = String(req.body?.network || "").trim();
-      const phone = normalizeGhanaPhone(req.body?.phone);
-      const amount = Number(req.body?.amount);
-      const clientReference = String(
-        req.body?.reference ||
-        req.get("X-Idempotency-Key") ||
-        ""
-      ).trim();
-      const idempotencyKey = String(
-        req.get("X-Idempotency-Key") ||
-        clientReference ||
-        ""
-      ).trim();
-
-      const allowedNetworks = ["MTN", "Telecel", "AirtelTigo"];
-
-      if (!allowedNetworks.includes(network)) {
-        return sendError(
-          res,
-          400,
-          "Invalid network. Use MTN, Telecel, or AirtelTigo."
-        );
-      }
-
-      if (!validGhanaPhone(phone)) {
-        return sendError(res, 400, "Invalid Ghana phone number.");
-      }
-
-      if (!Number.isFinite(amount) || amount < 1 || amount > 500) {
-        return sendError(
-          res,
-          400,
-          "Airtime amount must be between GH₵1 and GH₵500."
-        );
-      }
-
-      if (idempotencyKey.length > 150) {
-        return sendError(res, 400, "Idempotency key is too long.");
-      }
-
-      if (idempotencyKey) {
-        const existing = await pool.query(
-          `
-          SELECT *
-          FROM api_airtime_orders
-          WHERE idempotency_key = $1
-          LIMIT 1
-          `,
-          [idempotencyKey]
-        );
-
-        if (existing.rows.length) {
-          return res.json({
-            success: true,
-            duplicate: true,
-            order: existing.rows[0],
-            message:
-              "Existing airtime request returned for this idempotency key."
-          });
-        }
-      }
-
-      const reference =
-        clientReference || createAirtimeApiReference();
-
-      const existingReference = await pool.query(
-        `
-        SELECT *
-        FROM api_airtime_orders
-        WHERE reference = $1
-        LIMIT 1
-        `,
-        [reference]
-      );
-
-      if (existingReference.rows.length) {
-        return res.status(409).json({
-          success: false,
-          message: "This airtime reference already exists.",
-          order: existingReference.rows[0]
-        });
-      }
-
-      const result = await pool.query(
-        `
-        INSERT INTO api_airtime_orders (
-          reference,
-          idempotency_key,
-          network,
-          phone,
-          amount,
-          status,
-          message
-        )
-        VALUES (
-          $1,
-          $2,
-          $3,
-          $4,
-          $5,
-          'Pending',
-          $6
-        )
-        RETURNING *
-        `,
-        [
-          reference,
-          idempotencyKey || null,
-          network,
-          phone,
-          amount,
-          "Airtime request accepted. Fulfillment provider is not connected yet."
-        ]
-      );
-
-      return res.status(202).json({
-        success: true,
-        status: "Pending",
-        reference,
-        order: result.rows[0],
-        message:
-          "Airtime request accepted. Delivery remains Pending until an authorized airtime fulfillment provider is connected."
-      });
-    } catch (error) {
-      console.error("DGM Airtime API purchase error:", error);
-      return sendError(
-        res,
-        500,
-        "Could not create airtime API order."
-      );
-    }
-  }
-);
-
-app.get(
-  "/api/v1/airtime/status/:reference",
-  requireDgmApiKey,
-  dgmApiRateLimit,
-  async (req, res) => {
-    try {
-      const reference =
-        String(req.params.reference || "").trim();
-
-      if (!reference) {
-        return sendError(
-          res,
-          400,
-          "Airtime reference is required."
-        );
-      }
-
-      const result = await pool.query(
-        `
-        SELECT
-          reference,
-          network,
-          phone,
-          amount,
-          status,
-          message,
-          provider_reference,
-          provider_status,
-          created_at,
-          updated_at,
-          completed_at
-        FROM api_airtime_orders
-        WHERE reference = $1
-        LIMIT 1
-        `,
-        [reference]
-      );
-
-      if (!result.rows.length) {
-        return sendError(
-          res,
-          404,
-          "Airtime order not found."
-        );
-      }
-
-      const order = result.rows[0];
-
-      return res.json({
-        success: true,
-        reference: order.reference,
-        status: order.status,
-        network: order.network,
-        phone: order.phone,
-        amount: Number(order.amount || 0),
-        message: order.message,
-        provider_reference: order.provider_reference,
-        provider_status: order.provider_status,
-        created_at: order.created_at,
-        updated_at: order.updated_at,
-        completed_at: order.completed_at
-      });
-    } catch (error) {
-      console.error("DGM Airtime API status error:", error);
-      return sendError(
-        res,
-        500,
-        "Could not load airtime order status."
-      );
     }
   }
 );
@@ -7957,6 +5498,13 @@ async function startServer() {
             setInterval(
               syncProcessingDataOrders,
               15000
+            );
+
+            syncKingflexyAirtimeOrders();
+
+            setInterval(
+              syncKingflexyAirtimeOrders,
+              20000
             );
 
           },
