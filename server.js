@@ -360,7 +360,8 @@ app.get("/api/movies/:id", async (req, res) => {
         name: video.name,
         type: video.type,
         official: Boolean(video.official),
-        url: `https://www.youtube.com/watch?v=${video.key}`
+        url: `https://www.youtube.com/watch?v=${video.key}`,
+        youtube_embed_url: `https://www.youtube.com/embed/${video.key}`
       }));
 
     const providerResults = watchProviders.results || {};
@@ -377,6 +378,12 @@ app.get("/api/movies/:id", async (req, res) => {
     res.json({
       success: true,
       provider: "TMDB",
+      playback: {
+        full_movie_hosted_by_dgm: false,
+        message:
+          "DGM provides movie discovery and official availability information. Full movies are not hosted by DGM.",
+        trailer_playback: "embedded"
+      },
       movie: tmdbDetail(movie),
       cast,
       trailers,
