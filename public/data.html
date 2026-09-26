@@ -728,6 +728,7 @@
       filter:drop-shadow(0 5px 10px rgba(0,0,0,.18));
     }
 
+  .bundle{overflow:hidden;padding:0;min-height:145px;display:flex;flex-direction:column;justify-content:flex-end;background:#0b1722}.bundle-brand{position:absolute;inset:0 0 auto 0;height:76px;display:flex;align-items:center;justify-content:space-between;padding:13px 14px;overflow:hidden}.bundle-brand.mtn{background:linear-gradient(135deg,#ffd21a,#f3b900);color:#111}.bundle-brand.at{background:linear-gradient(135deg,#ef3340,#b80024);color:#fff}.bundle-brand.telecel{background:linear-gradient(135deg,#ef233c,#b50925);color:#fff}.bundle-logo{width:42px;height:42px;position:relative;z-index:1}.bundle-logo svg{width:100%;height:100%;display:block}.bundle-network{position:relative;z-index:1;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;text-align:right}.bundle-content{position:relative;z-index:2;padding:14px;margin-top:58px;background:linear-gradient(180deg,rgba(11,23,34,.04),rgba(11,23,34,.98) 28%)}.bundle-name{font-size:21px;margin-bottom:3px}.bundle-price{font-size:16px;color:#fff;display:inline-flex;padding:4px 8px;border-radius:8px;background:rgba(37,211,102,.12);border:1px solid rgba(37,211,102,.16)}.bundle-validity{margin-top:7px}.bundle.selected{border-color:#25d366;box-shadow:0 0 0 1px rgba(37,211,102,.15),0 14px 30px rgba(0,0,0,.22)}
   </style>
 
 </head>
@@ -1294,24 +1295,16 @@
             "bundle";
 
 
+          const brandClass = selectedNetwork === "MTN" ? "mtn" : selectedNetwork === "AirtelTigo" ? "at" : "telecel";
+          const brandLogo = selectedNetwork === "MTN"
+            ? `<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="#ffcb05"/><circle cx="32" cy="32" r="26" fill="none" stroke="#111" stroke-width="2"/><text x="32" y="38" text-anchor="middle" font-family="Arial" font-size="14" font-weight="900">MTN</text></svg>`
+            : selectedNetwork === "AirtelTigo"
+              ? `<svg viewBox="0 0 64 64"><rect x="2" y="2" width="60" height="60" rx="17" fill="#fff"/><path d="M15 43 C18 27 27 15 45 15" fill="none" stroke="#e21b2d" stroke-width="7" stroke-linecap="round"/><path d="M27 48 C34 42 41 36 48 27" fill="none" stroke="#1670c9" stroke-width="7" stroke-linecap="round"/><text x="32" y="38" text-anchor="middle" font-family="Arial" font-size="14" font-weight="900" fill="#e21b2d">AT</text></svg>`
+              : `<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="#e31b35"/><path d="M18 20 H46 M32 20 V46" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="32" r="7" fill="#fff"/></svg>`;
           button.innerHTML = `
-
-            <div class="check">
-              ✓
-            </div>
-
-            <div class="bundle-name">
-              ${size}
-            </div>
-
-            <div class="bundle-price">
-              GH₵${price.toFixed(2)}
-            </div>
-
-            <div class="bundle-validity">
-              Validity: 90 days
-            </div>
-
+            <div class="bundle-brand ${brandClass}"><span class="bundle-logo">${brandLogo}</span><span class="bundle-network">${selectedNetwork === "AirtelTigo" ? "AirtelTigo / AT" : selectedNetwork}</span></div>
+            <div class="check">✓</div>
+            <div class="bundle-content"><div class="bundle-name">${size}</div><div class="bundle-price">GH₵${price.toFixed(2)}</div><div class="bundle-validity">Validity: 90 days</div></div>
           `;
 
 
