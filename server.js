@@ -1198,7 +1198,12 @@ function mapDataMartStatus(
     status === "completed" ||
     status === "complete" ||
     status === "success" ||
-    status === "successful"
+    status === "successful" ||
+    status === "delivered" ||
+    status === "delivery_success" ||
+    status === "delivery_successful" ||
+    status === "fulfilled" ||
+    status === "successful_delivery"
   ) {
 
     return "Completed";
@@ -1206,9 +1211,12 @@ function mapDataMartStatus(
 
   if (
     status === "failed" ||
+    status === "failure" ||
     status === "refunded" ||
     status === "cancelled" ||
-    status === "canceled"
+    status === "canceled" ||
+    status === "reversed" ||
+    status === "declined"
   ) {
 
     return "Failed";
@@ -1218,7 +1226,10 @@ function mapDataMartStatus(
     status === "pending" ||
     status === "waiting" ||
     status === "processing" ||
-    status === "queued"
+    status === "queued" ||
+    status === "in_progress" ||
+    status === "in-progress" ||
+    status === "initiated"
   ) {
 
     return "Processing";
@@ -1294,19 +1305,40 @@ async function syncDataMartOrder(
       result ||
       {};
 
+    const possibleStatuses = [
+      data.orderStatus,
+      data.order_status,
+      data.status,
+      data.order?.orderStatus,
+      data.order?.order_status,
+      data.order?.status,
+      data.transaction?.status,
+      data.transactionStatus,
+      data.transaction_status
+    ];
+
     const datamartStatus =
+      possibleStatuses.find(
+        value =>
+          value !== undefined &&
+          value !== null &&
+          String(value).trim() !== ""
+      );
+
+    const normalizedStatus =
       String(
-        data.orderStatus ||
-        data.order_status ||
-        data.status ||
-        ""
+        datamartStatus || ""
       )
         .trim()
         .toLowerCase();
 
+    console.log(
+      `DataMart status response: ${order.order_ref} | status: ${normalizedStatus || "unknown"} | reference: ${order.datamart_reference}`
+    );
+
     const localStatus =
       mapDataMartStatus(
-        datamartStatus
+        normalizedStatus
       );
 
     await pool.query(
@@ -1318,7 +1350,7 @@ async function syncDataMartOrder(
       WHERE id = $3
       `,
       [
-        datamartStatus ||
+        normalizedStatus ||
           "unknown",
 
         localStatus,
@@ -1328,7 +1360,7 @@ async function syncDataMartOrder(
     );
 
     console.log(
-      `DataMart status sync: ${order.order_ref} -> ${datamartStatus} -> ${localStatus}`
+      `DataMart status sync: ${order.order_ref} -> ${normalizedStatus || "unknown"} -> ${localStatus}`
     );
 
     return {
@@ -1338,7 +1370,7 @@ async function syncDataMartOrder(
         localStatus,
 
       datamartStatus:
-        datamartStatus ||
+        normalizedStatus ||
         "unknown",
 
       data
