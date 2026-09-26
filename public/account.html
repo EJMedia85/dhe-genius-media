@@ -702,168 +702,6 @@
     .account-modal-message.success { color:#25d366; }
 
     /* =========================
-       ACCOUNT SECURITY
-    ========================= */
-
-    function openPasswordModal() {
-      const modal = document.getElementById("passwordModal");
-      document.getElementById("passwordMessage").textContent = "";
-      document.getElementById("passwordMessage").className = "account-modal-message";
-      modal.classList.add("show");
-      setTimeout(() => {
-        document.getElementById("currentPassword").focus();
-      }, 100);
-    }
-
-    function openSettingsModal() {
-      const modal = document.getElementById("settingsModal");
-      const name = currentUser?.name || currentUser?.full_name || "";
-      const phone = currentUser?.phone || currentUser?.phone_number || "";
-      const email = currentUser?.email || "";
-
-      document.getElementById("settingsName").value = name;
-      document.getElementById("settingsPhone").value = phone;
-      document.getElementById("settingsEmail").value = email;
-      document.getElementById("settingsMessage").textContent = "";
-      document.getElementById("settingsMessage").className = "account-modal-message";
-      modal.classList.add("show");
-    }
-
-    function closeAccountModal(event, id) {
-      if (event && event.target && event.target.id !== id) return;
-      document.getElementById(id).classList.remove("show");
-    }
-
-    async function changePassword() {
-      const button = document.getElementById("passwordSaveBtn");
-      const message = document.getElementById("passwordMessage");
-
-      const currentPassword = document.getElementById("currentPassword").value;
-      const newPassword = document.getElementById("newPassword").value;
-      const confirmPassword = document.getElementById("confirmPassword").value;
-
-      message.className = "account-modal-message";
-      message.textContent = "";
-
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        message.textContent = "Please complete all password fields.";
-        return;
-      }
-
-      if (newPassword.length < 8) {
-        message.textContent = "New password must be at least 8 characters.";
-        return;
-      }
-
-      if (newPassword !== confirmPassword) {
-        message.textContent = "New passwords do not match.";
-        return;
-      }
-
-      button.disabled = true;
-      button.textContent = "Updating...";
-
-      try {
-        const response = await fetch("/api/account/change-password", {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({
-            currentPassword,
-            newPassword,
-            confirmPassword
-          })
-        });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-          throw new Error(data.message || data.error || "Could not change password.");
-        }
-
-        message.className = "account-modal-message success";
-        message.textContent = data.message || "Password changed successfully.";
-
-        document.getElementById("currentPassword").value = "";
-        document.getElementById("newPassword").value = "";
-        document.getElementById("confirmPassword").value = "";
-
-        setTimeout(() => {
-          closeAccountModal(null, "passwordModal");
-        }, 1200);
-      } catch (error) {
-        console.error("Change password error:", error);
-        message.textContent = error.message || "Could not change password.";
-      } finally {
-        button.disabled = false;
-        button.textContent = "Update Password";
-      }
-    }
-
-    async function saveAccountSettings() {
-      const button = document.getElementById("settingsSaveBtn");
-      const message = document.getElementById("settingsMessage");
-
-      const name = document.getElementById("settingsName").value.trim();
-      const phone = document.getElementById("settingsPhone").value.trim();
-      const email = document.getElementById("settingsEmail").value.trim();
-
-      message.className = "account-modal-message";
-      message.textContent = "";
-
-      if (!name || !phone || !email) {
-        message.textContent = "Please complete all account fields.";
-        return;
-      }
-
-      button.disabled = true;
-      button.textContent = "Saving...";
-
-      try {
-        const response = await fetch("/api/account/settings", {
-          method: "PUT",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            "Accept": "application/json"
-          },
-          body: JSON.stringify({ name, phone, email })
-        });
-
-        const data = await response.json().catch(() => ({}));
-
-        if (response.status === 401) {
-          window.location.href = "/login.html";
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error(data.message || data.error || "Could not update account settings.");
-        }
-
-        currentUser = data.customer || currentUser;
-
-        renderAccount(currentUser);
-
-        message.className = "account-modal-message success";
-        message.textContent = data.message || "Account settings updated successfully.";
-
-        setTimeout(() => {
-          closeAccountModal(null, "settingsModal");
-        }, 1200);
-      } catch (error) {
-        console.error("Account settings error:", error);
-        message.textContent = error.message || "Could not update account settings.";
-      } finally {
-        button.disabled = false;
-        button.textContent = "Save Changes";
-      }
-    }
-
-    /* =========================
        LOGOUT
     ========================= */
 
@@ -2810,6 +2648,170 @@
       });
 
     }
+
+
+    /* =========================
+       ACCOUNT SECURITY
+    ========================= */
+
+    function openPasswordModal() {
+      const modal = document.getElementById("passwordModal");
+      document.getElementById("passwordMessage").textContent = "";
+      document.getElementById("passwordMessage").className = "account-modal-message";
+      modal.classList.add("show");
+      setTimeout(() => {
+        document.getElementById("currentPassword").focus();
+      }, 100);
+    }
+
+    function openSettingsModal() {
+      const modal = document.getElementById("settingsModal");
+      const name = currentUser?.name || currentUser?.full_name || "";
+      const phone = currentUser?.phone || currentUser?.phone_number || "";
+      const email = currentUser?.email || "";
+
+      document.getElementById("settingsName").value = name;
+      document.getElementById("settingsPhone").value = phone;
+      document.getElementById("settingsEmail").value = email;
+      document.getElementById("settingsMessage").textContent = "";
+      document.getElementById("settingsMessage").className = "account-modal-message";
+      modal.classList.add("show");
+    }
+
+    function closeAccountModal(event, id) {
+      if (event && event.target && event.target.id !== id) return;
+      document.getElementById(id).classList.remove("show");
+    }
+
+    async function changePassword() {
+      const button = document.getElementById("passwordSaveBtn");
+      const message = document.getElementById("passwordMessage");
+
+      const currentPassword = document.getElementById("currentPassword").value;
+      const newPassword = document.getElementById("newPassword").value;
+      const confirmPassword = document.getElementById("confirmPassword").value;
+
+      message.className = "account-modal-message";
+      message.textContent = "";
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        message.textContent = "Please complete all password fields.";
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        message.textContent = "New password must be at least 8 characters.";
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        message.textContent = "New passwords do not match.";
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Updating...";
+
+      try {
+        const response = await fetch("/api/account/change-password", {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+            confirmPassword
+          })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.message || data.error || "Could not change password.");
+        }
+
+        message.className = "account-modal-message success";
+        message.textContent = data.message || "Password changed successfully.";
+
+        document.getElementById("currentPassword").value = "";
+        document.getElementById("newPassword").value = "";
+        document.getElementById("confirmPassword").value = "";
+
+        setTimeout(() => {
+          closeAccountModal(null, "passwordModal");
+        }, 1200);
+      } catch (error) {
+        console.error("Change password error:", error);
+        message.textContent = error.message || "Could not change password.";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Update Password";
+      }
+    }
+
+    async function saveAccountSettings() {
+      const button = document.getElementById("settingsSaveBtn");
+      const message = document.getElementById("settingsMessage");
+
+      const name = document.getElementById("settingsName").value.trim();
+      const phone = document.getElementById("settingsPhone").value.trim();
+      const email = document.getElementById("settingsEmail").value.trim();
+
+      message.className = "account-modal-message";
+      message.textContent = "";
+
+      if (!name || !phone || !email) {
+        message.textContent = "Please complete all account fields.";
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Saving...";
+
+      try {
+        const response = await fetch("/api/account/settings", {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({ name, phone, email })
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (response.status === 401) {
+          window.location.href = "/login.html";
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(data.message || data.error || "Could not update account settings.");
+        }
+
+        currentUser = data.customer || currentUser;
+
+        renderAccount(currentUser);
+
+        message.className = "account-modal-message success";
+        message.textContent = data.message || "Account settings updated successfully.";
+
+        setTimeout(() => {
+          closeAccountModal(null, "settingsModal");
+        }, 1200);
+      } catch (error) {
+        console.error("Account settings error:", error);
+        message.textContent = error.message || "Could not update account settings.";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Save Changes";
+      }
+    }
+
 
 
     /* =========================
