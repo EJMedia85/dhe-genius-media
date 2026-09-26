@@ -4088,6 +4088,47 @@ app.get(
 );
 
 // =====================================================
+// WALLET TRANSACTIONS
+// =====================================================
+
+app.get(
+  "/api/wallet/transactions",
+  requireLogin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `
+        SELECT
+          id,
+          type,
+          amount,
+          balance_before,
+          balance_after,
+          description,
+          transaction_ref,
+          status,
+          reference,
+          created_at
+        FROM wallet_transactions
+        WHERE customer_id = $1
+        ORDER BY created_at DESC
+        LIMIT 50
+        `,
+        [req.session.customerId]
+      );
+
+      return res.json({
+        success: true,
+        transactions: result.rows
+      });
+    } catch (error) {
+      console.error("Wallet transactions error:", error);
+      return sendError(res, 500, "Could not load wallet transactions.");
+    }
+  }
+);
+
+// =====================================================
 // CHANGE PASSWORD
 // =====================================================
 
