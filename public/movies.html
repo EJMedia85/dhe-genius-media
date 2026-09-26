@@ -1,1 +1,115 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Movies • DGM</title><style>body{margin:0;background:#07131f;color:#fff;font-family:Arial,sans-serif}header{padding:16px;background:#0b1d2d;border-bottom:1px solid #ffffff12}main{max-width:800px;margin:auto;padding:24px 16px}.hero,.card{background:#0d2030;border:1px solid #ffffff12;border-radius:22px;padding:22px;margin-bottom:14px}.hero h1{margin:0 0 8px}.hero p,.card p{color:#91a7b8;line-height:1.6;font-size:14px}.links{display:grid;grid-template-columns:1fr 1fr;gap:12px}.link{display:block;padding:18px;border-radius:17px;background:#10283b;border:1px solid #ffffff10}.link strong{display:block;margin-bottom:6px}.link span{font-size:11px;color:#91a7b8}@media(max-width:480px){.links{grid-template-columns:1fr}}</style></head><body><header><a href="/entertainment.html">‹ Entertainment</a></header><main><section class="hero"><h1>🎬 Movie Hub</h1><p>Discover movies and use legitimate services to find where titles are available. DGM does not host or distribute pirated movies.</p></section><section class="links"><a class="link" href="https://www.themoviedb.org/" target="_blank" rel="noopener noreferrer"><strong>🎞️ TMDB</strong><span>Discover movies, TV and cast information.</span></a><a class="link" href="https://www.justwatch.com/" target="_blank" rel="noopener noreferrer"><strong>🔎 JustWatch</strong><span>Find legal streaming availability.</span></a><a class="link" href="https://www.youtube.com/movies" target="_blank" rel="noopener noreferrer"><strong>▶️ YouTube Movies</strong><span>Browse official movie content.</span></a><a class="link" href="https://www.netflix.com/" target="_blank" rel="noopener noreferrer"><strong>📺 Netflix</strong><span>Open the official Netflix platform.</span></a></section></main></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Movies • DHE GENIUS MEDIA</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#06111b;--panel:#0c1d2b;--panel2:#10283a;--text:#fff;--muted:#91a7b8;--accent:#25d366}
+body{margin:0;background:var(--bg);color:var(--text);font-family:Arial,sans-serif}
+header{position:sticky;top:0;z-index:20;background:#071522ee;backdrop-filter:blur(14px);border-bottom:1px solid #ffffff12;padding:14px 16px}
+.header{max-width:1100px;margin:auto;display:flex;align-items:center;gap:14px}
+.back{color:#fff;text-decoration:none;font-size:14px}
+.logo{font-weight:800;letter-spacing:.4px}
+main{max-width:1100px;margin:auto;padding:18px 16px 90px}
+.search{display:flex;gap:8px;margin-bottom:18px}
+.search input{flex:1;min-width:0;padding:14px 15px;border-radius:14px;border:1px solid #ffffff18;background:#0b2030;color:#fff;outline:none}
+button{border:0;border-radius:14px;padding:14px 17px;background:var(--accent);color:#06111b;font-weight:800;cursor:pointer}
+.status{font-size:12px;color:var(--muted);margin:8px 0 18px}
+.hero{position:relative;overflow:hidden;border-radius:24px;min-height:320px;background:#0d2030;margin-bottom:24px}
+.hero img{width:100%;height:320px;object-fit:cover;opacity:.62}
+.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#06111bee 0%,#06111b99 48%,transparent 100%)}
+.heroText{position:absolute;z-index:2;left:22px;bottom:22px;max-width:520px}
+.heroText h1{margin:0 0 8px;font-size:30px}
+.heroText p{color:#d0dbe2;line-height:1.5;font-size:14px}
+.meta{font-size:12px;color:#b7c5ce}
+.section{margin:28px 0}
+.sectionHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section h2{font-size:19px;margin:0}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:13px}
+.card{background:var(--panel);border:1px solid #ffffff10;border-radius:17px;overflow:hidden;cursor:pointer;transition:.15s}
+.card:hover{transform:translateY(-2px)}
+.poster{width:100%;aspect-ratio:2/3;object-fit:cover;background:#10283a;display:block}
+.cardBody{padding:10px}
+.title{font-size:13px;font-weight:700;line-height:1.3;min-height:34px}
+.rating{font-size:11px;color:#f5d76e;margin-top:6px}
+.empty{padding:28px;text-align:center;color:var(--muted);background:var(--panel);border-radius:17px}
+#searchResults{display:none}
+.modal{position:fixed;inset:0;z-index:50;background:#000b;display:none;overflow:auto;padding:20px}
+.modal.show{display:block}
+.modalBox{max-width:900px;margin:20px auto;background:#091a28;border:1px solid #ffffff15;border-radius:24px;overflow:hidden}
+.detailHero{position:relative;min-height:270px;background:#10283a}
+.detailHero img{width:100%;height:270px;object-fit:cover;opacity:.5}
+.detailInfo{padding:20px}
+.detailPoster{width:150px;border-radius:15px;float:left;margin:0 18px 10px 0}
+.detailInfo h2{margin-top:0}
+.detailInfo p{color:#b8c7d0;line-height:1.6;font-size:14px}
+.close{float:right;background:#ffffff14;color:#fff;padding:9px 12px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0}
+.chip{font-size:11px;padding:7px 9px;border-radius:999px;background:#10283a;color:#cbd7dd}
+.cast{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;clear:both;margin-top:20px}
+.person{background:#0d2030;border-radius:12px;overflow:hidden}
+.person img{width:100%;aspect-ratio:1/1.15;object-fit:cover}
+.person div{padding:8px;font-size:11px}
+.trailer{display:inline-block;margin:5px 5px 5px 0;padding:10px 12px;background:#10283a;color:#fff;text-decoration:none;border-radius:12px;font-size:12px}
+.provider{display:block;margin-top:8px;color:#25d366;font-size:12px}
+@media(max-width:800px){.grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:600px){.grid{grid-template-columns:repeat(3,1fr);gap:9px}.hero,.hero img{min-height:280px;height:280px}.heroText h1{font-size:23px}.detailPoster{width:115px}.cast{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:420px){.grid{grid-template-columns:repeat(2,1fr)}.search button{padding:12px}.modal{padding:8px}.modalBox{margin:8px auto}}
+</style>
+</head>
+<body>
+<header><div class="header"><a class="back" href="/entertainment.html">‹ Entertainment</a><div class="logo">🎬 DGM MOVIES</div></div></header>
+<main>
+<div class="search"><input id="query" placeholder="Search movies..." autocomplete="off"><button onclick="searchMovies()">Search</button></div>
+<div id="status" class="status">Loading movie discovery…</div>
+<section id="hero"></section>
+<div id="searchResults"></div>
+<div id="home"></div>
+</main>
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalBox"><div id="detail"></div></div></div>
+<script>
+const state={home:null};
+const esc=(s)=>String(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[c]));
+function img(path,fallback=""){return path||fallback||"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='500' height='750'><rect width='100%' height='100%' fill='#10283a'/><text x='50%' y='50%' fill='#91a7b8' text-anchor='middle' font-size='24'>DGM MOVIES</text></svg>")}
+function card(m){return '<article class="card" onclick="openMovie('+m.id+')"><img class="poster" src="'+img(m.poster_url)+'" alt="'+esc(m.title)+'"><div class="cardBody"><div class="title">'+esc(m.title)+'</div><div class="rating">★ '+(Number(m.rating||0).toFixed(1))+'</div></div></article>'}
+function section(title,items){return '<section class="section"><div class="sectionHead"><h2>'+title+'</h2></div><div class="grid">'+(items||[]).slice(0,20).map(card).join("")+'</div></section>'}
+async function loadHome(){
+ try{
+  const r=await fetch("/api/movies/home");const d=await r.json();
+  if(!r.ok||!d.success)throw new Error(d.message||"Movie service unavailable");
+  state.home=d.sections;
+  const feature=d.sections.trending?.[0];
+  if(feature)document.getElementById("hero").innerHTML='<section class="hero"><img src="'+img(feature.backdrop_url||feature.poster_url)+'"><div class="heroText"><div class="meta">TRENDING THIS WEEK</div><h1>'+esc(feature.title)+'</h1><div class="meta">★ '+Number(feature.rating||0).toFixed(1)+' · '+esc((feature.release_date||"").slice(0,4))+'</div><p>'+esc(feature.overview||"Discover this movie and open its full details.")+'</p><button onclick="openMovie('+feature.id+')">View Details</button></div></section>';
+  document.getElementById("home").innerHTML=section("🔥 Trending",d.sections.trending)+section("⭐ Popular",d.sections.popular)+section("🎬 Now Playing",d.sections.now_playing)+section("📅 Upcoming",d.sections.upcoming);
+  document.getElementById("status").textContent="Movie discovery powered by TMDB.";
+ }catch(e){document.getElementById("status").textContent=e.message;document.getElementById("home").innerHTML='<div class="empty">Movie discovery is currently unavailable.</div>'}
+}
+async function searchMovies(){
+ const q=document.getElementById("query").value.trim();if(q.length<2)return;
+ const box=document.getElementById("searchResults");box.style.display="block";box.innerHTML='<div class="empty">Searching…</div>';
+ try{const r=await fetch("/api/movies/search?query="+encodeURIComponent(q));const d=await r.json();if(!r.ok||!d.success)throw new Error(d.message||"Search failed");
+  box.innerHTML='<section class="section"><div class="sectionHead"><h2>Search results for “'+esc(q)+'”</h2></div>'+(d.results.length?'<div class="grid">'+d.results.map(card).join("")+'</div>':'<div class="empty">No movies found.</div>')+'</section>';
+  box.scrollIntoView({behavior:"smooth"});
+ }catch(e){box.innerHTML='<div class="empty">'+esc(e.message)+'</div>'}
+}
+async function openMovie(id){
+ document.getElementById("modal").classList.add("show");document.getElementById("detail").innerHTML='<div class="empty">Loading movie details…</div>';
+ try{
+  const r=await fetch("/api/movies/"+id+"?country=GH");const d=await r.json();if(!r.ok||!d.success)throw new Error(d.message||"Could not load movie");
+  const m=d.movie;
+  const genres=(m.genres||[]).map(g=>'<span class="chip">'+esc(g.name)+'</span>').join("");
+  const cast=(d.cast||[]).map(p=>'<div class="person">'+(p.profile_url?'<img src="'+p.profile_url+'" alt="'+esc(p.name)+'">':'<div style="height:120px"></div>')+'<div><strong>'+esc(p.name)+'</strong><br><span class="meta">'+esc(p.character)+'</span></div></div>').join("");
+  const trailers=(d.trailers||[]).map(t=>'<a class="trailer" href="'+t.url+'" target="_blank" rel="noopener noreferrer">▶ '+esc(t.name)+'</a>').join("");
+  const providers=[...(d.watch_providers?.flatrate||[]),...(d.watch_providers?.rent||[]),...(d.watch_providers?.buy||[])].filter((v,i,a)=>a.findIndex(x=>x.provider_id===v.provider_id)===i).slice(0,8);
+  const providerHtml=providers.length?'<h3>Where to watch</h3>'+providers.map(p=>'<span class="provider">• '+esc(p.provider_name)+'</span>').join("")+(d.watch_providers.link?'<a class="provider" href="'+d.watch_providers.link+'" target="_blank" rel="noopener noreferrer">Open availability</a>':''):'<p class="meta">No availability data returned for Ghana.</p>';
+  document.getElementById("detail").innerHTML='<div class="detailHero"><img src="'+img(m.backdrop_url||m.poster_url)+'"></div><div class="detailInfo"><button class="close" onclick="closeModal()">Close</button><img class="detailPoster" src="'+img(m.poster_url)+'"><h2>'+esc(m.title)+'</h2><div class="meta">★ '+Number(m.rating||0).toFixed(1)+' · '+esc((m.release_date||"").slice(0,4))+(m.runtime?' · '+m.runtime+' min':'')+'</div><div class="chips">'+genres+'</div><p>'+esc(m.overview||"No synopsis available.")+'</p>'+ (m.tagline?'<p><em>'+esc(m.tagline)+'</em></p>':'') +'<h3>Official trailers</h3>'+(trailers||'<p class="meta">No trailer returned.</p>')+providerHtml+'<h3>Cast</h3><div class="cast">'+(cast||'<p class="meta">Cast unavailable.</p>')+'</div><div style="clear:both"></div></div>';
+ }catch(e){document.getElementById("detail").innerHTML='<div class="empty">'+esc(e.message)+'<br><br><button onclick="closeModal()">Close</button></div>'}
+}
+function closeModal(){document.getElementById("modal").classList.remove("show")}
+document.getElementById("query").addEventListener("keydown",e=>{if(e.key==="Enter")searchMovies()});
+loadHome();
+</script>
+</body>
+</html>
