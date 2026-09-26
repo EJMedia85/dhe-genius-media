@@ -380,9 +380,9 @@
     </button>
 
     <div class="notice">
-      Your order will be saved to your DGM account.
-      Payment and automatic airtime delivery will be connected
-      through legitimate providers in the next stage.
+      Payment is taken securely from your DGM wallet.
+      Your order is saved immediately and will remain Pending
+      until an approved airtime fulfillment provider completes delivery.
     </div>
 
     <div id="result"></div>
@@ -518,7 +518,7 @@
 
     try {
 
-      const response = await fetch("/api/orders", {
+      const response = await fetch("/api/airtime/orders", {
 
         method: "POST",
 
@@ -537,7 +537,7 @@
 
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (response.status === 401) {
 
@@ -549,7 +549,7 @@
       if (!response.ok) {
 
         throw new Error(
-          data.error || "Unable to create order."
+          data.message || data.error || "Unable to create airtime order."
         );
 
       }
@@ -559,15 +559,28 @@
 
       result.style.display = "block";
 
+      const order = data.order || {};
+      const orderRef = order.order_ref || data.orderRef || "—";
+      const orderStatus = order.status || data.status || "Pending";
+      const newBalance = Number(data.balance ?? NaN);
+
       result.innerHTML = `
         <strong>Order received!</strong><br><br>
         Network: ${escapeHtml(selectedNetwork)}<br>
         Phone: ${escapeHtml(phone)}<br>
-        Amount: GH₵${selectedAmount}<br><br>
+        Amount: GH₵${Number(selectedAmount).toFixed(2)}<br>
+        Payment: Wallet<br><br>
         Order Reference:<br>
-        <strong>${escapeHtml(data.orderRef)}</strong><br><br>
+        <strong>${escapeHtml(orderRef)}</strong><br><br>
         Status:
-        <strong>${escapeHtml(data.status)}</strong>
+        <strong>${escapeHtml(orderStatus)}</strong>
+        ${Number.isFinite(newBalance)
+          ? `<br><br>Wallet Balance: <strong>GH₵${newBalance.toFixed(2)}</strong>`
+          : ""}
+        <br><br>
+        <span style="color:#9fb5b5;font-size:12px;">
+          Your airtime delivery is pending provider fulfillment.
+        </span>
       `;
 
       button.textContent = "Order Created";
