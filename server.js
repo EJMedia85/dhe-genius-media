@@ -4152,6 +4152,232 @@ app.post(
 );
 
 // =====================================================
+// CREATE AIRTIME ORDER
+// Airtime is paid from the customer's DGM wallet.
+// Delivery remains Pending until an approved airtime
+// fulfillment provider is connected.
+// =====================================================
+
+app.post(
+  "/api/airtime/orders",
+  requireLogin,
+  async (req, res) => {
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const network = String(req.body.network || "").trim();
+      const phone = normalizeGhanaPhone(req.body.phone);
+      const amount = Number(req.body.amount);
+
+      if (!["MTN", "AirtelTigo", "Telecel"].includes(network)) {
+        await client.query("ROLLBACK");
+        return sendError(res, 400, "Invalid airtime network.");
+      }
+
+      if (!validGhanaPhone(phone)) {
+        await client.query("ROLLBACK");
+        return sendError(res, 400, "Enter a valid Ghana phone number.");
+      }
+
+      if (!Number.isFinite(amount) || amount < 1 || amount > 500) {
+        await client.query("ROLLBACK");
+        return sendError(
+          res,
+          400,
+          "Airtime amount must be between GH₵1 and GH₵500."
+        );
+      }
+
+      const roundedAmount = Math.round(amount * 100) / 100;
+
+      const customerResult = await client.query(
+        `
+        SELECT id, balance
+        FROM customers
+        WHERE id = $1
+        FOR UPDATE
+        `,
+        [req.session.customerId]
+      );
+
+      if (!customerResult.rows.length) {
+        await client.query("ROLLBACK");
+        return sendError(res, 404, "Customer account not found.");
+      }
+
+      const customer = customerResult.rows[0];
+      const balanceBefore = Number(customer.balance || 0);
+
+      if (!Number.isFinite(balanceBefore) || balanceBefore < 0) {
+        throw new Error("Your wallet balance is invalid.");
+      }
+
+      if (balanceBefore < roundedAmount) {
+        await client.query("ROLLBACK");
+
+        return res.status(400).json({
+          success: false,
+          code: "INSUFFICIENT_WALLET_BALANCE",
+          message:
+            `Insufficient wallet balance. You need GH₵${roundedAmount.toFixed(2)} but your wallet has GH₵${balanceBefore.toFixed(2)}.`,
+          balance: balanceBefore,
+          required: roundedAmount,
+          shortfall:
+            Math.round(
+              (roundedAmount - balanceBefore) * 100
+            ) / 100
+        });
+      }
+
+      const orderRef = createOrderReference();
+      const walletReference = `DGM-AIRTIME-${orderRef}`;
+      const balanceAfter =
+        Math.round(
+          (balanceBefore - roundedAmount) * 100
+        ) / 100;
+
+      const balanceUpdate = await client.query(
+        `
+        UPDATE customers
+        SET balance = $1
+        WHERE id = $2
+        RETURNING id, balance
+        `,
+        [balanceAfter, customer.id]
+      );
+
+      if (!balanceUpdate.rows.length) {
+        throw new Error("Wallet balance could not be updated.");
+      }
+
+      const orderResult = await client.query(
+        `
+        INSERT INTO orders
+        (
+          order_ref,
+          customer_id,
+          service,
+          network,
+          phone,
+          amount,
+          status,
+          payment_status,
+          paid_at
+        )
+        VALUES
+        (
+          $1,
+          $2,
+          'Airtime',
+          $3,
+          $4,
+          $5,
+          'Pending',
+          'Paid',
+          NOW()
+        )
+        RETURNING *
+        `,
+        [
+          orderRef,
+          customer.id,
+          network,
+          phone,
+          roundedAmount
+        ]
+      );
+
+      const transactionResult = await client.query(
+        `
+        INSERT INTO wallet_transactions
+        (
+          customer_id,
+          type,
+          amount,
+          balance_before,
+          balance_after,
+          description,
+          transaction_ref,
+          status,
+          reference
+        )
+        VALUES
+        (
+          $1,
+          'Debit',
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          'Completed',
+          $7
+        )
+        RETURNING
+          id,
+          amount,
+          balance_before,
+          balance_after,
+          description,
+          transaction_ref,
+          status,
+          reference,
+          created_at
+        `,
+        [
+          customer.id,
+          roundedAmount,
+          balanceBefore,
+          balanceAfter,
+          `Airtime purchase - ${network} - ${phone}`,
+          orderRef,
+          walletReference
+        ]
+      );
+
+      if (!transactionResult.rows.length) {
+        throw new Error("Wallet debit transaction could not be created.");
+      }
+
+      await client.query("COMMIT");
+
+      console.log(
+        `WALLET AIRTIME PAYMENT: ${orderRef} | ${network} | ${phone} | GH₵${roundedAmount.toFixed(2)} | Before: GH₵${balanceBefore.toFixed(2)} | After: GH₵${balanceAfter.toFixed(2)}`
+      );
+
+      return res.json({
+        success: true,
+        paid: true,
+        paymentMethod: "Wallet",
+        order: orderResult.rows[0],
+        transaction: transactionResult.rows[0],
+        balance: balanceAfter,
+        message:
+          "Airtime order created and wallet payment confirmed. Delivery is pending provider fulfillment."
+      });
+    } catch (error) {
+      try {
+        await client.query("ROLLBACK");
+      } catch (rollbackError) {
+        console.error("Airtime rollback error:", rollbackError);
+      }
+
+      console.error("Create airtime order error:", error);
+
+      return sendError(
+        res,
+        500,
+        error.message || "Could not create airtime order."
+      );
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// =====================================================
 // GET ORDERS
 // =====================================================
 
