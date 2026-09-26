@@ -1530,10 +1530,31 @@ async function syncKingflexyAirtimeOrders() {
         );
         await applyKingflexyStatus(order.id, data);
       } catch (error) {
-        console.error(
-          "KingFlexy airtime status check failed for " +
-          order.order_ref + ": " + error.message
-        );
+        const isNotFound =
+          Number(error?.status || error?.data?.code || 0) === 404;
+
+        if (isNotFound) {
+          try {
+            await refundAirtimeOrder(
+              order.id,
+              "KingFlexy could not find this airtime order reference. The DGM wallet payment has been refunded."
+            );
+            console.warn(
+              "KINGFLEXY AIRTIME ORDER NOT FOUND — REFUNDED: " +
+              order.order_ref
+            );
+          } catch (refundError) {
+            console.error(
+              "KingFlexy airtime 404 refund failed for " +
+              order.order_ref + ": " + refundError.message
+            );
+          }
+        } else {
+          console.error(
+            "KingFlexy airtime status check failed for " +
+            order.order_ref + ": " + error.message
+          );
+        }
       }
     }
   } catch (error) {
