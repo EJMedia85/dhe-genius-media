@@ -215,6 +215,95 @@ app.get("/api/movies/status", (req, res) => {
   });
 });
 
+app.get("/api/movies/genres", async (req, res) => {
+  try {
+    const data = await tmdbRequest("/genre/movie/list", {
+      language: "en-US"
+    });
+
+    return res.json({
+      success: true,
+      provider: "TMDB",
+      genres: (data.genres || []).map((genre) => ({
+        id: genre.id,
+        name: genre.name
+      }))
+    });
+  } catch (error) {
+    console.error("TMDB genres error:", error.message);
+    return sendMovieApiError(res, error);
+  }
+});
+
+app.get("/api/movies/discover", async (req, res) => {
+  try {
+    const page = Math.min(Math.max(Number(req.query.page) || 1, 1), 20);
+    const genre = String(req.query.genre || "").trim();
+    const sort = String(req.query.sort || "popularity.desc").trim();
+
+    const allowedSorts = new Set([
+      "popularity.desc",
+      "vote_average.desc",
+      "primary_release_date.desc",
+      "primary_release_date.asc",
+      "revenue.desc"
+    ]);
+
+    const data = await tmdbRequest("/discover/movie", {
+      language: "en-US",
+      include_adult: false,
+      include_video: true,
+      page,
+      sort_by: allowedSorts.has(sort) ? sort : "popularity.desc",
+      with_genres: /^\d+$/.test(genre) ? genre : undefined,
+      "vote_count.gte": sort === "vote_average.desc" ? 150 : undefined
+    });
+
+    return res.json({
+      success: true,
+      provider: "TMDB",
+      page: data.page || page,
+      total_pages: Math.min(data.total_pages || 0, 20),
+      total_results: data.total_results || 0,
+      results: (data.results || [])
+        .filter((movie) => !movie.adult)
+        .map(tmdbMovie)
+    });
+  } catch (error) {
+    console.error("TMDB discover error:", error.message);
+    return sendMovieApiError(res, error);
+  }
+});
+
+app.get("/api/movies/recommendations/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid movie ID is required."
+      });
+    }
+
+    const data = await tmdbRequest("/movie/" + id + "/recommendations", {
+      language: "en-US",
+      page: 1
+    });
+
+    return res.json({
+      success: true,
+      provider: "TMDB",
+      results: (data.results || [])
+        .filter((movie) => !movie.adult)
+        .map(tmdbMovie)
+        .slice(0, 12)
+    });
+  } catch (error) {
+    console.error("TMDB recommendations error:", error.message);
+    return sendMovieApiError(res, error);
+  }
+});
+
 app.get("/api/movies/home", async (req, res) => {
   try {
     const [trending, popular, nowPlaying, upcoming] =
