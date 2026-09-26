@@ -52,7 +52,13 @@ button{border:0;border-radius:14px;padding:14px 17px;background:var(--accent);co
 .person{background:#0d2030;border-radius:12px;overflow:hidden}
 .person img{width:100%;aspect-ratio:1/1.15;object-fit:cover}
 .person div{padding:8px;font-size:11px}
-.trailer{display:inline-block;margin:5px 5px 5px 0;padding:10px 12px;background:#10283a;color:#fff;text-decoration:none;border-radius:12px;font-size:12px}
+.trailer{display:inline-block;margin:5px 5px 5px 0;padding:10px 12px;background:#10283a;color:#fff;border:1px solid #ffffff12;border-radius:12px;font-size:12px;cursor:pointer}
+.watchBox{margin-top:18px;padding:15px;border:1px solid #ffffff10;background:#0d2030;border-radius:16px}
+.watchNote{font-size:12px;color:#91a7b8;line-height:1.5;margin:7px 0 12px}
+.watchLink{display:inline-block;margin:5px 5px 0 0;padding:10px 12px;border-radius:11px;background:#25d366;color:#06111b;text-decoration:none;font-size:12px;font-weight:800}
+.trailerPlayer{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden;margin:12px 0}
+.trailerPlayer iframe{width:100%;height:100%;border:0}
+.actionRow{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
 .provider{display:block;margin-top:8px;color:#25d366;font-size:12px}
 @media(max-width:800px){.grid{grid-template-columns:repeat(4,1fr)}}
 @media(max-width:600px){.grid{grid-template-columns:repeat(3,1fr);gap:9px}.hero,.hero img{min-height:280px;height:280px}.heroText h1{font-size:23px}.detailPoster{width:115px}.cast{grid-template-columns:repeat(3,1fr)}}
@@ -101,13 +107,23 @@ async function openMovie(id){
   const m=d.movie;
   const genres=(m.genres||[]).map(g=>'<span class="chip">'+esc(g.name)+'</span>').join("");
   const cast=(d.cast||[]).map(p=>'<div class="person">'+(p.profile_url?'<img src="'+p.profile_url+'" alt="'+esc(p.name)+'">':'<div style="height:120px"></div>')+'<div><strong>'+esc(p.name)+'</strong><br><span class="meta">'+esc(p.character)+'</span></div></div>').join("");
-  const trailers=(d.trailers||[]).map(t=>'<a class="trailer" href="'+t.url+'" target="_blank" rel="noopener noreferrer">▶ '+esc(t.name)+'</a>').join("");
+  const trailers=(d.trailers||[]).map((t,i)=>'<button class="trailer" onclick="playTrailer('+i+',\''+esc(t.youtube_embed_url||t.url)+'\',\''+esc(t.name)+'\')">▶ '+esc(t.name)+'</button>').join("");
   const providers=[...(d.watch_providers?.flatrate||[]),...(d.watch_providers?.rent||[]),...(d.watch_providers?.buy||[])].filter((v,i,a)=>a.findIndex(x=>x.provider_id===v.provider_id)===i).slice(0,8);
-  const providerHtml=providers.length?'<h3>Where to watch</h3>'+providers.map(p=>'<span class="provider">• '+esc(p.provider_name)+'</span>').join("")+(d.watch_providers.link?'<a class="provider" href="'+d.watch_providers.link+'" target="_blank" rel="noopener noreferrer">Open availability</a>':''):'<p class="meta">No availability data returned for Ghana.</p>';
-  document.getElementById("detail").innerHTML='<div class="detailHero"><img src="'+img(m.backdrop_url||m.poster_url)+'"></div><div class="detailInfo"><button class="close" onclick="closeModal()">Close</button><img class="detailPoster" src="'+img(m.poster_url)+'"><h2>'+esc(m.title)+'</h2><div class="meta">★ '+Number(m.rating||0).toFixed(1)+' · '+esc((m.release_date||"").slice(0,4))+(m.runtime?' · '+m.runtime+' min':'')+'</div><div class="chips">'+genres+'</div><p>'+esc(m.overview||"No synopsis available.")+'</p>'+ (m.tagline?'<p><em>'+esc(m.tagline)+'</em></p>':'') +'<h3>Official trailers</h3>'+(trailers||'<p class="meta">No trailer returned.</p>')+providerHtml+'<h3>Cast</h3><div class="cast">'+(cast||'<p class="meta">Cast unavailable.</p>')+'</div><div style="clear:both"></div></div>';
+  const providerHtml=providers.length?'<div class="watchBox"><h3>Where to watch</h3><p class="watchNote">DGM does not host this movie. These are official availability links supplied by TMDB. Tapping a provider may open its own website or app.</p>'+providers.map(p=>'<span class="provider">• '+esc(p.provider_name)+'</span>').join("")+(d.watch_providers.link?'<a class="watchLink" href="'+d.watch_providers.link+'" target="_blank" rel="noopener noreferrer">Open official availability</a>':'')+'</div>':'<div class="watchBox"><h3>Where to watch</h3><p class="watchNote">No official availability data was returned for Ghana.</p></div>';
+  document.getElementById("detail").innerHTML='<div class="detailHero"><img src="'+img(m.backdrop_url||m.poster_url)+'"></div><div class="detailInfo"><button class="close" onclick="closeModal()">Close</button><img class="detailPoster" src="'+img(m.poster_url)+'"><h2>'+esc(m.title)+'</h2><div class="meta">★ '+Number(m.rating||0).toFixed(1)+' · '+esc((m.release_date||"").slice(0,4))+(m.runtime?' · '+m.runtime+' min':'')+'</div><div class="chips">'+genres+'</div><p>'+esc(m.overview||"No synopsis available.")+'</p>'+ (m.tagline?'<p><em>'+esc(m.tagline)+'</em></p>':'') +'<h3>Official trailers</h3><p class="watchNote">Trailer playback stays inside DGM. Full-movie playback is only available through authorized services listed below.</p><div id="trailerPlayer"></div>'+(trailers||'<p class="meta">No trailer returned.</p>')+providerHtml+'<h3>Cast</h3><div class="cast">'+(cast||'<p class="meta">Cast unavailable.</p>')+'</div><div style="clear:both"></div></div>';
  }catch(e){document.getElementById("detail").innerHTML='<div class="empty">'+esc(e.message)+'<br><br><button onclick="closeModal()">Close</button></div>'}
 }
-function closeModal(){document.getElementById("modal").classList.remove("show")}
+function playTrailer(index,url,name){
+ const box=document.getElementById("trailerPlayer");
+ if(!box||!url)return;
+ box.innerHTML='<div class="trailerPlayer"><iframe src="'+url+'?autoplay=1&rel=0" title="'+esc(name)+'" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>';
+ box.scrollIntoView({behavior:"smooth",block:"center"});
+}
+function closeModal(){
+ document.getElementById("modal").classList.remove("show");
+ const box=document.getElementById("trailerPlayer");
+ if(box)box.innerHTML="";
+}
 document.getElementById("query").addEventListener("keydown",e=>{if(e.key==="Enter")searchMovies()});
 loadHome();
 </script>
