@@ -1685,160 +1685,333 @@
     // LOAD CUSTOMER
     // ================================
 
-    function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-      return fetch(url, {
-        ...options,
-        credentials: "include",
-        cache: "no-store",
-        signal: controller.signal
-      }).finally(() => clearTimeout(timer));
-    }
-
-    function showDashboardMessage(message) {
-      const existing = document.getElementById("dashboardMessage");
-      if (existing) existing.remove();
-
-      const el = document.createElement("div");
-      el.id = "dashboardMessage";
-      el.style.cssText =
-        "margin:12px 0;padding:12px 14px;border:1px solid rgba(255,196,94,.25);" +
-        "background:rgba(255,196,94,.08);border-radius:12px;color:#ffc45e;font-size:12px;";
-      el.textContent = message;
-      document.querySelector(".main").prepend(el);
-    }
-
     async function loadCustomer() {
+
       try {
-        const response = await fetchWithTimeout("/api/me", {
-          method: "GET",
-          headers: { "Accept": "application/json" }
-        }, 10000);
 
-        if (response.status === 401) {
-          window.location.replace("/login.html");
-          return false;
+        const response =
+          await fetch(
+            "/api/me",
+            {
+              method: "GET",
+
+              credentials: "include",
+
+              cache: "no-store",
+
+              headers: {
+                "Accept":
+                  "application/json"
+              }
+            }
+          );
+
+
+        if (
+          response.status === 401
+        ) {
+
+          window.location.replace(
+            "/login.html"
+          );
+
+          return;
+
         }
 
-        if (!response.ok) throw new Error("Account request failed.");
 
-        const result = await response.json();
+        if (!response.ok) {
 
-        if (!result?.success || !result.customer) {
-          window.location.replace("/login.html");
-          return false;
+          throw new Error(
+            "Could not load account."
+          );
+
         }
 
-        const customer = result.customer;
-        document.getElementById("customerName").textContent =
-          customer.name || "DGM Customer";
 
-        const balance = Number(customer.balance || 0);
-        document.getElementById("balance").textContent =
-          "GH₵" + (Number.isFinite(balance) ? balance.toFixed(2) : "0.00");
+        const result =
+          await response.json();
 
-        return true;
+
+        if (
+          !result ||
+          !result.success ||
+          !result.customer
+        ) {
+
+          window.location.replace(
+            "/login.html"
+          );
+
+          return;
+
+        }
+
+
+        const customer =
+          result.customer;
+
+
+        document
+          .getElementById(
+            "customerName"
+          )
+          .textContent =
+          customer.name ||
+          "DGM Customer";
+
+
+        const balance =
+          Number(
+            customer.balance || 0
+          );
+
+
+        document
+          .getElementById(
+            "balance"
+          )
+          .textContent =
+          "GH₵" +
+          balance.toFixed(2);
+
+
       } catch (error) {
-        console.error("Customer loading error:", error);
-        document.getElementById("customerName").textContent = "DGM Customer";
-        showDashboardMessage(
-          error.name === "AbortError"
-            ? "Dashboard connection timed out. Some information may be unavailable."
-            : "We could not load your account details. Please refresh."
+
+        console.error(
+          "Customer loading error:",
+          error
         );
-        return false;
+
       }
+
     }
+
+
+    // ================================
+    // LOAD ORDERS
+    // ================================
 
     async function loadOrders() {
-      const container = document.getElementById("orders");
+
+      const container =
+        document.getElementById(
+          "orders"
+        );
+
 
       try {
-        const response = await fetchWithTimeout("/api/orders", {
-          method: "GET",
-          headers: { "Accept": "application/json" }
-        }, 10000);
 
-        if (response.status === 401) {
-          window.location.replace("/login.html");
+        const response =
+          await fetch(
+            "/api/orders",
+            {
+              method: "GET",
+
+              credentials: "include",
+
+              cache: "no-store",
+
+              headers: {
+                "Accept":
+                  "application/json"
+              }
+            }
+          );
+
+
+        if (
+          response.status === 401
+        ) {
+
+          window.location.replace(
+            "/login.html"
+          );
+
           return;
+
         }
 
-        if (!response.ok) throw new Error("Orders request failed.");
 
-        const result = await response.json();
+        if (!response.ok) {
 
-        if (!result?.success || !Array.isArray(result.orders)) {
-          throw new Error("Invalid orders response.");
+          throw new Error(
+            "Could not load orders."
+          );
+
         }
 
-        if (result.orders.length === 0) {
-          updateOrderStats([]);
+
+        const result =
+          await response.json();
+
+
+        if (
+          !result ||
+          !result.success ||
+          !Array.isArray(
+            result.orders
+          ) ||
+          result.orders.length === 0
+        ) {
+
           container.innerHTML = `
-            <div class="empty-orders"><div>📦</div>No orders yet.<br>Your recent transactions will appear here.</div>
+
+            <div class="empty-orders">
+
+              <div>
+                📦
+              </div>
+
+              No orders yet.
+
+              <br>
+
+              Your recent transactions
+              will appear here.
+
+            </div>
+
           `;
+
           return;
+
         }
+
 
         container.innerHTML = "";
+
+
         updateOrderStats(result.orders);
 
-        result.orders.slice(0, 5).forEach(function(order) {
-          const item = document.createElement("div");
-          item.className = "order";
-          item.addEventListener("click", function() {
-            window.location.assign("/orders.html");
-          });
+        result.orders
+          .slice(0, 5)
+          .forEach(
+            function(order) {
 
-          const service = escapeHTML(order.service || "Service");
-          const reference = escapeHTML(order.order_ref || "N/A");
-          const rawStatus = String(order.status || "Processing");
-          const status = escapeHTML(rawStatus);
-          const lowerStatus = rawStatus.toLowerCase();
-          const statusClass = lowerStatus.includes("complete")
-            ? "completed"
-            : lowerStatus.includes("fail")
-              ? "failed"
-              : lowerStatus.includes("process")
-                ? "processing"
-                : "";
+              const item =
+                document.createElement(
+                  "div"
+                );
 
-          const amount = Number(order.amount || 0);
 
-          item.innerHTML = `
-            <div>
-              <strong>${service}</strong>
-              <small>${reference}</small>
-            </div>
-            <div class="order-right">
-              <div class="order-amount">GH₵${Number.isFinite(amount) ? amount.toFixed(2) : "0.00"}</div>
-              <span class="order-status ${statusClass}">${status}</span>
-            </div>
-          `;
+              item.className = "order";
 
-          container.appendChild(item);
-        });
+              item.addEventListener("click", function() {
+                window.location.assign("/orders.html");
+              });
+
+
+              const service =
+                escapeHTML(
+                  order.service ||
+                  "Service"
+                );
+
+
+              const reference =
+                escapeHTML(
+                  order.order_ref ||
+                  "N/A"
+                );
+
+
+              const rawStatus = String(order.status || "Processing");
+              const status = escapeHTML(rawStatus);
+              const statusClass = rawStatus.toLowerCase().includes("complete")
+                ? "completed"
+                : rawStatus.toLowerCase().includes("fail")
+                  ? "failed"
+                  : rawStatus.toLowerCase().includes("process")
+                    ? "processing"
+                    : "";
+
+
+              const amount =
+                Number(
+                  order.amount || 0
+                );
+
+
+              item.innerHTML = `
+
+                <div>
+
+                  <strong>
+                    ${service}
+                  </strong>
+
+                  <small>
+                    ${reference}
+                  </small>
+
+                </div>
+
+                <div class="order-right">
+
+                  <div class="order-amount">
+                    GH₵${amount.toFixed(2)}
+                  </div>
+
+                  <span class="order-status ${statusClass}">
+                    ${status}
+                  </span>
+
+                </div>
+
+              `;
+
+
+              container.appendChild(
+                item
+              );
+
+            }
+          );
+
+
       } catch (error) {
-        console.error("Orders loading error:", error);
-        updateOrderStats([]);
+
+        console.error(
+          "Orders loading error:",
+          error
+        );
+
+
         container.innerHTML = `
+
           <div class="empty-orders">
-            <div>⚠️</div>
-            Unable to load recent orders.
-            <br>Please tap Refresh to try again.
+
+            <div>
+              📦
+            </div>
+
+            Unable to load orders.
+
+            <br>
+
+            Please refresh and try again.
+
           </div>
+
         `;
+
       }
+
     }
+
+
+    // ================================
+    // ORDER STATS
+    // ================================
 
     function updateOrderStats(orders) {
       const list = Array.isArray(orders) ? orders : [];
+
       const total = list.length;
 
       const processing = list.filter(order =>
-        ["processing", "pending", "pending payment", "initiated", "queued", "in progress", "in-progress"]
+        ["processing", "pending", "initiated", "queued", "in progress", "in-progress"]
           .includes(String(order.status || "").toLowerCase())
       ).length;
 
@@ -1852,55 +2025,90 @@
       document.getElementById("completedOrders").textContent = completed;
     }
 
+
+    // ================================
+    // SERVICE HEALTH
+    // ================================
+
     async function loadServiceHealth() {
       const statusEl = document.getElementById("serviceStatus");
       const timeEl = document.getElementById("healthTime");
 
       try {
-        const response = await fetchWithTimeout("/api/health", {
+        const response = await fetch("/api/health", {
           method: "GET",
+          cache: "no-store",
           headers: { "Accept": "application/json" }
-        }, 7000);
+        });
 
         const result = await response.json();
 
-        if (response.ok && result?.success && result.status === "online") {
+        if (response.ok && result && result.success && result.status === "online") {
           statusEl.textContent = "ONLINE";
           statusEl.style.color = "var(--green)";
           timeEl.textContent = "All core systems responding";
         } else {
           statusEl.textContent = "CHECK";
           statusEl.style.color = "var(--yellow)";
-          timeEl.textContent = result?.message || "Some services need attention";
+          timeEl.textContent = "Some services need attention";
         }
       } catch (error) {
         console.error("Health check error:", error);
-        statusEl.textContent = "CHECK";
-        statusEl.style.color = "var(--yellow)";
-        timeEl.textContent = "Health check unavailable";
+        statusEl.textContent = "OFFLINE";
+        statusEl.style.color = "var(--red)";
+        timeEl.textContent = "Unable to reach DGM";
       }
     }
+
+
+    // ================================
+    // REFRESH DASHBOARD
+    // ================================
 
     async function refreshDashboard() {
-      const button = document.querySelector(".refresh-btn");
-      if (button) {
-        button.disabled = true;
-        button.textContent = "↻ Loading...";
-      }
-
-      try {
-        await Promise.allSettled([
-          loadCustomer(),
-          loadOrders(),
-          loadServiceHealth()
-        ]);
-      } finally {
-        if (button) {
-          button.disabled = false;
-          button.textContent = "↻ Refresh";
-        }
-      }
+      await Promise.all([
+        loadCustomer(),
+        loadOrders(),
+        loadServiceHealth()
+      ]);
     }
+
+
+    // ================================
+    // HTML ESCAPE
+    // ================================
+
+    function escapeHTML(value) {
+
+      return String(value)
+
+        .replace(
+          /&/g,
+          "&amp;"
+        )
+
+        .replace(
+          /</g,
+          "&lt;"
+        )
+
+        .replace(
+          />/g,
+          "&gt;"
+        )
+
+        .replace(
+          /"/g,
+          "&quot;"
+        )
+
+        .replace(
+          /'/g,
+          "&#039;"
+        );
+
+    }
+
 
     // ================================
     // START
