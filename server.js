@@ -1222,16 +1222,22 @@ function parseKingflexyOrder(data) {
     orderId:
       payload.order_id ||
       payload.orderId ||
+      payload.id ||
       root.order_id ||
       root.orderId ||
+      root.id ||
       null,
     reference:
       payload.reference ||
       payload.reference_code ||
       payload.referenceCode ||
+      payload.order_reference ||
+      payload.orderReference ||
       root.reference ||
       root.reference_code ||
       root.referenceCode ||
+      root.order_reference ||
+      root.orderReference ||
       null,
     status:
       payload.status ||
@@ -1431,7 +1437,7 @@ async function applyKingflexyStatus(orderId, data) {
     `,
     [
       status,
-      parsed.orderId || parsed.reference || null,
+      parsed.reference || parsed.orderId || null,
       parsed.status || status,
       parsed.reason || null,
       orderId
@@ -1467,13 +1473,15 @@ async function submitKingflexyAirtime(order) {
   }
 
   try {
+    const requestReference = String(order.order_ref).trim();
+
     const data = await kingflexyRequest("/airtime/purchase", {
       method: "POST",
       body: JSON.stringify({
         network: order.network,
         beneficiary_phone: order.phone,
         amount: Number(order.amount),
-        reference: order.order_ref
+        reference: requestReference
       })
     });
 
@@ -1489,10 +1497,29 @@ async function submitKingflexyAirtime(order) {
       "KINGFLEXY AIRTIME PARSED: " +
       order.order_ref +
       " | provider_reference: " +
-      String(parsed.orderId || parsed.reference || "none") +
+      String(parsed.reference || parsed.orderId || "none") +
+      " | order_id: " +
+      String(parsed.orderId || "none") +
       " | status: " +
       String(parsed.status || "none")
     );
+
+    // KingFlexy v2 documents the supplied reference as the idempotency
+    // and status-lookup key. Prefer that reference over the provider UUID.
+    const providerReference =
+      parsed.reference ||
+      parsed.orderId ||
+      requestReference;
+
+    const providerStatus =
+      parsed.status ||
+      (data && data.success === false ? "failed" : "pending");
+
+    const providerMessage =
+      parsed.reason ||
+      data?.message ||
+      data?.error?.message ||
+      null;
 
     await pool.query(
       `
@@ -1504,12 +1531,22 @@ async function submitKingflexyAirtime(order) {
       WHERE id = $4
       `,
       [
-        parsed.orderId || parsed.reference || null,
-        parsed.status || null,
-        parsed.reason || data.message || null,
+        providerReference,
+        providerStatus,
+        providerMessage,
         order.id
       ]
     );
+
+    // A successful HTTP response with success:false is still a failed
+    // provider purchase. Do not leave a paid customer order polling forever.
+    if (data && data.success === false) {
+      return refundAirtimeOrder(
+        order.id,
+        providerMessage ||
+          "KingFlexy rejected the airtime purchase."
+      );
+    }
 
     return applyKingflexyStatus(order.id, data);
   } catch (error) {
@@ -1517,6 +1554,35 @@ async function submitKingflexyAirtime(order) {
       "KingFlexy airtime purchase error for " + order.order_ref + ":",
       error.message
     );
+
+    const statusCode = Number(error.status || 0);
+
+    // Definitive client-side/provider validation errors mean the purchase
+    // was not accepted. Refund the DGM wallet immediately.
+    // 429 is retryable, while 5xx/timeout/network errors are kept pending.
+    const definitiveFailure =
+      statusCode >= 400 &&
+      statusCode < 500 &&
+      statusCode !== 429;
+
+    if (definitiveFailure) {
+      try {
+        return await refundAirtimeOrder(
+          order.id,
+          "KingFlexy rejected the airtime purchase (HTTP " +
+            statusCode +
+            "): " +
+            String(error.message || "Provider request rejected.")
+        );
+      } catch (refundError) {
+        console.error(
+          "KingFlexy airtime automatic refund failed for " +
+            order.order_ref +
+            ": " +
+            refundError.message
+        );
+      }
+    }
 
     await pool.query(
       `
@@ -1528,7 +1594,10 @@ async function submitKingflexyAirtime(order) {
       WHERE id = $2
       `,
       [
-        String(error.message || "KingFlexy request failed.").slice(0,1000),
+        String(
+          error.message ||
+          "KingFlexy request failed. The order will be retried."
+        ).slice(0,1000),
         order.id
       ]
     );
@@ -1636,12 +1705,42 @@ async function syncKingflexyAirtimeOrders() {
 
             const matched = candidates.find((item) => {
               const parsed = parseKingflexyOrder(item);
-              return [
+              const itemNetwork = String(
+                item?.network || item?.data?.network || ""
+              ).trim().toLowerCase();
+              const itemPhone = String(
+                item?.beneficiary_phone ||
+                item?.beneficiaryPhone ||
+                item?.phone ||
+                item?.recipient ||
+                item?.data?.beneficiary_phone ||
+                ""
+              ).trim();
+              const itemAmount = Number(
+                item?.airtime_amount ??
+                item?.amount ??
+                item?.total_paid ??
+                item?.data?.airtime_amount ??
+                NaN
+              );
+
+              const referenceMatch = [
                 parsed.orderId,
                 parsed.reference
               ]
                 .filter(Boolean)
                 .some((value) => wanted.has(String(value)));
+
+              const detailMatch =
+                itemNetwork &&
+                itemNetwork === String(order.network || "").trim().toLowerCase() &&
+                itemPhone &&
+                itemPhone === String(order.phone || "").trim() &&
+                Number.isFinite(itemAmount) &&
+                Math.round(itemAmount * 100) ===
+                  Math.round(Number(order.amount || 0) * 100);
+
+              return referenceMatch || detailMatch;
             });
 
             if (matched) {
