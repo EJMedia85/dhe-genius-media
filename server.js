@@ -64,6 +64,344 @@ if (NODE_ENV === "production") {
 
 app.disable("x-powered-by");
 
+
+// =====================================================
+// TMDB MOVIE DISCOVERY
+// =====================================================
+
+const TMDB_API_KEY =
+  process.env.TMDB_API_KEY || "";
+
+const TMDB_BASE =
+  "https://api.themoviedb.org/3";
+
+const TMDB_IMAGE_BASE =
+  "https://image.tmdb.org/t/p";
+
+async function tmdbRequest(endpoint, params = {}) {
+  if (!TMDB_API_KEY) {
+    const error = new Error("TMDB_API_KEY is not configured.");
+    error.status = 503;
+    throw error;
+  }
+
+  const url = new URL(TMDB_BASE + endpoint);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      url.searchParams.set(key, String(value));
+    }
+  });
+
+  url.searchParams.set("api_key", TMDB_API_KEY);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Accept: "application/json"
+      },
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { raw: text };
+    }
+
+    if (!response.ok) {
+      const error = new Error(
+        `TMDB HTTP ${response.status}: ${data.status_message || data.message || "Request failed"}`
+      );
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = new Error("TMDB request timed out.");
+      timeoutError.status = 504;
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function tmdbMovie(movie) {
+  return {
+    id: movie.id,
+    title: movie.title || movie.name || "",
+    original_title: movie.original_title || movie.original_name || "",
+    overview: movie.overview || "",
+    poster_path: movie.poster_path || null,
+    backdrop_path: movie.backdrop_path || null,
+    poster_url: movie.poster_path
+      ? `${TMDB_IMAGE_BASE}/w500${movie.poster_path}`
+      : null,
+    backdrop_url: movie.backdrop_path
+      ? `${TMDB_IMAGE_BASE}/w1280${movie.backdrop_path}`
+      : null,
+    release_date: movie.release_date || "",
+    rating: Number(movie.vote_average || 0),
+    vote_count: Number(movie.vote_count || 0),
+    popularity: Number(movie.popularity || 0),
+    adult: Boolean(movie.adult),
+    genre_ids: Array.isArray(movie.genre_ids) ? movie.genre_ids : []
+  };
+}
+
+function tmdbDetail(movie) {
+  const base = tmdbMovie(movie);
+
+  return {
+    ...base,
+    runtime: movie.runtime || null,
+    tagline: movie.tagline || "",
+    genres: Array.isArray(movie.genres)
+      ? movie.genres.map((genre) => ({
+          id: genre.id,
+          name: genre.name
+        }))
+      : [],
+    homepage: movie.homepage || "",
+    status: movie.status || "",
+    budget: Number(movie.budget || 0),
+    revenue: Number(movie.revenue || 0),
+    production_companies: Array.isArray(movie.production_companies)
+      ? movie.production_companies.map((company) => ({
+          id: company.id,
+          name: company.name,
+          logo_path: company.logo_path || null
+        }))
+      : []
+  };
+}
+
+function sendMovieApiError(res, error) {
+  const status =
+    Number.isInteger(error.status) && error.status >= 400
+      ? error.status
+      : 500;
+
+  return res.status(status).json({
+    success: false,
+    message:
+      status === 503
+        ? "Movie discovery is not configured yet. Add TMDB_API_KEY in Render environment variables."
+        : error.message || "Movie service request failed."
+  });
+}
+
+// =====================================================
+// MOVIE API
+// =====================================================
+
+app.get("/api/movies/status", (req, res) => {
+  res.json({
+    success: true,
+    provider: "TMDB",
+    configured: Boolean(TMDB_API_KEY)
+  });
+});
+
+app.get("/api/movies/home", async (req, res) => {
+  try {
+    const [trending, popular, nowPlaying, upcoming] =
+      await Promise.all([
+        tmdbRequest("/trending/movie/week"),
+        tmdbRequest("/movie/popular", {
+          language: "en-US",
+          page: 1
+        }),
+        tmdbRequest("/movie/now_playing", {
+          language: "en-US",
+          page: 1
+        }),
+        tmdbRequest("/movie/upcoming", {
+          language: "en-US",
+          page: 1
+        })
+      ]);
+
+    res.json({
+      success: true,
+      provider: "TMDB",
+      updated_at: new Date().toISOString(),
+      sections: {
+        trending: (trending.results || [])
+          .filter((movie) => !movie.adult)
+          .map(tmdbMovie),
+        popular: (popular.results || [])
+          .filter((movie) => !movie.adult)
+          .map(tmdbMovie),
+        now_playing: (nowPlaying.results || [])
+          .filter((movie) => !movie.adult)
+          .map(tmdbMovie),
+        upcoming: (upcoming.results || [])
+          .filter((movie) => !movie.adult)
+          .map(tmdbMovie)
+      }
+    });
+  } catch (error) {
+    console.error("TMDB home error:", error.message);
+    return sendMovieApiError(res, error);
+  }
+});
+
+app.get("/api/movies/search", async (req, res) => {
+  try {
+    const query = String(req.query.query || "").trim();
+    const page = Math.min(
+      Math.max(Number(req.query.page) || 1, 1),
+      10
+    );
+
+    if (query.length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter at least 2 characters to search for a movie."
+      });
+    }
+
+    const data = await tmdbRequest("/search/movie", {
+      query,
+      language: "en-US",
+      include_adult: false,
+      page
+    });
+
+    res.json({
+      success: true,
+      provider: "TMDB",
+      query,
+      page: data.page || page,
+      total_pages: data.total_pages || 0,
+      total_results: data.total_results || 0,
+      results: (data.results || [])
+        .filter((movie) => !movie.adult)
+        .map(tmdbMovie)
+    });
+  } catch (error) {
+    console.error("TMDB search error:", error.message);
+    return sendMovieApiError(res, error);
+  }
+});
+
+app.get("/api/movies/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid movie ID is required."
+      });
+    }
+
+    const movie = await tmdbRequest(`/movie/${id}`, {
+      language: "en-US"
+    });
+
+    if (movie.adult) {
+      return res.status(404).json({
+        success: false,
+        message: "Movie not found."
+      });
+    }
+
+    const [credits, videos, watchProviders] =
+      await Promise.all([
+        tmdbRequest(`/movie/${id}/credits`, {
+          language: "en-US"
+        }),
+        tmdbRequest(`/movie/${id}/videos`, {
+          language: "en-US"
+        }),
+        tmdbRequest(`/movie/${id}/watch/providers`)
+      ]);
+
+    const cast = (credits.cast || [])
+      .filter((person) => person && person.name)
+      .slice(0, 12)
+      .map((person) => ({
+        id: person.id,
+        name: person.name,
+        character: person.character || "",
+        profile_url: person.profile_path
+          ? `${TMDB_IMAGE_BASE}/w185${person.profile_path}`
+          : null
+      }));
+
+    const trailers = (videos.results || [])
+      .filter(
+        (video) =>
+          video.site === "YouTube" &&
+          ["Trailer", "Teaser"].includes(video.type)
+      )
+      .sort((a, b) => {
+        const aOfficial = a.official ? 1 : 0;
+        const bOfficial = b.official ? 1 : 0;
+        return bOfficial - aOfficial;
+      })
+      .slice(0, 8)
+      .map((video) => ({
+        id: video.id,
+        name: video.name,
+        type: video.type,
+        official: Boolean(video.official),
+        url: `https://www.youtube.com/watch?v=${video.key}`
+      }));
+
+    const providerResults = watchProviders.results || {};
+    const country =
+      String(req.query.country || "GH")
+        .trim()
+        .toUpperCase();
+
+    const selectedProviders =
+      providerResults[country] ||
+      providerResults.US ||
+      null;
+
+    res.json({
+      success: true,
+      provider: "TMDB",
+      movie: tmdbDetail(movie),
+      cast,
+      trailers,
+      watch_providers: selectedProviders
+        ? {
+            country,
+            link: selectedProviders.link || "",
+            flatrate: selectedProviders.flatrate || [],
+            rent: selectedProviders.rent || [],
+            buy: selectedProviders.buy || []
+          }
+        : {
+            country,
+            link: "",
+            flatrate: [],
+            rent: [],
+            buy: []
+          }
+    });
+  } catch (error) {
+    console.error("TMDB movie detail error:", error.message);
+    return sendMovieApiError(res, error);
+  }
+});
+
 // =====================================================
 // DATABASE
 // =====================================================
