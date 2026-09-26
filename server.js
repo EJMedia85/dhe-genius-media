@@ -44,8 +44,12 @@ const BASE_URL =
 const DGM_API_KEY =
   process.env.DGM_API_KEY || "";
 
+const API_FOOTBALL_KEY =
+  process.env.API_FOOTBALL_KEY || "";
+
 const SPORTS_API_KEY =
-  process.env.SPORTS_API_KEY || "";
+  process.env.SPORTS_API_KEY ||
+  API_FOOTBALL_KEY;
 
 const SPORTS_API_BASE =
   "https://v3.football.api-sports.io";
