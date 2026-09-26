@@ -6502,6 +6502,134 @@ app.get("/api/sports/fixtures", async (req, res) => {
 });
 
 // =====================================================
+// LIVE MATCH DETAILS
+// =====================================================
+
+app.get("/api/sports/match/:id", async (req, res) => {
+  try {
+    if (!SPORTS_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        message: "Sports API is not configured."
+      });
+    }
+
+    const fixtureId = String(req.params.id || "").trim();
+
+    if (!/^\d+$/.test(fixtureId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid fixture ID is required."
+      });
+    }
+
+    const [fixtureData, eventsData, statsData, lineupsData] =
+      await Promise.all([
+        sportsApiRequest("/fixtures", { id: fixtureId }),
+        sportsApiRequest("/fixtures/events", { fixture: fixtureId }),
+        sportsApiRequest("/fixtures/statistics", { fixture: fixtureId }),
+        sportsApiRequest("/fixtures/lineups", { fixture: fixtureId })
+      ]);
+
+    const fixture = Array.isArray(fixtureData.response)
+      ? fixtureData.response[0]
+      : null;
+
+    if (!fixture) {
+      return res.status(404).json({
+        success: false,
+        message: "Match not found."
+      });
+    }
+
+    const events = Array.isArray(eventsData.response)
+      ? eventsData.response.map(event => ({
+          time: event.time || {},
+          team: event.team || {},
+          player: event.player || {},
+          assist: event.assist || {},
+          type: event.type || "",
+          detail: event.detail || "",
+          comments: event.comments || null
+        }))
+      : [];
+
+    const statistics = Array.isArray(statsData.response)
+      ? statsData.response
+      : [];
+
+    const lineups = Array.isArray(lineupsData.response)
+      ? lineupsData.response
+      : [];
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      updated_at: new Date().toISOString(),
+      match: normalizeLiveFixture(fixture),
+      venue: fixture.fixture?.venue || {},
+      referee: fixture.fixture?.referee || null,
+      events,
+      statistics,
+      lineups
+    });
+  } catch (error) {
+    console.error("Sports match details error:", error.message);
+    return res.status(502).json({
+      success: false,
+      message: "Could not load match details right now.",
+      configured: Boolean(SPORTS_API_KEY)
+    });
+  }
+});
+
+app.get("/api/sports/events/:id", async (req, res) => {
+  try {
+    if (!SPORTS_API_KEY) {
+      return res.status(503).json({
+        success: false,
+        configured: false,
+        message: "Sports API is not configured."
+      });
+    }
+
+    const fixtureId = String(req.params.id || "").trim();
+
+    if (!/^\d+$/.test(fixtureId)) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid fixture ID is required."
+      });
+    }
+
+    const data = await sportsApiRequest("/fixtures/events", {
+      fixture: fixtureId
+    });
+
+    const events = Array.isArray(data.response)
+      ? data.response
+      : [];
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      updated_at: new Date().toISOString(),
+      fixture_id: Number(fixtureId),
+      count: events.length,
+      events
+    });
+  } catch (error) {
+    console.error("Sports match events error:", error.message);
+    return res.status(502).json({
+      success: false,
+      message: "Could not load match events right now.",
+      configured: Boolean(SPORTS_API_KEY)
+    });
+  }
+});
+
+// =====================================================
 // STATIC FILES
 // =====================================================
 
