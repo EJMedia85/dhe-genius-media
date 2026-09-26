@@ -1275,6 +1275,19 @@ function createAirtimeApiReference() {
   );
 }
 
+const ADMIN_EMAIL = cleanEmail(process.env.ADMIN_EMAIL || "");
+const ADMIN_PASSWORD = String(process.env.ADMIN_PASSWORD || "");
+let ADMIN_PASSWORD_HASH = "";
+
+async function initializeAdminCredentials() {
+  if (ADMIN_PASSWORD) ADMIN_PASSWORD_HASH = await bcrypt.hash(ADMIN_PASSWORD, 12);
+}
+
+function requireAdmin(req, res, next) {
+  if (!req.session || !req.session.adminAuthenticated) return sendError(res, 401, "Admin authentication required.");
+  next();
+}
+
 function requireLogin(
   req,
   res,
@@ -3190,6 +3203,74 @@ app.use(
     extended: true
   })
 );
+
+// =====================================================
+// ADMIN AUTHENTICATION
+// =====================================================
+
+app.post("/api/admin/login", async (req, res) => {
+  try {
+    if (!ADMIN_EMAIL || !ADMIN_PASSWORD_HASH) return sendError(res, 503, "Admin login is not configured. Add ADMIN_EMAIL and ADMIN_PASSWORD in Render.");
+    const email = cleanEmail(req.body?.email || "");
+    const password = String(req.body?.password || "");
+    if (!email || !password) return sendError(res, 400, "Enter the admin email and password.");
+    if (email !== ADMIN_EMAIL) {
+      await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+      return sendError(res, 401, "Invalid admin login details.");
+    }
+    if (!await bcrypt.compare(password, ADMIN_PASSWORD_HASH)) return sendError(res, 401, "Invalid admin login details.");
+    await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
+    req.session.adminAuthenticated = true;
+    req.session.adminEmail = ADMIN_EMAIL;
+    req.session.adminLoginAt = new Date().toISOString();
+    await new Promise((resolve, reject) => req.session.save(error => error ? reject(error) : resolve()));
+    return res.json({ success: true, message: "Admin login successful.", admin: { email: ADMIN_EMAIL } });
+  } catch (error) {
+    console.error("Admin login error:", error);
+    return sendError(res, 500, "Admin login failed.");
+  }
+});
+
+app.get("/api/admin/me", requireAdmin, (req, res) => res.json({ success: true, admin: { email: req.session.adminEmail || ADMIN_EMAIL }, logged_in_at: req.session.adminLoginAt || null }));
+
+app.post("/api/admin/logout", (req, res) => {
+  const clear = () => {
+    res.clearCookie("dgm.sid", { httpOnly: true, secure: NODE_ENV === "production", sameSite: "lax", path: "/" });
+    return res.json({ success: true });
+  };
+  if (!req.session) return clear();
+  req.session.destroy(error => {
+    if (error) { console.error("Admin logout error:", error); return res.status(500).json({ success: false, message: "Admin logout failed." }); }
+    return clear();
+  });
+});
+
+app.get("/api/admin/stats", requireAdmin, async (req, res) => {
+  try {
+    const [customers, orders, completed, pending, revenue] = await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS count FROM customers"),
+      pool.query("SELECT COUNT(*)::int AS count FROM orders"),
+      pool.query("SELECT COUNT(*)::int AS count FROM orders WHERE LOWER(status) IN ('completed','success','successful')"),
+      pool.query("SELECT COUNT(*)::int AS count FROM orders WHERE LOWER(status) IN ('pending','processing','pending payment')"),
+      pool.query("SELECT COALESCE(SUM(amount),0)::numeric AS total FROM orders WHERE LOWER(status) IN ('completed','success','successful')")
+    ]);
+    return res.json({ success: true, stats: { customers: customers.rows[0].count, orders: orders.rows[0].count, completed: completed.rows[0].count, pending: pending.rows[0].count, completed_value: Number(revenue.rows[0].total || 0) } });
+  } catch (error) { console.error("Admin stats error:", error); return sendError(res, 500, "Could not load admin statistics."); }
+});
+
+app.get("/api/admin/orders", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT o.order_ref, o.service, o.network, o.phone, o.amount, o.status, o.created_at, c.name AS customer_name, c.email AS customer_email FROM orders o LEFT JOIN customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 100");
+    return res.json({ success: true, orders: result.rows });
+  } catch (error) { console.error("Admin orders error:", error); return sendError(res, 500, "Could not load orders."); }
+});
+
+app.get("/api/admin/customers", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query("SELECT id, name, phone, email, balance, created_at FROM customers ORDER BY created_at DESC LIMIT 100");
+    return res.json({ success: true, customers: result.rows });
+  } catch (error) { console.error("Admin customers error:", error); return sendError(res, 500, "Could not load customers."); }
+});
 
 // =====================================================
 // REGISTER
@@ -7137,15 +7218,7 @@ app.get("/api/movies/playback/:id", async (req, res) => {
 
 app.post("/api/admin/movies/playback", async (req, res) => {
   try {
-    const adminToken = String(process.env.MOVIE_ADMIN_TOKEN || "").trim();
-    const suppliedToken = String(req.get("X-DGM-Movie-Admin-Token") || "").trim();
-
-    if (!adminToken || !suppliedToken || suppliedToken !== adminToken) {
-      return res.status(401).json({
-        success: false,
-        message: "Movie administration is not authorized."
-      });
-    }
+    if (!req.session || !req.session.adminAuthenticated) return res.status(401).json({ success: false, message: "Admin authentication required." });
 
     const tmdbId = Number(req.body?.tmdb_id);
     const title = String(req.body?.title || "").trim().slice(0, 300);
@@ -7243,6 +7316,9 @@ function servePage(
     );
   };
 }
+
+app.get(["/admin", "/admin.html"], servePage("admin.html"));
+app.get(["/admin-login", "/admin-login.html"], servePage("admin-login.html"));
 
 app.get(
   [
@@ -7819,6 +7895,7 @@ async function startServer() {
   try {
 
     await initDatabase();
+    await initializeAdminCredentials();
 
     app.listen(
       PORT,
