@@ -161,6 +161,12 @@
       font-size: 13px;
     }
 
+    .page-header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+    .refresh-btn { border:1px solid var(--border); background:var(--card); color:var(--text); border-radius:12px; padding:9px 12px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap; }
+    .refresh-btn:disabled { opacity:.55; cursor:wait; }
+    .sync-note { display:flex; align-items:center; gap:7px; margin-top:11px; color:var(--muted); font-size:10px; }
+    .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(37,211,102,.45); }
+
     /* =========================
        SUMMARY
     ========================= */
@@ -378,6 +384,16 @@
       color: var(--muted);
       background: rgba(255,255,255,.06);
     }
+
+    .status-message { margin-top:14px; padding:12px 13px; border-radius:13px; border:1px solid rgba(255,255,255,.06); font-size:11px; line-height:1.55; color:var(--muted); background:rgba(0,0,0,.14); }
+    .status-message strong { display:block; color:var(--text); font-size:11px; margin-bottom:3px; }
+    .status-message.processing { border-color:rgba(245,185,66,.16); background:rgba(245,185,66,.055); }
+    .status-message.completed { border-color:rgba(37,211,102,.16); background:rgba(37,211,102,.055); }
+    .status-message.failed { border-color:rgba(255,92,92,.16); background:rgba(255,92,92,.055); }
+    .status-message.pending { border-color:rgba(245,185,66,.12); background:rgba(245,185,66,.04); }
+    .delivery-ref { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:9px; padding:9px 12px; border-radius:11px; background:rgba(77,163,255,.055); border:1px solid rgba(77,163,255,.12); }
+    .delivery-label { color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:.45px; }
+    .delivery-value { font-size:10px; font-weight:750; color:#cfe5ff; max-width:62%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
 
     /* =========================
        ORDER BODY
@@ -649,6 +665,8 @@
        DESKTOP
     ========================= */
 
+    @media (max-width: 699px) { .page-header-row{align-items:center}.refresh-btn{padding:8px 10px}.delivery-ref{align-items:flex-start;flex-direction:column;gap:4px}.delivery-value{max-width:100%;text-align:left} }
+
     @media (min-width: 700px) {
       .container {
         width: min(100% - 50px, 850px);
@@ -723,11 +741,15 @@
 
     <section class="page-header">
 
-      <h1>My Orders</h1>
+      <div class="page-header-row">
+        <div>
+          <h1>My Orders</h1>
+          <p>Track your purchases and service requests in one place.</p>
+        </div>
+        <button id="refreshBtn" class="refresh-btn" onclick="loadOrders(true)">↻ Refresh</button>
+      </div>
 
-      <p>
-        Track your purchases and service requests in one place.
-      </p>
+      <div class="sync-note"><span class="sync-dot"></span>Order status updates automatically every 15 seconds.</div>
 
     </section>
 
@@ -888,22 +910,32 @@
 
     let orders = [];
     let currentFilter = "all";
+    let loadingOrders = false;
 
 
     /* =========================
        LOAD ORDERS
     ========================= */
 
-    async function loadOrders() {
+    async function loadOrders(manual = false) {
 
-      const container =
-        document.getElementById("ordersContainer");
+      if (loadingOrders) return;
+      loadingOrders = true;
+
+      const container = document.getElementById("ordersContainer");
+      const refreshBtn = document.getElementById("refreshBtn");
+
+      if (manual) {
+        refreshBtn.disabled = true;
+        refreshBtn.textContent = "↻ Updating...";
+      }
 
       try {
 
         const response =
           await fetch("/api/orders", {
-            credentials: "include"
+            credentials: "include",
+            cache: "no-store"
           });
 
 
@@ -968,11 +1000,9 @@
 
       } catch (error) {
 
-        console.error(
-          "ORDER LOAD ERROR:",
-          error
-        );
+        console.error("ORDER LOAD ERROR:", error);
 
+        if (orders.length) return;
 
         container.innerHTML = `
 
@@ -1000,6 +1030,15 @@
           </div>
 
         `;
+
+      } finally {
+
+        loadingOrders = false;
+
+        if (manual) {
+          refreshBtn.disabled = false;
+          refreshBtn.textContent = "↻ Refresh";
+        }
 
       }
 
@@ -1242,6 +1281,15 @@
         order.paystackReference ||
         "";
 
+      const datamartReference =
+        order.datamart_reference ||
+        order.datamartReference ||
+        order.delivery_reference ||
+        order.deliveryReference ||
+        "";
+
+      const statusInfo = getStatusMessage(status);
+
 
       const created =
         order.created_at ||
@@ -1296,17 +1344,22 @@
           </div>
 
 
-          <div class="order-ref">
-
-            <span class="ref-label">
-              Order Reference
-            </span>
-
-            <span class="ref-value">
-              ${escapeHtml(reference)}
-            </span>
-
+          <div class="status-message ${statusClass(status)}">
+            <strong>${escapeHtml(statusInfo.title)}</strong>
+            ${escapeHtml(statusInfo.message)}
           </div>
+
+          <div class="order-ref">
+            <span class="ref-label">Order Reference</span>
+            <span class="ref-value">${escapeHtml(reference)}</span>
+          </div>
+
+          ${datamartReference ? `
+            <div class="delivery-ref">
+              <span class="delivery-label">Delivery Reference</span>
+              <span class="delivery-value" title="${escapeHtml(datamartReference)}">${escapeHtml(datamartReference)}</span>
+            </div>
+          ` : ""}
 
 
           <div class="details">
@@ -1414,6 +1467,21 @@
 
     }
 
+
+    function getStatusMessage(status) {
+      switch (status) {
+        case "completed":
+          return { title:"Data delivered successfully", message:"Your payment was confirmed and the requested service has been completed." };
+        case "processing":
+          return { title:"Payment confirmed", message:"Your payment was confirmed. DataMart is processing your bundle delivery." };
+        case "failed":
+          return { title:"Delivery failed", message:"Your payment was recorded, but delivery could not be completed. Please contact DHE GENIUS MEDIA Support." };
+        case "cancelled":
+          return { title:"Order cancelled", message:"This order has been cancelled. Please contact DHE GENIUS MEDIA Support if you need assistance." };
+        default:
+          return { title:"Order received", message:"Your order is waiting to be processed. Please keep this order reference for tracking." };
+      }
+    }
 
     /* =========================
        STATUS HELPERS
@@ -1703,6 +1771,9 @@
     ========================= */
 
     loadOrders();
+
+    // Keep the customer page synchronized with the server/DataMart status.
+    setInterval(() => loadOrders(false), 15000);
 
   </script>
 
