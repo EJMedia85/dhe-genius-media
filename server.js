@@ -298,6 +298,116 @@ app.get("/api/sports/match/:id", async (req, res) => {
 
 
 // =====================================================
+// YOUTUBE INTEGRATION
+// =====================================================
+
+const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY || "";
+const YOUTUBE_CHANNEL_ID = process.env.YOUTUBE_CHANNEL_ID || "";
+const YOUTUBE_BASE = "https://www.googleapis.com/youtube/v3";
+
+async function youtubeRequest(endpoint, params = {}) {
+  if (!YOUTUBE_API_KEY) {
+    const error = new Error("YouTube integration is not configured yet. Add YOUTUBE_API_KEY in Render environment variables.");
+    error.status = 503;
+    throw error;
+  }
+  const url = new URL(YOUTUBE_BASE + endpoint);
+  Object.entries({ ...params, key: YOUTUBE_API_KEY }).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
+  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const response = await fetch(url, { headers: { Accept: "application/json" }, signal: controller.signal });
+    const text = await response.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+    if (!response.ok) {
+      const error = new Error("YouTube API HTTP " + response.status + ": " + (data?.error?.message || "Request failed"));
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = new Error("YouTube API request timed out.");
+      timeoutError.status = 504;
+      throw timeoutError;
+    }
+    throw error;
+  } finally { clearTimeout(timeout); }
+}
+
+function normalizeYoutubeVideo(item) {
+  const snippet = item?.snippet || {};
+  const resourceId = item?.contentDetails?.videoId || item?.id?.videoId || item?.id || "";
+  return {
+    id: resourceId,
+    title: snippet.title || "",
+    description: snippet.description || "",
+    published_at: snippet.publishedAt || "",
+    channel_id: snippet.channelId || YOUTUBE_CHANNEL_ID,
+    channel_title: snippet.channelTitle || "",
+    thumbnail: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || null,
+    watch_url: resourceId ? "https://www.youtube.com/watch?v=" + encodeURIComponent(resourceId) : "",
+    embed_url: resourceId ? "https://www.youtube.com/embed/" + encodeURIComponent(resourceId) : ""
+  };
+}
+
+app.get("/api/youtube/status", (req, res) => {
+  res.json({
+    success: true,
+    provider: "YouTube Data API v3",
+    configured: Boolean(YOUTUBE_API_KEY),
+    channel_configured: Boolean(YOUTUBE_CHANNEL_ID)
+  });
+});
+
+app.get("/api/youtube/videos", async (req, res) => {
+  try {
+    const channelId = String(req.query.channel_id || YOUTUBE_CHANNEL_ID).trim();
+    if (!channelId) return res.status(400).json({ success: false, message: "YOUTUBE_CHANNEL_ID is not configured." });
+    const maxResults = Math.min(Math.max(Number(req.query.limit) || 12, 1), 50);
+    const data = await youtubeRequest("/search", { part: "snippet", channelId, order: "date", type: "video", maxResults });
+    return res.json({
+      success: true,
+      provider: "YouTube Data API v3",
+      channel_id: channelId,
+      count: (data.items || []).length,
+      videos: (data.items || []).map(normalizeYoutubeVideo)
+    });
+  } catch (error) {
+    console.error("YouTube videos error:", error.message);
+    return res.status(Number(error.status) || 500).json({ success: false, provider: "YouTube Data API v3", message: error.message || "YouTube request failed." });
+  }
+});
+
+app.get("/api/youtube/search", async (req, res) => {
+  try {
+    const query = String(req.query.q || "").trim();
+    if (query.length < 2) return res.status(400).json({ success: false, message: "Enter at least 2 characters to search YouTube." });
+    const maxResults = Math.min(Math.max(Number(req.query.limit) || 12, 1), 50);
+    const data = await youtubeRequest("/search", { part: "snippet", q: query, type: "video", maxResults });
+    return res.json({ success: true, provider: "YouTube Data API v3", query, count: (data.items || []).length, videos: (data.items || []).map(normalizeYoutubeVideo) });
+  } catch (error) {
+    console.error("YouTube search error:", error.message);
+    return res.status(Number(error.status) || 500).json({ success: false, provider: "YouTube Data API v3", message: error.message || "YouTube search failed." });
+  }
+});
+
+app.get("/api/youtube/live", async (req, res) => {
+  try {
+    const channelId = String(req.query.channel_id || YOUTUBE_CHANNEL_ID).trim();
+    if (!channelId) return res.status(400).json({ success: false, message: "YOUTUBE_CHANNEL_ID is not configured." });
+    const data = await youtubeRequest("/search", { part: "snippet", channelId, eventType: "live", type: "video", maxResults: 10 });
+    return res.json({ success: true, provider: "YouTube Data API v3", channel_id: channelId, count: (data.items || []).length, live: (data.items || []).map(normalizeYoutubeVideo) });
+  } catch (error) {
+    console.error("YouTube live error:", error.message);
+    return res.status(Number(error.status) || 500).json({ success: false, provider: "YouTube Data API v3", message: error.message || "YouTube live request failed." });
+  }
+});
+
+// =====================================================
 // APP CONFIG
 // =====================================================
 
