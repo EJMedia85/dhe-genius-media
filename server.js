@@ -41,6 +41,13 @@ const BASE_URL =
   process.env.BASE_URL ||
   "https://dhe-genius-media.onrender.com";
 
+const RESEND_API_KEY =
+  process.env.RESEND_API_KEY || "";
+
+const RESEND_FROM_EMAIL =
+  process.env.RESEND_FROM_EMAIL ||
+  "DHE GENIUS MEDIA <onboarding@resend.dev>";
+
 const DGM_API_KEY =
   process.env.DGM_API_KEY || "";
 
@@ -569,6 +576,29 @@ async function initDatabase() {
   // MOVIE PLAYBACK SOURCES
   // Stores only authorized DGM-controlled/licensed playback URLs.
   // ---------------------------------------------------
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+      token_hash TEXT UNIQUE NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_customer
+    ON password_reset_tokens(customer_id);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires
+    ON password_reset_tokens(expires_at);
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS movie_playback (
@@ -2032,6 +2062,68 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+const passwordResetRateState = new Map();
+
+function passwordResetRateLimit(req, res, next) {
+  const ip = String(req.ip || req.socket?.remoteAddress || "unknown");
+  const now = Date.now();
+  const windowMs = 15 * 60 * 1000;
+  const maxRequests = 5;
+  const existing = passwordResetRateState.get(ip);
+
+  if (!existing || now - existing.startedAt >= windowMs) {
+    passwordResetRateState.set(ip, { startedAt: now, count: 1 });
+    return next();
+  }
+
+  existing.count += 1;
+  if (existing.count > maxRequests) {
+    return sendError(res, 429, "Too many password reset requests. Please try again later.");
+  }
+  next();
+}
+
+function createPasswordResetToken() {
+  return crypto.randomBytes(32).toString("hex");
+}
+
+function hashPasswordResetToken(token) {
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
+
+async function sendPasswordResetEmail(customer, resetUrl) {
+  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY is not configured.");
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: "Bearer " + RESEND_API_KEY,
+      "Content-Type": "application/json",
+      Accept: "application/json"
+    },
+    body: JSON.stringify({
+      from: RESEND_FROM_EMAIL,
+      to: [customer.email],
+      subject: "Reset your DHE GENIUS MEDIA password",
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;color:#17202a">
+        <h2>DHE GENIUS MEDIA</h2>
+        <p>Hello ${escapeHtml(customer.name)},</p>
+        <p>We received a request to reset your DGM account password.</p>
+        <p><a href="${resetUrl}" style="display:inline-block;padding:13px 20px;background:#168cff;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Reset Password</a></p>
+        <p>This link expires in 30 minutes and can only be used once.</p>
+        <p>If you did not request this, you can safely ignore this email.</p>
+        <p style="color:#667085;font-size:12px">DHE GENIUS MEDIA • Accra - Spintex</p>
+      </div>`
+    })
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || data.error?.message || "Password reset email could not be sent.");
+  }
+  return data;
 }
 
 // =====================================================
@@ -4118,6 +4210,141 @@ app.post(
 );
 
 // =====================================================
+// FORGOT PASSWORD / PASSWORD RESET
+// =====================================================
+
+app.post("/api/forgot-password", passwordResetRateLimit, async (req, res) => {
+  try {
+    const identifier = String(req.body.identifier || req.body.email || "").trim();
+    const genericMessage = "If an account matches those details, a password reset link has been sent.";
+
+    if (!identifier) return res.json({ success: true, message: genericMessage });
+
+    const email = cleanEmail(identifier);
+    const phone = normalizeGhanaPhone(identifier);
+    const result = await pool.query(
+      `SELECT id, name, phone, email FROM customers
+       WHERE email = $1 OR phone = $2 LIMIT 1`,
+      [email, phone]
+    );
+
+    if (!result.rows.length) return res.json({ success: true, message: genericMessage });
+    if (!RESEND_API_KEY) return sendError(res, 503, "Password reset email service is not configured yet.");
+
+    const customer = result.rows[0];
+    const token = createPasswordResetToken();
+    const tokenHash = hashPasswordResetToken(token);
+
+    await pool.query(
+      `UPDATE password_reset_tokens SET used_at = COALESCE(used_at, NOW())
+       WHERE customer_id = $1 AND used_at IS NULL`,
+      [customer.id]
+    );
+
+    await pool.query(
+      `INSERT INTO password_reset_tokens (customer_id, token_hash, expires_at)
+       VALUES ($1, $2, NOW() + INTERVAL '30 minutes')`,
+      [customer.id, tokenHash]
+    );
+
+    const resetUrl = BASE_URL.replace(/\/$/, "") +
+      "/reset-password.html?token=" + encodeURIComponent(token);
+
+    try {
+      await sendPasswordResetEmail(customer, resetUrl);
+    } catch (emailError) {
+      await pool.query(
+        `UPDATE password_reset_tokens SET used_at = COALESCE(used_at, NOW())
+         WHERE token_hash = $1`,
+        [tokenHash]
+      );
+      console.error("Password reset email error:", emailError);
+      return sendError(res, 502, "We could not send the password reset email. Please try again later.");
+    }
+
+    return res.json({ success: true, message: genericMessage });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    return sendError(res, 500, "Could not process the password reset request.");
+  }
+});
+
+app.get("/api/reset-password/verify", async (req, res) => {
+  try {
+    const token = String(req.query.token || "").trim();
+    if (!token || token.length !== 64) return sendError(res, 400, "Invalid or expired reset link.");
+
+    const tokenHash = hashPasswordResetToken(token);
+    const result = await pool.query(
+      `SELECT id FROM password_reset_tokens
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW() LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (!result.rows.length) return sendError(res, 400, "Invalid or expired reset link.");
+    return res.json({ success: true, message: "Reset link is valid." });
+  } catch (error) {
+    console.error("Reset password verify error:", error);
+    return sendError(res, 500, "Could not verify reset link.");
+  }
+});
+
+app.post("/api/reset-password", async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const token = String(req.body.token || "").trim();
+    const newPassword = String(req.body.newPassword || "");
+    const confirmPassword = String(req.body.confirmPassword || "");
+
+    if (!token || token.length !== 64) return sendError(res, 400, "Invalid or expired reset link.");
+    if (newPassword.length < 8) return sendError(res, 400, "New password must be at least 8 characters.");
+    if (newPassword !== confirmPassword) return sendError(res, 400, "Passwords do not match.");
+
+    const tokenHash = hashPasswordResetToken(token);
+    await client.query("BEGIN");
+
+    const tokenResult = await client.query(
+      `SELECT id, customer_id FROM password_reset_tokens
+       WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+       FOR UPDATE`,
+      [tokenHash]
+    );
+
+    if (!tokenResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Invalid or expired reset link.");
+    }
+
+    const resetRecord = tokenResult.rows[0];
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await client.query(
+      "UPDATE customers SET password = $1 WHERE id = $2",
+      [hashedPassword, resetRecord.customer_id]
+    );
+
+    await client.query(
+      "UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1",
+      [resetRecord.id]
+    );
+
+    await client.query("COMMIT");
+
+    if (req.session) {
+      await new Promise((resolve) => req.session.destroy(() => resolve()));
+    }
+
+    return res.json({ success: true, message: "Password reset successfully. You can now log in." });
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch {}
+    console.error("Reset password error:", error);
+    return sendError(res, 500, "Could not reset your password.");
+  } finally {
+    client.release();
+  }
+});
+
+// =====================================================
 // LOGIN
 // =====================================================
 
@@ -5896,6 +6123,11 @@ async function startServer() {
         // Express-session handles active session expiry through the
         // configured store; the missing legacy cleanup job must not
         // terminate the production server.
+
+        console.log(
+          "Password reset email: " +
+          (RESEND_API_KEY ? "configured" : "MISSING")
+        );
       }
     );
 
