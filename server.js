@@ -91,6 +91,25 @@ const KINGFLEXY_API_BASE =
       "https://api.kingflexygh.com/api/v2"
   ).replace(/\/$/, "");
 
+// KingFlexy Airtime is a Commission Services API.
+// The provider requires a kf_cs_live_* key for /airtime/*.
+const KINGFLEXY_AIRTIME_KEY_TYPE =
+  String(KINGFLEXY_API_KEY || "").startsWith("kf_cs_live_")
+    ? "commission_services"
+    : String(KINGFLEXY_API_KEY || "").startsWith("kf_live_")
+      ? "standard"
+      : "unknown";
+
+function kingflexyAirtimeNetwork(network) {
+  const value = String(network || "").trim();
+
+  if (value === "AirtelTigo") return "AT";
+  if (value === "AT-iShare") return "AT";
+  if (value === "AT-BigTime") return "AT";
+
+  return value;
+}
+
 const API_FOOTBALL_KEY =
   process.env.API_FOOTBALL_KEY || "";
 
@@ -1529,13 +1548,37 @@ async function submitKingflexyAirtime(order) {
     };
   }
 
+  if (KINGFLEXY_AIRTIME_KEY_TYPE !== "commission_services") {
+    const message =
+      "KingFlexy Airtime requires a Commission Services API key (kf_cs_live_...). The configured key is not an Airtime key.";
+
+    await pool.query(
+      `
+      UPDATE orders
+      SET status = 'Processing',
+          provider_status = 'invalid_api_key_type',
+          provider_message = $1,
+          provider_updated_at = NOW()
+      WHERE id = $2
+      `,
+      [message, order.id]
+    );
+
+    return {
+      success: false,
+      pending: true,
+      status: "Processing",
+      message
+    };
+  }
+
   try {
     const requestReference = String(order.order_ref).trim();
 
     const data = await kingflexyRequest("/airtime/purchase", {
       method: "POST",
       body: JSON.stringify({
-        network: order.network,
+        network: kingflexyAirtimeNetwork(order.network),
         beneficiary_phone: order.phone,
         amount: Number(order.amount),
         reference: requestReference
