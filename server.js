@@ -48,6 +48,33 @@ const RESEND_FROM_EMAIL =
   process.env.RESEND_FROM_EMAIL ||
   "DHE GENIUS MEDIA <onboarding@resend.dev>";
 
+const RESET_EMAIL_PROVIDER =
+  String(process.env.RESET_EMAIL_PROVIDER || "resend")
+    .trim()
+    .toLowerCase();
+
+const SMTP_HOST =
+  String(process.env.SMTP_HOST || "").trim();
+
+const SMTP_PORT =
+  Number(process.env.SMTP_PORT || 465);
+
+const SMTP_SECURE =
+  String(process.env.SMTP_SECURE || "true").toLowerCase() === "true";
+
+const SMTP_USER =
+  String(process.env.SMTP_USER || "").trim();
+
+const SMTP_PASSWORD =
+  String(process.env.SMTP_PASSWORD || "");
+
+const SMTP_FROM_EMAIL =
+  String(
+    process.env.SMTP_FROM_EMAIL ||
+      SMTP_USER ||
+      ""
+  ).trim();
+
 const DGM_API_KEY =
   process.env.DGM_API_KEY || "";
 
@@ -2094,7 +2121,67 @@ function hashPasswordResetToken(token) {
 }
 
 async function sendPasswordResetEmail(customer, resetUrl) {
-  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY is not configured.");
+  const subject = "Reset your DHE GENIUS MEDIA password";
+  const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;color:#17202a">
+    <h2>DHE GENIUS MEDIA</h2>
+    <p>Hello ${escapeHtml(customer.name)},</p>
+    <p>We received a request to reset your DGM account password.</p>
+    <p><a href="${resetUrl}" style="display:inline-block;padding:13px 20px;background:#168cff;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Reset Password</a></p>
+    <p>This link expires in 30 minutes and can only be used once.</p>
+    <p>If you did not request this, you can safely ignore this email.</p>
+    <p style="color:#667085;font-size:12px">DHE GENIUS MEDIA • Accra - Spintex</p>
+  </div>`;
+
+  const canUseSmtp =
+    SMTP_HOST &&
+    SMTP_USER &&
+    SMTP_PASSWORD &&
+    SMTP_FROM_EMAIL;
+
+  if (RESET_EMAIL_PROVIDER === "smtp" || (!RESEND_API_KEY && canUseSmtp)) {
+    if (!canUseSmtp) {
+      throw new Error(
+        "SMTP password reset email is not fully configured. Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD and SMTP_FROM_EMAIL."
+      );
+    }
+
+    let nodemailer;
+    try {
+      nodemailer = require("nodemailer");
+    } catch {
+      throw new Error(
+        "SMTP email support is unavailable because the nodemailer package is missing."
+      );
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_SECURE,
+      auth: {
+        user: SMTP_USER,
+        pass: SMTP_PASSWORD
+      }
+    });
+
+    const info = await transporter.sendMail({
+      from: SMTP_FROM_EMAIL,
+      to: customer.email,
+      subject,
+      html
+    });
+
+    return {
+      provider: "smtp",
+      messageId: info.messageId
+    };
+  }
+
+  if (!RESEND_API_KEY) {
+    throw new Error(
+      "No password reset email provider is configured. Set RESEND_API_KEY or configure SMTP."
+    );
+  }
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -2106,24 +2193,27 @@ async function sendPasswordResetEmail(customer, resetUrl) {
     body: JSON.stringify({
       from: RESEND_FROM_EMAIL,
       to: [customer.email],
-      subject: "Reset your DHE GENIUS MEDIA password",
-      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;padding:24px;color:#17202a">
-        <h2>DHE GENIUS MEDIA</h2>
-        <p>Hello ${escapeHtml(customer.name)},</p>
-        <p>We received a request to reset your DGM account password.</p>
-        <p><a href="${resetUrl}" style="display:inline-block;padding:13px 20px;background:#168cff;color:#fff;text-decoration:none;border-radius:8px;font-weight:700">Reset Password</a></p>
-        <p>This link expires in 30 minutes and can only be used once.</p>
-        <p>If you did not request this, you can safely ignore this email.</p>
-        <p style="color:#667085;font-size:12px">DHE GENIUS MEDIA • Accra - Spintex</p>
-      </div>`
+      subject,
+      html
     })
   });
 
   const data = await response.json().catch(() => ({}));
+
   if (!response.ok) {
-    throw new Error(data.message || data.error?.message || "Password reset email could not be sent.");
+    const providerMessage =
+      data.message ||
+      data.error?.message ||
+      data.name ||
+      `Resend returned HTTP ${response.status}.`;
+
+    throw new Error(providerMessage);
   }
-  return data;
+
+  return {
+    provider: "resend",
+    ...data
+  };
 }
 
 // =====================================================
@@ -4229,7 +4319,24 @@ app.post("/api/forgot-password", passwordResetRateLimit, async (req, res) => {
     );
 
     if (!result.rows.length) return res.json({ success: true, message: genericMessage });
-    if (!RESEND_API_KEY) return sendError(res, 503, "Password reset email service is not configured yet.");
+    const smtpReady =
+      SMTP_HOST &&
+      SMTP_USER &&
+      SMTP_PASSWORD &&
+      SMTP_FROM_EMAIL;
+
+    const emailServiceReady =
+      RESET_EMAIL_PROVIDER === "smtp"
+        ? Boolean(smtpReady)
+        : Boolean(RESEND_API_KEY || smtpReady);
+
+    if (!emailServiceReady) {
+      return sendError(
+        res,
+        503,
+        "Password reset email service is not configured yet."
+      );
+    }
 
     const customer = result.rows[0];
     const token = createPasswordResetToken();
@@ -6124,9 +6231,17 @@ async function startServer() {
         // configured store; the missing legacy cleanup job must not
         // terminate the production server.
 
+        const smtpReady =
+          SMTP_HOST &&
+          SMTP_USER &&
+          SMTP_PASSWORD &&
+          SMTP_FROM_EMAIL;
+
         console.log(
           "Password reset email: " +
-          (RESEND_API_KEY ? "configured" : "MISSING")
+          (RESEND_API_KEY || smtpReady ? "configured" : "MISSING") +
+          " | provider=" +
+          RESET_EMAIL_PROVIDER
         );
       }
     );
