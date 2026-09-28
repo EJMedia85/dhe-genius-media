@@ -697,7 +697,13 @@
         border-radius: 20px 20px 0 0;
       }
     }
-  </style>
+  
+    .brand-logo {
+      border: 0;
+      cursor: pointer;
+      font: inherit;
+    }
+</style>
 </head>
 
 <body>
@@ -708,9 +714,14 @@
 
     <div class="brand">
 
-      <div class="brand-logo">
+      <button
+        type="button"
+        class="brand-logo"
+        aria-label="Go to DGM Dashboard"
+        onclick="window.location.href='/dashboard.html'"
+      >
         DGM
-      </div>
+      </button>
 
       <div>
         <div class="brand-name">
