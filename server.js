@@ -5329,6 +5329,32 @@ app.get(
 );
 
 // =====================================================
+// WALLET BALANCE
+// =====================================================
+
+app.get(
+  "/api/wallet",
+  requireLogin,
+  async (req, res) => {
+    try {
+      const customer = await getCustomer(req.session.customerId);
+
+      if (!customer) {
+        return sendError(res, 404, "Account not found.");
+      }
+
+      return res.json({
+        success: true,
+        balance: Number(customer.balance || 0)
+      });
+    } catch (error) {
+      console.error("Wallet balance error:", error);
+      return sendError(res, 500, "Could not load wallet balance.");
+    }
+  }
+);
+
+// =====================================================
 // WALLET TRANSACTIONS
 // =====================================================
 
