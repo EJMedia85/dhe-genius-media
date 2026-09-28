@@ -4118,6 +4118,268 @@ app.use(
 );
 
 // =====================================================
+// WALLET DEPOSIT / PAYSTACK INITIALIZATION
+// =====================================================
+
+app.post(
+  "/api/wallet/deposit",
+  requireLogin,
+  async (req, res) => {
+    try {
+      if (!PAYSTACK_SECRET_KEY) {
+        return sendError(
+          res,
+          503,
+          "Wallet payments are not configured yet. Add PAYSTACK_SECRET_KEY in Render environment variables."
+        );
+      }
+
+      const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+
+      if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+        return sendError(
+          res,
+          400,
+          "Wallet top-up amount must be between GH₵1.00 and GH₵10,000.00."
+        );
+      }
+
+      const customer = await getCustomer(req.session.customerId);
+
+      if (!customer) {
+        return sendError(res, 404, "Customer account not found.");
+      }
+
+      const email = cleanEmail(customer.email);
+
+      if (!email || !email.includes("@")) {
+        return sendError(
+          res,
+          400,
+          "Your account does not have a valid email address for Paystack."
+        );
+      }
+
+      const reference = "DGM-WALLET-" +
+        Date.now().toString(36).toUpperCase() +
+        "-" +
+        crypto.randomBytes(4).toString("hex").toUpperCase();
+
+      await pool.query(
+        `
+        INSERT INTO wallet_topups
+          (customer_id, reference, amount, status, payment_status)
+        VALUES
+          ($1, $2, $3, 'Pending', 'Pending')
+        `,
+        [customer.id, reference, amount]
+      );
+
+      const callbackUrl =
+        BASE_URL.replace(/\/$/, "") +
+        "/api/paystack/wallet-callback";
+
+      const paystackResponse = await fetch(
+        "https://api.paystack.co/transaction/initialize",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            email,
+            amount: String(Math.round(amount * 100)),
+            currency: "GHS",
+            reference,
+            callback_url: callbackUrl,
+            metadata: {
+              type: "wallet_topup",
+              customer_id: customer.id,
+              reference
+            }
+          })
+        }
+      );
+
+      const raw = await paystackResponse.text();
+      let data = {};
+
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = {};
+      }
+
+      if (!paystackResponse.ok || !data.status || !data.data?.authorization_url) {
+        await pool.query(
+          `
+          UPDATE wallet_topups
+          SET status = 'Failed',
+              payment_status = 'Failed'
+          WHERE reference = $1
+          `,
+          [reference]
+        );
+
+        console.error(
+          "Paystack wallet initialization failed:",
+          paystackResponse.status,
+          data || raw
+        );
+
+        return sendError(
+          res,
+          502,
+          data?.message || "Paystack could not initialize the wallet payment."
+        );
+      }
+
+      console.log(
+        `WALLET TOPUP INITIALIZED: ${reference} | GH₵${amount.toFixed(2)} | Customer: ${customer.id}`
+      );
+
+      return res.json({
+        success: true,
+        reference,
+        amount,
+        authorization_url: data.data.authorization_url,
+        access_code: data.data.access_code || null
+      });
+    } catch (error) {
+      console.error("Wallet deposit initialization error:", error);
+      return sendError(
+        res,
+        500,
+        error.message || "Unable to start wallet payment."
+      );
+    }
+  }
+);
+
+// =====================================================
+// PAYSTACK WALLET CALLBACK / SERVER-SIDE VERIFICATION
+// =====================================================
+
+app.get(
+  "/api/paystack/wallet-callback",
+  async (req, res) => {
+    const reference = String(req.query.reference || "").trim();
+
+    if (!reference) {
+      return res.redirect(
+        "/add-money.html?payment=failed&message=" +
+        encodeURIComponent("Payment reference was not returned by Paystack.")
+      );
+    }
+
+    try {
+      if (!PAYSTACK_SECRET_KEY) {
+        return res.redirect(
+          "/add-money.html?payment=failed&message=" +
+          encodeURIComponent("Wallet payments are not configured.")
+        );
+      }
+
+      const verifyResponse = await fetch(
+        "https://api.paystack.co/transaction/verify/" +
+        encodeURIComponent(reference),
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+            Accept: "application/json"
+          }
+        }
+      );
+
+      const raw = await verifyResponse.text();
+      let data = {};
+
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = {};
+      }
+
+      const payment = data?.data || {};
+      const status = String(payment.status || "").toLowerCase();
+      const currency = String(payment.currency || "").toUpperCase();
+      const paidAmount = Number(payment.amount || 0) / 100;
+
+      const topupResult = await pool.query(
+        `
+        SELECT *
+        FROM wallet_topups
+        WHERE reference = $1
+        LIMIT 1
+        `,
+        [reference]
+      );
+
+      if (!topupResult.rows.length) {
+        return res.redirect(
+          "/add-money.html?payment=failed&message=" +
+          encodeURIComponent("Wallet top-up record was not found.")
+        );
+      }
+
+      const topup = topupResult.rows[0];
+      const expectedAmount = Number(topup.amount);
+
+      if (
+        !verifyResponse.ok ||
+        !data.status ||
+        status !== "success" ||
+        currency !== "GHS" ||
+        Math.round(paidAmount * 100) !== Math.round(expectedAmount * 100)
+      ) {
+        console.error(
+          "Paystack wallet verification failed:",
+          reference,
+          {
+            httpStatus: verifyResponse.status,
+            status,
+            currency,
+            paidAmount,
+            expectedAmount
+          }
+        );
+
+        return res.redirect(
+          "/add-money.html?payment=failed&message=" +
+          encodeURIComponent("Payment was not verified as successful.")
+        );
+      }
+
+      const creditResult =
+        await creditWalletFromTopup(reference);
+
+      console.log(
+        "Paystack wallet callback processed:",
+        reference,
+        creditResult
+      );
+
+      return res.redirect(
+        "/add-money.html?payment=success&reference=" +
+        encodeURIComponent(reference)
+      );
+    } catch (error) {
+      console.error(
+        "Paystack wallet callback error:",
+        error
+      );
+
+      return res.redirect(
+        "/add-money.html?payment=failed&message=" +
+        encodeURIComponent("Payment verification failed. Please contact DGM support.")
+      );
+    }
+  }
+);
+
+// =====================================================
 // ADMIN AUTHENTICATION
 // =====================================================
 
