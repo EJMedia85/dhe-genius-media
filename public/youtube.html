@@ -1,9 +1,52 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DGM YouTube • DHE GENIUS MEDIA</title><style>*{box-sizing:border-box}body{margin:0;background:#070909;color:#fff;font-family:Arial,sans-serif}header{padding:15px 16px;background:#0b1111;border-bottom:1px solid #202828;display:flex;justify-content:space-between}a{color:#fff;text-decoration:none}.brand{font-weight:900}.brand span{color:#25d366}.back{font-size:12px;padding:9px 12px;border:1px solid #303838;border-radius:10px}main{max-width:1050px;margin:auto;padding:24px 15px}.badge{color:#ff4444;font-weight:900;font-size:11px}.hero h1{font-size:34px;margin:12px 0}.hero p{color:#93a2a2;font-size:13px}.tools{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.search{flex:1;min-width:200px;padding:13px;border-radius:11px;border:1px solid #293333;background:#101616;color:#fff}.btn{padding:12px 15px;border:0;border-radius:11px;background:#25d366;font-weight:800}.secondary{background:#151d1d;color:#fff;border:1px solid #2c3737}.notice{padding:12px;border-radius:11px;background:#111918;border:1px solid #20302b;color:#a9b7b2;font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:16px}.card{background:#101515;border:1px solid #202929;border-radius:13px;overflow:hidden;cursor:pointer}.thumb{width:100%;aspect-ratio:16/9;object-fit:cover}.ct{padding:10px}.title{font-size:12px;font-weight:800;line-height:1.35}.date{font-size:10px;color:#718080;margin-top:7px}.modal{display:none;position:fixed;inset:0;background:#000d;align-items:center;justify-content:center;padding:15px}.modal.open{display:flex}.player{width:min(900px,100%);background:#111;border-radius:14px;overflow:hidden}.player iframe{width:100%;aspect-ratio:16/9;border:0}.close{position:absolute;top:12px;right:12px;padding:9px;border:0;border-radius:9px}@media(max-width:800px){.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:480px){.grid{grid-template-columns:1fr 1fr}.hero h1{font-size:28px}}</style></head><body><header><div class="brand">DHE <span>GENIUS</span> MEDIA</div><a class="back" href="/dashboard.html">Dashboard</a></header><main><section class="hero"><span class="badge">▶ YOUTUBE</span><h1>DGM YouTube</h1><p>Search YouTube, browse the configured DGM channel and watch videos inside DGM.</p></section><div id="notice" class="notice">Loading YouTube…</div><div class="tools"><input id="q" class="search" placeholder="Search YouTube videos…"><button class="btn" onclick="searchYT()">Search</button><button class="btn secondary" onclick="latest()">Latest</button><button class="btn secondary" onclick="live()">🔴 Live</button></div><div id="grid" class="grid"></div></main><div id="modal" class="modal"><button class="close" onclick="closePlayer()">✕</button><div class="player"><iframe id="player" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div></div><script>
-const grid=document.getElementById('grid'),notice=document.getElementById('notice');function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]||c))}
-function render(xs){if(!xs.length){grid.innerHTML='<div class="notice">No videos found.</div>';return}grid.innerHTML=xs.map(v=>'<article class="card" onclick="play('+JSON.stringify(v.embed_url)+')"><img class="thumb" src="'+esc(v.thumbnail)+'"><div class="ct"><div class="title">'+esc(v.title)+'</div><div class="date">'+(v.published_at?new Date(v.published_at).toLocaleDateString():'')+'</div></div></article>').join('')}
-async function get(u){const r=await fetch(u),d=await r.json();if(!r.ok)throw Error(d.message||'YouTube request failed');return d}
-async function latest(){try{const d=await get('/api/youtube/videos?limit=24');notice.style.display='none';render(d.videos||[])}catch(e){notice.textContent=e.message}}
-async function live(){try{const d=await get('/api/youtube/live');notice.style.display='none';render(d.live||[])}catch(e){notice.textContent=e.message}}
-async function searchYT(){const q=document.getElementById('q').value.trim();if(q.length<2){notice.textContent='Enter at least 2 characters.';return}try{const d=await get('/api/youtube/search?q='+encodeURIComponent(q)+'&limit=24');notice.style.display='none';render(d.videos||[])}catch(e){notice.textContent=e.message}}
-function play(u){document.getElementById('player').src=u+'?autoplay=1';document.getElementById('modal').classList.add('open')}function closePlayer(){document.getElementById('player').src='';document.getElementById('modal').classList.remove('open')}latest();
-</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DGM YouTube • DHE GENIUS MEDIA</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#070909;color:#fff;font-family:Arial,sans-serif}
+header{padding:15px 16px;background:#0b1111;border-bottom:1px solid #202828;display:flex;justify-content:space-between;align-items:center}
+a{color:#fff;text-decoration:none}.brand{font-weight:900}.brand span{color:#25d366}.back{font-size:12px;padding:9px 12px;border:1px solid #303838;border-radius:10px}
+main{max-width:1100px;margin:auto;padding:24px 15px}.badge{color:#ff4444;font-weight:900;font-size:11px}.hero h1{font-size:34px;margin:12px 0}.hero p{color:#93a2a2;font-size:13px;line-height:1.6}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:20px 0}.btn{padding:12px 15px;border:0;border-radius:11px;background:#25d366;color:#06100a;font-weight:800}.secondary{background:#151d1d;color:#fff;border:1px solid #2c3737}
+.channel{margin-top:15px;border:1px solid #20302b;background:#101616;border-radius:16px;overflow:hidden}
+.channel iframe{display:block;width:100%;height:650px;border:0}
+.note{padding:12px 15px;color:#9eacab;font-size:12px;line-height:1.5;border-top:1px solid #202929}
+@media(max-width:700px){.hero h1{font-size:28px}.channel iframe{height:520px}}
+@media(max-width:480px){.channel iframe{height:470px}}
+</style>
+</head>
+<body>
+<header>
+<div class="brand">DHE <span>GENIUS</span> MEDIA</div>
+<a class="back" href="/dashboard.html">Dashboard</a>
+</header>
+
+<main>
+<section class="hero">
+<span class="badge">▶ YOUTUBE</span>
+<h1>DGM YouTube</h1>
+<p>Watch DHE GENIUS MEDIA content directly inside the DGM website. No YouTube API key or Google Cloud billing is required for this embedded channel view.</p>
+</section>
+
+<div class="actions">
+<a class="btn" href="https://www.youtube.com/@omarwitty4743" target="_blank" rel="noopener">Open YouTube Channel</a>
+<a class="btn secondary" href="https://www.youtube.com/@omarwitty4743/videos" target="_blank" rel="noopener">View All Videos</a>
+<a class="btn secondary" href="https://www.youtube.com/@omarwitty4743/live" target="_blank" rel="noopener">🔴 Live</a>
+</div>
+
+<section class="channel">
+<iframe
+src="https://www.youtube.com/embed?listType=user_uploads&list=omarwitty4743"
+title="DHE GENIUS MEDIA YouTube videos"
+allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+allowfullscreen>
+</iframe>
+<div class="note">
+If YouTube does not load the channel list in an embedded view, use “View All Videos” above. Individual YouTube videos can still be embedded directly in DGM.
+</div>
+</section>
+</main>
+</body>
+</html>
