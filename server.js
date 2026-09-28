@@ -2636,25 +2636,74 @@ async function syncDataMartOrder(
       result ||
       {};
 
+    // DataMart can return a generic parent status such as
+    // "processing" alongside a more specific delivery status.
+    // Always prefer a terminal delivery result when one exists.
     const possibleStatuses = [
+      data.deliveryStatus,
+      data.delivery_status,
+      data.delivery?.status,
+      data.delivery?.deliveryStatus,
+      data.delivery?.delivery_status,
+      data.delivery?.state,
       data.orderStatus,
       data.order_status,
-      data.status,
       data.order?.orderStatus,
       data.order?.order_status,
       data.order?.status,
       data.transaction?.status,
       data.transactionStatus,
-      data.transaction_status
+      data.transaction_status,
+      data.status,
+      data.state
     ];
 
-    const datamartStatus =
+    const terminalStatuses = new Set([
+      "completed",
+      "complete",
+      "success",
+      "successful",
+      "delivered",
+      "delivery_success",
+      "delivery_successful",
+      "fulfilled",
+      "successful_delivery",
+      "failed",
+      "failure",
+      "refunded",
+      "cancelled",
+      "canceled",
+      "reversed",
+      "declined"
+    ]);
+
+    const firstStatus =
       possibleStatuses.find(
         value =>
           value !== undefined &&
           value !== null &&
           String(value).trim() !== ""
       );
+
+    const terminalStatus =
+      possibleStatuses.find(
+        value =>
+          terminalStatuses.has(
+            String(value || "")
+              .trim()
+              .toLowerCase()
+          )
+      );
+
+    const deliveredFlag =
+      data.delivered === true ||
+      data.delivery?.delivered === true ||
+      data.delivery?.completed === true;
+
+    const datamartStatus =
+      deliveredFlag
+        ? "delivered"
+        : terminalStatus || firstStatus;
 
     const normalizedStatus =
       String(
