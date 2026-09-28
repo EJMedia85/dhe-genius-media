@@ -6643,6 +6643,155 @@ app.post(
 );
 
 // =====================================================
+// DGM USSD STORE
+// Provider-neutral webhook. A Ghana USSD provider can POST
+// sessionId, phoneNumber, text and serviceCode to /api/ussd.
+// =====================================================
+
+const ussdSessions = new Map();
+
+const DGM_USSD_PRICES = {
+  MTN: { "1": 5, "2": 10, "3": 15, "4": 20, "5": 24, "6": 28, "8": 36, "10": 45, "15": 64, "20": 84, "25": 100, "30": 128, "40": 168, "50": 207 },
+  AirtelTigo: { "1": 5, "2": 10, "3": 15, "4": 20, "5": 24, "6": 26, "8": 35, "10": 45, "12": 48, "15": 65, "25": 100, "30": 120, "40": 160, "50": 200 },
+  Telecel: { "10": 45, "15": 60, "20": 76, "25": 100, "30": 115, "35": 136, "40": 150, "45": 165, "50": 185, "100": 407 }
+};
+
+function ussdClean(value) {
+  return String(value || "").trim();
+}
+
+function ussdSessionKey(req) {
+  return ussdClean(req.body?.sessionId || req.body?.session_id || req.body?.phoneNumber || req.body?.phone || "unknown");
+}
+
+function ussdResponse(res, message, end = false) {
+  return res.type("text/plain").send((end ? "END " : "CON ") + message);
+}
+
+function ussdMenu(state) {
+  if (!state.step) {
+    return "DHE GENIUS MEDIA\\n1. Buy Data\\n2. Buy Airtime\\n3. Check Balance\\n4. My Orders\\n5. Support";
+  }
+  if (state.step === "data_network") return "Select network:\\n1. MTN\\n2. Telecel\\n3. AirtelTigo";
+  if (state.step === "data_package") {
+    const prices = DGM_USSD_PRICES[state.network] || {};
+    return state.network + " bundles:\\n" + Object.entries(prices).map(([gb, price], i) => (i + 1) + ". " + gb + "GB - GH₵" + price).join("\\n");
+  }
+  if (state.step === "data_phone") return "Enter recipient Ghana phone number:";
+  if (state.step === "data_confirm") return "Buy " + state.capacity + "GB " + state.network + " for GH₵" + state.amount + " to " + state.phone + "?\\n1. Confirm\\n2. Cancel";
+  if (state.step === "airtime_network") return "Select network:\\n1. MTN\\n2. Telecel\\n3. AirtelTigo";
+  if (state.step === "airtime_amount") return "Enter airtime amount (GH₵1-500):";
+  if (state.step === "airtime_phone") return "Enter recipient Ghana phone number:";
+  if (state.step === "airtime_confirm") return "Buy GH₵" + state.amount + " airtime on " + state.network + " for " + state.phone + "?\\n1. Confirm\\n2. Cancel";
+  return "DHE GENIUS MEDIA\\n1. Buy Data\\n2. Buy Airtime\\n3. Check Balance\\n4. My Orders\\n5. Support";
+}
+
+function ussdNetwork(choice) {
+  return ({ "1": "MTN", "2": "Telecel", "3": "AirtelTigo" })[choice] || null;
+}
+
+function ussdDataNetwork(choice) {
+  return ({ "1": "MTN", "2": "Telecel", "3": "AirtelTigo" })[choice] || null;
+}
+
+function ussdPhone(value) {
+  const digits = ussdClean(value).replace(/[^0-9+]/g, "");
+  const normalized = typeof normalizeGhanaPhone === "function" ? normalizeGhanaPhone(digits) : digits;
+  return normalized;
+}
+
+app.post("/api/ussd", async (req, res) => {
+  const sessionKey = ussdSessionKey(req);
+  const text = ussdClean(req.body?.text || "");
+  const phoneNumber = ussdPhone(req.body?.phoneNumber || req.body?.phone || "");
+
+  let state = ussdSessions.get(sessionKey) || { step: "", phoneNumber };
+  if (phoneNumber) state.phoneNumber = phoneNumber;
+
+  const parts = text ? text.split("*").map(ussdClean).filter(Boolean) : [];
+  const choice = parts.length ? parts[parts.length - 1] : "";
+
+  try {
+    if (!text) {
+      state = { step: "", phoneNumber };
+      ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    }
+
+    if (state.step === "") {
+      if (choice === "1") state.step = "data_network";
+      else if (choice === "2") state.step = "airtime_network";
+      else if (choice === "3") {
+        if (!validGhanaPhone(phoneNumber)) return ussdResponse(res, "Please use the Ghana phone number registered on your DGM account.", true);
+        const customer = await pool.query("SELECT balance FROM customers WHERE phone = $1 LIMIT 1", [phoneNumber]);
+        if (!customer.rows.length) return ussdResponse(res, "No DGM account found for " + phoneNumber + ". Register on the DGM website first.", true);
+        return ussdResponse(res, "DGM Wallet Balance: GH₵" + Number(customer.rows[0].balance || 0).toFixed(2), true);
+      } else if (choice === "4") {
+        if (!validGhanaPhone(phoneNumber)) return ussdResponse(res, "Please use your registered Ghana phone number.", true);
+        const customer = await pool.query("SELECT id FROM customers WHERE phone = $1 LIMIT 1", [phoneNumber]);
+        if (!customer.rows.length) return ussdResponse(res, "No DGM account found for this number.", true);
+        const orders = await pool.query("SELECT order_ref, service, amount, status FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 3", [customer.rows[0].id]);
+        if (!orders.rows.length) return ussdResponse(res, "No orders found.", true);
+        return ussdResponse(res, "Recent orders:\\n" + orders.rows.map(o => o.order_ref + " " + o.service + " GH₵" + Number(o.amount).toFixed(2) + " " + o.status).join("\\n"), true);
+      } else if (choice === "5") {
+        return ussdResponse(res, "DGM Support: WhatsApp 0241518385\\nCall 0508667776", true);
+      } else return ussdResponse(res, ussdMenu({}));
+    } else if (state.step === "data_network") {
+      const network = ussdDataNetwork(choice);
+      if (!network) return ussdResponse(res, "Invalid network.\\n" + ussdMenu(state));
+      state.network = network; state.step = "data_package"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "data_package") {
+      const entries = Object.entries(DGM_USSD_PRICES[state.network] || {});
+      const index = Number(choice) - 1;
+      if (!entries[index]) return ussdResponse(res, ussdMenu(state));
+      const [capacity, amount] = entries[index];
+      state.capacity = capacity; state.amount = amount; state.step = "data_phone"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "data_phone") {
+      const phone = ussdPhone(choice);
+      if (!validGhanaPhone(phone)) return ussdResponse(res, "Invalid Ghana phone number. Try again.");
+      state.phone = phone; state.step = "data_confirm"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "data_confirm") {
+      if (choice !== "1") { ussdSessions.delete(sessionKey); return ussdResponse(res, "Transaction cancelled.", true); }
+      if (!validGhanaPhone(state.phone) || !validGhanaPhone(phoneNumber)) return ussdResponse(res, "A valid registered DGM phone number is required.", true);
+      const customerResult = await pool.query("SELECT id,balance FROM customers WHERE phone = $1 LIMIT 1", [phoneNumber]);
+      if (!customerResult.rows.length) return ussdResponse(res, "No DGM account found. Register on the website first.", true);
+      const customer = customerResult.rows[0];
+      const amount = Number(state.amount);
+      if (Number(customer.balance || 0) < amount) return ussdResponse(res, "Insufficient wallet balance. Please top up your DGM wallet first.", true);
+      return ussdResponse(res, "USSD purchase is ready. For safety, data fulfillment is completed through the authenticated DGM checkout until your USSD provider is connected.", true);
+    } else if (state.step === "airtime_network") {
+      const network = ussdNetwork(choice);
+      if (!network) return ussdResponse(res, "Invalid network.\\n" + ussdMenu(state));
+      state.network = network; state.step = "airtime_amount"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "airtime_amount") {
+      const amount = Number(choice);
+      if (!Number.isFinite(amount) || amount < 1 || amount > 500) return ussdResponse(res, "Enter an amount from GH₵1 to GH₵500.");
+      state.amount = Math.round(amount * 100) / 100; state.step = "airtime_phone"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "airtime_phone") {
+      const phone = ussdPhone(choice);
+      if (!validGhanaPhone(phone)) return ussdResponse(res, "Invalid Ghana phone number. Try again.");
+      state.phone = phone; state.step = "airtime_confirm"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "airtime_confirm") {
+      ussdSessions.delete(sessionKey);
+      return ussdResponse(res, choice === "1" ? "USSD airtime purchase is ready. Connect your approved USSD provider to enable live wallet debit and delivery." : "Transaction cancelled.", true);
+    }
+
+    ussdSessions.delete(sessionKey);
+    return ussdResponse(res, "Session expired. Dial the DGM USSD code again.", true);
+  } catch (error) {
+    console.error("USSD error:", error);
+    ussdSessions.delete(sessionKey);
+    return ussdResponse(res, "DGM USSD service is temporarily unavailable. Please try again.", true);
+  }
+});
+
+// =====================================================
 // FRONTEND STATIC FILES + HEALTH CHECK
 // =====================================================
 
