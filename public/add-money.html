@@ -1204,5 +1204,28 @@
 
   </script>
 
+
+<!-- DGM GLOBAL BRAND NAVIGATION -->
+<script>
+(function(){
+  function enableDgmBrandNavigation(){
+    document.querySelectorAll('.brand, .logo, .brand-name, .brand-tagline, header b, header strong').forEach(function(el){
+      if(el.dataset.dgmNavBound==='1') return;
+      var text=(el.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();
+      if(!text.includes('dgm') && !text.includes('dhe genius media') && !text.includes('stay connected. stay genius')) return;
+      el.dataset.dgmNavBound='1';
+      el.style.cursor='pointer';
+      el.setAttribute('role','link');
+      el.setAttribute('aria-label','Go to DGM Dashboard');
+      el.addEventListener('click',function(event){
+        if(event.target.closest('a') && event.target.closest('a')!==el) return;
+        window.location.href='/dashboard.html';
+      });
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',enableDgmBrandNavigation);
+  else enableDgmBrandNavigation();
+})();
+</script>
 </body>
 </html>
