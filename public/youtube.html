@@ -7,20 +7,26 @@
 <style>
 *{box-sizing:border-box}
 body{margin:0;background:#070909;color:#fff;font-family:Arial,sans-serif}
-header{padding:15px 16px;background:#0b1111;border-bottom:1px solid #202828;display:flex;justify-content:space-between;align-items:center}
+header{padding:15px 16px;background:#0b1111;border-bottom:1px solid #202828;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10}
 a{color:#fff;text-decoration:none}.brand{font-weight:900}.brand span{color:#25d366}
 .back{font-size:12px;padding:9px 12px;border:1px solid #303838;border-radius:10px}
-main{max-width:1100px;margin:auto;padding:24px 15px}
+main{max-width:1150px;margin:auto;padding:22px 15px 50px}
 .badge{color:#ff4444;font-weight:900;font-size:11px}
-.hero h1{font-size:34px;margin:12px 0}.hero p{color:#93a2a2;font-size:13px;line-height:1.6}
-.actions{display:flex;gap:9px;flex-wrap:wrap;margin:20px 0}
-.btn{padding:12px 15px;border:0;border-radius:11px;background:#25d366;color:#06100a;font-weight:800}
+.hero{margin-bottom:18px}.hero h1{font-size:34px;margin:10px 0 8px}.hero p{color:#93a2a2;font-size:13px;line-height:1.6;margin:0}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0 25px}
+.btn{padding:11px 15px;border:0;border-radius:11px;background:#25d366;color:#06100a;font-weight:800}
 .secondary{background:#151d1d;color:#fff;border:1px solid #2c3737}
-.channel{margin-top:15px;border:1px solid #20302b;background:#101616;border-radius:16px;overflow:hidden}
-.channel iframe{display:block;width:100%;height:650px;border:0}
-.note{padding:12px 15px;color:#9eacab;font-size:12px;line-height:1.5;border-top:1px solid #202929}
-@media(max-width:700px){.hero h1{font-size:28px}.channel iframe{height:520px}}
-@media(max-width:480px){.channel iframe{height:470px}}
+.section-title{display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px}
+.section-title h2{font-size:20px;margin:0}.section-title span{font-size:11px;color:#788585}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.card{background:#101616;border:1px solid #202c2c;border-radius:15px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.22)}
+.player{position:relative;background:#000;aspect-ratio:16/9}
+.player iframe{width:100%;height:100%;border:0;display:block}
+.meta{padding:12px 13px}.meta h3{font-size:14px;margin:0 0 6px}.meta p{font-size:11px;color:#849090;margin:0;line-height:1.4}
+.empty{padding:30px 15px;text-align:center;background:#101616;border:1px dashed #2c3838;border-radius:15px;color:#8d9a9a;font-size:13px}
+.note{margin-top:20px;padding:13px 15px;color:#8e9b9b;font-size:11px;line-height:1.5;border:1px solid #202929;border-radius:12px;background:#0d1313}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.hero h1{font-size:28px}.grid{grid-template-columns:1fr}.actions .btn{width:100%;text-align:center}}
 </style>
 </head>
 <body>
@@ -33,7 +39,7 @@ main{max-width:1100px;margin:auto;padding:24px 15px}
 <section class="hero">
 <span class="badge">▶ YOUTUBE</span>
 <h1>DGM YouTube</h1>
-<p>Watch DHE GENIUS MEDIA content inside DGM using YouTube's embedded player. No YouTube Data API key or Google Cloud billing is required.</p>
+<p>Watch DHE GENIUS MEDIA videos directly inside the DGM website. Each video plays in its own YouTube player.</p>
 </section>
 
 <div class="actions">
@@ -42,18 +48,54 @@ main{max-width:1100px;margin:auto;padding:24px 15px}
 <a class="btn secondary" href="https://www.youtube.com/@omarwitty4743/live" target="_blank" rel="noopener">🔴 Live</a>
 </div>
 
-<section class="channel">
-<iframe
-src="https://www.youtube.com/embed?listType=user_uploads&list=omarwitty4743"
-title="DHE GENIUS MEDIA YouTube videos"
-allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-referrerpolicy="strict-origin-when-cross-origin"
-allowfullscreen>
-</iframe>
-<div class="note">
-This page uses YouTube directly. It does not call the YouTube Data API, so no Google Cloud API key or billing account is needed. If YouTube blocks the embedded channel list, the buttons above still open the channel and videos directly on YouTube.
+<div class="section-title">
+<h2>Latest Videos</h2><span>DGM MEDIA</span>
 </div>
-</section>
+
+<section class="grid" id="videoGrid"></section>
+
+<div class="note">
+YouTube's embedded player is used directly. No YouTube Data API key or Google Cloud billing is required. Add your YouTube video IDs to the list below as you publish new videos.
+</div>
 </main>
+
+<script>
+const videos = [
+  // Add published YouTube video IDs here:
+  // {id:"VIDEO_ID",title:"DGM Video 1",description:"DHE GENIUS MEDIA"},
+  // {id:"VIDEO_ID",title:"DGM Video 2",description:"Latest DGM content"},
+  // {id:"VIDEO_ID",title:"DGM Video 3",description:"Watch inside DGM"}
+];
+
+const grid=document.getElementById("videoGrid");
+
+function renderVideos(){
+  if(!videos.length){
+    grid.innerHTML='<div class="empty" style="grid-column:1/-1">No videos added yet. Publish a DHE GENIUS MEDIA video on YouTube, then add its video ID to this page.</div>';
+    return;
+  }
+  grid.innerHTML=videos.map(v=>`
+    <article class="card">
+      <div class="player">
+        <iframe
+          src="https://www.youtube.com/embed/${encodeURIComponent(v.id)}?rel=0"
+          title="${escapeHtml(v.title)}"
+          loading="lazy"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen></iframe>
+      </div>
+      <div class="meta">
+        <h3>${escapeHtml(v.title)}</h3>
+        <p>${escapeHtml(v.description || "DHE GENIUS MEDIA")}</p>
+      </div>
+    </article>`).join("");
+}
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+renderVideos();
+</script>
 </body>
 </html>
