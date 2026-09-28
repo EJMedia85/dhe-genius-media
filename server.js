@@ -2776,6 +2776,74 @@ async function syncDataMartOrder(
 }
 
 // =====================================================
+// BACKGROUND DATAMART STATUS SYNC
+// =====================================================
+
+let dataMartSyncRunning = false;
+
+async function syncPendingDataMartOrders() {
+
+  if (dataMartSyncRunning) return;
+
+  if (!DATAMART_API_KEY || !DATAMART_API_SECRET) {
+    return;
+  }
+
+  dataMartSyncRunning = true;
+
+  try {
+
+    const result = await pool.query(
+      `
+      SELECT *
+      FROM orders
+      WHERE payment_status = 'Paid'
+        AND status IN ('Pending', 'Processing')
+        AND datamart_reference IS NOT NULL
+        AND datamart_reference <> ''
+        AND service IN ('Data', 'Data Bundle', 'MTN Data', 'Telecel Data', 'AirtelTigo Data')
+      ORDER BY created_at ASC
+      LIMIT 50
+      `
+    );
+
+    for (const order of result.rows) {
+
+      try {
+
+        const syncResult =
+          await syncDataMartOrder(order);
+
+        if (syncResult.success) {
+          console.log(
+            `DataMart background sync: ${order.order_ref} -> ${syncResult.orderStatus} (${syncResult.datamartStatus})`
+          );
+        }
+
+      } catch (error) {
+
+        console.error(
+          `DataMart background sync failed for ${order.order_ref}:`,
+          error.message
+        );
+      }
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "DataMart background query failed:",
+      error.message
+    );
+
+  } finally {
+
+    dataMartSyncRunning = false;
+  }
+}
+
+// =====================================================
 // FULFILL DATA ORDER
 // =====================================================
 
@@ -6195,6 +6263,16 @@ async function startServer() {
 
         setTimeout(
           () => {
+
+            // Start DataMart reconciliation immediately, then every 15 seconds.
+            // This updates existing paid orders from Processing to Completed
+            // when DataMart reports delivery completion.
+            syncPendingDataMartOrders();
+
+            setInterval(
+              syncPendingDataMartOrders,
+              15000
+            );
 
             syncKingflexyAirtimeOrders();
 
