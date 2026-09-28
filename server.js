@@ -2464,88 +2464,21 @@ async function datamartPurchase(
   idempotencyKey
 ) {
 
-  const body =
-    JSON.stringify(payload);
-
-  let primaryError =
-    null;
-
-  try {
-
-    return await datamartRequest(
-      DATAMART_BASE,
-      "/purchase",
-      {
-        method: "POST",
-
-        body,
-
-        headers: {
-          "X-Idempotency-Key":
-            idempotencyKey
-        }
+  // DataMart's documented Developer API lives under
+  // /api/developer. Do not fall back to the consumer /api/purchase
+  // route: that route is not part of the Developer API and previously
+  // caused avoidable 404s before the real request was attempted.
+  return await datamartRequest(
+    DATAMART_DEVELOPER_BASE,
+    "/purchase",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: {
+        "X-Idempotency-Key": idempotencyKey
       }
-    );
-
-  } catch (error) {
-
-    primaryError =
-      error;
-
-    console.warn(
-      "Primary DataMart endpoint failed:",
-      error.message
-    );
-  }
-
-  try {
-
-    return await datamartRequest(
-      DATAMART_DEVELOPER_BASE,
-      "/purchase",
-      {
-        method: "POST",
-
-        body,
-
-        headers: {
-          "X-Idempotency-Key":
-            idempotencyKey
-        }
-      }
-    );
-
-  } catch (developerError) {
-
-    const combinedError =
-      new Error(
-        `DataMart purchase failed. Primary: ${
-          primaryError?.message ||
-          "unknown error"
-        } | Developer: ${
-          developerError?.message ||
-          "unknown error"
-        }`
-      );
-
-    combinedError.primaryError =
-      primaryError;
-
-    combinedError.developerError =
-      developerError;
-
-    combinedError.status =
-      developerError.status ||
-      primaryError?.status ||
-      null;
-
-    combinedError.data =
-      developerError.data ||
-      primaryError?.data ||
-      null;
-
-    throw combinedError;
-  }
+    }
+  );
 }
 
 // =====================================================
