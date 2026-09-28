@@ -5,11 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>DGM YouTube • DHE GENIUS MEDIA</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#070909;color:#fff;font-family:Arial,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:#070909;color:#fff;font-family:Arial,sans-serif}
 header{padding:15px 16px;background:#0b1111;border-bottom:1px solid #202828;display:flex;justify-content:space-between;align-items:center}
-a{color:#fff;text-decoration:none}.brand{font-weight:900}.brand span{color:#25d366}.back{font-size:12px;padding:9px 12px;border:1px solid #303838;border-radius:10px}
-main{max-width:1100px;margin:auto;padding:24px 15px}.badge{color:#ff4444;font-weight:900;font-size:11px}.hero h1{font-size:34px;margin:12px 0}.hero p{color:#93a2a2;font-size:13px;line-height:1.6}
-.actions{display:flex;gap:9px;flex-wrap:wrap;margin:20px 0}.btn{padding:12px 15px;border:0;border-radius:11px;background:#25d366;color:#06100a;font-weight:800}.secondary{background:#151d1d;color:#fff;border:1px solid #2c3737}
+a{color:#fff;text-decoration:none}.brand{font-weight:900}.brand span{color:#25d366}
+.back{font-size:12px;padding:9px 12px;border:1px solid #303838;border-radius:10px}
+main{max-width:1100px;margin:auto;padding:24px 15px}
+.badge{color:#ff4444;font-weight:900;font-size:11px}
+.hero h1{font-size:34px;margin:12px 0}.hero p{color:#93a2a2;font-size:13px;line-height:1.6}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:20px 0}
+.btn{padding:12px 15px;border:0;border-radius:11px;background:#25d366;color:#06100a;font-weight:800}
+.secondary{background:#151d1d;color:#fff;border:1px solid #2c3737}
 .channel{margin-top:15px;border:1px solid #20302b;background:#101616;border-radius:16px;overflow:hidden}
 .channel iframe{display:block;width:100%;height:650px;border:0}
 .note{padding:12px 15px;color:#9eacab;font-size:12px;line-height:1.5;border-top:1px solid #202929}
@@ -27,7 +33,7 @@ main{max-width:1100px;margin:auto;padding:24px 15px}.badge{color:#ff4444;font-we
 <section class="hero">
 <span class="badge">▶ YOUTUBE</span>
 <h1>DGM YouTube</h1>
-<p>Watch DHE GENIUS MEDIA content directly inside the DGM website. No YouTube API key or Google Cloud billing is required for this embedded channel view.</p>
+<p>Watch DHE GENIUS MEDIA content inside DGM using YouTube's embedded player. No YouTube Data API key or Google Cloud billing is required.</p>
 </section>
 
 <div class="actions">
@@ -41,10 +47,11 @@ main{max-width:1100px;margin:auto;padding:24px 15px}.badge{color:#ff4444;font-we
 src="https://www.youtube.com/embed?listType=user_uploads&list=omarwitty4743"
 title="DHE GENIUS MEDIA YouTube videos"
 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+referrerpolicy="strict-origin-when-cross-origin"
 allowfullscreen>
 </iframe>
 <div class="note">
-If YouTube does not load the channel list in an embedded view, use “View All Videos” above. Individual YouTube videos can still be embedded directly in DGM.
+This page uses YouTube directly. It does not call the YouTube Data API, so no Google Cloud API key or billing account is needed. If YouTube blocks the embedded channel list, the buttons above still open the channel and videos directly on YouTube.
 </div>
 </section>
 </main>
