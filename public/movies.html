@@ -89,6 +89,60 @@ main{max-width:1250px;margin:auto;padding:0 18px 80px}
 @media(max-width:900px){.searchGrid{grid-template-columns:repeat(5,1fr)}.cast{grid-template-columns:repeat(5,1fr)}}
 @media(max-width:700px){.navLinks{display:none}.hero{min-height:570px}.heroContent{padding-top:220px}.row{grid-auto-columns:125px}.searchGrid{grid-template-columns:repeat(3,1fr)}.cast{grid-template-columns:repeat(4,1fr)}.detailHero,.detailHero img{min-height:260px;height:260px}.detailPoster{width:120px;margin-top:-55px}.detailInfo h2{font-size:23px}}
 @media(max-width:430px){header{padding:12px}.nav{gap:10px}.logo{font-size:13px}.navSearch.open input{width:145px}.hero{min-height:530px}.heroContent{padding:210px 20px 35px}.row{grid-auto-columns:115px}.searchGrid{grid-template-columns:repeat(2,1fr)}.cast{grid-template-columns:repeat(3,1fr)}.detailInfo{padding:0 15px 25px}.detailPoster{width:105px}.detailHero,.detailHero img{height:220px;min-height:220px}}
+
+/* DGM Movie — cinematic streaming refresh */
+body{background:#070707}
+header{background:linear-gradient(180deg,#050505 0%,#050505e8 58%,transparent 100%);backdrop-filter:blur(7px);padding:13px 18px}
+.nav{max-width:1320px;gap:22px}
+.logo{font-size:18px;letter-spacing:.8px}
+.logo:before{content:"▶";display:inline-flex;align-items:center;justify-content:center;width:27px;height:27px;margin-right:7px;border-radius:7px;background:var(--green);color:#041008;font-size:11px}
+.navLinks{gap:20px}
+.navLinks a{font-size:13px;color:#bdbdbd}
+.navLinks a:hover{color:#fff}
+.navSearch{gap:7px}
+.navSearch input{border-radius:22px;background:#111b;width:230px;opacity:1;padding:10px 15px;border-color:#ffffff18}
+.navSearch.open input{width:270px;border-color:#ffffff30}
+.iconBtn{border-radius:50%;width:40px;height:40px;padding:0;background:#ffffff12}
+.hero{min-height:690px;margin-bottom:36px}
+.heroBg{opacity:.78;background-position:center 20%}
+.heroShade{background:linear-gradient(90deg,#050505 0%,#050505e8 22%,#05050588 53%,#05050518 78%,#050505 100%),linear-gradient(0deg,#070707 0%,transparent 55%)}
+.heroContent{padding:250px 28px 70px;max-width:650px}
+.eyebrow{font-size:11px;padding:6px 10px;border:1px solid #25d36655;background:#25d36612;border-radius:999px;display:inline-block}
+.hero h1{font-size:clamp(40px,7vw,76px);text-shadow:0 5px 25px #000}
+.hero p{font-size:15px;color:#e1e1e1}
+.actions .btn{border-radius:22px;padding:12px 20px}
+.toolbar{padding:7px 0 12px}
+.chip{background:#151515;border-color:#ffffff18}
+.chip.active{background:#25d366;color:#06110b;border-color:#25d366}
+.section{margin:36px 0}
+.section h2{font-size:21px}
+.row{grid-auto-columns:160px;gap:14px}
+.poster{border-radius:10px;box-shadow:0 8px 25px #0008}
+.cardTitle{font-size:12.5px}
+.rating{color:#ffd166}
+.searchGrid{gap:16px}
+.gridCard .poster{border-radius:10px}
+.modalBox{background:#0d0d0d;border-radius:16px}
+.detailHero img{opacity:.72}
+.watchBox{background:#151515;border:1px solid #ffffff0e}
+.bottomNav{display:none}
+@media(max-width:700px){
+ header{padding:10px 12px}
+ .nav{gap:9px}
+ .logo{font-size:13px}
+ .logo:before{width:23px;height:23px;margin-right:5px}
+ .navSearch{margin-left:auto}
+ .navSearch input{display:none}
+ .navSearch.open input{display:block;width:170px;padding:9px 12px}
+ .hero{min-height:590px;margin-left:-12px;margin-right:-12px}
+ .heroContent{padding:235px 20px 50px}
+ .row{grid-auto-columns:135px;gap:11px}
+ .bottomNav{position:fixed;display:flex;left:10px;right:10px;bottom:10px;height:58px;z-index:50;background:#101010ee;border:1px solid #ffffff18;border-radius:18px;backdrop-filter:blur(12px);align-items:center;justify-content:space-around;box-shadow:0 12px 35px #000b}
+ .bottomNav a{color:#aaa;text-decoration:none;font-size:10px;text-align:center}
+ .bottomNav a b{display:block;color:#fff;font-size:18px;line-height:20px}
+ main{padding-bottom:95px}
+}
+@media(max-width:430px){.hero{min-height:550px}.heroContent{padding-top:220px}.row{grid-auto-columns:125px}}
 </style>
 </head>
 <body>
@@ -101,11 +155,18 @@ main{max-width:1250px;margin:auto;padding:0 18px 80px}
 </div>
 </header>
 <main id="home">
+<div class="status" style="display:none"></div>
 <section id="hero"></section>
 <div id="status" class="status">Loading DGM Movies…</div>
 <div id="genres" class="toolbar"></div>
 <div id="searchPanel" class="searchPanel"></div>
 <div id="sections"></div>
+<div class="bottomNav">
+<a href="#home"><b>⌂</b>Home</a>
+<a href="#trending"><b>🔥</b>Trending</a>
+<a href="#popular"><b>★</b>Popular</a>
+<a href="#genres"><b>☰</b>Genres</a>
+</div>
 </main>
 <div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalBox"><div id="detail"></div></div></div>
 <script>
