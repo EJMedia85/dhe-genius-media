@@ -155,20 +155,31 @@ header{background:linear-gradient(180deg,#050505 0%,#050505e8 58%,transparent 10
 </div>
 </header>
 <main id="home">
-<div class="status" style="display:none"></div>
-<section id="hero"></section>
-<div id="status" class="status">Loading DGM Movies…</div>
-<div id="genres" class="toolbar"></div>
-<div id="searchPanel" class="searchPanel"></div>
-<div id="sections"></div>
-<div class="bottomNav">
-<a href="#home"><b>⌂</b>Home</a>
-<a href="#trending"><b>🔥</b>Trending</a>
-<a href="#popular"><b>★</b>Popular</a>
-<a href="#genres"><b>☰</b>Genres</a>
+<section class="hero" style="min-height:180px;margin-bottom:14px">
+  <div class="heroShade"></div>
+  <div class="heroContent" style="padding:90px 25px 25px">
+    <div class="eyebrow">DGM MOVIES • NETMIRROR</div>
+    <h1 style="font-size:clamp(30px,6vw,56px)">Watch Movies</h1>
+    <p>DGM Movies is connected to the NetMirror movie interface. Use the embedded service below, or open NetMirror directly if your browser blocks embedded content.</p>
+    <div class="actions">
+      <a class="btn green" href="https://netmirror.center/en" target="_blank" rel="noopener noreferrer" style="text-decoration:none">▶ Open NetMirror</a>
+    </div>
+  </div>
+</section>
+<section class="watchBox" style="padding:0;overflow:hidden">
+  <iframe
+    src="https://netmirror.center/en"
+    title="NetMirror"
+    style="display:block;width:100%;height:calc(100vh - 220px);min-height:620px;border:0;background:#050505"
+    allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
+    referrerpolicy="no-referrer"
+    loading="eager">
+  </iframe>
+</section>
+<div class="watchNote" style="padding:12px;text-align:center">
+  If NetMirror does not allow embedding, tap <a href="https://netmirror.center/en" target="_blank" rel="noopener noreferrer" style="color:#25d366">Open NetMirror</a>.
 </div>
 </main>
-<div id="modal" class="modal" onclick="if(event.target===this)closeModal()"><div class="modalBox"><div id="detail"></div></div></div>
 <script>
 const state={home:null,genres:[],genrePage:1,genreTotal:1,genreId:"",genreSort:"popularity.desc",searchPage:1,searchTotal:1,query:""};
 const esc=s=>String(s??"").replace(/[&<>"\']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","\'":"&#039;"}[c]));
