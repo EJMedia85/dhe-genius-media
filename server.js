@@ -4630,6 +4630,38 @@ app.post(
 );
 
 // =====================================================
+// CUSTOMER ORDERS
+// =====================================================
+
+app.get(
+  "/api/orders",
+  requireLogin,
+  async (req, res) => {
+    try {
+      const result = await pool.query(
+        `
+        SELECT
+          id, order_ref, service, network, phone, amount, status,
+          capacity, payment_status, paid_at, provider_reference,
+          provider_status, provider_message, provider_updated_at,
+          datamart_reference, datamart_status, completed_at, created_at
+        FROM orders
+        WHERE customer_id = $1
+        ORDER BY created_at DESC
+        LIMIT 100
+        `,
+        [req.session.customerId]
+      );
+
+      return res.json({ success: true, orders: result.rows });
+    } catch (error) {
+      console.error("Customer orders error:", error);
+      return sendError(res, 500, "Could not load orders.");
+    }
+  }
+);
+
+// =====================================================
 // CREATE DATA ORDER
 // =====================================================
 
