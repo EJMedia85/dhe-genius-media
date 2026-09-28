@@ -283,5 +283,8 @@ function closeModal(){document.getElementById("modal").classList.remove("show");
 document.getElementById("query").addEventListener("keydown",e=>{if(e.key==="Enter")searchMovies()});
 loadHome();loadGenres();
 </script>
+
+<!-- DGM GLOBAL BRAND NAVIGATION -->
+<script>(function(){function e(){document.querySelectorAll('.brand,.logo,.brand-name,.brand-tagline,header b,header strong').forEach(function(n){if(n.dataset.dgmNavBound==='1')return;var t=(n.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();if(!t.includes('dgm')&&!t.includes('dhe genius media')&&!t.includes('stay connected. stay genius'))return;n.dataset.dgmNavBound='1';n.style.cursor='pointer';n.setAttribute('role','link');n.setAttribute('aria-label','Go to DGM Dashboard');n.addEventListener('click',function(){window.location.href='/dashboard.html'})})}document.readyState==='loading'?document.addEventListener('DOMContentLoaded',e):e()})();</script>
 </body>
 </html>
