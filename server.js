@@ -119,6 +119,183 @@ const SPORTS_API_KEY =
 
 const SPORTS_API_BASE =
   "https://v3.football.api-sports.io";
+async function sportsApiRequest(endpoint, params = {}) {
+  if (!SPORTS_API_KEY) {
+    const error = new Error("Live scores are not configured yet. Add SPORTS_API_KEY in Render environment variables.");
+    error.status = 503;
+    throw error;
+  }
+
+  const url = new URL(SPORTS_API_BASE + endpoint);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
+  });
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: { "x-apisports-key": SPORTS_API_KEY, Accept: "application/json" },
+      signal: controller.signal
+    });
+
+    const text = await response.text();
+    let data = {};
+    try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
+
+    if (!response.ok) {
+      const error = new Error(
+        "API-Football HTTP " + response.status + ": " +
+        (data?.message || data?.errors?.requests || "Request failed")
+      );
+      error.status = response.status;
+      error.data = data;
+      throw error;
+    }
+
+    if (data?.errors && Object.keys(data.errors).length) {
+      const error = new Error(
+        Object.entries(data.errors).map(([k, v]) => k + ": " + String(v)).join("; ")
+      );
+      error.status = 502;
+      error.data = data;
+      throw error;
+    }
+
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = new Error("Sports data request timed out.");
+      timeoutError.status = 504;
+      throw timeoutError;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function normalizeFootballFixture(fixture) {
+  const f = fixture || {};
+  return {
+    fixture: f.fixture || {},
+    league: f.league || {},
+    teams: f.teams || {},
+    goals: f.goals || {},
+    score: f.score || {},
+    status: f.fixture?.status || {}
+  };
+}
+
+function sendSportsApiError(res, error) {
+  const status = Number.isInteger(error.status) && error.status >= 400 ? error.status : 500;
+  return res.status(status).json({
+    success: false,
+    provider: "API-Football",
+    configured: Boolean(SPORTS_API_KEY),
+    message: error.message || "Sports data request failed."
+  });
+}
+
+// =====================================================
+// LIVE SPORTS API — API-FOOTBALL
+// =====================================================
+
+app.get("/api/sports/status", (req, res) => {
+  res.json({
+    success: true,
+    provider: "API-Football",
+    configured: Boolean(SPORTS_API_KEY),
+    updated_at: new Date().toISOString()
+  });
+});
+
+app.get("/api/sports/live", async (req, res) => {
+  try {
+    const data = await sportsApiRequest("/fixtures", { live: "all" });
+    const matches = (data.response || []).map(normalizeFootballFixture);
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      updated_at: new Date().toISOString(),
+      count: matches.length,
+      matches
+    });
+  } catch (error) {
+    console.error("API-Football live error:", error.message);
+    return sendSportsApiError(res, error);
+  }
+});
+
+app.get("/api/sports/fixtures", async (req, res) => {
+  try {
+    const requestedDate = String(req.query.date || "").trim();
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+      ? requestedDate
+      : new Date().toISOString().slice(0, 10);
+
+    const data = await sportsApiRequest("/fixtures", {
+      date,
+      timezone: "Africa/Accra"
+    });
+    const matches = (data.response || []).map(normalizeFootballFixture);
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      date,
+      updated_at: new Date().toISOString(),
+      count: matches.length,
+      matches
+    });
+  } catch (error) {
+    console.error("API-Football fixtures error:", error.message);
+    return sendSportsApiError(res, error);
+  }
+});
+
+app.get("/api/sports/match/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: "A valid fixture ID is required." });
+    }
+
+    const data = await sportsApiRequest("/fixtures", { id });
+    const match = data.response?.[0];
+
+    if (!match) {
+      return res.status(404).json({
+        success: false,
+        provider: "API-Football",
+        message: "Match not found."
+      });
+    }
+
+    const [eventsResult, statsResult, lineupsResult] = await Promise.all([
+      sportsApiRequest("/fixtures/events", { fixture: id }),
+      sportsApiRequest("/fixtures/statistics", { fixture: id }),
+      sportsApiRequest("/fixtures/lineups", { fixture: id })
+    ]);
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      updated_at: new Date().toISOString(),
+      match: normalizeFootballFixture(match),
+      events: eventsResult.response || [],
+      statistics: statsResult.response || [],
+      lineups: lineupsResult.response || []
+    });
+  } catch (error) {
+    console.error("API-Football match detail error:", error.message);
+    return sendSportsApiError(res, error);
+  }
+});
+
 
 // =====================================================
 // APP CONFIG
