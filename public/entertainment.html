@@ -14,4 +14,27 @@
 <a class="card" href="/dstv.html"><div class="icon">📺</div><h2>DStv</h2><p>Access DStv information and official account services.</p><span class="tag">DSTV</span></a>
 </section></main>
 <nav class="nav"><a href="/dashboard.html"><b>⌂</b>Home</a><a class="active" href="/entertainment.html"><b>🎬</b>Entertainment</a><a href="/orders.html"><b>📦</b>Orders</a><a href="/account.html"><b>👤</b>Account</a></nav>
+
+<!-- DGM GLOBAL BRAND NAVIGATION -->
+<script>
+(function(){
+  function enableDgmBrandNavigation(){
+    document.querySelectorAll('.brand, .logo, .brand-name, .brand-tagline, header b, header strong').forEach(function(el){
+      if(el.dataset.dgmNavBound==='1') return;
+      var text=(el.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();
+      if(!text.includes('dgm') && !text.includes('dhe genius media') && !text.includes('stay connected. stay genius')) return;
+      el.dataset.dgmNavBound='1';
+      el.style.cursor='pointer';
+      el.setAttribute('role','link');
+      el.setAttribute('aria-label','Go to DGM Dashboard');
+      el.addEventListener('click',function(event){
+        if(event.target.closest('a') && event.target.closest('a')!==el) return;
+        window.location.href='/dashboard.html';
+      });
+    });
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',enableDgmBrandNavigation);
+  else enableDgmBrandNavigation();
+})();
+</script>
 </body></html>
