@@ -53,6 +53,9 @@ const RESET_EMAIL_PROVIDER =
     .trim()
     .toLowerCase();
 
+const RESET_TEST_MODE =
+  String(process.env.RESET_TEST_MODE || "false").toLowerCase() === "true";
+
 const SMTP_HOST =
   String(process.env.SMTP_HOST || "").trim();
 
@@ -4972,7 +4975,7 @@ app.post("/api/forgot-password", passwordResetRateLimit, async (req, res) => {
         ? Boolean(smtpReady)
         : Boolean(RESEND_API_KEY || smtpReady);
 
-    if (!emailServiceReady) {
+    if (!emailServiceReady && !RESET_TEST_MODE) {
       return sendError(
         res,
         503,
@@ -4998,6 +5001,16 @@ app.post("/api/forgot-password", passwordResetRateLimit, async (req, res) => {
 
     const resetUrl = BASE_URL.replace(/\/$/, "") +
       "/reset-password.html?token=" + encodeURIComponent(token);
+
+    if (RESET_TEST_MODE) {
+      console.warn("Password reset TEST MODE is enabled. No email was sent.");
+      return res.json({
+        success: true,
+        message: "Test mode: password reset link generated. Open the link below to continue.",
+        reset_url: resetUrl,
+        test_mode: true
+      });
+    }
 
     try {
       await sendPasswordResetEmail(customer, resetUrl);
