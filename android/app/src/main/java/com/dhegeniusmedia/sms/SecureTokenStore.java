@@ -47,5 +47,5 @@ public final class SecureTokenStore {
             return new String(cp.doFinal(Base64.decode(p[1],Base64.NO_WRAP)),StandardCharsets.UTF_8);
         }catch(Exception e){return "";}
     }
-    public static void clear(Context c){c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().remove("token").apply();}
+    public static void clear(Context c){c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().remove("token").apply(); c.getSharedPreferences("dgm_sms",Context.MODE_PRIVATE).edit().remove("token").apply();}
 }
