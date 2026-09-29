@@ -33,7 +33,7 @@ window.smsThreads=[];function openThread(i){const thread=window.smsThreads[i];if
 async function createDevice(){try{const d=await api('/api/sms/devices',{method:'POST',body:JSON.stringify({name:$('deviceName').value,phone:$('devicePhone').value})});$('token').textContent=d.device_token;$('form').style.display='none';$('tokenView').style.display='block';await loadAll()}catch(e){toast(e.message)}}
 async function revokeDevice(id){if(!confirm('Revoke SMS sync for this device?'))return;try{await api('/api/sms/devices/'+id+'/revoke',{method:'POST'});toast('Device access revoked');await loadAll()}catch(e){toast(e.message)}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-async function loadAll(){try{await Promise.all([loadSummary(),loadDevices(),loadMessages()])}catch(e){$('messages').innerHTML='<div class="empty">'+esc(e.message)+'</div>'}}
+async function loadAll(){try{await loadSummary();await loadDevices();await loadMessages()}catch(e){console.error('SMS dashboard error',e);$('messages').innerHTML='<div class="empty">Could not load SMS data.<br><br>'+esc(e.message||'Please refresh and try again.')+'<br><br><button class="secondary" onclick="loadAll()">Retry</button></div>'}}
 loadAll();setInterval(loadAll,15000);
 </script>
 </body></html>
