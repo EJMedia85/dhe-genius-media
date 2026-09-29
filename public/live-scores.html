@@ -17,6 +17,17 @@ header a{color:#fff;text-decoration:none;font-weight:700}
 .controls{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px}
 .tab{border:1px solid #ffffff15;background:#0d2030;color:#aebdca;padding:10px 14px;border-radius:11px;font-weight:800;white-space:nowrap}
 .tab.active{background:#25d366;color:#07131f;border-color:#25d366}
+.filters{display:flex;gap:8px;overflow-x:auto;margin:0 0 14px;padding-bottom:3px}
+.filter{border:1px solid #ffffff15;background:#0d2030;color:#aebdca;padding:9px 12px;border-radius:10px;font-weight:800;white-space:nowrap}
+.filter.active{border-color:#25d366;color:#25d366}
+.table{width:100%;border-collapse:collapse;font-size:12px}
+.table th{color:#91a7b8;text-align:left;padding:9px 7px;border-bottom:1px solid #ffffff18}
+.table td{padding:10px 7px;border-bottom:1px solid #ffffff0c}
+.rank{width:30px;color:#91a7b8}
+.club{font-weight:800}
+.club img{width:22px;height:22px;vertical-align:middle;object-fit:contain;margin-right:7px}
+.points{font-weight:900}
+
 .bar{display:flex;gap:9px;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap}
 .live{font-size:12px;color:#25d366;font-weight:800}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#25d366;margin-right:6px;box-shadow:0 0 10px #25d366}
@@ -60,6 +71,16 @@ header a{color:#fff;text-decoration:none;font-weight:700}
 <button class="tab active" data-view="live">🔴 Live Now</button>
 <button class="tab" data-view="today">📅 Today's Matches</button>
 <button class="tab" data-view="upcoming">⏭️ Upcoming</button>
+<button class="tab" data-view="results">✅ Results</button>
+<button class="tab" data-view="standings">🏆 Standings</button>
+</div>
+
+<div id="leagueFilters" class="filters" style="display:none">
+<button class="filter active" data-league="39">Premier League</button>
+<button class="filter" data-league="140">La Liga</button>
+<button class="filter" data-league="135">Serie A</button>
+<button class="filter" data-league="78">Bundesliga</button>
+<button class="filter" data-league="61">Ligue 1</button>
 </div>
 
 <div class="bar">
@@ -87,6 +108,8 @@ let detailTimer=null;
 let liveMatches=[];
 let todayMatches=[];
 let todayLoaded=false;
+let currentLeague=39;
+let standingsLoading=false;
 
 function esc(v){
  return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
@@ -139,7 +162,8 @@ function matchCard(m){
  const homeScore=score.home==null?"-":score.home;
  const awayScore=score.away==null?"-":score.away;
 
- return '<article class="match '+(live?"live-match":"")+'">'+
+ const fixtureId=m.fixture?.id;
+ return '<article class="match '+(live?"live-match":"")+'" onclick="openMatch('+Number(fixtureId||0)+')">'+
    '<div class="league">'+
    (m.league?.logo?'<img src="'+esc(m.league.logo)+'" alt="">':"")+
    esc(m.league?.name||"Football")+
@@ -163,6 +187,10 @@ function render(){
  let list=[];
  let title="";
 
+ if(currentView==="standings"){
+   renderStandings();
+   return;
+ }
  if(currentView==="live"){
    list=liveMatches;
    title=list.length?"Live matches":"No matches live right now";
@@ -175,12 +203,19 @@ function render(){
    summaryEl.textContent=list.length
      ? list.length+" match"+(list.length===1?"":"es")+" today"
      : "No matches found today";
- }else{
+ }else if(currentView==="upcoming"){
    list=todayMatches.filter(m=>!isLive(m)&&!isFinished(m));
    title="Upcoming today";
    summaryEl.textContent=list.length
      ? list.length+" upcoming match"+(list.length===1?"":"es")
      : "No upcoming matches found today";
+ }else{
+   list=todayMatches.filter(m=>isFinished(m));
+   title="Results today";
+   summaryEl.textContent=list.length
+     ? list.length+" result"+(list.length===1?"":"s")+" today"
+     : "No completed matches found today";
+
  }
 
  if(!list.length){
@@ -196,6 +231,35 @@ function render(){
  }
 
  matchesEl.innerHTML=list.map(matchCard).join("");
+}
+
+async function renderStandings(){
+ if(standingsLoading)return;
+ standingsLoading=true;
+ const filters=document.getElementById("leagueFilters");
+ filters.style.display="flex";
+ matchesEl.innerHTML='<div class="empty">Loading standings...</div>';
+ summaryEl.textContent="Loading table...";
+ try{
+   const r=await fetch("/api/sports/standings?league="+encodeURIComponent(currentLeague),{cache:"no-store",headers:{"Accept":"application/json"}});
+   const d=await r.json();
+   if(!r.ok||!d.success)throw new Error(d.message||"Standings unavailable.");
+   const groups=Array.isArray(d.standings)?d.standings:[];
+   if(!groups.length){
+     matchesEl.innerHTML='<div class="empty">No standings are available for this league and season.</div>';
+     return;
+   }
+   const rows=groups[0].group||[];
+   const league=groups[0].league||{};
+   summaryEl.textContent=(league.name||"League")+" standings";
+   matchesEl.innerHTML='<div class="match"><div class="league">'+(league.logo?'<img src="'+esc(league.logo)+'" alt="">':"")+esc(league.name||"League")+' • '+esc(String(d.season||""))+'</div><div style="overflow:auto"><table class="table"><thead><tr><th>#</th><th>Team</th><th>MP</th><th>W</th><th>D</th><th>L</th><th>GD</th><th>Pts</th></tr></thead><tbody>'+
+     rows.map(x=>'<tr><td class="rank">'+esc(x.rank)+'</td><td class="club">'+(x.team?.logo?'<img src="'+esc(x.team.logo)+'" alt="">':"")+esc(x.team?.name||"Team")+'</td><td>'+esc(x.all?.played??"-")+'</td><td>'+esc(x.all?.win??"-")+'</td><td>'+esc(x.all?.draw??"-")+'</td><td>'+esc(x.all?.lose??"-")+'</td><td>'+esc(x.goalsDiff??"-")+'</td><td class="points">'+esc(x.points??"-")+'</td></tr>').join("")+
+     '</tbody></table></div></div>';
+   updatedEl.textContent="Standings • Updated "+new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"});
+ }catch(e){
+   matchesEl.innerHTML='<div class="error">'+esc(e.message||"Could not load standings.")+'</div>';
+   updatedEl.textContent="Unable to load standings.";
+ }finally{standingsLoading=false;}
 }
 
 async function loadData({includeToday=false}={}){
@@ -255,7 +319,10 @@ tabs.forEach(tab=>{
    tabs.forEach(t=>t.classList.remove("active"));
    tab.classList.add("active");
    currentView=tab.dataset.view;
-   if(currentView!=="live" && !todayLoaded){
+   document.getElementById("leagueFilters").style.display=currentView==="standings"?"flex":"none";
+   if(currentView==="standings"){
+     renderStandings();
+   }else if(currentView!=="live" && !todayLoaded){
      loadData({includeToday:true});
    }else{
      render();
@@ -285,9 +352,17 @@ content.innerHTML='<div class="detailhead"><div class="league">'+esc(m.league?.n
 async function refreshMatch(){if(activeMatchId)await loadMatchDetails(activeMatchId);}
 function closeMatch(){if(detailTimer)clearInterval(detailTimer);detailTimer=null;activeMatchId=null;document.getElementById("detailModal").classList.remove("show");}
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMatch();});
-refreshBtn.addEventListener("click",loadData);
+document.querySelectorAll(".filter").forEach(btn=>{
+ btn.addEventListener("click",()=>{
+   document.querySelectorAll(".filter").forEach(b=>b.classList.remove("active"));
+   btn.classList.add("active");
+   currentLeague=Number(btn.dataset.league)||39;
+   renderStandings();
+ });
+});
+refreshBtn.addEventListener("click",()=>currentView==="standings"?renderStandings():loadData());
 loadData();
-setInterval(loadData,900000);
+setInterval(()=>{if(currentView!=="standings")loadData();},900000);
 </script>
 
 <!-- DGM GLOBAL BRAND NAVIGATION -->
