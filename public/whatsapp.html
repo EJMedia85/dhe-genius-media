@@ -14,7 +14,7 @@
 <section class="card"><div class="toolbar"><strong id="threadTitle">Full conversation</strong><span class="muted">Received notifications</span></div><div id="conversation"><div class="empty">Select a conversation thread.</div></div></section></div>
 </div>
 <script>
-const $=id=>document.getElementById(id);let threads=[];
+const $=id=>document.getElementById(id);let threads=[],allMessages=[],offset=0,hasMore=true;
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 async function api(url,opt={}){const r=await fetch(url,{credentials:'include',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});const d=await r.json().catch(()=>({}));if(r.status===401){location.href='/login.html';throw Error('Login required')}if(!r.ok||d.success===false)throw Error(d.message||'Request failed');return d}
 async function loadSummary(){const d=await api('/api/whatsapp/summary');$('statMessages').textContent=d.summary.messages;$('statDevices').textContent=d.summary.devices;$('statToday').textContent=d.summary.today}
