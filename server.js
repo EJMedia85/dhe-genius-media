@@ -7888,6 +7888,7 @@ async function ensureSmsTables() {
       device_id INTEGER NOT NULL REFERENCES sms_devices(id) ON DELETE CASCADE,
       external_id VARCHAR(180),
       direction VARCHAR(20) NOT NULL DEFAULT 'received',
+      direction VARCHAR(20) NOT NULL DEFAULT 'received',
       sender_enc TEXT,
       body_enc TEXT NOT NULL,
       received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -8027,11 +8028,11 @@ app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
     let where="d.customer_id=$1 AND d.active=true";
     if(Number.isInteger(deviceId)&&deviceId>0){params.push(deviceId);where+=" AND d.id=$2";}
     const r=await pool.query(
-      \`SELECT w.id,w.device_id,d.name AS device_name,w.sender_enc,w.body_enc,w.received_at
+      \`SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.sender_enc,w.body_enc,w.received_at
        FROM whatsapp_messages w JOIN sms_devices d ON d.id=w.device_id
        WHERE \${where} ORDER BY w.received_at DESC LIMIT \${limit}\`,params);
     res.json({success:true,messages:r.rows.map(w=>({
-      id:w.id,device_id:w.device_id,device_name:w.device_name,
+      id:w.id,device_id:w.device_id,device_name:w.device_name,direction:w.direction,
       sender:smsDecrypt(w.sender_enc),body:smsDecrypt(w.body_enc),received_at:w.received_at
     }))});
   } catch(e){console.error("WhatsApp messages error",e);res.status(500).json({success:false,message:"Could not load WhatsApp messages."});}
@@ -8059,15 +8060,16 @@ app.post("/api/whatsapp/ingest", async (req,res) => {
     const deviceId=d.rows[0].id;
     const externalId=String(req.body?.external_id||"").slice(0,220)||null;
     const sender=String(req.body?.sender||"").slice(0,300);
+    const direction=String(req.body?.direction||"received").slice(0,20)==="sent"?"sent":"received";
     const body=String(req.body?.body||"").slice(0,10000);
     if(!body)return res.status(400).json({success:false,message:"WhatsApp message body is required."});
     const receivedAt=req.body?.received_at?new Date(req.body.received_at):new Date();
     const when=Number.isNaN(receivedAt.getTime())?new Date():receivedAt;
     const r=await pool.query(
-      \`INSERT INTO whatsapp_messages(device_id,external_id,sender_enc,body_enc,received_at)
-       VALUES($1,$2,$3,$4,$5)
+      \`INSERT INTO whatsapp_messages(device_id,external_id,direction,sender_enc,body_enc,received_at)
+       VALUES($1,$2,$3,$4,$5,$6)
        ON CONFLICT(device_id,external_id) DO NOTHING RETURNING id\`,
-      [deviceId,externalId,smsEncrypt(sender),smsEncrypt(body),when]);
+      [deviceId,externalId,direction,smsEncrypt(sender),smsEncrypt(body),when]);
     await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
     res.status(201).json({success:true,stored:Boolean(r.rows.length)});
   }catch(e){console.error("WhatsApp ingest error",e);res.status(500).json({success:false,message:"Could not store WhatsApp notification."});}
