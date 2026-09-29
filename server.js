@@ -7631,6 +7631,43 @@ app.post("/api/support/tickets", requireCustomer, async (req,res) => {
   }
 });
 
+app.get("/api/admin/support/tickets", async (req,res) => {
+  if(!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+  try {
+    const result=await pool.query(
+      `SELECT t.id,t.subject,t.message,t.status,t.admin_reply,t.replied_at,t.created_at,t.updated_at,
+              c.name AS customer_name,c.email AS customer_email,c.phone AS customer_phone
+       FROM support_tickets t JOIN customers c ON c.id=t.customer_id
+       ORDER BY CASE WHEN t.status='Open' THEN 0 ELSE 1 END,t.created_at DESC
+       LIMIT 200`
+    );
+    return res.json({success:true,tickets:result.rows});
+  } catch(error) {
+    console.error("Admin support load error:",error);
+    return res.status(500).json({success:false,message:"Could not load support tickets."});
+  }
+});
+
+app.post("/api/admin/support/tickets/:id/reply", async (req,res) => {
+  if(!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+  try {
+    const id=Number(req.params.id);
+    const reply=String(req.body?.reply||"").trim().slice(0,5000);
+    if(!Number.isInteger(id)||id<=0||reply.length<2) return res.status(400).json({success:false,message:"Enter a valid reply."});
+    const result=await pool.query(
+      `UPDATE support_tickets SET admin_reply=$2,status='Closed',replied_at=NOW(),updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id,reply]
+    );
+    if(!result.rows.length) return res.status(404).json({success:false,message:"Support ticket not found."});
+    await createCustomerNotification(result.rows[0].customer_id,"Support reply received",reply,"support");
+    return res.json({success:true,message:"Reply sent and ticket closed.",ticket:result.rows[0]});
+  } catch(error) {
+    console.error("Admin support reply error:",error);
+    return res.status(500).json({success:false,message:"Could not send support reply."});
+  }
+});
+
 app.get("/api/admin/analytics", async (req,res) => {
   if(!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
   try {
