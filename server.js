@@ -8029,9 +8029,9 @@ app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
     let where="d.customer_id=$1 AND d.active=true";
     if(Number.isInteger(deviceId)&&deviceId>0){params.push(deviceId);where+=" AND d.id=$2";}
     const r=await pool.query(
-      \`SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.sender_enc,w.body_enc,w.received_at
+      `SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.sender_enc,w.body_enc,w.received_at
        FROM whatsapp_messages w JOIN sms_devices d ON d.id=w.device_id
-       WHERE \${where} ORDER BY w.received_at DESC LIMIT \${limit}\`,params);
+       WHERE \${where} ORDER BY w.received_at DESC LIMIT \${limit}`,params);
     res.json({success:true,messages:r.rows.map(w=>({
       id:w.id,device_id:w.device_id,device_name:w.device_name,direction:w.direction,
       sender:smsDecrypt(w.sender_enc),body:smsDecrypt(w.body_enc),received_at:w.received_at
@@ -8041,11 +8041,11 @@ app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
 
 app.get("/api/whatsapp/summary", requireCustomer, async (req,res) => {
   try{
-    const r=await pool.query(\`SELECT COUNT(*)::int AS messages,
+    const r=await pool.query(`SELECT COUNT(*)::int AS messages,
       COUNT(DISTINCT d.id)::int AS devices,
       COUNT(*) FILTER (WHERE w.received_at>=NOW()-INTERVAL '24 hours')::int AS today
       FROM sms_devices d LEFT JOIN whatsapp_messages w ON w.device_id=d.id
-      WHERE d.customer_id=$1 AND d.active=true\`,[req.session.customerId]);
+      WHERE d.customer_id=$1 AND d.active=true`,[req.session.customerId]);
     res.json({success:true,summary:r.rows[0]});
   }catch(e){res.status(500).json({success:false,message:"Could not load WhatsApp summary."});}
 });
@@ -8067,9 +8067,9 @@ app.post("/api/whatsapp/ingest", async (req,res) => {
     const receivedAt=req.body?.received_at?new Date(req.body.received_at):new Date();
     const when=Number.isNaN(receivedAt.getTime())?new Date():receivedAt;
     const r=await pool.query(
-      \`INSERT INTO whatsapp_messages(device_id,external_id,direction,sender_enc,body_enc,received_at)
+      `INSERT INTO whatsapp_messages(device_id,external_id,direction,sender_enc,body_enc,received_at)
        VALUES($1,$2,$3,$4,$5,$6)
-       ON CONFLICT(device_id,external_id) DO NOTHING RETURNING id\`,
+       ON CONFLICT(device_id,external_id) DO NOTHING RETURNING id`,
       [deviceId,externalId,direction,smsEncrypt(sender),smsEncrypt(body),when]);
     await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
     res.status(201).json({success:true,stored:Boolean(r.rows.length)});
