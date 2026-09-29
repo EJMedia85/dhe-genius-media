@@ -7906,6 +7906,7 @@ async function ensureSmsTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(device_id, external_id)
     );
+    ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS direction VARCHAR(20) NOT NULL DEFAULT 'received';
     CREATE INDEX IF NOT EXISTS whatsapp_messages_device_time_idx ON whatsapp_messages(device_id, received_at DESC);
   `);
 }
