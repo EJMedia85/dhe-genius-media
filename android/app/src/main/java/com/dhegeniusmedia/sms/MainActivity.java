@@ -3,11 +3,9 @@ package com.dhegeniusmedia.sms;
 import android.Manifest;
 import android.app.Activity;
 import android.os.Bundle;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
-import android.view.View;
 import android.widget.*;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -96,7 +94,8 @@ public class MainActivity extends Activity {
                     }
                     c.close();
                 }
-                runOnUiThread(() -> status.setText("Connected. Synced " + count + " SMS messages."));
+                final int syncedCount = count;
+                runOnUiThread(() -> status.setText("Connected. Synced " + syncedCount + " SMS messages."));
             } catch(Exception e) {
                 runOnUiThread(() -> status.setText("Sync failed: " + e.getMessage()));
             }
@@ -109,6 +108,8 @@ public class MainActivity extends Activity {
             x.setRequestMethod("POST");
             x.setRequestProperty("Authorization","Bearer "+token);
             x.setRequestProperty("Content-Type","application/json");
+            x.setConnectTimeout(15000);
+            x.setReadTimeout(15000);
             x.setDoOutput(true);
             try(OutputStream os=x.getOutputStream()){os.write(json.getBytes(StandardCharsets.UTF_8));}
             int code=x.getResponseCode();
