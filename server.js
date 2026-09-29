@@ -8153,6 +8153,15 @@ app.post("/api/sms/heartbeat", async (req,res) => {
 
 // FRONTEND STATIC FILES + HEALTH CHECK
 // =====================================================
+// Prevent browsers/CDNs from serving stale HTML after dashboard deployments.
+app.use((req,res,next)=>{
+  if(req.path.endsWith(".html") || req.path==="/"){
+    res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma","no-cache");
+    res.setHeader("Expires","0");
+  }
+  next();
+});
 
 app.use(express.static(path.join(__dirname, "public"), {
   extensions: ["html"],
