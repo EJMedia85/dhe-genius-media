@@ -5418,7 +5418,7 @@ app.delete("/api/admin/customers/:id", requireAdmin, async (req, res) => {
     await client.query("DELETE FROM wallet_transactions WHERE customer_id = $1", [customerId]);
     await client.query("DELETE FROM wallet_topups WHERE customer_id = $1", [customerId]);
     await client.query("DELETE FROM orders WHERE customer_id = $1", [customerId]);
-    await client.query("DELETE FROM user_sessions WHERE customer_id = $1", [customerId]);
+    await client.query("DELETE FROM user_sessions WHERE sess->>'customerId' = $1", [String(customerId)]);
     await client.query("DELETE FROM customers WHERE id = $1", [customerId]);
     await client.query("COMMIT");
 
