@@ -5068,6 +5068,7 @@ app.post("/api/admin/withdrawals/:id/approve", requireAdmin, async (req, res) =>
       [id, note]
     );
     if (!result.rows.length) return sendError(res, 409, "Withdrawal is no longer pending approval.");
+    await createCustomerNotification(result.rows[0].customer_id, "Withdrawal approved", "Your MoMo withdrawal of GH₵" + Number(result.rows[0].amount).toFixed(2) + " was approved. Payment will be sent by DGM.", "withdrawal");
     return res.json({ success: true, message: "Withdrawal approved. Send the approved amount to the customer's MoMo account, then mark it as paid.", withdrawal: result.rows[0] });
   } catch (error) {
     console.error("Admin approve withdrawal error:", error);
@@ -5126,6 +5127,7 @@ app.post("/api/admin/withdrawals/:id/reject", requireAdmin, async (req, res) => 
     );
 
     await client.query("COMMIT");
+    await createCustomerNotification(w.customer_id, "Withdrawal rejected", "Your MoMo withdrawal of GH₵" + Number(w.amount).toFixed(2) + " was rejected and the funds were returned to your wallet." + (note ? " Note: " + note : ""), "withdrawal");
     return res.json({ success: true, message: "Withdrawal rejected and wallet refunded.", balance: after });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
@@ -5149,6 +5151,7 @@ app.post("/api/admin/withdrawals/:id/paid", requireAdmin, async (req, res) => {
       [id, note]
     );
     if (!result.rows.length) return sendError(res, 409, "Only approved withdrawals can be marked as paid.");
+    await createCustomerNotification(result.rows[0].customer_id, "Withdrawal paid", "Your MoMo withdrawal of GH₵" + Number(result.rows[0].amount).toFixed(2) + " has been marked as paid by DGM.", "withdrawal");
     return res.json({ success: true, message: "Withdrawal marked as paid.", withdrawal: result.rows[0] });
   } catch (error) {
     console.error("Admin paid withdrawal error:", error);
@@ -6010,6 +6013,8 @@ app.post("/api/wallet/withdraw", requireLogin, async (req, res) => {
       momoPhone,
       status: "Pending Approval"
     });
+
+    await createCustomerNotification(customer.id, "Withdrawal submitted", "Your MoMo withdrawal of GH₵" + amount.toFixed(2) + " is pending admin approval.", "withdrawal");
 
     return res.json({
       success: true,
