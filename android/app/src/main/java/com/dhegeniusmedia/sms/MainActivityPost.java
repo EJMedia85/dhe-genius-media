@@ -33,6 +33,24 @@ public final class MainActivityPost {
         finally{if(x!=null)x.disconnect();}
     }
 
+    public static Result getDetailed(String path,String token){
+        HttpURLConnection x=null;
+        try{
+            if(!path.startsWith("/")) path="/"+path;
+            x=(HttpURLConnection)new URL(BASE+path).openConnection();
+            x.setRequestMethod("GET");
+            x.setRequestProperty("Authorization","Bearer "+token);
+            x.setRequestProperty("Accept","application/json");
+            x.setConnectTimeout(10000); x.setReadTimeout(10000);
+            int code=x.getResponseCode();
+            InputStream in=code>=400?x.getErrorStream():x.getInputStream();
+            StringBuilder body=new StringBuilder();
+            if(in!=null){byte[] b=new byte[1024];int n;while((n=in.read(b))>0)body.append(new String(b,0,n,StandardCharsets.UTF_8));in.close();}
+            return new Result(code,body.toString());
+        }catch(Exception e){return new Result(-1,e.getMessage()==null?"Network error":e.getMessage());}
+        finally{if(x!=null)x.disconnect();}
+    }
+
     public static boolean post(String path,String token,String json){return postDetailed(path,token,json).isSuccess();}
 
     public static final class Result{
