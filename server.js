@@ -1525,11 +1525,11 @@ async function initDatabase() {
   // ---------------------------------------------------
   // REWARDS, REFERRALS, PROMOS, AGENTS & API KEYS
   // ---------------------------------------------------
-  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'customer';\`);
-  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE;\`);
-  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_points INTEGER NOT NULL DEFAULT 0;\`);
-  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS cashback_balance NUMERIC(12,2) NOT NULL DEFAULT 0;\`);
-  await pool.query(\`
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'customer';`);
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE;`);
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_points INTEGER NOT NULL DEFAULT 0;`);
+  await pool.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS cashback_balance NUMERIC(12,2) NOT NULL DEFAULT 0;`);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS referrals (
       id SERIAL PRIMARY KEY,
       referrer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -1540,8 +1540,8 @@ async function initDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       rewarded_at TIMESTAMPTZ
     );
-  \`);
-  await pool.query(\`
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS loyalty_transactions (
       id SERIAL PRIMARY KEY,
       customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -1550,8 +1550,8 @@ async function initDatabase() {
       reference TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  \`);
-  await pool.query(\`
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS promo_codes (
       id SERIAL PRIMARY KEY,
       code TEXT UNIQUE NOT NULL,
@@ -1564,8 +1564,8 @@ async function initDatabase() {
       expires_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  \`);
-  await pool.query(\`
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS customer_promo_uses (
       id SERIAL PRIMARY KEY,
       promo_id INTEGER NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
@@ -1575,8 +1575,8 @@ async function initDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(promo_id, customer_id, order_id)
     );
-  \`);
-  await pool.query(\`
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS saved_recipients (
       id SERIAL PRIMARY KEY,
       customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -1586,8 +1586,8 @@ async function initDatabase() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(customer_id,label)
     );
-  \`);
-  await pool.query(\`
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS customer_api_keys (
       id SERIAL PRIMARY KEY,
       customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -1598,13 +1598,13 @@ async function initDatabase() {
       last_used_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
-  \`);
-  await pool.query(\`
+  `);
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS referrals_referrer_idx ON referrals(referrer_id,created_at DESC);
-  \`);
-  await pool.query(\`
+  `);
+  await pool.query(`
     CREATE INDEX IF NOT EXISTS saved_recipients_customer_idx ON saved_recipients(customer_id,created_at DESC);
-  \`);
+  `);
 
   // ---------------------------------------------------
   // CUSTOMER NOTIFICATIONS
