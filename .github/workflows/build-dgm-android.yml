@@ -1,5 +1,7 @@
 name: Build DGM Android Companion
 
+# Trigger a fresh APK build from main
+
 on:
   push:
     paths:
