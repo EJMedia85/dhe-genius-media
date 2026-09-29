@@ -260,6 +260,40 @@ app.get("/api/sports/fixtures", async (req, res) => {
   }
 });
 
+app.get("/api/sports/standings", async (req, res) => {
+  try {
+    const league = Number(req.query.league || 39);
+    const season = Number(req.query.season || (new Date().getMonth() >= 6 ? new Date().getFullYear() : new Date().getFullYear() - 1));
+
+    if (!Number.isInteger(league) || league <= 0) {
+      return res.status(400).json({ success: false, message: "A valid league ID is required." });
+    }
+    if (!Number.isInteger(season) || season < 2000 || season > 2100) {
+      return res.status(400).json({ success: false, message: "A valid season year is required." });
+    }
+
+    const data = await sportsApiRequest("/standings", { league, season });
+    const groups = data.response || [];
+
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      league,
+      season,
+      updated_at: new Date().toISOString(),
+      standings: groups.flatMap(item =>
+        (item.league?.standings || []).map(group => ({
+          league: item.league || {},
+          group
+        }))
+      )
+    });
+  } catch (error) {
+    console.error("API-Football standings error:", error.message);
+    return sendSportsApiError(res, error);
+  }
+});
+
 app.get("/api/sports/match/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
