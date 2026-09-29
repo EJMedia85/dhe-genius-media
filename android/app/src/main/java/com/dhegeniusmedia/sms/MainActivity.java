@@ -3,6 +3,7 @@ package com.dhegeniusmedia.sms;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -16,17 +17,18 @@ public class MainActivity extends Activity {
     private void buildUi(){
         LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(28,36,28,28);
         TextView title=new TextView(this);title.setText("DHE GENIUS MEDIA\nAndroid Companion");title.setTextSize(26);box.addView(title);
-        TextView intro=new TextView(this);intro.setText("\nBuild #22 • Unified Conversations + Sync Center\nSMS received + sent • WhatsApp notification events • offline queue • automatic retry\n");box.addView(intro);
+        TextView intro=new TextView(this);intro.setText("\nBuild #23 • Unified Conversations + Sync Center\nSMS received + sent • WhatsApp notification events • offline queue • automatic retry\n");box.addView(intro);
         token=new EditText(this);token.setHint("DGM device token");token.setSingleLine(true);token.setText(SecureTokenStore.get(this));box.addView(token);
         Button auth=new Button(this);auth.setText("Authorize Device");box.addView(auth);
         Button center=new Button(this);center.setText("Open Sync Center");box.addView(center);
         Button conv=new Button(this);conv.setText("View Conversations");box.addView(conv);
         Button whatsapp=new Button(this);whatsapp.setText("WhatsApp Notification Access");box.addView(whatsapp);
         Button sync=new Button(this);sync.setText("Sync Now");box.addView(sync);
+        Button dashboard=new Button(this);dashboard.setText("Open DGM SMS Dashboard");box.addView(dashboard);
         Button logout=new Button(this);logout.setText("Unpair / Device Logout");box.addView(logout);
         wa=new TextView(this);box.addView(wa);status=new TextView(this);box.addView(status);
         TextView note=new TextView(this);note.setText("\nPrivacy: WhatsApp data is collected only from Android notification events. DGM does not access WhatsApp private databases.\n\nReliability: on Samsung/Android 11, allow DGM Companion notifications and exclude it from battery optimization so background synchronization can continue.");box.addView(note);
-        auth.setOnClickListener(v->authorize());center.setOnClickListener(v->startActivity(new Intent(this,SyncCenterActivity.class)));conv.setOnClickListener(v->startActivity(new Intent(this,ConversationsActivity.class)));whatsapp.setOnClickListener(v->openNotificationSettings());sync.setOnClickListener(v->{SyncWorker.now(this);refresh();});logout.setOnClickListener(v->{
+        auth.setOnClickListener(v->authorize());center.setOnClickListener(v->startActivity(new Intent(this,SyncCenterActivity.class)));conv.setOnClickListener(v->startActivity(new Intent(this,ConversationsActivity.class)));whatsapp.setOnClickListener(v->openNotificationSettings());sync.setOnClickListener(v->{SyncWorker.now(this);refresh();});dashboard.setOnClickListener(v->startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://dhe-genius-media.onrender.com/sms.html"))));logout.setOnClickListener(v->{
             final String t=SecureTokenStore.get(this);
             new Thread(()->{ if(t.length()>=20) MainActivityPost.postDetailed("/api/sms/unpair",t,"{}"); }).start();
             SecureTokenStore.clear(this); SyncStore.clear(this); token.setText(""); refresh();
