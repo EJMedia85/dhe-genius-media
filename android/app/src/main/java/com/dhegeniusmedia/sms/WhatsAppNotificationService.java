@@ -19,16 +19,30 @@ public class WhatsAppNotificationService extends NotificationListenerService {
         if(sbn==null||!isWhatsAppPackage(sbn.getPackageName())) return;
         Notification n=sbn.getNotification();
         if(n==null||n.extras==null) return;
+
         String title=firstNonEmpty(n.extras.getString(Notification.EXTRA_TITLE),n.extras.getString(Notification.EXTRA_TITLE_BIG));
         String body=extractBody(n.extras);
         if(TextUtils.isEmpty(body)) return;
-        String token=getSharedPreferences("dgm_sms",MODE_PRIVATE).getString("token","");
-        if(TextUtils.isEmpty(token)) return;
+
         String externalId=stableId(sbn,title,body);
-        String receivedAt=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX",Locale.US).format(new Date(sbn.getPostTime()));
+        String receivedAt=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX",Locale.US)
+                .format(new Date(sbn.getPostTime()));
         final String sender=TextUtils.isEmpty(title)?"WhatsApp":title;
-        new Thread(()->MainActivityPost.post("/api/whatsapp/ingest",token,
-                "{\"external_id\":\""+json(externalId)+"\",\"sender\":\""+json(sender)+"\",\"body\":\""+json(body)+"\",\"received_at\":\""+json(receivedAt)+"\"}")).start();
+
+        try{
+            org.json.JSONObject o=new org.json.JSONObject();
+            o.put("external_id",externalId);
+            o.put("direction","received");
+            o.put("event_type","notification_event");
+            o.put("sender",sender);
+            o.put("body",body);
+            o.put("received_at",receivedAt);
+
+            // Always persist locally first. SyncWorker delivers it when online.
+            if(SyncStore.enqueue(this,"whatsapp",externalId,o.toString(),sender,body,receivedAt)){
+                SyncWorker.now(this);
+            }
+        }catch(Exception ignored){}
     }
 
     private boolean isWhatsAppPackage(String p){for(String x:PACKAGES)if(x.equals(p))return true;return false;}
@@ -39,16 +53,24 @@ public class WhatsAppNotificationService extends NotificationListenerService {
         CharSequence text=e.getCharSequence(Notification.EXTRA_TEXT);
         if(text!=null&&text.length()>0)return text.toString();
         CharSequence[] lines=e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
-        if(lines!=null&&lines.length>0){StringBuilder out=new StringBuilder();for(CharSequence line:lines){if(line!=null&&line.length()>0){if(out.length()>0)out.append("\n");out.append(line);}}return out.toString();}
+        if(lines!=null&&lines.length>0){
+            StringBuilder out=new StringBuilder();
+            for(CharSequence line:lines)if(line!=null&&line.length()>0){if(out.length()>0)out.append("\n");out.append(line);}
+            return out.toString();
+        }
         return "";
     }
 
     private String stableId(StatusBarNotification sbn,String title,String body){
-        try{MessageDigest md=MessageDigest.getInstance("SHA-256");String raw=sbn.getPackageName()+"|"+sbn.getKey()+"|"+sbn.getPostTime()+"|"+title+"|"+body;byte[] h=md.digest(raw.getBytes(StandardCharsets.UTF_8));StringBuilder b=new StringBuilder("wa-");for(byte v:h)b.append(String.format(Locale.US,"%02x",v));return b.toString();}catch(Exception e){return "wa-"+sbn.getPostTime();}
+        try{
+            MessageDigest md=MessageDigest.getInstance("SHA-256");
+            String raw=sbn.getPackageName()+"|"+sbn.getKey()+"|"+sbn.getPostTime()+"|"+title+"|"+body;
+            byte[] h=md.digest(raw.getBytes(StandardCharsets.UTF_8));
+            StringBuilder b=new StringBuilder("wa-");
+            for(byte v:h)b.append(String.format(Locale.US,"%02x",v));
+            return b.toString();
+        }catch(Exception e){return "wa-"+sbn.getPostTime();}
     }
 
-    private String json(String v){
-        return String.valueOf(v==null?"":v).replace("\\","\\\\").replace("\"","\\\"").replace("\r","\\r").replace("\n","\\n").replace("\t","\\t");
-    }
     private String firstNonEmpty(String a,String b){return !TextUtils.isEmpty(a)?a:b;}
 }
