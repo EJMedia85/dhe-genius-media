@@ -70,7 +70,7 @@ header a{color:#fff;text-decoration:none;font-weight:700}
 <div id="updated" class="info">Connecting to API-Football...</div>
 <section id="matches" style="margin-top:12px"><div class="empty">Loading scores...</div></section>
 
-<div id="detailModal" class="modal" onclick="if(event.target===this)closeMatch()"><div class="modalbox"><button class="close" onclick="closeMatch()">×</button><button class="refresh detail-refresh" id="detailRefresh" onclick="refreshMatch()">↻ Refresh</button><div id="detailContent"><div class="empty">Loading match details...</div></div></div></div><div class="updated">Powered by API-Football • Live refresh every 15 seconds</div>
+<div id="detailModal" class="modal" onclick="if(event.target===this)closeMatch()"><div class="modalbox"><button class="close" onclick="closeMatch()">×</button><button class="refresh detail-refresh" id="detailRefresh" onclick="refreshMatch()">↻ Refresh</button><div id="detailContent"><div class="empty">Loading match details...</div></div></div></div><div class="updated">Powered by API-Football • Live refresh every 15 minutes • Today's fixtures load on demand</div>
 </main>
 
 <script>
@@ -86,6 +86,7 @@ let activeMatchId=null;
 let detailTimer=null;
 let liveMatches=[];
 let todayMatches=[];
+let todayLoaded=false;
 
 function esc(v){
  return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
@@ -197,7 +198,7 @@ function render(){
  matchesEl.innerHTML=list.map(matchCard).join("");
 }
 
-async function loadData(){
+async function loadData({includeToday=false}={}){
  if(loading)return;
  loading=true;
  refreshBtn.disabled=true;
@@ -205,24 +206,26 @@ async function loadData(){
  try{
    const date=localDate();
 
-   const [liveResponse,todayResponse]=await Promise.all([
-     fetch("/api/sports/live",{cache:"no-store",headers:{"Accept":"application/json"}}),
-     fetch("/api/sports/fixtures?date="+encodeURIComponent(date),{cache:"no-store",headers:{"Accept":"application/json"}})
-   ]);
-
+   const liveResponse=await fetch("/api/sports/live",{cache:"no-store",headers:{"Accept":"application/json"}});
    const liveData=await liveResponse.json();
-   const todayData=await todayResponse.json();
 
    if(!liveResponse.ok||!liveData.success){
      throw new Error(liveData.message||"Live scores unavailable.");
    }
 
-   if(!todayResponse.ok||!todayData.success){
-     throw new Error(todayData.message||"Today's fixtures unavailable.");
-   }
-
    liveMatches=Array.isArray(liveData.matches)?liveData.matches:[];
-   todayMatches=Array.isArray(todayData.matches)?todayData.matches:[];
+
+   if(includeToday || currentView!=="live" || !todayLoaded){
+     const todayResponse=await fetch("/api/sports/fixtures?date="+encodeURIComponent(date),{cache:"no-store",headers:{"Accept":"application/json"}});
+     const todayData=await todayResponse.json();
+
+     if(!todayResponse.ok||!todayData.success){
+       throw new Error(todayData.message||"Today's fixtures unavailable.");
+     }
+
+     todayMatches=Array.isArray(todayData.matches)?todayData.matches:[];
+     todayLoaded=true;
+   }
 
    render();
 
@@ -230,7 +233,7 @@ async function loadData(){
      ? liveMatches.length+" live"
      : "No live matches";
    updatedEl.textContent=
-     "Today: "+date+" • "+liveText+
+     "Today: "+date+" • "+liveText+" • Free-tier optimized"+
      " • Updated "+new Date().toLocaleTimeString([],{
        hour:"2-digit",minute:"2-digit",second:"2-digit"
      });
@@ -252,7 +255,11 @@ tabs.forEach(tab=>{
    tabs.forEach(t=>t.classList.remove("active"));
    tab.classList.add("active");
    currentView=tab.dataset.view;
-   render();
+   if(currentView!=="live" && !todayLoaded){
+     loadData({includeToday:true});
+   }else{
+     render();
+   }
  });
 });
 
@@ -260,7 +267,7 @@ async function openMatch(id){
 activeMatchId=id;
 if(detailTimer)clearInterval(detailTimer);
 await loadMatchDetails(id);
-detailTimer=setInterval(()=>{if(activeMatchId)loadMatchDetails(activeMatchId);},15000);
+detailTimer=setInterval(()=>{if(activeMatchId)loadMatchDetails(activeMatchId);},300000);
 }
 async function loadMatchDetails(id){
 const modal=document.getElementById("detailModal"),content=document.getElementById("detailContent");
@@ -280,7 +287,7 @@ function closeMatch(){if(detailTimer)clearInterval(detailTimer);detailTimer=null
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeMatch();});
 refreshBtn.addEventListener("click",loadData);
 loadData();
-setInterval(loadData,15000);
+setInterval(loadData,900000);
 </script>
 
 <!-- DGM GLOBAL BRAND NAVIGATION -->
