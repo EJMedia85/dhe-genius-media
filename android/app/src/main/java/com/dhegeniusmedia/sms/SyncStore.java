@@ -27,6 +27,11 @@ public final class SyncStore {
             o.put("sender",displaySender);
             o.put("body",displayBody);
             o.put("time",time);
+            try{
+                JSONObject source=new JSONObject(payload);
+                o.put("direction",source.optString("direction",""));
+                o.put("event_type",source.optString("event_type",""));
+            }catch(Exception ignored){}
             o.put("created_at",System.currentTimeMillis());
             o.put("unread",true);
             q.put(o);
