@@ -8,7 +8,7 @@
 <style>
 :root{--bg:#050b0b;--card:#0b1515;--card2:#102020;--text:#f7fffb;--muted:#829b93;--green:#25d366;--red:#ff6670;--yellow:#f4c95d;--border:rgba(255,255,255,.075)}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at 85% -5%,rgba(37,211,102,.13),transparent 30%),linear-gradient(180deg,#050b0b,#071010 55%,#050909);color:var(--text);min-height:100vh}a{color:inherit;text-decoration:none}button,input,textarea,select{font:inherit}.shell{max-width:1240px;margin:auto;padding:22px 18px 80px}.top{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:22px}.brand{display:flex;align-items:center;gap:11px}.logo{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;font-weight:950;font-size:12px;background:linear-gradient(145deg,#35f47c,#0b9f4a);box-shadow:0 8px 28px rgba(37,211,102,.2)}.brand b{display:block;font-size:14px}.brand small{color:#6f8c82;font-size:9px}.back{border:1px solid var(--border);background:var(--card);padding:10px 13px;border-radius:11px;color:#c4d4ce;font-weight:700;font-size:12px}.hero{padding:26px;border:1px solid rgba(37,211,102,.13);border-radius:25px;background:linear-gradient(145deg,rgba(37,211,102,.12),rgba(11,21,21,.96) 45%);box-shadow:0 20px 50px rgba(0,0,0,.25)}.eyebrow{text-transform:uppercase;letter-spacing:.15em;color:var(--green);font-size:10px;font-weight:900}.hero h1{margin:7px 0 8px;font-size:32px;letter-spacing:-.045em}.hero p{margin:0;color:var(--muted);max-width:760px;line-height:1.6;font-size:13px}.grid{display:grid;gap:12px}.section{margin-top:14px}.canvas-wrap{height:230px;margin-top:12px;padding:8px;border:1px solid var(--border);border-radius:14px;background:#061010}.canvas-wrap canvas{width:100%;height:100%;display:block}.insights{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.insight{padding:13px;border-radius:13px;background:#071010;border:1px solid var(--border)}.insight b{display:block;font-size:15px}.insight span{display:block;color:var(--muted);font-size:9px;margin-top:4px}@media(max-width:480px){.insights{grid-template-columns:1fr}}.stats{grid-template-columns:repeat(4,1fr);margin-top:14px}.card{background:linear-gradient(180deg,rgba(13,28,28,.97),rgba(8,19,19,.97));border:1px solid var(--border);border-radius:18px;padding:17px}.stat strong{display:block;font-size:25px;letter-spacing:-.04em}.stat span{display:block;color:var(--muted);font-size:10px;margin-top:5px}.main{grid-template-columns:1.15fr .85fr;margin-top:14px}.card h2{font-size:16px;margin:0 0 6px}.sub{color:var(--muted);font-size:11px;line-height:1.5}.textarea{width:100%;min-height:145px;resize:vertical;margin-top:12px;background:#061010;border:1px solid rgba(255,255,255,.09);border-radius:13px;color:#eafff3;padding:14px;outline:none}.textarea:focus{border-color:rgba(37,211,102,.4);box-shadow:0 0 0 3px rgba(37,211,102,.07)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.btn{border:1px solid rgba(37,211,102,.2);background:rgba(37,211,102,.1);color:#eafff3;border-radius:11px;padding:10px 13px;font-weight:800;font-size:11px}.btn.primary{background:linear-gradient(135deg,#25d366,#0da64d);color:#041008;border:none}.btn.ghost{background:transparent}.range{margin-top:13px;padding:18px;border-radius:15px;background:#071010;border:1px solid rgba(255,255,255,.07)}.range-label{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em}.range-value{font-size:28px;font-weight:900;margin-top:5px}.meter{height:8px;background:#14211e;border-radius:20px;overflow:hidden;margin-top:12px}.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#25d366,#f4c95d,#ff6670);border-radius:20px;transition:width .4s}.warning{margin-top:12px;padding:12px;border-radius:12px;background:rgba(244,201,93,.07);border:1px solid rgba(244,201,93,.14);color:#cdbf95;font-size:10px;line-height:1.55}.bands{grid-template-columns:repeat(3,1fr);margin-top:12px}.band{text-align:center}.band b{display:block;font-size:19px}.band span{color:var(--muted);font-size:10px}.table-wrap{overflow:auto;margin-top:12px}.table{width:100%;border-collapse:collapse;font-size:11px}.table th,.table td{text-align:left;padding:10px;border-bottom:1px solid var(--border)}.table th{color:var(--muted);font-size:9px;text-transform:uppercase}.chip{display:inline-block;padding:4px 7px;border-radius:20px;font-size:9px;font-weight:800}.low{background:rgba(37,211,102,.1);color:var(--green)}.mid{background:rgba(244,201,93,.1);color:var(--yellow)}.high{background:rgba(255,102,112,.1);color:var(--red)}.empty{color:var(--muted);padding:20px 0;text-align:center;font-size:11px}.foot{margin-top:14px;color:#60756d;font-size:10px;text-align:center;line-height:1.6}@media(max-width:850px){.stats{grid-template-columns:repeat(2,1fr)}.main{grid-template-columns:1fr}}@media(max-width:480px){.shell{padding:15px 12px 70px}.hero{padding:20px}.hero h1{font-size:27px}.stats{gap:8px}.stat{padding:13px}.stat strong{font-size:21px}.top{align-items:flex-start}.back{padding:8px 10px}}
-.live{margin-top:14px}.livebar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.live-status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:10px}.dot{width:8px;height:8px;border-radius:50%;background:var(--yellow);box-shadow:0 0 12px rgba(244,201,93,.35)}.dot.on{background:var(--green);box-shadow:0 0 12px rgba(37,211,102,.5)}.dot.off{background:var(--red)}.live-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}.live-stat{padding:12px;border-radius:12px;background:#071010;border:1px solid var(--border)}.live-stat b{display:block;font-size:17px}.live-stat span{display:block;color:var(--muted);font-size:9px;margin-top:3px}@media(max-width:600px){.live-grid{grid-template-columns:1fr}.livebar{align-items:flex-start}}</style>
+.live{margin-top:14px}.livebar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.live-status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:10px}.dot{width:8px;height:8px;border-radius:50%;background:var(--yellow);box-shadow:0 0 12px rgba(244,201,93,.35)}.dot.on{background:var(--green);box-shadow:0 0 12px rgba(37,211,102,.5)}.dot.off{background:var(--red)}.live-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}.live-stat{padding:12px;border-radius:12px;background:#071010;border:1px solid var(--border)}.live-stat b{display:block;font-size:17px}.live-stat span{display:block;color:var(--muted);font-size:9px;margin-top:3px}@media(max-width:600px){.live-grid{grid-template-columns:1fr}.livebar{align-items:flex-start}}.risk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px}.risk-card{padding:14px;border-radius:14px;background:#071010;border:1px solid var(--border)}.risk-card strong{display:block;font-size:22px}.risk-card span{display:block;color:var(--muted);font-size:9px;margin-top:4px}.risk-form{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.field label{display:block;color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}.field input,.field select{width:100%;background:#061010;border:1px solid rgba(255,255,255,.09);border-radius:10px;color:#eafff3;padding:10px;outline:none}.risk-status{margin-top:12px;padding:13px;border-radius:12px;border:1px solid rgba(37,211,102,.14);background:rgba(37,211,102,.06);font-size:11px;line-height:1.5}.risk-status.warn{border-color:rgba(244,201,93,.2);background:rgba(244,201,93,.06);color:#e7d8a6}.risk-status.stop{border-color:rgba(255,102,112,.22);background:rgba(255,102,112,.06);color:#ffb0b5}.session-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}@media(max-width:850px){.risk-grid{grid-template-columns:repeat(2,1fr)}.risk-form{grid-template-columns:1fr 1fr}}@media(max-width:480px){.risk-grid,.risk-form{grid-template-columns:1fr}.risk-card strong{font-size:20px}}</style>
 </head>
 <body>
 <div class="shell">
@@ -31,7 +31,33 @@
 <div class="card"><h2>Statistical range</h2><div class="sub">A descriptive range from the supplied sample, not a guaranteed next-round prediction.</div><div class="range"><div class="range-label"><span>Sample median</span><span id="sampleSize">0 rounds</span></div><div class="range-value" id="prediction">—</div><div class="meter"><i id="meter"></i></div></div><div class="bands"><div class="band"><b id="b1">—</b><span>Below 1.50x</span></div><div class="band"><b id="b2">—</b><span>1.50–2.99x</span></div><div class="band"><b id="b3">—</b><span>3.00x+</span></div></div><div class="warning">⚠️ Past rounds are not evidence that a particular future multiplier is due. Avoid treating streaks or averages as a timing signal.</div></div>
 </section>
 <section class="card" style="margin-top:14px"><h2>Recent round analysis</h2><div class="sub">Latest values in the order supplied.</div><div class="table-wrap"><table class="table"><thead><tr><th>#</th><th>Multiplier</th><th>Band</th><th>Sample position</th></tr></thead><tbody id="rows"><tr><td colspan="4" class="empty">Analyze a round history to begin.</td></tr></tbody></table></div></section>
-<section class="card section"><h2>Trend & streak analysis</h2><div class="sub">Descriptive patterns in the supplied sample. These do not establish a predictive signal.</div><div class="canvas-wrap"><canvas id="chart"></canvas></div><div class="insights"><div class="insight"><b id="streak">—</b><span>Longest low-crash streak (&lt;1.50x)</span></div><div class="insight"><b id="highstreak">—</b><span>Longest 3.00x+ streak</span></div><div class="insight"><b id="recentAvg">—</b><span>Last 10 average</span></div><div class="insight"><b id="recentVs">—</b><span>Last 10 vs full-sample average</span></div></div></section>
+<section class="card section" id="profitRisk">
+<h2>Profit & Risk Dashboard</h2>
+<div class="sub">Track a betting session, bankroll exposure and actual results. This is a record-keeping and risk-control tool, not a profit guarantee or prediction engine.</div>
+<div class="risk-form">
+ <div class="field"><label>Starting bankroll (GH₵)</label><input id="bankrollStart" type="number" min="0" step="0.01" value="100"></div>
+ <div class="field"><label>Stop-loss (GH₵)</label><input id="stopLoss" type="number" min="0" step="0.01" value="20"></div>
+ <div class="field"><label>Profit target (GH₵)</label><input id="profitTarget" type="number" min="0" step="0.01" value="20"></div>
+ <div class="field"><label>Max stake (GH₵)</label><input id="maxStake" type="number" min="0" step="0.01" value="5"></div>
+ <div class="field"><label>Session limit (minutes)</label><input id="sessionLimit" type="number" min="0" step="1" value="60"></div>
+ <div class="field"><label>Round outcome</label><select id="outcome"><option value="win">Win / cashed out</option><option value="loss">Loss / crashed</option></select></div>
+</div>
+<div class="actions"><button class="btn primary" onclick="startSession()">Start / Reset Session</button><button class="btn" onclick="saveRiskSettings()">Save Settings</button><button class="btn ghost" onclick="clearSession()">Clear Session</button></div>
+<div class="risk-grid">
+ <div class="risk-card"><strong id="sessionPL">GH₵0.00</strong><span>Session P/L</span></div>
+ <div class="risk-card"><strong id="sessionROI">0.0%</strong><span>ROI on total staked</span></div>
+ <div class="risk-card"><strong id="currentBankroll">GH₵0.00</strong><span>Current bankroll</span></div>
+ <div class="risk-card"><strong id="drawdown">GH₵0.00</strong><span>Max drawdown</span></div>
+</div>
+<div class="risk-form">
+ <div class="field"><label>Stake (GH₵)</label><input id="roundStake" type="number" min="0" step="0.01" value="1"></div>
+ <div class="field"><label>Cash-out multiplier</label><input id="cashout" type="number" min="1" step="0.01" value="2"></div>
+ <div class="field"><label>Notes</label><input id="roundNote" type="text" maxlength="80" placeholder="Optional note"></div>
+</div>
+<div class="session-actions"><button class="btn primary" onclick="recordRound()">Record Round</button><button class="btn" onclick="exportSession()">Export CSV</button></div>
+<div id="riskStatus" class="risk-status">Start a session to activate risk controls.</div>
+<div class="table-wrap"><table class="table"><thead><tr><th>Time</th><th>Stake</th><th>Outcome</th><th>Multiplier</th><th>P/L</th><th>Bankroll</th></tr></thead><tbody id="sessionRows"><tr><td colspan="6" class="empty">No session rounds recorded.</td></tr></tbody></table></div>
+</section><section class="card section"><h2>Trend & streak analysis</h2><div class="sub">Descriptive patterns in the supplied sample. These do not establish a predictive signal.</div><div class="canvas-wrap"><canvas id="chart"></canvas></div><div class="insights"><div class="insight"><b id="streak">—</b><span>Longest low-crash streak (&lt;1.50x)</span></div><div class="insight"><b id="highstreak">—</b><span>Longest 3.00x+ streak</span></div><div class="insight"><b id="recentAvg">—</b><span>Last 10 average</span></div><div class="insight"><b id="recentVs">—</b><span>Last 10 vs full-sample average</span></div></div></section>
 <div class="foot">DGM Aviator Analytics is an educational/statistical tool. It does not connect to or control SportyBet, Spribe, or the Aviator game and does not guarantee gambling outcomes.</div>
 </div>
 <script>
@@ -83,6 +109,54 @@ function clearAll(){$('input').value='';analyze();localStorage.removeItem('dgm_a
 demo();
 refreshLive();
 setInterval(refreshLive,15000);
+
+const SESSION_KEY='dgm_aviator_session';
+let session=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+function money(v){return 'GH₵'+Number(v||0).toFixed(2)}
+function saveSession(){localStorage.setItem(SESSION_KEY,JSON.stringify(session))}
+function saveRiskSettings(){
+ if(!session) session={startedAt:Date.now(),start:Number($('bankrollStart').value)||0,bankroll:Number($('bankrollStart').value)||0,stop:Number($('stopLoss').value)||0,target:Number($('profitTarget').value)||0,maxStake:Number($('maxStake').value)||0,limit:Number($('sessionLimit').value)||0,rounds:[],peak:Number($('bankrollStart').value)||0,maxDD:0};
+ else Object.assign(session,{stop:Number($('stopLoss').value)||0,target:Number($('profitTarget').value)||0,maxStake:Number($('maxStake').value)||0,limit:Number($('sessionLimit').value)||0});
+ saveSession();renderSession();
+}
+function startSession(){
+ const start=Math.max(0,Number($('bankrollStart').value)||0);
+ session={startedAt:Date.now(),start,bankroll:start,stop:Number($('stopLoss').value)||0,target:Number($('profitTarget').value)||0,maxStake:Number($('maxStake').value)||0,limit:Number($('sessionLimit').value)||0,rounds:[],peak:start,maxDD:0};
+ saveSession();renderSession();
+}
+function recordRound(){
+ if(!session){startSession();if(!session)return}
+ const stake=Math.max(0,Number($('roundStake').value)||0), outcome=$('outcome').value, cash=Math.max(1,Number($('cashout').value)||1);
+ if(!stake)return alert('Enter a stake greater than GH₵0.');
+ if(session.maxStake&&stake>session.maxStake)return alert('Stake exceeds your configured max stake.');
+ if(stake>session.bankroll)return alert('Stake exceeds the current bankroll.');
+ const pnl=outcome==='win'?stake*(cash-1):-stake;
+ session.bankroll+=pnl;session.peak=Math.max(session.peak,session.bankroll);session.maxDD=Math.max(session.maxDD,session.peak-session.bankroll);
+ session.rounds.push({at:Date.now(),stake,outcome,cash,pnl,bankroll:session.bankroll,note:$('roundNote').value.trim()});
+ $('roundNote').value='';saveSession();renderSession();
+}
+function renderSession(){
+ if(!session){$('sessionPL').textContent=money(0);$('sessionROI').textContent='0.0%';$('currentBankroll').textContent='GH₵0.00';$('drawdown').textContent='GH₵0.00';$('sessionRows').innerHTML='<tr><td colspan="6" class="empty">No session rounds recorded.</td></tr>';return}
+ $('bankrollStart').value=session.start;$('stopLoss').value=session.stop;$('profitTarget').value=session.target;$('maxStake').value=session.maxStake;$('sessionLimit').value=session.limit;
+ const staked=session.rounds.reduce((s,r)=>s+r.stake,0),pl=session.bankroll-session.start,roi=staked?pl/staked*100:0;
+ $('sessionPL').textContent=money(pl);$('sessionROI').textContent=roi.toFixed(1)+'%';$('currentBankroll').textContent=money(session.bankroll);$('drawdown').textContent=money(session.maxDD);
+ let status='Session active · '+session.rounds.length+' rounds recorded.';
+ const elapsed=(Date.now()-session.startedAt)/60000;
+ if(session.stop&&pl<=-session.stop)status='STOP: your configured stop-loss has been reached.';
+ else if(session.target&&pl>=session.target)status='TARGET REACHED: your configured profit target has been reached.';
+ else if(session.limit&&elapsed>=session.limit)status='STOP: your configured session time limit has been reached.';
+ else if(session.stop&&pl<=-session.stop*.75)status='CAUTION: you are within 25% of the stop-loss limit.';
+ $('riskStatus').textContent=status;$('riskStatus').className='risk-status '+(status.startsWith('STOP')?'stop':status.startsWith('TARGET')?'warn':status.startsWith('CAUTION')?'warn':'');
+ $('sessionRows').innerHTML=session.rounds.length?session.rounds.slice().reverse().map(r=>'<tr><td>'+new Date(r.at).toLocaleTimeString()+'</td><td>'+money(r.stake)+'</td><td><span class="chip '+(r.outcome==='win'?'low':'high')+'">'+r.outcome.toUpperCase()+'</span></td><td>'+r.cash.toFixed(2)+'x</td><td>'+money(r.pnl)+'</td><td>'+money(r.bankroll)+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No session rounds recorded.</td></tr>';
+}
+function clearSession(){session=null;localStorage.removeItem(SESSION_KEY);renderSession()}
+function exportSession(){
+ if(!session||!session.rounds.length)return alert('No session rounds to export.');
+ const lines=[['time','stake','outcome','cashout_multiplier','pnl','bankroll','note'].join(',')].concat(session.rounds.map(r=>[new Date(r.at).toISOString(),r.stake,r.outcome,r.cash,r.pnl,r.bankroll,'"'+String(r.note||'').replaceAll('"','""')+'"'].join(',')));
+ const blob=new Blob([lines.join('\n')],{type:'text/csv'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='dgm-aviator-session.csv';a.click();URL.revokeObjectURL(a.href);
+}
+renderSession();
+setInterval(()=>{if(session)renderSession()},30000);
 </script>
 </body>
 </html>
