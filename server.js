@@ -7850,6 +7850,176 @@ app.get("/api/admin/promo-codes",async(req,res)=>{if(!req.session?.adminAuthenti
 app.post("/api/admin/api-keys",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});try{const customerId=Number(req.body?.customer_id);const name=String(req.body?.name||"DGM API").slice(0,80);if(!Number.isInteger(customerId))return res.status(400).json({success:false,message:"Valid customer_id required."});const raw="dgm_live_"+crypto.randomBytes(24).toString("hex");const hash=crypto.createHash("sha256").update(raw).digest("hex");const r=await pool.query("INSERT INTO customer_api_keys(customer_id,name,key_hash,key_prefix) VALUES($1,$2,$3,$4) RETURNING id,name,key_prefix,created_at",[customerId,name,hash,raw.slice(0,16)]);res.status(201).json({success:true,key:raw,record:r.rows[0],warning:"Save this key now. It cannot be shown again."});}catch(e){res.status(400).json({success:false,message:e.message});}});
 app.get("/api/admin/api-keys",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});const r=await pool.query("SELECT k.id,k.customer_id,k.name,k.key_prefix,k.active,k.last_used_at,k.created_at,c.email,c.name AS customer_name FROM customer_api_keys k JOIN customers c ON c.id=k.customer_id ORDER BY k.created_at DESC LIMIT 200");res.json({success:true,keys:r.rows});});
 
+
+// =====================================================
+// DGM MY DEVICES SMS — AUTHORIZED DEVICE SYNC
+// =====================================================
+const SMS_CIPHER_KEY = crypto.createHash("sha256").update(String(SESSION_SECRET)).digest();
+
+function smsEncrypt(value) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", SMS_CIPHER_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(String(value ?? ""), "utf8"), cipher.final()]);
+  return [iv.toString("base64"), cipher.getAuthTag().toString("base64"), encrypted.toString("base64")].join(".");
+}
+function smsDecrypt(value) {
+  try {
+    const [ivB64, tagB64, dataB64] = String(value || "").split(".");
+    const decipher = crypto.createDecipheriv("aes-256-gcm", SMS_CIPHER_KEY, Buffer.from(ivB64, "base64"));
+    decipher.setAuthTag(Buffer.from(tagB64, "base64"));
+    return Buffer.concat([decipher.update(Buffer.from(dataB64, "base64")), decipher.final()]).toString("utf8");
+  } catch { return ""; }
+}
+async function ensureSmsTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sms_devices (
+      id BIGSERIAL PRIMARY KEY,
+      customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      name VARCHAR(120) NOT NULL,
+      phone VARCHAR(40),
+      token_hash CHAR(64) NOT NULL UNIQUE,
+      token_prefix VARCHAR(20) NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      last_seen_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS sms_messages (
+      id BIGSERIAL PRIMARY KEY,
+      device_id BIGINT NOT NULL REFERENCES sms_devices(id) ON DELETE CASCADE,
+      external_id VARCHAR(180),
+      direction VARCHAR(20) NOT NULL DEFAULT 'received',
+      sender_enc TEXT,
+      body_enc TEXT NOT NULL,
+      received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(device_id, external_id)
+    );
+    CREATE INDEX IF NOT EXISTS sms_messages_device_time_idx ON sms_messages(device_id, received_at DESC);
+  `);
+}
+
+app.get("/api/sms/devices", requireCustomer, async (req,res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id,name,phone,active,last_seen_at,created_at,
+        (SELECT COUNT(*) FROM sms_messages m WHERE m.device_id=d.id) AS message_count
+       FROM sms_devices d WHERE customer_id=$1 ORDER BY created_at DESC`,
+      [req.session.customerId]
+    );
+    res.json({success:true,devices:r.rows});
+  } catch(e) {
+    console.error("SMS devices error",e);
+    res.status(500).json({success:false,message:"Could not load SMS devices."});
+  }
+});
+
+app.post("/api/sms/devices", requireCustomer, async (req,res) => {
+  try {
+    const name=String(req.body?.name||"My Android").trim().slice(0,120);
+    const phone=String(req.body?.phone||"").trim().slice(0,40);
+    if(name.length<1) return res.status(400).json({success:false,message:"Device name is required."});
+    const raw="dgm_sms_"+crypto.randomBytes(30).toString("hex");
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const prefix=raw.slice(0,18);
+    const r=await pool.query(
+      `INSERT INTO sms_devices(customer_id,name,phone,token_hash,token_prefix)
+       VALUES($1,$2,$3,$4,$5) RETURNING id,name,phone,active,created_at`,
+      [req.session.customerId,name,phone||null,hash,prefix]
+    );
+    res.status(201).json({success:true,device:r.rows[0],device_token:raw,warning:"Save this token in the authorized DGM SMS companion app. It is shown only once."});
+  } catch(e) {
+    console.error("SMS device create error",e);
+    res.status(500).json({success:false,message:"Could not register device."});
+  }
+});
+
+app.post("/api/sms/devices/:id/revoke", requireCustomer, async (req,res) => {
+  try {
+    await pool.query("UPDATE sms_devices SET active=false WHERE id=$1 AND customer_id=$2",[Number(req.params.id),req.session.customerId]);
+    res.json({success:true,message:"Device access revoked."});
+  } catch(e) { res.status(500).json({success:false,message:"Could not revoke device."}); }
+});
+
+app.get("/api/sms/messages", requireCustomer, async (req,res) => {
+  try {
+    const deviceId=Number(req.query.device_id||0);
+    const limit=Math.min(Math.max(Number(req.query.limit)||100,1),500);
+    const params=[req.session.customerId];
+    let where="d.customer_id=$1 AND d.active=true";
+    if(Number.isInteger(deviceId)&&deviceId>0){ params.push(deviceId); where+=" AND d.id=$2"; }
+    params.push(limit);
+    const r=await pool.query(
+      `SELECT m.id,m.device_id,d.name AS device_name,m.direction,m.sender_enc,m.body_enc,m.received_at
+       FROM sms_messages m JOIN sms_devices d ON d.id=m.device_id
+       WHERE ${where} ORDER BY m.received_at DESC LIMIT ${params.length}`,
+      params
+    );
+    res.json({success:true,messages:r.rows.map(m=>({
+      id:m.id,device_id:m.device_id,device_name:m.device_name,direction:m.direction,
+      sender:smsDecrypt(m.sender_enc),body:smsDecrypt(m.body_enc),received_at:m.received_at
+    }))});
+  } catch(e) {
+    console.error("SMS messages error",e);
+    res.status(500).json({success:false,message:"Could not load messages."});
+  }
+});
+
+app.get("/api/sms/summary", requireCustomer, async (req,res) => {
+  try {
+    const r=await pool.query(
+      `SELECT COUNT(*)::int AS messages,
+        COUNT(DISTINCT d.id)::int AS devices,
+        COUNT(*) FILTER (WHERE m.received_at >= NOW()-INTERVAL '24 hours')::int AS today
+       FROM sms_devices d LEFT JOIN sms_messages m ON m.device_id=d.id
+       WHERE d.customer_id=$1 AND d.active=true`,
+      [req.session.customerId]
+    );
+    res.json({success:true,summary:r.rows[0]});
+  } catch(e) { res.status(500).json({success:false,message:"Could not load SMS summary."}); }
+});
+
+app.post("/api/sms/ingest", async (req,res) => {
+  try {
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw) return res.status(401).json({success:false,message:"Device token required."});
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const d=await pool.query("SELECT id FROM sms_devices WHERE token_hash=$1 AND active=true LIMIT 1",[hash]);
+    if(!d.rows.length) return res.status(401).json({success:false,message:"Invalid or revoked device token."});
+    const deviceId=d.rows[0].id;
+    const sender=String(req.body?.sender||"").slice(0,300);
+    const body=String(req.body?.body||"").slice(0,10000);
+    const externalId=String(req.body?.external_id||"").slice(0,180)||null;
+    const direction=String(req.body?.direction||"received").slice(0,20);
+    if(!body) return res.status(400).json({success:false,message:"SMS body is required."});
+    const receivedAt=req.body?.received_at ? new Date(req.body.received_at) : new Date();
+    const when=Number.isNaN(receivedAt.getTime())?new Date():receivedAt;
+    const r=await pool.query(
+      `INSERT INTO sms_messages(device_id,external_id,direction,sender_enc,body_enc,received_at)
+       VALUES($1,$2,$3,$4,$5,$6)
+       ON CONFLICT(device_id,external_id) DO NOTHING
+       RETURNING id`,
+      [deviceId,externalId,direction,smsEncrypt(sender),smsEncrypt(body),when]
+    );
+    await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
+    res.status(201).json({success:true,stored:Boolean(r.rows.length)});
+  } catch(e) {
+    console.error("SMS ingest error",e);
+    res.status(500).json({success:false,message:"Could not store SMS."});
+  }
+});
+
+app.post("/api/sms/heartbeat", async (req,res) => {
+  try {
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const r=await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE token_hash=$1 AND active=true RETURNING id",[hash]);
+    if(!r.rows.length) return res.status(401).json({success:false,message:"Invalid device token."});
+    res.json({success:true});
+  } catch(e) { res.status(500).json({success:false,message:"Heartbeat failed."}); }
+});
+
 // FRONTEND STATIC FILES + HEALTH CHECK
 // =====================================================
 
@@ -8006,6 +8176,7 @@ async function startServer() {
   try {
 
     await initDatabase();
+    await ensureSmsTables();
     await initializeAdminCredentials();
 
     app.listen(
