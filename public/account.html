@@ -1195,6 +1195,13 @@
           Wallet History
         </button>
 
+        <button
+          type="button"
+          class="wallet-btn"
+          onclick="openWithdrawModal()">
+          Withdraw to MoMo
+        </button>
+
       </div>
 
     </section>
@@ -1386,6 +1393,14 @@
 
     </section>
 
+
+    <!-- WITHDRAWAL REQUESTS -->
+    <section class="section">
+      <div class="section-title">Withdrawal Requests</div>
+      <div class="card" id="withdrawals">
+        <div class="empty">Loading withdrawal requests...</div>
+      </div>
+    </section>
 
     <!-- SECURITY -->
 
@@ -2594,6 +2609,102 @@
     }
 
 
+    async function loadWithdrawals() {
+      const container = document.getElementById("withdrawals");
+      if (!container) return;
+      try {
+        const response = await fetch("/api/wallet/withdrawals", {credentials:"include", headers:{"Accept":"application/json"}});
+        if (response.status === 401) { window.location.href="/login.html"; return; }
+        const data = await response.json();
+        const items = data.withdrawals || [];
+        if (!items.length) { container.innerHTML='<div class="empty">No withdrawal requests yet.</div>'; return; }
+        container.innerHTML = items.slice(0,10).map(w => `
+          <div class="transaction">
+            <div class="transaction-left">
+              <div class="transaction-title">${escapeHTML(w.reference)} • ${escapeHTML(w.momo_network)} ${escapeHTML(w.momo_phone)}</div>
+              <div class="transaction-date">${escapeHTML(formatDateTime(w.created_at))}</div>
+              ${w.admin_note ? '<div class="transaction-date">Note: '+escapeHTML(w.admin_note)+'</div>' : ''}
+            </div>
+            <div class="transaction-right">
+              <div class="transaction-amount">GH₵${Number(w.amount||0).toFixed(2)}</div>
+              <div class="transaction-status">${escapeHTML(w.status)}</div>
+            </div>
+          </div>`).join("");
+      } catch (error) {
+        container.innerHTML='<div class="empty">Withdrawal history is currently unavailable.</div>';
+      }
+    }
+
+    /* =========================
+       WITHDRAWAL
+    ========================= */
+
+    function openWithdrawModal() {
+      const modal = document.getElementById("withdrawModal");
+      document.getElementById("withdrawAmount").value = "";
+      document.getElementById("withdrawNetwork").value = "";
+      document.getElementById("withdrawPhone").value = currentUser?.phone || "";
+      document.getElementById("withdrawName").value = currentUser?.name || "";
+      document.getElementById("withdrawMessage").textContent = "";
+      modal.classList.add("show");
+      setTimeout(() => document.getElementById("withdrawAmount").focus(), 100);
+    }
+
+    function closeWithdrawModal(event) {
+      if (event && event.target && event.target.id !== "withdrawModal") return;
+      document.getElementById("withdrawModal").classList.remove("show");
+    }
+
+    async function submitWithdrawal() {
+      const button = document.getElementById("withdrawBtn");
+      const message = document.getElementById("withdrawMessage");
+      const amount = Number(document.getElementById("withdrawAmount").value);
+      const network = document.getElementById("withdrawNetwork").value;
+      const phone = document.getElementById("withdrawPhone").value.trim();
+      const name = document.getElementById("withdrawName").value.trim();
+
+      message.textContent = "";
+      if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+        message.textContent = "Enter a withdrawal amount from GH₵1 to GH₵10,000.";
+        return;
+      }
+      if (!network) {
+        message.textContent = "Select your MoMo network.";
+        return;
+      }
+      if (!phone) {
+        message.textContent = "Enter your MoMo phone number.";
+        return;
+      }
+
+      if (!confirm("Request GH₵" + amount.toFixed(2) + " withdrawal to " + network + " " + phone + "?")) return;
+
+      button.disabled = true;
+      button.textContent = "Submitting...";
+      try {
+        const response = await fetch("/api/wallet/withdraw", {
+          method: "POST",
+          credentials: "include",
+          headers: {"Content-Type":"application/json","Accept":"application/json"},
+          body: JSON.stringify({amount, network, momo_phone: phone, momo_name: name})
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.message || "Could not submit withdrawal.");
+        message.className = "modal-message";
+        message.textContent = data.message || "Withdrawal submitted for approval.";
+        renderAccount({...currentUser, balance: data.balance});
+        setTimeout(() => {
+          closeWithdrawModal();
+          loadAccount();
+        }, 1300);
+      } catch (error) {
+        message.textContent = error.message || "Could not submit withdrawal.";
+      } finally {
+        button.disabled = false;
+        button.textContent = "Request Withdrawal";
+      }
+    }
+
     /* =========================
        PAYMENT RETURN
     ========================= */
@@ -2991,6 +3102,8 @@
         }
 
         loadAccount();
+
+        loadWithdrawals();
 
       }
     );
