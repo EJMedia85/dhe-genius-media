@@ -61,6 +61,8 @@ module.exports = function installAviatorApi(app) {
         success: true,
         provider: "DGM Aviator Analytics",
         ingestion_configured: Boolean(INGEST_KEY),
+        source_mode: String(process.env.AVIATOR_SOURCE_MODE || "external_feed").trim() || "external_feed",
+        live_source_connected: Boolean(INGEST_KEY && Number(r.rows[0]?.rounds || 0) > 0),
         rounds: Number(r.rows[0]?.rounds || 0),
         latest: r.rows[0]?.latest || null,
         server_time: new Date().toISOString()
