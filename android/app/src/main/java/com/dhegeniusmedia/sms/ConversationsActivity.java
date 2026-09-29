@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.*;
@@ -120,6 +121,11 @@ public class ConversationsActivity extends Activity {
         bubble.setPadding(18,12,18,12);
         bubble.setGravity(sent?Gravity.RIGHT:Gravity.LEFT);
 
+        GradientDrawable bubbleBg=new GradientDrawable();
+        bubbleBg.setColor(Color.WHITE);
+        bubbleBg.setCornerRadius(28f);
+        bubble.setBackground(bubbleBg);
+
         TextView meta=new TextView(this);
         meta.setText(label+" • "+directionLabel);
         meta.setTextSize(12);
@@ -142,9 +148,11 @@ public class ConversationsActivity extends Activity {
 
         int maxWidth=(int)(getResources().getDisplayMetrics().widthPixels*0.78f);
         LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(maxWidth,-2);
-        bubble.setLayoutParams(bp);
+        bp.setMargins(sent?80:8,6,sent?8:80,6);
 
-        row.addView(bubble,new LinearLayout.LayoutParams(-2,-2));
-        list.addView(row,new LinearLayout.LayoutParams(-1,-2));
+        LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);
+        rp.setMargins(0,2,0,2);
+        row.addView(bubble,bp);
+        list.addView(row,rp);
     }
 }
