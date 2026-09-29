@@ -78,7 +78,7 @@ function analyze(){
  const [ml,mh]=streaks(a);$('streak').textContent=ml+' rounds';$('highstreak').textContent=mh+' rounds';const last=a.slice(-10);const ra=last.reduce((x,y)=>x+y,0)/last.length;$('recentAvg').textContent=ra.toFixed(2)+'x';$('recentVs').textContent=((ra-avg)/avg*100).toFixed(1)+'%';drawChart(a);
  $('rows').innerHTML=a.slice(-40).reverse().map((v,i)=>{const band=v<1.5?'LOW':v<3?'MEDIUM':'HIGH',cl=v<1.5?'low':v<3?'mid':'high';return '<tr><td>'+(a.length-i)+'</td><td><b>'+v.toFixed(2)+'x</b></td><td><span class="chip '+cl+'">'+band+'</span></td><td>'+Math.round((a.length-i)/a.length*100)+'%</td></tr>'}).join('');
 }
-function demo(){$('input').value='1.12x, 2.45x, 1.03x, 7.81x, 1.34x, 3.21x, 1.08x, 1.67x, 2.14x, 5.62x, 1.22x, 1.01x, 2.88x, 4.16x, 1.45x, 1.19x, 8.23x, 1.76x, 2.02x, 1.09x';analyze()}
+function demo(){const demoRounds=['1.12x','2.45x','1.03x','7.81x','1.34x','3.21x','1.08x','1.67x','2.14x','5.62x','1.22x','1.01x','2.88x','4.16x','1.45x','1.19x','8.23x','1.76x','2.02x','1.09x'];$('input').value=demoRounds.join(', ');analyze();$('input').focus();$('input').setSelectionRange($('input').value.length,$('input').value.length)}
 async function refreshLive(){
  try{
   const r=await fetch('/api/aviator/status',{cache:'no-store'}); const d=await r.json();
