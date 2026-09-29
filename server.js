@@ -3285,6 +3285,46 @@ function mapDataMartStatus(
   return "Processing";
 }
 
+async function processCompletedOrderRewards(orderId){
+  const client=await pool.connect();
+  try{await client.query("BEGIN");
+    const o=(await client.query("SELECT id,customer_id,order_ref,amount,status FROM orders WHERE id=$1 FOR UPDATE",[orderId])).rows[0];
+    if(!o||o.status!=="Completed"){await client.query("ROLLBACK");return;}
+    const points=Math.max(1,Math.floor(Number(o.amount||0)*10));
+    const existing=await client.query("SELECT id FROM loyalty_transactions WHERE reference=$1 LIMIT 1",["ORDER:"+o.id]);
+    if(!existing.rows.length){
+      await client.query("UPDATE customers SET loyalty_points=loyalty_points+$1 WHERE id=$2",[points,o.customer_id]);
+      await client.query("INSERT INTO loyalty_transactions(customer_id,points,reason,reference) VALUES($1,$2,$3,$4)",[o.customer_id,points,"Completed order "+o.order_ref,"ORDER:"+o.id]);
+    }
+    const ref=(await client.query("SELECT * FROM referrals WHERE referred_id=$1 AND status='Pending' LIMIT 1 FOR UPDATE",[o.customer_id])).rows[0];
+    if(ref){
+      const refPoints=50, refAmount=1;
+      await client.query("UPDATE customers SET loyalty_points=loyalty_points+$1,cashback_balance=cashback_balance+$2 WHERE id=$3",[refPoints,refAmount,ref.referrer_id]);
+      await client.query("INSERT INTO loyalty_transactions(customer_id,points,reason,reference) VALUES($1,$2,$3,$4)",[ref.referrer_id,refPoints,"Referral reward for "+o.order_ref,"REFERRAL:"+ref.id]);
+      await client.query("UPDATE referrals SET reward_points=$1,reward_amount=$2,status='Rewarded',rewarded_at=NOW() WHERE id=$3",[refPoints,refAmount,ref.id]);
+    }
+    await client.query("COMMIT");
+    await createCustomerNotification(o.customer_id,"Order completed",o.order_ref+" has been completed. You earned "+points+" loyalty points.","reward");
+    if(ref) await createCustomerNotification(ref.referrer_id,"Referral reward earned","Your referral reward has been credited.","reward");
+  }catch(e){try{await client.query("ROLLBACK")}catch{};console.error("Reward processing error:",e.message)}finally{client.release()}
+}
+
+async function refundFailedCustomerOrder(orderId,reason){
+  const client=await pool.connect();
+  try{await client.query("BEGIN");
+    const o=(await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE",[orderId])).rows[0];
+    if(!o||String(o.payment_status||"").toLowerCase()==="refunded"){await client.query("ROLLBACK");return;}
+    const cust=(await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[o.customer_id])).rows[0];
+    if(!cust) throw new Error("Customer not found");
+    const before=Number(cust.balance||0), amount=Number(o.amount||0), after=Math.round((before+amount)*100)/100, ref="DGM-REFUND-"+o.order_ref;
+    await client.query("UPDATE customers SET balance=$1 WHERE id=$2",[after,o.customer_id]);
+    await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'Credit',$2,$3,$4,$5,$6,'Completed',$7)",[o.customer_id,amount,before,after,"Automatic failed-order refund - "+o.order_ref,ref,ref]);
+    await client.query("UPDATE orders SET status='Refunded',payment_status='Refunded',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[String(reason||"Provider reported a failed transaction.").slice(0,1000),orderId]);
+    await client.query("COMMIT");
+    await createCustomerNotification(o.customer_id,"Order refunded","GH₵"+amount.toFixed(2)+" was refunded for "+o.order_ref+" because the order failed.","refund");
+  }catch(e){try{await client.query("ROLLBACK")}catch{};console.error("Automatic refund error:",e.message)}finally{client.release()}
+}
+
 // =====================================================
 // SYNCHRONIZE DATAMART ORDER
 // =====================================================
@@ -3454,6 +3494,12 @@ async function syncDataMartOrder(
         order.id
       ]
     );
+
+    if (localStatus === "Completed") {
+      await processCompletedOrderRewards(order.id);
+    } else if (localStatus === "Failed") {
+      await refundFailedCustomerOrder(order.id, "DataMart reported: " + (normalizedStatus || "failed"));
+    }
 
     console.log(
       `DataMart status sync: ${order.order_ref} -> ${normalizedStatus || "unknown"} -> ${localStatus}`
