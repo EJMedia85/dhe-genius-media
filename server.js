@@ -7895,6 +7895,17 @@ async function ensureSmsTables() {
       UNIQUE(device_id, external_id)
     );
     CREATE INDEX IF NOT EXISTS sms_messages_device_time_idx ON sms_messages(device_id, received_at DESC);
+    CREATE TABLE IF NOT EXISTS whatsapp_messages (
+      id SERIAL PRIMARY KEY,
+      device_id INTEGER NOT NULL REFERENCES sms_devices(id) ON DELETE CASCADE,
+      external_id VARCHAR(220),
+      sender_enc TEXT,
+      body_enc TEXT NOT NULL,
+      received_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(device_id, external_id)
+    );
+    CREATE INDEX IF NOT EXISTS whatsapp_messages_device_time_idx ON whatsapp_messages(device_id, received_at DESC);
   `);
 }
 
@@ -8006,6 +8017,60 @@ app.post("/api/sms/ingest", async (req,res) => {
     console.error("SMS ingest error",e);
     res.status(500).json({success:false,message:"Could not store SMS."});
   }
+});
+
+app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
+  try {
+    const deviceId=Number(req.query.device_id||0);
+    const limit=Math.min(Math.max(Number(req.query.limit)||500,1),500);
+    const params=[req.session.customerId];
+    let where="d.customer_id=$1 AND d.active=true";
+    if(Number.isInteger(deviceId)&&deviceId>0){params.push(deviceId);where+=" AND d.id=$2";}
+    const r=await pool.query(
+      \`SELECT w.id,w.device_id,d.name AS device_name,w.sender_enc,w.body_enc,w.received_at
+       FROM whatsapp_messages w JOIN sms_devices d ON d.id=w.device_id
+       WHERE \${where} ORDER BY w.received_at DESC LIMIT \${limit}\`,params);
+    res.json({success:true,messages:r.rows.map(w=>({
+      id:w.id,device_id:w.device_id,device_name:w.device_name,
+      sender:smsDecrypt(w.sender_enc),body:smsDecrypt(w.body_enc),received_at:w.received_at
+    }))});
+  } catch(e){console.error("WhatsApp messages error",e);res.status(500).json({success:false,message:"Could not load WhatsApp messages."});}
+});
+
+app.get("/api/whatsapp/summary", requireCustomer, async (req,res) => {
+  try{
+    const r=await pool.query(\`SELECT COUNT(*)::int AS messages,
+      COUNT(DISTINCT d.id)::int AS devices,
+      COUNT(*) FILTER (WHERE w.received_at>=NOW()-INTERVAL '24 hours')::int AS today
+      FROM sms_devices d LEFT JOIN whatsapp_messages w ON w.device_id=d.id
+      WHERE d.customer_id=$1 AND d.active=true\`,[req.session.customerId]);
+    res.json({success:true,summary:r.rows[0]});
+  }catch(e){res.status(500).json({success:false,message:"Could not load WhatsApp summary."});}
+});
+
+app.post("/api/whatsapp/ingest", async (req,res) => {
+  try{
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw)return res.status(401).json({success:false,message:"Device token required."});
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const d=await pool.query("SELECT id FROM sms_devices WHERE token_hash=$1 AND active=true LIMIT 1",[hash]);
+    if(!d.rows.length)return res.status(401).json({success:false,message:"Invalid or revoked device token."});
+    const deviceId=d.rows[0].id;
+    const externalId=String(req.body?.external_id||"").slice(0,220)||null;
+    const sender=String(req.body?.sender||"").slice(0,300);
+    const body=String(req.body?.body||"").slice(0,10000);
+    if(!body)return res.status(400).json({success:false,message:"WhatsApp message body is required."});
+    const receivedAt=req.body?.received_at?new Date(req.body.received_at):new Date();
+    const when=Number.isNaN(receivedAt.getTime())?new Date():receivedAt;
+    const r=await pool.query(
+      \`INSERT INTO whatsapp_messages(device_id,external_id,sender_enc,body_enc,received_at)
+       VALUES($1,$2,$3,$4,$5)
+       ON CONFLICT(device_id,external_id) DO NOTHING RETURNING id\`,
+      [deviceId,externalId,smsEncrypt(sender),smsEncrypt(body),when]);
+    await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
+    res.status(201).json({success:true,stored:Boolean(r.rows.length)});
+  }catch(e){console.error("WhatsApp ingest error",e);res.status(500).json({success:false,message:"Could not store WhatsApp notification."});}
 });
 
 app.post("/api/sms/heartbeat", async (req,res) => {
