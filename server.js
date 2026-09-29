@@ -4921,6 +4921,45 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   } catch (error) { console.error("Admin orders error:", error); return sendError(res, 500, "Could not load orders."); }
 });
 
+app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
+  const customerId = Number(req.params.id);
+  if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res, 400, "Invalid customer ID.");
+
+  try {
+    const customerResult = await pool.query(
+      "SELECT id, name, phone, email, balance, created_at FROM customers WHERE id = $1 LIMIT 1",
+      [customerId]
+    );
+    if (!customerResult.rows.length) return sendError(res, 404, "Customer not found.");
+
+    const [orders, transactions, topups] = await Promise.all([
+      pool.query(
+        "SELECT id, order_ref, service, network, phone, amount, status, payment_status, provider_status, datamart_reference, created_at, paid_at FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200",
+        [customerId]
+      ),
+      pool.query(
+        "SELECT id, type, amount, balance_before, balance_after, description, transaction_ref, status, reference, created_at FROM wallet_transactions WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200",
+        [customerId]
+      ),
+      pool.query(
+        "SELECT id, reference, amount, status, payment_status, created_at, paid_at FROM wallet_topups WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200",
+        [customerId]
+      )
+    ]);
+
+    return res.json({
+      success: true,
+      customer: customerResult.rows[0],
+      orders: orders.rows,
+      wallet_transactions: transactions.rows,
+      wallet_topups: topups.rows
+    });
+  } catch (error) {
+    console.error("Admin customer details error:", error);
+    return sendError(res, 500, "Could not load customer details.");
+  }
+});
+
 app.get("/api/admin/customers", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query("SELECT id, name, phone, email, balance, created_at FROM customers ORDER BY created_at DESC LIMIT 100");
