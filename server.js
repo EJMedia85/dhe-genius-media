@@ -1523,6 +1523,90 @@ async function initDatabase() {
   `);
 
   // ---------------------------------------------------
+  // REWARDS, REFERRALS, PROMOS, AGENTS & API KEYS
+  // ---------------------------------------------------
+  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'customer';\`);
+  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE;\`);
+  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS loyalty_points INTEGER NOT NULL DEFAULT 0;\`);
+  await pool.query(\`ALTER TABLE customers ADD COLUMN IF NOT EXISTS cashback_balance NUMERIC(12,2) NOT NULL DEFAULT 0;\`);
+  await pool.query(\`
+    CREATE TABLE IF NOT EXISTS referrals (
+      id SERIAL PRIMARY KEY,
+      referrer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      referred_id INTEGER NOT NULL UNIQUE REFERENCES customers(id) ON DELETE CASCADE,
+      reward_points INTEGER NOT NULL DEFAULT 0,
+      reward_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'Pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      rewarded_at TIMESTAMPTZ
+    );
+  \`);
+  await pool.query(\`
+    CREATE TABLE IF NOT EXISTS loyalty_transactions (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      points INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      reference TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  \`);
+  await pool.query(\`
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      id SERIAL PRIMARY KEY,
+      code TEXT UNIQUE NOT NULL,
+      discount_type TEXT NOT NULL DEFAULT 'percent',
+      discount_value NUMERIC(12,2) NOT NULL,
+      max_uses INTEGER,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      min_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  \`);
+  await pool.query(\`
+    CREATE TABLE IF NOT EXISTS customer_promo_uses (
+      id SERIAL PRIMARY KEY,
+      promo_id INTEGER NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+      discount_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(promo_id, customer_id, order_id)
+    );
+  \`);
+  await pool.query(\`
+    CREATE TABLE IF NOT EXISTS saved_recipients (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      phone TEXT NOT NULL,
+      network TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(customer_id,label)
+    );
+  \`);
+  await pool.query(\`
+    CREATE TABLE IF NOT EXISTS customer_api_keys (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      key_hash TEXT UNIQUE NOT NULL,
+      key_prefix TEXT NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      last_used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  \`);
+  await pool.query(\`
+    CREATE INDEX IF NOT EXISTS referrals_referrer_idx ON referrals(referrer_id,created_at DESC);
+  \`);
+  await pool.query(\`
+    CREATE INDEX IF NOT EXISTS saved_recipients_customer_idx ON saved_recipients(customer_id,created_at DESC);
+  \`);
+
+  // ---------------------------------------------------
   // CUSTOMER NOTIFICATIONS
   // ---------------------------------------------------
   await pool.query(`
@@ -7683,6 +7767,42 @@ app.get("/api/admin/analytics", async (req,res) => {
     return res.status(500).json({success:false,message:"Could not load analytics."});
   }
 });
+
+// =====================================================
+// REWARDS / REFERRALS / SAVED RECIPIENTS / DEVELOPER API
+// =====================================================
+function makeReferralCode(id){ return "DGM" + String(id).padStart(4,"0") + crypto.randomBytes(2).toString("hex").toUpperCase(); }
+async function ensureReferralCode(customerId){
+  const r=await pool.query("SELECT referral_code FROM customers WHERE id=$1",[customerId]);
+  if(!r.rows.length) return null;
+  if(r.rows[0].referral_code) return r.rows[0].referral_code;
+  let code; for(let i=0;i<5;i++){ code=makeReferralCode(customerId); try{ const u=await pool.query("UPDATE customers SET referral_code=$1 WHERE id=$2 AND referral_code IS NULL RETURNING referral_code",[code,customerId]); if(u.rows.length)return u.rows[0].referral_code; }catch{} }
+  return null;
+}
+app.get("/api/rewards", requireCustomer, async(req,res)=>{try{
+  const id=req.session.customerId; const code=await ensureReferralCode(id);
+  const [c,r,l]=await Promise.all([
+    pool.query("SELECT balance,loyalty_points,cashback_balance,account_type FROM customers WHERE id=$1",[id]),
+    pool.query("SELECT COUNT(*)::int AS count,COALESCE(SUM(reward_points),0)::int AS points,COALESCE(SUM(reward_amount),0)::numeric AS amount FROM referrals WHERE referrer_id=$1 AND status='Rewarded'",[id]),
+    pool.query("SELECT points,reason,reference,created_at FROM loyalty_transactions WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 50",[id])
+  ]); return res.json({success:true,referral_code:code,customer:c.rows[0],referrals:r.rows[0],loyalty:l.rows});
+}catch(e){console.error("Rewards error",e);res.status(500).json({success:false,message:"Could not load rewards."});}});
+app.post("/api/rewards/apply-referral", requireCustomer, async(req,res)=>{try{
+  const code=String(req.body?.code||"").trim().toUpperCase(); const id=req.session.customerId;
+  if(!code) return res.status(400).json({success:false,message:"Enter a referral code."});
+  const rr=await pool.query("SELECT id FROM customers WHERE referral_code=$1 LIMIT 1",[code]);
+  if(!rr.rows.length||Number(rr.rows[0].id)===Number(id)) return res.status(400).json({success:false,message:"Invalid referral code."});
+  const ins=await pool.query("INSERT INTO referrals(referrer_id,referred_id) VALUES($1,$2) ON CONFLICT(referred_id) DO NOTHING RETURNING id",[rr.rows[0].id,id]);
+  if(!ins.rows.length) return res.status(400).json({success:false,message:"A referral has already been applied to this account."});
+  return res.json({success:true,message:"Referral applied. Rewards are issued after the qualifying purchase."});
+}catch(e){console.error("Referral apply error",e);res.status(500).json({success:false,message:"Could not apply referral."});}});
+app.get("/api/saved-recipients",requireCustomer,async(req,res)=>{const r=await pool.query("SELECT id,label,phone,network,created_at FROM saved_recipients WHERE customer_id=$1 ORDER BY created_at DESC",[req.session.customerId]);res.json({success:true,recipients:r.rows});});
+app.post("/api/saved-recipients",requireCustomer,async(req,res)=>{try{const label=String(req.body?.label||"").trim().slice(0,80),phone=String(req.body?.phone||"").trim(),network=String(req.body?.network||"").trim();if(label.length<1||!validGhanaPhone(phone))return res.status(400).json({success:false,message:"Enter a valid label and Ghana phone number."});const r=await pool.query("INSERT INTO saved_recipients(customer_id,label,phone,network) VALUES($1,$2,$3,$4) ON CONFLICT(customer_id,label) DO UPDATE SET phone=EXCLUDED.phone,network=EXCLUDED.network RETURNING *",[req.session.customerId,label,phone,network||null]);res.status(201).json({success:true,recipient:r.rows[0]});}catch(e){res.status(500).json({success:false,message:"Could not save recipient."});}});
+app.delete("/api/saved-recipients/:id",requireCustomer,async(req,res)=>{await pool.query("DELETE FROM saved_recipients WHERE id=$1 AND customer_id=$2",[Number(req.params.id),req.session.customerId]);res.json({success:true});});
+app.post("/api/admin/promo-codes",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});try{const code=String(req.body?.code||"").trim().toUpperCase();const value=Number(req.body?.discount_value);if(!code||!Number.isFinite(value)||value<=0)return res.status(400).json({success:false,message:"Invalid promotion."});const r=await pool.query("INSERT INTO promo_codes(code,discount_type,discount_value,max_uses,min_amount,expires_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[code,req.body?.discount_type||"percent",value,req.body?.max_uses?Number(req.body.max_uses):null,Number(req.body?.min_amount||0),req.body?.expires_at||null]);res.status(201).json({success:true,promo:r.rows[0]});}catch(e){res.status(400).json({success:false,message:e.message});}});
+app.get("/api/admin/promo-codes",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});const r=await pool.query("SELECT * FROM promo_codes ORDER BY created_at DESC LIMIT 200");res.json({success:true,promos:r.rows});});
+app.post("/api/admin/api-keys",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});try{const customerId=Number(req.body?.customer_id);const name=String(req.body?.name||"DGM API").slice(0,80);if(!Number.isInteger(customerId))return res.status(400).json({success:false,message:"Valid customer_id required."});const raw="dgm_live_"+crypto.randomBytes(24).toString("hex");const hash=crypto.createHash("sha256").update(raw).digest("hex");const r=await pool.query("INSERT INTO customer_api_keys(customer_id,name,key_hash,key_prefix) VALUES($1,$2,$3,$4) RETURNING id,name,key_prefix,created_at",[customerId,name,hash,raw.slice(0,16)]);res.status(201).json({success:true,key:raw,record:r.rows[0],warning:"Save this key now. It cannot be shown again."});}catch(e){res.status(400).json({success:false,message:e.message});}});
+app.get("/api/admin/api-keys",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});const r=await pool.query("SELECT k.id,k.customer_id,k.name,k.key_prefix,k.active,k.last_used_at,k.created_at,c.email,c.name AS customer_name FROM customer_api_keys k JOIN customers c ON c.id=k.customer_id ORDER BY k.created_at DESC LIMIT 200");res.json({success:true,keys:r.rows});});
 
 // FRONTEND STATIC FILES + HEALTH CHECK
 // =====================================================
