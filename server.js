@@ -7907,6 +7907,7 @@ async function ensureSmsTables() {
       UNIQUE(device_id, external_id)
     );
     ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS direction VARCHAR(20) NOT NULL DEFAULT 'received';
+    ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS event_type VARCHAR(40) NOT NULL DEFAULT 'notification_event';
     CREATE INDEX IF NOT EXISTS whatsapp_messages_device_time_idx ON whatsapp_messages(device_id, received_at DESC);
   `);
 }
@@ -8029,11 +8030,11 @@ app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
     let where="d.customer_id=$1 AND d.active=true";
     if(Number.isInteger(deviceId)&&deviceId>0){params.push(deviceId);where+=" AND d.id=$2";}
     const r=await pool.query(
-      `SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.sender_enc,w.body_enc,w.received_at
+      `SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.event_type,w.sender_enc,w.body_enc,w.received_at
        FROM whatsapp_messages w JOIN sms_devices d ON d.id=w.device_id
-       WHERE \${where} ORDER BY w.received_at DESC LIMIT \${limit}`,params);
+       WHERE ${where} ORDER BY w.received_at DESC LIMIT ${limit}`,params);
     res.json({success:true,messages:r.rows.map(w=>({
-      id:w.id,device_id:w.device_id,device_name:w.device_name,direction:w.direction,
+      id:w.id,device_id:w.device_id,device_name:w.device_name,direction:w.direction,event_type:w.event_type,
       sender:smsDecrypt(w.sender_enc),body:smsDecrypt(w.body_enc),received_at:w.received_at
     }))});
   } catch(e){console.error("WhatsApp messages error",e);res.status(500).json({success:false,message:"Could not load WhatsApp messages."});}
@@ -8062,18 +8063,48 @@ app.post("/api/whatsapp/ingest", async (req,res) => {
     const externalId=String(req.body?.external_id||"").slice(0,220)||null;
     const sender=String(req.body?.sender||"").slice(0,300);
     const direction=String(req.body?.direction||"received").slice(0,20)==="sent"?"sent":"received";
+    const eventType=String(req.body?.event_type||"notification_event").slice(0,40);
     const body=String(req.body?.body||"").slice(0,10000);
     if(!body)return res.status(400).json({success:false,message:"WhatsApp message body is required."});
     const receivedAt=req.body?.received_at?new Date(req.body.received_at):new Date();
     const when=Number.isNaN(receivedAt.getTime())?new Date():receivedAt;
     const r=await pool.query(
-      `INSERT INTO whatsapp_messages(device_id,external_id,direction,sender_enc,body_enc,received_at)
-       VALUES($1,$2,$3,$4,$5,$6)
+      `INSERT INTO whatsapp_messages(device_id,external_id,direction,event_type,sender_enc,body_enc,received_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT(device_id,external_id) DO NOTHING RETURNING id`,
-      [deviceId,externalId,direction,smsEncrypt(sender),smsEncrypt(body),when]);
+      [deviceId,externalId,direction,eventType,smsEncrypt(sender),smsEncrypt(body),when]);
     await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
     res.status(201).json({success:true,stored:Boolean(r.rows.length)});
   }catch(e){console.error("WhatsApp ingest error",e);res.status(500).json({success:false,message:"Could not store WhatsApp notification."});}
+});
+
+app.get("/api/sms/status", async (req,res) => {
+  try {
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw)return res.status(401).json({success:false,message:"Device token required."});
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const d=await pool.query("SELECT id,name,phone,active,last_seen_at,created_at FROM sms_devices WHERE token_hash=$1 LIMIT 1",[hash]);
+    if(!d.rows.length||!d.rows[0].active)return res.status(401).json({success:false,message:"Invalid or revoked device token."});
+    const deviceId=d.rows[0].id;
+    const [sms,wa]=await Promise.all([
+      pool.query("SELECT COUNT(*)::int AS count FROM sms_messages WHERE device_id=$1",[deviceId]),
+      pool.query("SELECT COUNT(*)::int AS count FROM whatsapp_messages WHERE device_id=$1",[deviceId])
+    ]);
+    res.json({success:true,device:d.rows[0],counts:{sms:Number(sms.rows[0].count||0),whatsapp:Number(wa.rows[0].count||0)},server_time:new Date().toISOString()});
+  } catch(e){console.error("SMS device status error",e);res.status(500).json({success:false,message:"Could not load device status."});}
+});
+
+app.post("/api/sms/unpair", async (req,res) => {
+  try {
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw)return res.status(401).json({success:false,message:"Device token required."});
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const r=await pool.query("UPDATE sms_devices SET active=false,last_seen_at=NOW() WHERE token_hash=$1 AND active=true RETURNING id",[hash]);
+    if(!r.rows.length)return res.status(401).json({success:false,message:"Invalid or already revoked device token."});
+    res.json({success:true,message:"Device unpaired and token revoked."});
+  } catch(e){console.error("SMS unpair error",e);res.status(500).json({success:false,message:"Could not unpair device."});}
 });
 
 app.post("/api/sms/heartbeat", async (req,res) => {
