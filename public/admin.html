@@ -72,10 +72,10 @@ async function load(){
  const st=await api('/api/admin/stats'),s=st.stats;
  $('#stats').innerHTML=[['Customers',s.customers],['Orders',s.orders],['Completed',s.completed],['Pending',s.pending],['Completed value','GH₵'+Number(s.completed_value).toFixed(2)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="num">'+x[1]+'</div></div>').join('');
  const od=await api('/api/admin/orders');$('#ordersBody').innerHTML=od.orders.length?od.orders.map(o=>'<tr><td>'+esc(o.order_ref)+'</td><td>'+esc(o.customer_name||'')+'</td><td>'+esc(o.service)+'</td><td>'+esc(o.network||'')+'</td><td>'+esc(o.phone||'')+'</td><td>GH₵'+Number(o.amount||0).toFixed(2)+'</td><td class="status">'+esc(o.status)+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">No orders found.</td></tr>';
- const cu=await api('/api/admin/customers');$('#customersBody').innerHTML=cu.customers.length?cu.customers.map(c=>'<tr><td>'+c.id+'</td><td>'+esc(c.name)+'</td><td><button type="button" class="email-link" onclick="openCustomerDetails('+c.id+')">'+esc(c.email)+'</button></td><td>'+esc(c.phone)+'</td><td><strong>GH₵'+Number(c.balance||0).toFixed(2)+'</strong></td><td>'+new Date(c.created_at).toLocaleString()+'</td><td><button onclick="adminCredit('+c.id+',1)">Admin Credit</button></td><td><button onclick="removeCustomer('+c.id+',\''+esc(c.name).replace(/'/g,"\\'")+'\')">Remove</button></td></tr>').join(''):'<tr><td colspan="8" class="empty">No customers found.</td></tr>';
+ const cu=await api('/api/admin/customers');$('#customersBody').innerHTML=cu.customers.length?cu.customers.map(c=>'<tr><td>'+c.id+'</td><td>'+esc(c.name)+'</td><td><button type="button" class="email-link" onclick="openCustomerDetails('+c.id+')">'+esc(c.email)+'</button></td><td>'+esc(c.phone)+'</td><td><strong>GH₵'+Number(c.balance||0).toFixed(2)+'</strong></td><td>'+new Date(c.created_at).toLocaleString()+'</td><td><button onclick="adminCredit('+c.id+')">Admin Credit</button> <button onclick="adminDebit('+c.id+')">Admin Debit</button></td><td><button onclick="removeCustomer('+c.id+',\''+esc(c.name).replace(/'/g,"\\'")+'\')">Remove</button></td></tr>').join(''):'<tr><td colspan="8" class="empty">No customers found.</td></tr>';
 }
-async function adminCredit(id,direction){
-  const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+','));
+async function adminCredit(id){
+  const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+'));
   const currentMatch=currentRow?.innerText.match(/GH₵([0-9]+(?:\\.[0-9]+)?)/);
   const current=currentMatch?Number(currentMatch[1]):0;
   const amountText=prompt('Enter amount to CREDIT to this wallet (GH₵):','10.00');
@@ -90,6 +90,7 @@ async function adminCredit(id,direction){
     return;
   }
   const note=prompt('Reason / note (optional):')||'Admin credit';
+  if(!confirm('Credit GH₵'+amount.toFixed(2)+' to this customer wallet?'))return;
   try{
     const d=await api('/api/admin/customers/'+id+'/balance',{
       method:'POST',
@@ -98,6 +99,33 @@ async function adminCredit(id,direction){
     });
     await load();
     alert('Admin credit of GH₵'+amount.toFixed(2)+' applied. New wallet balance: GH₵'+Number(d.balance).toFixed(2));
+  }catch(err){alert(err.message)}
+}
+async function adminDebit(id){
+  const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+'));
+  const currentMatch=currentRow?.innerText.match(/GH₵([0-9]+(?:\\.[0-9]+)?)/);
+  const current=currentMatch?Number(currentMatch[1]):0;
+  const amountText=prompt('Enter amount to DEBIT from this wallet (GH₵):','10.00');
+  if(amountText===null)return;
+  const amount=Number(amountText);
+  if(!Number.isFinite(amount)||amount<=0||amount>1000000||Math.round(amount*100)!==amount*100){
+    alert('Enter a valid debit amount greater than GH₵0 and up to GH₵1,000,000.');
+    return;
+  }
+  if(amount>current){
+    alert('Debit amount cannot exceed the current wallet balance of GH₵'+current.toFixed(2)+'.');
+    return;
+  }
+  const note=prompt('Reason / note (optional):')||'Admin debit';
+  if(!confirm('Debit GH₵'+amount.toFixed(2)+' from this customer wallet?'))return;
+  try{
+    const d=await api('/api/admin/customers/'+id+'/balance',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({amount:-amount,description:note})
+    });
+    await load();
+    alert('Admin debit of GH₵'+amount.toFixed(2)+' applied. New wallet balance: GH₵'+Number(d.balance).toFixed(2));
   }catch(err){alert(err.message)}
 }
 async function openCustomerDetails(id){
