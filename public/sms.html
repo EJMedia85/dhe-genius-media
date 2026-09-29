@@ -11,7 +11,7 @@
 <body>
 <div class="wrap">
 <div class="top"><div class="brand">DHE GENIUS MEDIA<small>Stay Connected. Stay Genius.</small></div><div class="actions"><button class="secondary" onclick="location.href='/dashboard.html'">Dashboard</button><button class="secondary" onclick="location.href='/whatsapp.html'">WhatsApp</button><button onclick="openModal()">+ Add Device</button></div></div>
-<section class="hero"><h1>My Devices SMS</h1><p><strong>DGM Android Companion • Build #23</strong><br>View SMS from Android devices that you have explicitly enrolled in DGM. Each device uses its own secure token; access can be revoked at any time.</p></section>
+<section class="hero"><h1>My Devices SMS</h1><p><strong>DGM Android Companion • Build #24</strong><br>View SMS from Android devices that you have explicitly enrolled in DGM. Each device uses its own secure token; access can be revoked at any time.</p></section>
 <div class="grid"><div class="card"><div class="muted">Active devices</div><div id="statDevices" class="stat">—</div></div><div class="card"><div class="muted">Messages stored</div><div id="statMessages" class="stat">—</div></div><div class="card"><div class="muted">Received today</div><div id="statToday" class="stat">—</div></div></div>
 <div class="layout">
 <section class="card"><div class="toolbar"><strong>Devices</strong><button class="secondary" onclick="loadAll()">Refresh</button></div><div id="devices" class="devices"></div></section>
@@ -29,6 +29,23 @@ async function api(url,opt={}){const r=await fetch(url,{credentials:'include',he
 async function loadSummary(){const d=await api('/api/sms/summary');$('statDevices').textContent=d.summary.devices;$('statMessages').textContent=d.summary.messages;$('statToday').textContent=d.summary.today}
 async function loadDevices(){const d=await api('/api/sms/devices');window.dgmDevices=d.devices||[];const box=$('devices'),sel=$('deviceFilter');box.innerHTML='';sel.innerHTML='<option value="">All active devices</option>';if(!d.devices.length){box.innerHTML='<div class="empty">No devices enrolled yet.<br><br>Tap “+ Add Device” to register one.</div>';return}d.devices.forEach(x=>{const div=document.createElement('div');div.className='device';const seen=x.last_seen_at?new Date(x.last_seen_at).toLocaleString():'Never';div.innerHTML='<h3>'+esc(x.name)+'</h3><p>'+esc(x.phone||'No number saved')+'</p><span class="badge">'+(x.active?'ACTIVE':'REVOKED')+' · '+x.message_count+' messages</span><p style="margin-top:8px">Last seen: '+esc(seen)+'</p>'+(x.active?'<div class="device-actions"><button class="secondary" onclick="syncDevice('+x.id+')">Sync Now</button><button class="secondary" onclick="openDeviceSyncCenter('+x.id+')">Sync Center</button><button class="danger" onclick="revokeDevice('+x.id+')">Unpair / Device Logout</button></div>':'');box.appendChild(div);if(x.active){const o=document.createElement('option');o.value=x.id;o.textContent=x.name;sel.appendChild(o)}})}
 window.dgmDevices=[];window.unifiedMessages=[];window.smsThreads=[];
+async function loadMessages(){
+  try{
+    const id=$('deviceFilter').value;
+    const qs='?limit=500'+(id?'&device_id='+encodeURIComponent(id):'');
+    const [sms,wa]=await Promise.all([
+      api('/api/sms/messages'+qs),
+      api('/api/whatsapp/messages'+qs)
+    ]);
+    const smsRows=(sms.messages||[]).map(m=>({...m,channel:'sms',device_name:m.device_name||((window.dgmDevices.find(x=>String(x.id)===String(m.device_id))||{}).name||'Unknown device')}));
+    const waRows=(wa.messages||[]).map(m=>({...m,channel:'whatsapp',device_name:m.device_name||((window.dgmDevices.find(x=>String(x.id)===String(m.device_id))||{}).name||'Unknown device')}));
+    window.unifiedMessages=smsRows.concat(waRows).sort((a,b)=>new Date(a.received_at)-new Date(b.received_at));
+    renderThreads();
+  }catch(e){
+    console.error('Message load error',e);
+    throw e;
+  }
+}
 async function syncDevice(id){$('deviceFilter').value=String(id);await loadMessages();toast('Sync view refreshed for '+((window.dgmDevices.find(x=>x.id===id)||{}).name||'device'));loadDevices()}
 function openDeviceSyncCenter(id){const d=window.dgmDevices.find(x=>x.id===id);if(!d)return;const seen=d.last_seen_at?new Date(d.last_seen_at).toLocaleString():'Never';$('deviceSyncDetails').innerHTML='<div class="detail-grid"><div class="label">Device</div><div>'+esc(d.name)+'</div><div class="label">Phone</div><div>'+esc(d.phone||'Not saved')+'</div><div class="label">Status</div><div>'+esc(d.active?'ACTIVE':'REVOKED')+'</div><div class="label">Messages</div><div>'+esc(d.message_count)+'</div><div class="label">Last seen</div><div>'+esc(seen)+'</div></div><p class="note" style="margin-top:16px">This device control center is tied to this device only. Use Sync Now to refresh its conversation data, or Unpair / Device Logout to revoke its DGM authorization.</p><div class="actions" style="margin-top:14px"><button onclick="syncDevice('+id+');closeDeviceSyncCenter()">Sync Now</button>'+(d.active?'<button class="danger" onclick="revokeDevice('+id+');closeDeviceSyncCenter()">Unpair / Device Logout</button>':'')+'</div>';$('deviceSyncModal').classList.add('open')}
 function closeDeviceSyncCenter(){$('deviceSyncModal').classList.remove('open')}
