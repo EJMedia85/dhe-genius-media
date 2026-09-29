@@ -8026,18 +8026,39 @@ app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
   try {
     const deviceId=Number(req.query.device_id||0);
     const limit=Math.min(Math.max(Number(req.query.limit)||500,1),500);
+    const offset=Math.max(Number(req.query.offset)||0,0);
     const params=[req.session.customerId];
     let where="d.customer_id=$1 AND d.active=true";
     if(Number.isInteger(deviceId)&&deviceId>0){params.push(deviceId);where+=" AND d.id=$2";}
     const r=await pool.query(
       `SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.event_type,w.sender_enc,w.body_enc,w.received_at
        FROM whatsapp_messages w JOIN sms_devices d ON d.id=w.device_id
-       WHERE ${where} ORDER BY w.received_at DESC LIMIT ${limit}`,params);
+       WHERE ${where} ORDER BY w.received_at DESC LIMIT ${limit} OFFSET ${offset}`,params);
     res.json({success:true,messages:r.rows.map(w=>({
       id:w.id,device_id:w.device_id,device_name:w.device_name,direction:w.direction,event_type:w.event_type,
       sender:smsDecrypt(w.sender_enc),body:smsDecrypt(w.body_enc),received_at:w.received_at
     }))});
   } catch(e){console.error("WhatsApp messages error",e);res.status(500).json({success:false,message:"Could not load WhatsApp messages."});}
+});
+
+app.get("/api/whatsapp/stats", requireCustomer, async (req,res) => {
+  try {
+    const days=Math.min(Math.max(Number(req.query.days)||30,1),90);
+    const r=await pool.query(
+      `SELECT TO_CHAR(day::date,'YYYY-MM-DD') AS date, COUNT(w.id)::int AS messages
+       FROM generate_series(CURRENT_DATE - ($1::int - 1), CURRENT_DATE, INTERVAL '1 day') day
+       LEFT JOIN whatsapp_messages w
+         ON w.device_id IN (SELECT id FROM sms_devices WHERE customer_id=$2 AND active=true)
+        AND w.received_at >= day
+        AND w.received_at < day + INTERVAL '1 day'
+       GROUP BY day::date ORDER BY day::date`,
+      [days,req.session.customerId]
+    );
+    res.json({success:true,stats:r.rows});
+  } catch(e) {
+    console.error("WhatsApp stats error",e);
+    res.status(500).json({success:false,message:"Could not load WhatsApp chart data."});
+  }
 });
 
 app.get("/api/whatsapp/summary", requireCustomer, async (req,res) => {
