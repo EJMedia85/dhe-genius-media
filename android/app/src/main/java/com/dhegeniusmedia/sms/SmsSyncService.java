@@ -1,9 +1,48 @@
 package com.dhegeniusmedia.sms;
-import android.app.*;import android.content.*;import android.database.*;import android.net.Uri;import android.os.*;import org.json.JSONObject;
-public class SmsSyncService extends Service{private static final int N=77;private ContentObserver observer;
-public void onCreate(){super.onCreate();createChannel();startForeground(N,notification());observer=new ContentObserver(new Handler(Looper.getMainLooper())){public void onChange(boolean self,Uri uri){syncSent();}};getContentResolver().registerContentObserver(Uri.parse("content://sms"),true,observer);syncSent();}
-private void syncSent(){String t=getSharedPreferences("dgm_sms",MODE_PRIVATE).getString("token","");if(!t.isEmpty())new Thread(()->syncFolder(this,"sent",t)).start();}
-public static int syncFolder(Context c,String folder,String token){int count=0;try{Cursor cur=c.getContentResolver().query(Uri.parse("content://sms/"+folder),new String[]{"_id","address","body","date"},null,null,"date DESC");if(cur!=null){while(cur.moveToNext()&&count<500){String id=cur.getString(0),addr=cur.getString(1),body=cur.getString(2);long date=cur.getLong(3);JSONObject o=new JSONObject();o.put("external_id",("sent".equals(folder)?"tx-":"rx-")+id);o.put("direction","sent".equals(folder)?"outbound":"inbound");o.put("sender",addr==null?"":addr);o.put("body",body==null?"":body);o.put("received_at",new java.util.Date(date).toInstant().toString());if(MainActivityPost.post("/api/sms/ingest",token,o.toString()))count++;}cur.close();}}catch(Exception ignored){}return count;}
-private Notification notification(){return new Notification.Builder(this,"dgm_sms").setContentTitle("DGM SMS Companion").setContentText("SMS sync is active").setSmallIcon(android.R.drawable.ic_dialog_info).setOngoing(true).build();}
-private void createChannel(){if(Build.VERSION.SDK_INT>=26){NotificationManager nm=getSystemService(NotificationManager.class);nm.createNotificationChannel(new NotificationChannel("dgm_sms","DGM SMS Sync",NotificationManager.IMPORTANCE_LOW));}}
-public int onStartCommand(Intent i,int flags,int id){return START_STICKY;}public void onDestroy(){if(observer!=null)getContentResolver().unregisterContentObserver(observer);super.onDestroy();}public IBinder onBind(Intent i){return null;}}
+
+import android.app.*;
+import android.content.*;
+import android.database.ContentObserver;
+import android.net.Uri;
+import android.os.*;
+
+public class SmsSyncService extends Service {
+    private static final int N=77;
+    private ContentObserver observer;
+
+    @Override public void onCreate(){
+        super.onCreate();
+        createChannel();
+        startForeground(N,notification());
+        observer=new ContentObserver(new Handler(Looper.getMainLooper())){
+            @Override public void onChange(boolean self,Uri uri){
+                SyncStore.captureSentSms(SmsSyncService.this);
+                SyncWorker.now(SmsSyncService.this);
+            }
+        };
+        getContentResolver().registerContentObserver(Uri.parse("content://sms"),true,observer);
+        SyncStore.captureSentSms(this);
+        SyncWorker.schedule(this);
+        SyncWorker.now(this);
+    }
+
+    private Notification notification(){
+        return new Notification.Builder(this,"dgm_sms")
+                .setContentTitle("DGM Companion")
+                .setContentText("Background synchronization is active")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setOngoing(true).build();
+    }
+
+    private void createChannel(){
+        if(Build.VERSION.SDK_INT>=26){
+            NotificationManager nm=getSystemService(NotificationManager.class);
+            nm.createNotificationChannel(new NotificationChannel(
+                    "dgm_sms","DGM Background Sync",NotificationManager.IMPORTANCE_LOW));
+        }
+    }
+
+    @Override public int onStartCommand(Intent i,int flags,int id){return START_STICKY;}
+    @Override public void onDestroy(){if(observer!=null)getContentResolver().unregisterContentObserver(observer);super.onDestroy();}
+    @Override public IBinder onBind(Intent i){return null;}
+}
