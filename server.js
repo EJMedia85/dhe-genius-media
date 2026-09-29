@@ -7917,7 +7917,9 @@ async function ensureSmsTables() {
     ALTER TABLE sms_devices ADD COLUMN IF NOT EXISTS pending_count INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE sms_devices ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ;
   `);
-}, async (req,res) => {
+}
+
+app.get("/api/sms/devices", requireCustomer, async (req,res) => {
   try {
     const r = await pool.query(
       `SELECT id,name,phone,active,last_seen_at,pending_count,last_sync_at,created_at,
