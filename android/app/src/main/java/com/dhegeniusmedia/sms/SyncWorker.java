@@ -17,8 +17,11 @@ public class SyncWorker extends Worker {
         String token=SecureTokenStore.get(c);
         if(token.length()<20){SyncStore.markError(c,"Device is not authorized.");return Result.success();}
 
-        // Capture newly sent SMS locally before attempting network delivery.
-        SyncStore.captureSentSms(c);
+        // Capture both received and sent SMS directly from the Android SMS provider.
+        // This is the reliable fallback when SMS_RECEIVED is missed by the OS.
+        int receivedAdded = SyncStore.captureReceivedSms(c);
+        int sentAdded = SyncStore.captureSentSms(c);
+        android.util.Log.i("DGM_SYNC", "Inbox scan added " + receivedAdded + " received SMS; sent scan added " + sentAdded + " sent SMS.");
 
         boolean hadNetworkError=false;
         boolean unauthorized=false;
