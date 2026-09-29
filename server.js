@@ -5341,12 +5341,19 @@ app.get("/api/admin/customers", requireAdmin, async (req, res) => {
 // Every adjustment is recorded in wallet_transactions for auditability.
 app.post("/api/admin/customers/:id/balance", requireAdmin, async (req, res) => {
   const customerId = Number(req.params.id);
-  const amount = Number(req.body?.amount);
-  const description = String(req.body?.description || "Admin wallet adjustment").trim().slice(0, 250);
+  const targetBalance = Number(req.body?.target_balance);
+  const legacyAmount = Number(req.body?.amount);
+  const description = String(req.body?.description || "Admin set wallet balance").trim().slice(0, 250);
 
   if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res, 400, "Invalid customer ID.");
-  if (!Number.isFinite(amount) || Math.round(amount * 100) !== amount * 100 || amount === 0) {
-    return sendError(res, 400, "Enter a valid non-zero balance adjustment.");
+  const hasTarget = Number.isFinite(targetBalance);
+  const hasLegacyAmount = Number.isFinite(legacyAmount) && legacyAmount !== 0;
+  if (!hasTarget && !hasLegacyAmount) return sendError(res, 400, "Enter a valid target wallet balance.");
+  if (hasTarget && (targetBalance < 0 || targetBalance > 1000000 || Math.round(targetBalance * 100) !== targetBalance * 100)) {
+    return sendError(res, 400, "Wallet balance must be between GH₵0 and GH₵1,000,000.");
+  }
+  if (!hasTarget && Math.round(legacyAmount * 100) !== legacyAmount * 100) {
+    return sendError(res, 400, "Enter a valid balance adjustment.");
   }
 
   const client = await pool.connect();
@@ -5363,10 +5370,19 @@ app.post("/api/admin/customers/:id/balance", requireAdmin, async (req, res) => {
 
     const customer = customerResult.rows[0];
     const before = Number(customer.balance || 0);
-    const after = Math.round((before + amount) * 100) / 100;
-    if (after < 0) {
+    const after = hasTarget
+      ? Math.round(targetBalance * 100) / 100
+      : Math.round((before + legacyAmount) * 100) / 100;
+
+    if (after < 0 || after > 1000000) {
       await client.query("ROLLBACK");
-      return sendError(res, 400, "Balance cannot be negative.");
+      return sendError(res, 400, "Wallet balance must be between GH₵0 and GH₵1,000,000.");
+    }
+
+    const adjustment = Math.round((after - before) * 100) / 100;
+    if (adjustment === 0) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "The customer already has that wallet balance.");
     }
 
     await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [after, customerId]);
@@ -5376,15 +5392,17 @@ app.post("/api/admin/customers/:id/balance", requireAdmin, async (req, res) => {
       `INSERT INTO wallet_transactions
         (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, status, reference)
        VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', $7)`,
-      [customerId, amount >= 0 ? "admin_credit" : "admin_debit", amount, before, after, description, reference]
+      [customerId, adjustment >= 0 ? "admin_credit" : "admin_debit", adjustment, before, after, description, reference]
     );
 
     await client.query("COMMIT");
     return res.json({
       success: true,
-      message: amount >= 0 ? "Wallet credited successfully." : "Wallet debited successfully.",
+      message: "Wallet balance set successfully.",
       customer: { id: customer.id, name: customer.name, email: customer.email, balance: after },
-      adjustment: amount
+      previous_balance: before,
+      balance: after,
+      adjustment
     });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
