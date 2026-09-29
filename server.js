@@ -7947,12 +7947,10 @@ app.get("/api/sms/messages", requireCustomer, async (req,res) => {
     const params=[req.session.customerId];
     let where="d.customer_id=$1 AND d.active=true";
     if(Number.isInteger(deviceId)&&deviceId>0){ params.push(deviceId); where+=" AND d.id=$2"; }
-    const limitParam = params.length + 1;
-    params.push(limit);
     const r=await pool.query(
       `SELECT m.id,m.device_id,d.name AS device_name,m.direction,m.sender_enc,m.body_enc,m.received_at
        FROM sms_messages m JOIN sms_devices d ON d.id=m.device_id
-       WHERE ${where} ORDER BY m.received_at DESC LIMIT ${limitParam}`,
+       WHERE ${where} ORDER BY m.received_at DESC LIMIT ${limit}`,
       params
     );
     res.json({success:true,messages:r.rows.map(m=>({
