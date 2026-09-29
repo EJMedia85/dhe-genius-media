@@ -36,7 +36,11 @@ public final class SecureTokenStore {
     public static String get(Context c){
         try{
             String blob=c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString("token","");
-            if(blob.isEmpty()) {\n                String legacy=c.getSharedPreferences("dgm_sms",Context.MODE_PRIVATE).getString("token","");\n                if(legacy!=null&&!legacy.isEmpty()){ put(c,legacy); return legacy; }\n                return "";\n            }
+            if(blob.isEmpty()) {
+                String legacy=c.getSharedPreferences("dgm_sms",Context.MODE_PRIVATE).getString("token","");
+                if(legacy!=null&&!legacy.isEmpty()){ put(c,legacy); return legacy; }
+                return "";
+            }
             String[] p=blob.split("\\.",2); if(p.length!=2)return "";
             Cipher cp=Cipher.getInstance("AES/GCM/NoPadding");
             cp.init(Cipher.DECRYPT_MODE,key(),new GCMParameterSpec(128,Base64.decode(p[0],Base64.NO_WRAP)));
