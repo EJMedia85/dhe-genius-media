@@ -57,20 +57,37 @@ module.exports = function installAviatorApi(app) {
                MAX(observed_at) AS latest
         FROM aviator_rounds
       `);
+      const latest = r.rows[0]?.latest || null;
+      const latestMs = latest ? new Date(latest).getTime() : 0;
+      const ageSeconds = latestMs ? Math.max(0, Math.round((Date.now() - latestMs) / 1000)) : null;
+      const staleAfter = Math.max(Number(process.env.AVIATOR_STALE_AFTER_SECONDS) || 180, 30);
       res.json({
         success: true,
         provider: "DGM Aviator Analytics",
         ingestion_configured: Boolean(INGEST_KEY),
         source_mode: String(process.env.AVIATOR_SOURCE_MODE || "external_feed").trim() || "external_feed",
-        live_source_connected: Boolean(INGEST_KEY && Number(r.rows[0]?.rounds || 0) > 0),
+        live_source_connected: Boolean(INGEST_KEY && latestMs && ageSeconds <= staleAfter),
+        feed_state: !INGEST_KEY ? "key_required" : !latestMs ? "awaiting_round_data" : ageSeconds <= staleAfter ? "live" : "stale",
+        age_seconds: ageSeconds,
+        stale_after_seconds: staleAfter,
         rounds: Number(r.rows[0]?.rounds || 0),
-        latest: r.rows[0]?.latest || null,
+        latest,
         server_time: new Date().toISOString()
       });
     } catch (error) {
       console.error("Aviator status error:", error.message);
       res.status(503).json({ success: false, message: "Aviator storage is unavailable." });
     }
+  });
+
+  app.get("/api/aviator/config", (req, res) => {
+    res.json({
+      success: true,
+      ingestion_configured: Boolean(INGEST_KEY),
+      source_mode: String(process.env.AVIATOR_SOURCE_MODE || "external_feed").trim() || "external_feed",
+      stale_after_seconds: Math.max(Number(process.env.AVIATOR_STALE_AFTER_SECONDS) || 180, 30),
+      accepted_fields: ["round_id", "multiplier", "observed_at", "source"]
+    });
   });
 
   app.get("/api/aviator/rounds", async (req, res) => {
