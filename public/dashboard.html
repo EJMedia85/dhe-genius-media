@@ -1305,7 +1305,7 @@
         <button
           class="balance-btn"
           type="button"
-          onclick="goTo('/orders.html')"
+          onclick="goTo('/transactions.html')"
         >
           Transactions
         </button>
@@ -1449,6 +1449,26 @@
 
       </button>
 
+      <button
+        class="quick-card"
+        type="button"
+        onclick="goTo('/notifications.html')"
+      >
+        <div class="quick-icon">🔔</div>
+        <strong>Notifications</strong>
+        <span>Wallet and order updates</span>
+      </button>
+
+      <button
+        class="quick-card"
+        type="button"
+        onclick="goTo('/support.html')"
+      >
+        <div class="quick-icon">🛟</div>
+        <strong>Support</strong>
+        <span>Get help from DGM</span>
+      </button>
+
     </section>
 
 
@@ -1484,6 +1504,18 @@
         <div class="health-time" id="healthTime">Checking system...</div>
       </div>
 
+    </section>
+
+
+    <!-- NOTIFICATIONS -->
+
+    <div class="refresh-row">
+      <h2 class="section-title">Notifications <span id="notificationCount" style="font-size:10px;color:#25d366"></span></h2>
+      <button class="refresh-btn" type="button" onclick="loadNotifications()">↻ Refresh</button>
+    </div>
+
+    <section class="orders-card" id="notifications">
+      <div class="empty-orders"><div>🔔</div>Loading notifications...</div>
     </section>
 
 
@@ -1809,6 +1841,48 @@
 
 
     // ================================
+    // LOAD NOTIFICATIONS
+    // ================================
+
+    async function loadNotifications() {
+      const container = document.getElementById("notifications");
+      const countEl = document.getElementById("notificationCount");
+      if (!container) return;
+      try {
+        const response = await fetch("/api/notifications", {
+          method:"GET", credentials:"include", cache:"no-store",
+          headers:{Accept:"application/json"}
+        });
+        if (response.status === 401) { window.location.replace("/login.html"); return; }
+        if (!response.ok) throw new Error("Could not load notifications.");
+        const result = await response.json();
+        const items = Array.isArray(result.notifications) ? result.notifications : [];
+        if (countEl) countEl.textContent = result.unread_count ? result.unread_count + " unread" : "";
+        if (!items.length) {
+          container.innerHTML='<div class="empty-orders"><div>🔔</div>No notifications yet.</div>';
+          return;
+        }
+        container.innerHTML=items.slice(0,5).map(function(n){
+          return '<div class="order" onclick="markNotificationRead('+Number(n.id)+')">' +
+            '<div><strong>'+escapeHTML(n.title || "DGM Update")+'</strong><small>'+escapeHTML(n.message || "")+'<br>'+escapeHTML(n.created_at ? new Date(n.created_at).toLocaleString() : "")+'</small></div>' +
+            '<div class="order-right">'+(!n.read_at?'<span class="order-status completed">NEW</span>':'')+'</div>' +
+          '</div>';
+        }).join("");
+      } catch(error) {
+        console.error("Notifications loading error:",error);
+        container.innerHTML='<div class="empty-orders"><div>🔔</div>Unable to load notifications.</div>';
+      }
+    }
+
+    async function markNotificationRead(id) {
+      try {
+        await fetch("/api/notifications/"+encodeURIComponent(id)+"/read", {method:"POST",credentials:"include",cache:"no-store"});
+        loadNotifications();
+      } catch(error) { console.error("Notification read error:",error); }
+    }
+
+
+    // ================================
     // LOAD WITHDRAWALS
     // ================================
 
@@ -2125,6 +2199,7 @@
         loadCustomer(),
         loadOrders(),
         loadWithdrawals(),
+        loadNotifications(),
         loadServiceHealth()
       ]);
     }
@@ -2175,6 +2250,8 @@
       function() {
 
         refreshDashboard();
+        setInterval(loadNotifications, 10000);
+        setInterval(loadWithdrawals, 10000);
 
       }
     );
