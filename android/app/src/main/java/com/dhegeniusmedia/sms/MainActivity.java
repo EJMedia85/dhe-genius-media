@@ -25,8 +25,12 @@ public class MainActivity extends Activity {
         Button sync=new Button(this);sync.setText("Sync Now");box.addView(sync);
         Button logout=new Button(this);logout.setText("Unpair / Device Logout");box.addView(logout);
         wa=new TextView(this);box.addView(wa);status=new TextView(this);box.addView(status);
-        TextView note=new TextView(this);note.setText("\nPrivacy: WhatsApp data is collected only from Android notification events. DGM does not access WhatsApp private databases.");box.addView(note);
-        auth.setOnClickListener(v->authorize());center.setOnClickListener(v->startActivity(new Intent(this,SyncCenterActivity.class)));conv.setOnClickListener(v->startActivity(new Intent(this,WhatsAppHistoryActivity.class)));whatsapp.setOnClickListener(v->openNotificationSettings());sync.setOnClickListener(v->{SyncWorker.now(this);refresh();});logout.setOnClickListener(v->{SecureTokenStore.clear(this);SyncStore.clear(this);token.setText("");refresh();});
+        TextView note=new TextView(this);note.setText("\nPrivacy: WhatsApp data is collected only from Android notification events. DGM does not access WhatsApp private databases.\n\nReliability: on Samsung/Android 11, allow DGM Companion notifications and exclude it from battery optimization so background synchronization can continue.");box.addView(note);
+        auth.setOnClickListener(v->authorize());center.setOnClickListener(v->startActivity(new Intent(this,SyncCenterActivity.class)));conv.setOnClickListener(v->startActivity(new Intent(this,ConversationsActivity.class)));whatsapp.setOnClickListener(v->openNotificationSettings());sync.setOnClickListener(v->{SyncWorker.now(this);refresh();});logout.setOnClickListener(v->{
+            final String t=SecureTokenStore.get(this);
+            new Thread(()->{ if(t.length()>=20) MainActivityPost.postDetailed("/api/sms/unpair",t,"{}"); }).start();
+            SecureTokenStore.clear(this); SyncStore.clear(this); token.setText(""); refresh();
+        });
         setContentView(box);
     }
     private void authorize(){
