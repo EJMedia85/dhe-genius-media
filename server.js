@@ -4925,7 +4925,106 @@ app.get("/api/admin/customers", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query("SELECT id, name, phone, email, balance, created_at FROM customers ORDER BY created_at DESC LIMIT 100");
     return res.json({ success: true, customers: result.rows });
-  } catch (error) { console.error("Admin customers error:", error); return sendError(res, 500, "Could not load customers."); }
+  } catch (error) {
+    console.error("Admin customers error:", error);
+    return sendError(res, 500, "Could not load customers.");
+  }
+});
+
+// ADMIN: adjust a customer's wallet balance.
+// Positive amount credits the wallet; negative amount debits it.
+// Every adjustment is recorded in wallet_transactions for auditability.
+app.post("/api/admin/customers/:id/balance", requireAdmin, async (req, res) => {
+  const customerId = Number(req.params.id);
+  const amount = Number(req.body?.amount);
+  const description = String(req.body?.description || "Admin wallet adjustment").trim().slice(0, 250);
+
+  if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res, 400, "Invalid customer ID.");
+  if (!Number.isFinite(amount) || Math.round(amount * 100) !== amount * 100 || amount === 0) {
+    return sendError(res, 400, "Enter a valid non-zero balance adjustment.");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const customerResult = await client.query(
+      "SELECT id, name, email, balance FROM customers WHERE id = $1 FOR UPDATE",
+      [customerId]
+    );
+    if (!customerResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer not found.");
+    }
+
+    const customer = customerResult.rows[0];
+    const before = Number(customer.balance || 0);
+    const after = Math.round((before + amount) * 100) / 100;
+    if (after < 0) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Balance cannot be negative.");
+    }
+
+    await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [after, customerId]);
+
+    const reference = "DGM-ADMIN-" + Date.now() + "-" + customerId;
+    await client.query(
+      `INSERT INTO wallet_transactions
+        (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, status, reference)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'completed', $7)`,
+      [customerId, amount >= 0 ? "admin_credit" : "admin_debit", amount, before, after, description, reference]
+    );
+
+    await client.query("COMMIT");
+    return res.json({
+      success: true,
+      message: amount >= 0 ? "Wallet credited successfully." : "Wallet debited successfully.",
+      customer: { id: customer.id, name: customer.name, email: customer.email, balance: after },
+      adjustment: amount
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Admin balance adjustment error:", error);
+    return sendError(res, 500, "Could not update customer balance.");
+  } finally {
+    client.release();
+  }
+});
+
+// ADMIN: permanently remove a customer and their dependent records.
+// Orders and wallet history are removed only for that customer.
+app.delete("/api/admin/customers/:id", requireAdmin, async (req, res) => {
+  const customerId = Number(req.params.id);
+  if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res, 400, "Invalid customer ID.");
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const customerResult = await client.query(
+      "SELECT id, name, email FROM customers WHERE id = $1 FOR UPDATE",
+      [customerId]
+    );
+    if (!customerResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer not found.");
+    }
+
+    // Remove dependent customer-owned records first so the delete is safe
+    // even when foreign keys do not use ON DELETE CASCADE.
+    await client.query("DELETE FROM wallet_transactions WHERE customer_id = $1", [customerId]);
+    await client.query("DELETE FROM wallet_topups WHERE customer_id = $1", [customerId]);
+    await client.query("DELETE FROM orders WHERE customer_id = $1", [customerId]);
+    await client.query("DELETE FROM user_sessions WHERE customer_id = $1", [customerId]);
+    await client.query("DELETE FROM customers WHERE id = $1", [customerId]);
+    await client.query("COMMIT");
+
+    return res.json({ success: true, message: "Customer removed successfully." });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Admin customer delete error:", error);
+    return sendError(res, 500, "Could not remove customer. No changes were committed.");
+  } finally {
+    client.release();
+  }
 });
 
 // =====================================================
