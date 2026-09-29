@@ -21,52 +21,164 @@
 <div id="modal" class="modal"><div class="modalbox"><h2>Register authorized device</h2><p class="note">Only enroll a phone you own or have permission to manage. The device token is displayed once.</p><div id="form"><div class="field"><label>Device name</label><input id="deviceName" value="My Android"></div><div class="field"><label>Phone number (optional)</label><input id="devicePhone" placeholder="024..."></div><div class="actions"><button class="secondary" onclick="closeModal()">Cancel</button><button onclick="createDevice()">Create device</button></div></div><div id="tokenView" style="display:none"><p><strong>Device token</strong></p><div id="token" class="token"></div><p class="note">Copy this token into the authorized DGM SMS companion app. Do not share it. Closing this window will hide it permanently.</p><button onclick="closeModal()">Done</button></div></div></div>
 <div id="messageModal" class="modal"><div class="modalbox"><div class="toolbar"><h2 style="margin:0">SMS Message</h2><button class="secondary" onclick="closeMessage()">Close</button></div><div id="messageDetails"></div></div></div><div id="deviceSyncModal" class="modal"><div class="modalbox"><div class="toolbar"><h2 style="margin:0">Device Sync Center</h2><button class="secondary" onclick="closeDeviceSyncCenter()">Close</button></div><div id="deviceSyncDetails"></div></div></div><div id="toast" class="toast"></div>
 <script>
-const $=id=>document.getElementById(id);
-function toast(t){$('toast').textContent=t;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2800)}
-function openModal(){$('modal').classList.add('open');$('form').style.display='block';$('tokenView').style.display='none'}
-function closeModal(){$('modal').classList.remove('open')}
-function closeMessage(){$('messageModal').classList.remove('open')}
-function closeDeviceSyncCenter(){$('deviceSyncModal').classList.remove('open')}
-window.addEventListener('keydown',e=>{if(e.key==='Escape'){closeMessage();closeDeviceSyncCenter();closeModal()}})
-['messageModal','deviceSyncModal','modal'].forEach(id=>{const el=$(id);el.addEventListener('click',e=>{if(e.target===el){if(id==='messageModal')closeMessage();else if(id==='deviceSyncModal')closeDeviceSyncCenter();else closeModal()}})})
-async function api(url,opt={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),12000);try{const r=await fetch(url,{credentials:'include',headers:{'Content-Type':'application/json',...(opt.headers||{})},signal:controller.signal,...opt});const d=await r.json().catch(()=>({}));if(r.status===401){location.href='/login.html';throw new Error('Login required')}if(!r.ok||d.success===false)throw new Error(d.message||('Request failed ('+r.status+')'));return d}catch(e){if(e.name==='AbortError')throw new Error('SMS server request timed out. Please tap Retry.');throw e}finally{clearTimeout(timeout)}}
-async function loadSummary(){const d=await api('/api/sms/summary');$('statDevices').textContent=d.summary.devices;$('statMessages').textContent=d.summary.messages;$('statToday').textContent=d.summary.today}
-async function loadDevices(){const d=await api('/api/sms/devices');window.dgmDevices=d.devices||[];const box=$('devices'),sel=$('deviceFilter');box.innerHTML='';sel.innerHTML='<option value="">All active devices</option>';if(!d.devices.length){box.innerHTML='<div class="empty">No devices enrolled yet.<br><br>Tap “+ Add Device” to register one.</div>';return}d.devices.forEach(x=>{const div=document.createElement('div');div.className='device';const seen=x.last_seen_at?new Date(x.last_seen_at).toLocaleString():'Never';div.innerHTML='<h3>'+esc(x.name)+'</h3><p>'+esc(x.phone||'No number saved')+'</p><span class="badge">'+(x.active?'ACTIVE':'REVOKED')+' · '+x.message_count+' messages</span><p style="margin-top:8px">Last seen: '+esc(seen)+'</p>'+(x.active?'<div class="device-actions"><button class="secondary" onclick="syncDevice('+x.id+')">Sync Now</button><button class="secondary pending-btn" onclick="showPendingSync('+x.id+')">Sync Pending <span id="pending-'+x.id+'">'+x.pending_count+'</span></button><button class="secondary" onclick="openDeviceSyncCenter('+x.id+')">Sync Center</button><button class="danger" onclick="revokeDevice('+x.id+')">Unpair / Device Logout</button></div>':'');box.appendChild(div);if(x.active){const o=document.createElement('option');o.value=x.id;o.textContent=x.name;sel.appendChild(o)}})}
-window.dgmDevices=[];window.unifiedMessages=[];window.smsThreads=[];
-async function loadMessages(){
-  try{
-    const id=$('deviceFilter').value;
-    const qs='?limit=500'+(id?'&device_id='+encodeURIComponent(id):'');
-    const [sms,wa]=await Promise.all([
-      api('/api/sms/messages'+qs),
-      api('/api/whatsapp/messages'+qs)
-    ]);
-    const smsRows=(sms.messages||[]).map(m=>({...m,channel:'sms',device_name:m.device_name||((window.dgmDevices.find(x=>String(x.id)===String(m.device_id))||{}).name||'Unknown device')}));
-    const waRows=(wa.messages||[]).map(m=>({...m,channel:'whatsapp',device_name:m.device_name||((window.dgmDevices.find(x=>String(x.id)===String(m.device_id))||{}).name||'Unknown device')}));
-    window.unifiedMessages=smsRows.concat(waRows).sort((a,b)=>new Date(a.received_at)-new Date(b.received_at));
-    renderThreads();
-  }catch(e){
-    console.error('Message load error',e);
-    throw e;
+(function(){
+  function $(id){return document.getElementById(id);}
+  function esc(v){
+    return String(v == null ? "" : v).replace(/[&<>"']/g,function(ch){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
+    });
   }
-}
-async function syncDevice(id){$('deviceFilter').value=String(id);await loadMessages();toast('Sync view refreshed for '+((window.dgmDevices.find(x=>x.id===id)||{}).name||'device'));loadDevices()}
-function showPendingSync(id){
-  const d=window.dgmDevices.find(x=>x.id===id);
-  if(!d)return;
-  const count=Math.max(0,Number(d.pending_count||0));
-  const last=d.last_sync_at?new Date(d.last_sync_at).toLocaleString():'Not reported yet';
-  $('deviceSyncDetails').innerHTML='<div class="detail-grid"><div class="label">Device</div><div>'+esc(d.name)+'</div><div class="label">Sync Pending</div><div><strong>'+count+'</strong> item'+(count===1?'':'s')+' waiting</div><div class="label">Last sync report</div><div>'+esc(last)+'</div></div><p class="note" style="margin-top:16px">This is the pending upload count reported by the DGM Android Companion. It updates when the companion checks in with the server.</p><div class="actions" style="margin-top:14px"><button onclick="syncDevice('+id+');closeDeviceSyncCenter()">Refresh Status</button></div>';
-  $('deviceSyncModal').classList.add('open');
-}
-function openDeviceSyncCenter(id){const d=window.dgmDevices.find(x=>x.id===id);if(!d)return;const seen=d.last_seen_at?new Date(d.last_seen_at).toLocaleString():'Never';$('deviceSyncDetails').innerHTML='<div class="detail-grid"><div class="label">Device</div><div>'+esc(d.name)+'</div><div class="label">Phone</div><div>'+esc(d.phone||'Not saved')+'</div><div class="label">Status</div><div>'+esc(d.active?'ACTIVE':'REVOKED')+'</div><div class="label">Messages</div><div>'+esc(d.message_count)+'</div><div class="label">Last seen</div><div>'+esc(seen)+'</div></div><p class="note" style="margin-top:16px">This device control center is tied to this device only. Use Sync Now to refresh its conversation data, or Unpair / Device Logout to revoke its DGM authorization.</p><div class="actions" style="margin-top:14px"><button onclick="syncDevice('+id+');closeDeviceSyncCenter()">Sync Now</button>'+(d.active?'<button class="danger" onclick="revokeDevice('+id+');closeDeviceSyncCenter()">Unpair / Device Logout</button>':'')+'</div>';$('deviceSyncModal').classList.add('open')}
-function closeDeviceSyncCenter(){$('deviceSyncModal').classList.remove('open')}
-function renderThreads(){const channel=$('channelFilter').value;const id=$('deviceFilter').value;const data=window.unifiedMessages.filter(m=>(!channel||m.channel===channel)&&(!id||String(m.device_id)===String(id)));const groups={};data.forEach(m=>{const dir=(m.direction==='sent'||m.direction==='outbound')?'sent':'received';const contact=dir==='sent'?(m.sender||'Unknown recipient'):(m.sender||'Unknown sender');const key=(m.device_id||'')+'|'+contact; (groups[key]??=[]).push({...m,contact,uiDirection:dir})});window.smsThreads=Object.values(groups).map(x=>x.sort((a,b)=>new Date(a.received_at)-new Date(b.received_at)));const box=$('messages');if(!window.smsThreads.length){box.innerHTML='<div class="empty">No SMS or WhatsApp messages have been synced yet.</div>';return}box.innerHTML=window.smsThreads.map((thread,i)=>{const last=thread[thread.length-1];const channels=[...new Set(thread.map(x=>x.channel))].map(x=>x.toUpperCase()).join(' + ');return '<article class="thread" role="button" tabindex="0" onclick="openThread('+i+')" onkeydown="if(event.key===\'Enter\'||event.key===\' \')openThread('+i+')"><div class="thread-top"><span class="thread-name">'+esc(last.contact||last.sender||'Unknown contact')+' <span class="channel">'+esc(channels)+'</span></span><span class="muted">'+esc(new Date(last.received_at).toLocaleString())+'</span></div><div class="thread-preview">'+esc(last.body)+'</div><div class="thread-count">'+thread.length+' event'+(thread.length===1?'':'s')+' · '+esc(last.device_name)+'</div></article>'}).join('')}
-function openThread(i){const thread=window.smsThreads[i];if(!thread?.length)return;const first=thread[0];$('messageDetails').innerHTML='<div class="detail-grid"><div class="label">Contact</div><div>'+esc(first.contact||first.sender||'Unknown contact')+'</div><div class="label">Device</div><div>'+esc(first.device_name)+'</div><div class="label">Channels</div><div>'+esc([...new Set(thread.map(m=>m.channel.toUpperCase()))].join(' + '))+'</div><div class="label">Events</div><div>'+thread.length+'</div></div><div class="conversation">'+thread.map(m=>'<div class="bubble-row '+m.uiDirection+' '+m.channel+'"><div class="bubble"><span class="channel">'+esc(m.channel.toUpperCase())+'</span> '+esc(m.body)+'<span class="bubble-time">'+esc(new Date(m.received_at).toLocaleString())+'</span></div></div>').join('')+'</div>';$('messageModal').classList.add('open')}
-async function createDevice(){try{const d=await api('/api/sms/devices',{method:'POST',body:JSON.stringify({name:$('deviceName').value,phone:$('devicePhone').value})});$('token').textContent=d.device_token;$('form').style.display='none';$('tokenView').style.display='block';await loadAll()}catch(e){toast(e.message)}}
-async function revokeDevice(id){if(!confirm('Revoke SMS sync for this device?'))return;try{await api('/api/sms/devices/'+id+'/revoke',{method:'POST'});toast('Device access revoked');await loadAll()}catch(e){toast(e.message)}}
-function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-async function loadAll(){const box=$('messages');box.innerHTML='<div class="empty">Loading SMS data…</div>';try{await Promise.all([loadSummary(),loadDevices(),loadMessages()])}catch(e){console.error('SMS dashboard error',e);box.innerHTML='<div class="empty">Could not load SMS data.<br><br>'+esc(e.message||'Please refresh and try again.')+'<br><br><button class="secondary" onclick="loadAll()">Retry</button></div>'}}
-loadAll();setInterval(loadAll,15000);
+  window.toast=function(t){$("toast").textContent=t;$("toast").classList.add("show");setTimeout(function(){$("toast").classList.remove("show")},2800)};
+  window.openModal=function(){$("modal").classList.add("open");$("form").style.display="block";$("tokenView").style.display="none"};
+  window.closeModal=function(){$("modal").classList.remove("open")};
+  window.closeMessage=function(){$("messageModal").classList.remove("open")};
+  window.closeDeviceSyncCenter=function(){$("deviceSyncModal").classList.remove("open")};
+
+  function api(url,opt){
+    opt=opt||{};
+    var controller=new AbortController();
+    var timer=setTimeout(function(){controller.abort()},12000);
+    var headers={"Content-Type":"application/json"};
+    if(opt.headers){Object.keys(opt.headers).forEach(function(k){headers[k]=opt.headers[k]})}
+    var request={credentials:"include",headers:headers,signal:controller.signal};
+    Object.keys(opt).forEach(function(k){if(k!=="headers"){request[k]=opt[k]}});
+    return fetch(url,request).then(function(r){
+      return r.json().catch(function(){return {}}).then(function(d){
+        if(r.status===401){location.href="/login.html";throw new Error("Login required")}
+        if(!r.ok||d.success===false)throw new Error(d.message||("Request failed ("+r.status+")"));
+        return d;
+      });
+    }).catch(function(e){
+      if(e.name==="AbortError")throw new Error("SMS server request timed out. Please tap Retry.");
+      throw e;
+    }).finally(function(){clearTimeout(timer)});
+  }
+
+  window.dgmDevices=[];
+  window.unifiedMessages=[];
+  window.smsThreads=[];
+
+  function loadSummary(){
+    return api("/api/sms/summary").then(function(d){
+      $("statDevices").textContent=d.summary.devices;
+      $("statMessages").textContent=d.summary.messages;
+      $("statToday").textContent=d.summary.today;
+    });
+  }
+
+  function loadDevices(){
+    return api("/api/sms/devices").then(function(d){
+      window.dgmDevices=d.devices||[];
+      var box=$("devices"),sel=$("deviceFilter");
+      box.innerHTML="";
+      sel.innerHTML='<option value="">All active devices</option>';
+      if(!window.dgmDevices.length){
+        box.innerHTML='<div class="empty">No devices enrolled yet.<br><br>Tap “+ Add Device” to register one.</div>';
+        return;
+      }
+      window.dgmDevices.forEach(function(x){
+        var div=document.createElement("div");
+        div.className="device";
+        var seen=x.last_seen_at?new Date(x.last_seen_at).toLocaleString():"Never";
+        div.innerHTML="<h3>"+esc(x.name)+"</h3><p>"+esc(x.phone||"No number saved")+"</p><span class=\"badge\">"+(x.active?"ACTIVE":"REVOKED")+" · "+esc(x.message_count)+" messages</span><p style=\"margin-top:8px\">Last seen: "+esc(seen)+"</p>";
+        if(x.active){
+          div.innerHTML+='<div class="device-actions"><button class="secondary" onclick="syncDevice('+x.id+')">Sync Now</button><button class="secondary pending-btn" onclick="showPendingSync('+x.id+')">Sync Pending <span id="pending-'+x.id+'">'+esc(x.pending_count)+'</span></button><button class="secondary" onclick="openDeviceSyncCenter('+x.id+')">Sync Center</button><button class="danger" onclick="revokeDevice('+x.id+')">Unpair / Device Logout</button></div>';
+          var o=document.createElement("option");o.value=x.id;o.textContent=x.name;sel.appendChild(o);
+        }
+        box.appendChild(div);
+      });
+    });
+  }
+
+  function loadMessages(){
+    var id=$("deviceFilter").value;
+    var qs="?limit=500"+(id?"&device_id="+encodeURIComponent(id):"");
+    return Promise.all([api("/api/sms/messages"+qs),api("/api/whatsapp/messages"+qs)]).then(function(parts){
+      var sms=parts[0],wa=parts[1];
+      var rows=[];
+      (sms.messages||[]).forEach(function(m){m.channel="sms";m.device_name=m.device_name||"Unknown device";rows.push(m)});
+      (wa.messages||[]).forEach(function(m){m.channel="whatsapp";m.device_name=m.device_name||"Unknown device";rows.push(m)});
+      rows.sort(function(a,b){return new Date(a.received_at)-new Date(b.received_at)});
+      window.unifiedMessages=rows;
+      renderThreads();
+    });
+  }
+
+  window.renderThreads=function(){
+    var channel=$("channelFilter").value,id=$("deviceFilter").value,data=window.unifiedMessages.filter(function(m){
+      return (!channel||m.channel===channel)&&(!id||String(m.device_id)===String(id));
+    });
+    var groups={};
+    data.forEach(function(m){
+      var dir=(m.direction==="sent"||m.direction==="outbound")?"sent":"received";
+      var contact=m.sender||"Unknown contact";
+      var key=(m.device_id||"")+"|"+contact;
+      if(!groups[key])groups[key]=[];
+      m.contact=contact;m.uiDirection=dir;groups[key].push(m);
+    });
+    window.smsThreads=Object.keys(groups).map(function(k){return groups[k].sort(function(a,b){return new Date(a.received_at)-new Date(b.received_at)})});
+    var box=$("messages");
+    if(!window.smsThreads.length){box.innerHTML='<div class="empty">No SMS or WhatsApp messages have been synced yet.</div>';return}
+    box.innerHTML=window.smsThreads.map(function(thread,i){
+      var last=thread[thread.length-1];
+      var channels=[];
+      thread.forEach(function(x){if(channels.indexOf(x.channel)<0)channels.push(x.channel)});
+      return '<article class="thread" role="button" tabindex="0" onclick="openThread('+i+')"><div class="thread-top"><span class="thread-name">'+esc(last.contact||last.sender||"Unknown contact")+' <span class="channel">'+esc(channels.join(" + ").toUpperCase())+'</span></span><span class="muted">'+esc(new Date(last.received_at).toLocaleString())+'</span></div><div class="thread-preview">'+esc(last.body)+'</div><div class="thread-count">'+thread.length+' event'+(thread.length===1?"":"s")+' · '+esc(last.device_name)+'</div></article>';
+    }).join("");
+  };
+
+  window.openThread=function(i){
+    var thread=window.smsThreads[i];if(!thread||!thread.length)return;
+    var first=thread[0],channels=[];thread.forEach(function(m){if(channels.indexOf(m.channel)<0)channels.push(m.channel)});
+    $("messageDetails").innerHTML='<div class="detail-grid"><div class="label">Contact</div><div>'+esc(first.contact||first.sender||"Unknown contact")+'</div><div class="label">Device</div><div>'+esc(first.device_name)+'</div><div class="label">Channels</div><div>'+esc(channels.join(" + ").toUpperCase())+'</div><div class="label">Events</div><div>'+thread.length+'</div></div><div class="conversation">'+thread.map(function(m){return '<div class="bubble-row '+m.uiDirection+' '+m.channel+'"><div class="bubble"><span class="channel">'+esc(m.channel.toUpperCase())+'</span> '+esc(m.body)+'<span class="bubble-time">'+esc(new Date(m.received_at).toLocaleString())+'</span></div></div>'}).join("")+'</div>';
+    $("messageModal").classList.add("open");
+  };
+
+  window.syncDevice=function(id){
+    $("deviceFilter").value=String(id);
+    loadMessages().then(function(){toast("Conversation view refreshed")}).catch(function(e){toast(e.message)});
+  };
+  window.showPendingSync=function(id){
+    var d=window.dgmDevices.find(function(x){return x.id===id});if(!d)return;
+    $("deviceSyncDetails").innerHTML='<div class="detail-grid"><div class="label">Device</div><div>'+esc(d.name)+'</div><div class="label">Sync Pending</div><div><strong>'+Number(d.pending_count||0)+'</strong> items waiting</div><div class="label">Last sync report</div><div>'+esc(d.last_sync_at?new Date(d.last_sync_at).toLocaleString():"Not reported yet")+'</div></div>';
+    $("deviceSyncModal").classList.add("open");
+  };
+  window.openDeviceSyncCenter=function(id){showPendingSync(id)};
+  window.createDevice=function(){
+    api("/api/sms/devices",{method:"POST",body:JSON.stringify({name:$("deviceName").value,phone:$("devicePhone").value})}).then(function(d){
+      $("token").textContent=d.device_token;$("form").style.display="none";$("tokenView").style.display="block";loadAll();
+    }).catch(function(e){toast(e.message)});
+  };
+  window.revokeDevice=function(id){
+    if(!confirm("Revoke SMS sync for this device?"))return;
+    api("/api/sms/devices/"+id+"/revoke",{method:"POST"}).then(function(){toast("Device access revoked");loadAll()}).catch(function(e){toast(e.message)});
+  };
+
+  function loadAll(){
+    $("messages").innerHTML='<div class="empty">Loading SMS data…</div>';
+    Promise.all([loadSummary(),loadDevices()]).then(function(){return loadMessages()}).catch(function(e){
+      console.error("SMS dashboard error",e);
+      $("messages").innerHTML='<div class="empty">Could not load SMS data.<br><br>'+esc(e.message||"Please refresh and try again.")+'<br><br><button class="secondary" onclick="loadAll()">Retry</button></div>';
+    });
+  }
+  window.loadAll=loadAll;
+
+  function start(){
+    try{
+      $("messages").innerHTML='<div class="empty">Starting SMS dashboard…</div>';
+      loadAll();
+      setInterval(loadAll,15000);
+    }catch(e){
+      $("messages").innerHTML='<div class="empty">Dashboard script error.<br><br>'+esc(e.message)+'</div>';
+    }
+  }
+
+  window.addEventListener("keydown",function(e){if(e.key==="Escape"){closeMessage();closeDeviceSyncCenter();closeModal()}});
+  ["messageModal","deviceSyncModal","modal"].forEach(function(id){
+    var el=$(id);if(!el)return;
+    el.addEventListener("click",function(e){if(e.target!==el)return;if(id==="messageModal")closeMessage();else if(id==="deviceSyncModal")closeDeviceSyncCenter();else closeModal()});
+  });
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start);else start();
+})();
 </script>
 </body></html>
