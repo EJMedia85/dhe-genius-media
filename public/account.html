@@ -128,6 +128,17 @@
     </section>
 
 
+    <!-- WITHDRAWAL ACTION -->
+    <section class="section" id="withdrawWalletAction">
+      <div class="card withdrawal-card">
+        <div>
+          <div class="withdrawal-title">Withdraw money to MoMo</div>
+          <div class="withdrawal-subtitle">Request a wallet withdrawal to MTN, Telecel or AirtelTigo. Admin approval is required before payment.</div>
+        </div>
+        <button type="button" class="wallet-btn withdraw-main" onclick="openWithdrawModal()">Withdraw to MoMo</button>
+      </div>
+    </section>
+
     <!-- ACCOUNT INFORMATION -->
 
     <section class="section">
@@ -2054,8 +2065,6 @@
   else enableDgmBrandNavigation();
 })();
 </script>
-</body>
-</html>
   <!-- WITHDRAW TO MOMO -->
   <div class="modal" id="withdrawModal" onclick="closeWithdrawModal(event)">
     <div class="modal-box" onclick="event.stopPropagation()">
@@ -2073,6 +2082,9 @@
       <div class="modal-message" id="withdrawMessage"></div>
     </div>
   </div>
+</body>
+</html>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -2389,6 +2401,19 @@
     .wallet-btn:hover {
       transform: translateY(-1px);
     }
+
+    .withdrawal-card {
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      border: 1px solid rgba(37,211,102,.28);
+    }
+    .withdrawal-title { font-size: 15px; font-weight: 900; color: #fff; margin-bottom: 5px; }
+    .withdrawal-subtitle { font-size: 11px; line-height: 1.45; color: #91a7a7; }
+    .withdraw-main { background: #25d366; color: #001b0b; border-color: #25d366; white-space: nowrap; }
+    @media (max-width: 520px) { .withdrawal-card { flex-direction: column; align-items: stretch; } .withdraw-main { width: 100%; } }
 
     .wallet-btn.primary {
       background: #25d366;
