@@ -7873,8 +7873,8 @@ function smsDecrypt(value) {
 async function ensureSmsTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sms_devices (
-      id BIGSERIAL PRIMARY KEY,
-      customer_id BIGINT NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
       name VARCHAR(120) NOT NULL,
       phone VARCHAR(40),
       token_hash CHAR(64) NOT NULL UNIQUE,
@@ -7884,8 +7884,8 @@ async function ensureSmsTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS sms_messages (
-      id BIGSERIAL PRIMARY KEY,
-      device_id BIGINT NOT NULL REFERENCES sms_devices(id) ON DELETE CASCADE,
+      id SERIAL PRIMARY KEY,
+      device_id INTEGER NOT NULL REFERENCES sms_devices(id) ON DELETE CASCADE,
       external_id VARCHAR(180),
       direction VARCHAR(20) NOT NULL DEFAULT 'received',
       sender_enc TEXT,
