@@ -5004,7 +5004,10 @@ app.get("/api/admin/withdrawals", requireAdmin, async (req, res) => {
        ORDER BY CASE WHEN w.status = 'Pending Approval' THEN 0 ELSE 1 END, w.created_at DESC
        LIMIT 200`
     );
-    return res.json({ success: true, withdrawals: result.rows });
+    const pending = await pool.query(
+      `SELECT COUNT(*)::int AS count FROM wallet_withdrawals WHERE status = 'Pending Approval'`
+    );
+    return res.json({ success: true, withdrawals: result.rows, pending_count: pending.rows[0].count });
   } catch (error) {
     console.error("Admin withdrawals error:", error);
     return sendError(res, 500, "Could not load withdrawal requests.");
@@ -5958,6 +5961,15 @@ app.post("/api/wallet/withdraw", requireLogin, async (req, res) => {
     );
 
     await client.query("COMMIT");
+
+    console.log("WALLET WITHDRAWAL REQUEST:", {
+      reference,
+      customerId: customer.id,
+      amount,
+      network,
+      momoPhone,
+      status: "Pending Approval"
+    });
 
     return res.json({
       success: true,
