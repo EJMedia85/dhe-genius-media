@@ -611,6 +611,39 @@ if (NODE_ENV === "production") {
 
 app.disable("x-powered-by");
 
+const loginAttempts = new Map();
+function loginRateLimit(req,res,next) {
+  const key = String(req.ip || "unknown").replace(/::ffff:/g,"");
+  const now = Date.now();
+  const entry = loginAttempts.get(key) || { count:0, resetAt:now + 15*60*1000 };
+  if (now > entry.resetAt) { entry.count=0; entry.resetAt=now + 15*60*1000; }
+  if (entry.count >= 10) {
+    return res.status(429).json({success:false,message:"Too many login attempts. Please wait 15 minutes and try again."});
+  }
+  req._loginRateKey = key;
+  req._loginRateEntry = entry;
+  next();
+}
+function recordLoginFailure(req) {
+  if (!req._loginRateKey || !req._loginRateEntry) return;
+  req._loginRateEntry.count += 1;
+  loginAttempts.set(req._loginRateKey, req._loginRateEntry);
+}
+function clearLoginFailures(req) {
+  if (req._loginRateKey) loginAttempts.delete(req._loginRateKey);
+}
+
+app.use((req,res,next)=>{
+  res.setHeader("X-Content-Type-Options","nosniff");
+  res.setHeader("X-Frame-Options","SAMEORIGIN");
+  res.setHeader("Referrer-Policy","strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy","geolocation=(),camera=(),microphone=()");
+  if (NODE_ENV === "production") {
+    res.setHeader("Strict-Transport-Security","max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
 
 // =====================================================
 // TMDB MOVIE DISCOVERY
@@ -4939,7 +4972,7 @@ app.get(
 // ADMIN AUTHENTICATION
 // =====================================================
 
-app.post("/api/admin/login", async (req, res) => {
+app.post("/api/admin/login", loginRateLimit, async (req, res) => {
   try {
     if (!ADMIN_EMAIL || !ADMIN_PASSWORD_HASH) return sendError(res, 503, "Admin login is not configured. Add ADMIN_EMAIL and ADMIN_PASSWORD in Render.");
     const email = cleanEmail(req.body?.email || "");
@@ -4949,8 +4982,12 @@ app.post("/api/admin/login", async (req, res) => {
       await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
       return sendError(res, 401, "Invalid admin login details.");
     }
-    if (!await bcrypt.compare(password, ADMIN_PASSWORD_HASH)) return sendError(res, 401, "Invalid admin login details.");
+    if (!await bcrypt.compare(password, ADMIN_PASSWORD_HASH)) {
+      recordLoginFailure(req);
+      return sendError(res, 401, "Invalid admin login details.");
+    }
     await new Promise((resolve, reject) => req.session.regenerate(error => error ? reject(error) : resolve()));
+    clearLoginFailures(req);
     req.session.adminAuthenticated = true;
     req.session.adminEmail = ADMIN_EMAIL;
     req.session.adminLoginAt = new Date().toISOString();
@@ -5422,6 +5459,8 @@ app.post(
         }
       );
 
+      clearLoginFailures(req);
+
       req.session.customerId =
         customer.id;
 
@@ -5640,6 +5679,7 @@ app.post("/api/reset-password", async (req, res) => {
 
 app.post(
   "/api/login",
+  loginRateLimit,
   async (req, res) => {
 
     try {
@@ -5697,6 +5737,8 @@ app.post(
         !result.rows.length
       ) {
 
+        recordLoginFailure(req);
+        recordLoginFailure(req);
         return sendError(
           res,
           401,
