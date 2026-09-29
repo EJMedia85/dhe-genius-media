@@ -1487,6 +1487,18 @@
     </section>
 
 
+    <!-- WITHDRAWAL STATUS -->
+
+    <div class="refresh-row">
+      <h2 class="section-title">Withdrawal Requests</h2>
+      <button class="refresh-btn" type="button" onclick="loadWithdrawals()">↻ Refresh</button>
+    </div>
+
+    <section class="orders-card" id="withdrawals">
+      <div class="empty-orders"><div>💸</div>Loading withdrawal requests...</div>
+    </section>
+
+
     <!-- RECENT ORDERS -->
 
     <div class="refresh-row">
@@ -1797,6 +1809,41 @@
 
 
     // ================================
+    // LOAD WITHDRAWALS
+    // ================================
+
+    async function loadWithdrawals() {
+      const container = document.getElementById("withdrawals");
+      if (!container) return;
+      try {
+        const response = await fetch("/api/wallet/withdrawals", {
+          method: "GET", credentials: "include", cache: "no-store",
+          headers: { "Accept": "application/json" }
+        });
+        if (response.status === 401) { window.location.replace("/login.html"); return; }
+        if (!response.ok) throw new Error("Could not load withdrawals.");
+        const result = await response.json();
+        const items = Array.isArray(result.withdrawals) ? result.withdrawals : [];
+        if (!items.length) {
+          container.innerHTML = '<div class="empty-orders"><div>💸</div>No withdrawal requests yet.</div>';
+          return;
+        }
+        container.innerHTML = items.slice(0, 10).map(function(w) {
+          const status = String(w.status || "Pending Approval");
+          const cls = status.toLowerCase().includes("paid") || status.toLowerCase().includes("approved") ? "completed" : status.toLowerCase().includes("reject") ? "failed" : "processing";
+          return '<div class="order">' +
+            '<div><strong>MoMo Withdrawal</strong><small>' + escapeHTML(w.reference || "N/A") + ' • ' + escapeHTML(w.momo_network || "") + ' ' + escapeHTML(w.momo_phone || "") + '<br>' + escapeHTML(w.created_at ? new Date(w.created_at).toLocaleString() : "") + (w.admin_note ? '<br>Note: ' + escapeHTML(w.admin_note) : '') + '</small></div>' +
+            '<div class="order-right"><div class="order-amount">GH₵' + Number(w.amount || 0).toFixed(2) + '</div><span class="order-status ' + cls + '">' + escapeHTML(status) + '</span></div>' +
+          '</div>';
+        }).join("");
+      } catch (error) {
+        console.error("Withdrawals loading error:", error);
+        container.innerHTML = '<div class="empty-orders"><div>💸</div>Unable to load withdrawal requests.<br>Please refresh and try again.</div>';
+      }
+    }
+
+
+    // ================================
     // LOAD ORDERS
     // ================================
 
@@ -2077,6 +2124,7 @@
       await Promise.all([
         loadCustomer(),
         loadOrders(),
+        loadWithdrawals(),
         loadServiceHealth()
       ]);
     }
