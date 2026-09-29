@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#070909">
 <title>DGM YouTube • DHE GENIUS MEDIA</title>
 <style>
 *{box-sizing:border-box}
@@ -13,9 +14,12 @@ a{color:#fff;text-decoration:none}.brand{font-weight:900}.brand span{color:#25d3
 main{max-width:1150px;margin:auto;padding:22px 15px 50px}
 .badge{color:#ff4444;font-weight:900;font-size:11px}
 .hero{margin-bottom:18px}.hero h1{font-size:34px;margin:10px 0 8px}.hero p{color:#93a2a2;font-size:13px;line-height:1.6;margin:0}
-.actions{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0 25px}
-.btn{padding:11px 15px;border:0;border-radius:11px;background:#25d366;color:#06100a;font-weight:800}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:18px 0 14px}
+.btn{padding:11px 15px;border:0;border-radius:11px;background:#25d366;color:#06100a;font-weight:800;cursor:pointer}
 .secondary{background:#151d1d;color:#fff;border:1px solid #2c3737}
+.search{display:flex;gap:9px;margin:10px 0 25px}
+.search input{flex:1;min-width:0;padding:13px 14px;border:1px solid #2c3737;border-radius:11px;background:#101616;color:#fff;outline:none}
+.search input:focus{border-color:#25d366}
 .section-title{display:flex;justify-content:space-between;align-items:center;margin:20px 0 12px}
 .section-title h2{font-size:20px;margin:0}.section-title span{font-size:11px;color:#788585}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
@@ -23,10 +27,11 @@ main{max-width:1150px;margin:auto;padding:22px 15px 50px}
 .player{position:relative;background:#000;aspect-ratio:16/9}
 .player iframe{width:100%;height:100%;border:0;display:block}
 .meta{padding:12px 13px}.meta h3{font-size:14px;margin:0 0 6px}.meta p{font-size:11px;color:#849090;margin:0;line-height:1.4}
-.empty{padding:30px 15px;text-align:center;background:#101616;border:1px dashed #2c3838;border-radius:15px;color:#8d9a9a;font-size:13px}
+.empty{padding:30px 15px;text-align:center;background:#101616;border:1px dashed #2c3838;border-radius:15px;color:#8d9a9a;font-size:13px;grid-column:1/-1}
+.status{margin:0 0 16px;padding:10px 12px;border-radius:10px;background:#101616;color:#8d9a9a;font-size:11px}
 .note{margin-top:20px;padding:13px 15px;color:#8e9b9b;font-size:11px;line-height:1.5;border:1px solid #202929;border-radius:12px;background:#0d1313}
 @media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:560px){.hero h1{font-size:28px}.grid{grid-template-columns:1fr}.actions .btn{width:100%;text-align:center}}
+@media(max-width:560px){.hero h1{font-size:28px}.grid{grid-template-columns:1fr}.search{flex-direction:column}.search .btn{width:100%}}
 </style>
 </head>
 <body>
@@ -37,9 +42,9 @@ main{max-width:1150px;margin:auto;padding:22px 15px 50px}
 
 <main>
 <section class="hero">
-<span class="badge">▶ YOUTUBE</span>
+<span class="badge">▶ YOUTUBE DATA API</span>
 <h1>DGM YouTube</h1>
-<p>Watch DHE GENIUS MEDIA videos directly inside the DGM website. Each video plays in its own YouTube player.</p>
+<p>Search YouTube and watch videos directly inside the DGM Entertainment dashboard.</p>
 </section>
 
 <div class="actions">
@@ -48,32 +53,43 @@ main{max-width:1150px;margin:auto;padding:22px 15px 50px}
 <a class="btn secondary" href="https://www.youtube.com/@omarwitty4743/live" target="_blank" rel="noopener">🔴 Live</a>
 </div>
 
+<form class="search" id="searchForm">
+<input id="searchInput" type="search" minlength="2" placeholder="Search YouTube videos..." autocomplete="off">
+<button class="btn" type="submit">Search</button>
+</form>
+
+<div class="status" id="status">Connecting to YouTube...</div>
+
 <div class="section-title">
-<h2>Latest Videos</h2><span>DGM MEDIA</span>
+<h2 id="sectionTitle">Latest Videos</h2><span>YouTube</span>
 </div>
 
 <section class="grid" id="videoGrid"></section>
 
 <div class="note">
-YouTube's embedded player is used directly. No YouTube Data API key or Google Cloud billing is required. Add your YouTube video IDs to the list below as you publish new videos.
+YouTube Data API credentials stay on the DGM server. The browser never receives the API key. Video playback uses YouTube's official embedded player.
 </div>
 </main>
 
 <script>
-const videos = [
-  // Add published YouTube video IDs here:
-  // {id:"VIDEO_ID",title:"DGM Video 1",description:"DHE GENIUS MEDIA"},
-  // {id:"VIDEO_ID",title:"DGM Video 2",description:"Latest DGM content"},
-  // {id:"VIDEO_ID",title:"DGM Video 3",description:"Watch inside DGM"}
-];
-
 const grid=document.getElementById("videoGrid");
+const statusEl=document.getElementById("status");
+const sectionTitle=document.getElementById("sectionTitle");
+const searchForm=document.getElementById("searchForm");
+const searchInput=document.getElementById("searchInput");
 
-function renderVideos(){
-  if(!videos.length){
-    grid.innerHTML='<div class="empty" style="grid-column:1/-1">No videos added yet. Publish a DHE GENIUS MEDIA video on YouTube, then add its video ID to this page.</div>';
+function escapeHtml(value){
+  return String(value ?? "").replace(/[&<>"']/g,c=>({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[c]));
+}
+
+function renderVideos(videos){
+  if(!Array.isArray(videos) || !videos.length){
+    grid.innerHTML='<div class="empty">No YouTube videos were found.</div>';
     return;
   }
+
   grid.innerHTML=videos.map(v=>`
     <article class="card">
       <div class="player">
@@ -87,18 +103,58 @@ function renderVideos(){
       </div>
       <div class="meta">
         <h3>${escapeHtml(v.title)}</h3>
-        <p>${escapeHtml(v.description || "DHE GENIUS MEDIA")}</p>
+        <p>${escapeHtml(v.description || v.channel_title || "DHE GENIUS MEDIA")}</p>
       </div>
     </article>`).join("");
 }
 
-function escapeHtml(value){
-  return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+async function youtube(path){
+  const response=await fetch(path,{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok) throw new Error(data.message || "YouTube request failed.");
+  return data;
 }
-renderVideos();
+
+async function loadLatest(){
+  statusEl.textContent="Loading latest videos...";
+  sectionTitle.textContent="Latest Videos";
+  try{
+    const data=await youtube("/api/youtube/videos?limit=12");
+    renderVideos(data.videos);
+    statusEl.textContent=`${data.count || 0} videos loaded from YouTube.`;
+  }catch(error){
+    renderVideos([]);
+    statusEl.textContent=error.message || "YouTube is not configured.";
+  }
+}
+
+async function searchYouTube(query){
+  statusEl.textContent="Searching YouTube...";
+  sectionTitle.textContent="Search Results";
+  try{
+    const data=await youtube("/api/youtube/search?q="+encodeURIComponent(query)+"&limit=12");
+    renderVideos(data.videos);
+    statusEl.textContent=`${data.count || 0} results for “${query}”.`;
+  }catch(error){
+    renderVideos([]);
+    statusEl.textContent=error.message || "YouTube search failed.";
+  }
+}
+
+searchForm.addEventListener("submit",function(event){
+  event.preventDefault();
+  const query=searchInput.value.trim();
+  if(query.length<2){
+    statusEl.textContent="Enter at least 2 characters to search.";
+    searchInput.focus();
+    return;
+  }
+  searchYouTube(query);
+});
+
+loadLatest();
 </script>
 
-<!-- DGM GLOBAL BRAND NAVIGATION -->
 <script>(function(){function e(){document.querySelectorAll('.brand,.logo,.brand-name,.brand-tagline,header b,header strong').forEach(function(n){if(n.dataset.dgmNavBound==='1')return;var t=(n.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();if(!t.includes('dgm')&&!t.includes('dhe genius media')&&!t.includes('stay connected. stay genius'))return;n.dataset.dgmNavBound='1';n.style.cursor='pointer';n.setAttribute('role','link');n.setAttribute('aria-label','Go to DGM Dashboard');n.addEventListener('click',function(){window.location.href='/dashboard.html'})})}document.readyState==='loading'?document.addEventListener('DOMContentLoaded',e):e()})();</script>
 </body>
 </html>
