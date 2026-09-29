@@ -1489,6 +1489,46 @@ async function initDatabase() {
     ON orders(status, payment_status, created_at);
   `);
 
+  // ---------------------------------------------------
+  // CUSTOMER NOTIFICATIONS
+  // ---------------------------------------------------
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customer_notifications (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'info',
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS customer_notifications_customer_created_idx
+    ON customer_notifications(customer_id, created_at DESC);
+  `);
+
+  // ---------------------------------------------------
+  // CUSTOMER SUPPORT TICKETS
+  // ---------------------------------------------------
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS support_tickets (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      subject TEXT NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Open',
+      admin_reply TEXT,
+      replied_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS support_tickets_customer_created_idx
+    ON support_tickets(customer_id, created_at DESC);
+  `);
+
   console.log(
     "Database initialized successfully."
   );
@@ -7429,6 +7469,137 @@ app.post("/api/ussd", async (req, res) => {
 });
 
 // =====================================================
+// =====================================================
+ // TRANSACTION CENTER / NOTIFICATIONS / SUPPORT / RECEIPTS
+ // =====================================================
+
+async function createCustomerNotification(customerId, title, message, type = "info") {
+  try {
+    await pool.query(
+      `INSERT INTO customer_notifications
+       (customer_id,title,message,type)
+       VALUES ($1,$2,$3,$4)`,
+      [customerId, String(title).slice(0,160), String(message).slice(0,2000), String(type).slice(0,40)]
+    );
+  } catch (error) {
+    console.error("Notification creation error:", error.message);
+  }
+}
+
+function requireCustomer(req, res, next) {
+  if (!req.session || !req.session.customerId) {
+    return res.status(401).json({ success:false, message:"Please log in to continue." });
+  }
+  next();
+}
+
+app.get("/api/notifications", requireCustomer, async (req,res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id,title,message,type,read_at,created_at
+       FROM customer_notifications
+       WHERE customer_id=$1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.session.customerId]
+    );
+    return res.json({success:true,notifications:result.rows,unread_count:result.rows.filter(n=>!n.read_at).length});
+  } catch (error) {
+    console.error("Notifications load error:",error);
+    return res.status(500).json({success:false,message:"Could not load notifications."});
+  }
+});
+
+app.post("/api/notifications/:id/read", requireCustomer, async (req,res) => {
+  try {
+    const result=await pool.query(
+      `UPDATE customer_notifications SET read_at=COALESCE(read_at,NOW())
+       WHERE id=$1 AND customer_id=$2 RETURNING id,read_at`,
+      [Number(req.params.id),req.session.customerId]
+    );
+    if(!result.rows.length) return res.status(404).json({success:false,message:"Notification not found."});
+    return res.json({success:true,notification:result.rows[0]});
+  } catch(error) {
+    console.error("Notification read error:",error);
+    return res.status(500).json({success:false,message:"Could not update notification."});
+  }
+});
+
+app.get("/api/transactions", requireCustomer, async (req,res) => {
+  try {
+    const [wallet,topups,withdrawals,orders]=await Promise.all([
+      pool.query(`SELECT id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference,created_at FROM wallet_transactions WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
+      pool.query(`SELECT id,reference,amount,status,payment_status,paid_at,created_at FROM wallet_topups WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
+      pool.query(`SELECT id,reference,amount,momo_network,momo_phone,momo_name,status,admin_note,created_at,updated_at FROM wallet_withdrawals WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
+      pool.query(`SELECT id,order_ref,service,network,phone,amount,status,payment_status,provider_reference,created_at,completed_at FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId])
+    ]);
+    return res.json({success:true,wallet_transactions:wallet.rows,wallet_topups:topups.rows,withdrawals:withdrawals.rows,orders:orders.rows});
+  } catch(error) {
+    console.error("Transaction center error:",error);
+    return res.status(500).json({success:false,message:"Could not load your transaction center."});
+  }
+});
+
+app.get("/api/receipts/order/:id", requireCustomer, async (req,res) => {
+  try {
+    const result=await pool.query(
+      `SELECT id,order_ref,service,network,phone,amount,status,payment_status,provider_reference,created_at,completed_at FROM orders WHERE id=$1 AND customer_id=$2 LIMIT 1`,
+      [Number(req.params.id),req.session.customerId]
+    );
+    if(!result.rows.length) return res.status(404).json({success:false,message:"Order not found."});
+    return res.json({success:true,receipt:result.rows[0]});
+  } catch(error) {
+    console.error("Receipt error:",error);
+    return res.status(500).json({success:false,message:"Could not load receipt."});
+  }
+});
+
+app.get("/api/support/tickets", requireCustomer, async (req,res) => {
+  try {
+    const result=await pool.query(
+      `SELECT id,subject,message,status,admin_reply,replied_at,created_at,updated_at FROM support_tickets WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 50`,
+      [req.session.customerId]
+    );
+    return res.json({success:true,tickets:result.rows});
+  } catch(error) {
+    console.error("Support load error:",error);
+    return res.status(500).json({success:false,message:"Could not load support tickets."});
+  }
+});
+
+app.post("/api/support/tickets", requireCustomer, async (req,res) => {
+  try {
+    const subject=String(req.body?.subject||"").trim();
+    const message=String(req.body?.message||"").trim();
+    if(subject.length<3 || message.length<5) return res.status(400).json({success:false,message:"Please enter a subject and message."});
+    const result=await pool.query(
+      `INSERT INTO support_tickets(customer_id,subject,message) VALUES($1,$2,$3) RETURNING id,subject,message,status,created_at`,
+      [req.session.customerId,subject.slice(0,160),message.slice(0,5000)]
+    );
+    await createCustomerNotification(req.session.customerId,"Support request received","Your support request has been received. Our team will review it.","support");
+    return res.status(201).json({success:true,ticket:result.rows[0]});
+  } catch(error) {
+    console.error("Support create error:",error);
+    return res.status(500).json({success:false,message:"Could not create support request."});
+  }
+});
+
+app.get("/api/admin/analytics", async (req,res) => {
+  if(!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+  try {
+    const [sales,wallet,withdrawals,customers]=await Promise.all([
+      pool.query(`SELECT COALESCE(SUM(amount) FILTER (WHERE status IN ('Completed','completed')),0) AS completed_sales, COALESCE(SUM(amount),0) AS total_order_value, COUNT(*) AS order_count FROM orders WHERE created_at >= NOW()-INTERVAL '30 days'`),
+      pool.query(`SELECT COALESCE(SUM(amount) FILTER (WHERE LOWER(type) IN ('credit','admin_credit','topup')),0) AS wallet_in, COALESCE(SUM(amount) FILTER (WHERE LOWER(type) IN ('debit','admin_debit','purchase','withdrawal_pending')),0) AS wallet_out FROM wallet_transactions WHERE created_at >= NOW()-INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) FILTER (WHERE status='Pending Approval') AS pending, COALESCE(SUM(amount) FILTER (WHERE status IN ('Approved','Paid')),0) AS approved_value FROM wallet_withdrawals WHERE created_at >= NOW()-INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) AS total FROM customers`)
+    ]);
+    return res.json({success:true,period:"30 days",sales:sales.rows[0],wallet:wallet.rows[0],withdrawals:withdrawals.rows[0],customers:customers.rows[0]});
+  } catch(error) {
+    console.error("Admin analytics error:",error);
+    return res.status(500).json({success:false,message:"Could not load analytics."});
+  }
+});
+
 // FRONTEND STATIC FILES + HEALTH CHECK
 // =====================================================
 
