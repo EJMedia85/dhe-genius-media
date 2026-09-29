@@ -7881,6 +7881,8 @@ async function ensureSmsTables() {
       token_prefix VARCHAR(20) NOT NULL,
       active BOOLEAN NOT NULL DEFAULT TRUE,
       last_seen_at TIMESTAMPTZ,
+      pending_count INTEGER NOT NULL DEFAULT 0,
+      last_sync_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS sms_messages (
@@ -7915,7 +7917,7 @@ async function ensureSmsTables() {
 app.get("/api/sms/devices", requireCustomer, async (req,res) => {
   try {
     const r = await pool.query(
-      `SELECT id,name,phone,active,last_seen_at,created_at,
+      `SELECT id,name,phone,active,last_seen_at,pending_count,last_sync_at,created_at,
         (SELECT COUNT(*) FROM sms_messages m WHERE m.device_id=d.id) AS message_count
        FROM sms_devices d WHERE customer_id=$1 ORDER BY created_at DESC`,
       [req.session.customerId]
@@ -8105,7 +8107,7 @@ app.get("/api/sms/status", async (req,res) => {
     const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
     if(!raw)return res.status(401).json({success:false,message:"Device token required."});
     const hash=crypto.createHash("sha256").update(raw).digest("hex");
-    const d=await pool.query("SELECT id,name,phone,active,last_seen_at,created_at FROM sms_devices WHERE token_hash=$1 LIMIT 1",[hash]);
+    const d=await pool.query("SELECT id,name,phone,active,last_seen_at,pending_count,last_sync_at,created_at FROM sms_devices WHERE token_hash=$1 LIMIT 1",[hash]);
     if(!d.rows.length||!d.rows[0].active)return res.status(401).json({success:false,message:"Invalid or revoked device token."});
     const deviceId=d.rows[0].id;
     const [sms,wa]=await Promise.all([
@@ -8132,11 +8134,16 @@ app.post("/api/sms/heartbeat", async (req,res) => {
   try {
     const auth=String(req.get("Authorization")||"");
     const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw)return res.status(401).json({success:false,message:"Device token required."});
     const hash=crypto.createHash("sha256").update(raw).digest("hex");
-    const r=await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE token_hash=$1 AND active=true RETURNING id",[hash]);
+    const pending=Math.max(0,Math.min(100000,Number(req.body?.pending_count||0)));
+    const r=await pool.query(
+      "UPDATE sms_devices SET last_seen_at=NOW(),pending_count=$2,last_sync_at=NOW() WHERE token_hash=$1 AND active=true RETURNING id,pending_count,last_sync_at",
+      [hash,pending]
+    );
     if(!r.rows.length) return res.status(401).json({success:false,message:"Invalid device token."});
-    res.json({success:true});
-  } catch(e) { res.status(500).json({success:false,message:"Heartbeat failed."}); }
+    res.json({success:true,pending_count:Number(r.rows[0].pending_count||0),last_sync_at:r.rows[0].last_sync_at});
+  } catch(e) { console.error("SMS heartbeat error",e); res.status(500).json({success:false,message:"Heartbeat failed."}); }
 });
 
 // FRONTEND STATIC FILES + HEALTH CHECK
