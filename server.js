@@ -1162,6 +1162,41 @@ async function initDatabase() {
   `);
 
   // ---------------------------------------------------
+  // WALLET WITHDRAWALS
+  // ---------------------------------------------------
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wallet_withdrawals (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+      reference TEXT UNIQUE NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      momo_network TEXT NOT NULL,
+      momo_phone TEXT NOT NULL,
+      momo_name TEXT,
+      status TEXT NOT NULL DEFAULT 'Pending Approval',
+      admin_note TEXT,
+      approved_at TIMESTAMPTZ,
+      rejected_at TIMESTAMPTZ,
+      paid_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_customer
+    ON wallet_withdrawals(customer_id);
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wallet_withdrawals_status
+    ON wallet_withdrawals(status);
+  `);
+
+  // ---------------------------------------------------
   // WALLET TRANSACTIONS
   // ---------------------------------------------------
 
@@ -4960,6 +4995,124 @@ app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
   }
 });
 
+app.get("/api/admin/withdrawals", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT w.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+       FROM wallet_withdrawals w
+       JOIN customers c ON c.id = w.customer_id
+       ORDER BY CASE WHEN w.status = 'Pending Approval' THEN 0 ELSE 1 END, w.created_at DESC
+       LIMIT 200`
+    );
+    return res.json({ success: true, withdrawals: result.rows });
+  } catch (error) {
+    console.error("Admin withdrawals error:", error);
+    return sendError(res, 500, "Could not load withdrawal requests.");
+  }
+});
+
+app.post("/api/admin/withdrawals/:id/approve", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const note = String(req.body?.note || "").trim().slice(0, 250);
+  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "Invalid withdrawal ID.");
+
+  try {
+    const result = await pool.query(
+      `UPDATE wallet_withdrawals
+       SET status = 'Approved', admin_note = $2, approved_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND status = 'Pending Approval'
+       RETURNING *`,
+      [id, note]
+    );
+    if (!result.rows.length) return sendError(res, 409, "Withdrawal is no longer pending approval.");
+    return res.json({ success: true, message: "Withdrawal approved. Send the approved amount to the customer's MoMo account, then mark it as paid.", withdrawal: result.rows[0] });
+  } catch (error) {
+    console.error("Admin approve withdrawal error:", error);
+    return sendError(res, 500, "Could not approve withdrawal.");
+  }
+});
+
+app.post("/api/admin/withdrawals/:id/reject", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const note = String(req.body?.note || "").trim().slice(0, 250);
+  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "Invalid withdrawal ID.");
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await client.query(
+      "SELECT * FROM wallet_withdrawals WHERE id = $1 FOR UPDATE",
+      [id]
+    );
+    if (!result.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Withdrawal not found.");
+    }
+    const w = result.rows[0];
+    if (w.status !== "Pending Approval") {
+      await client.query("ROLLBACK");
+      return sendError(res, 409, "Only pending withdrawals can be rejected.");
+    }
+
+    const customerResult = await client.query(
+      "SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE",
+      [w.customer_id]
+    );
+    if (!customerResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer account no longer exists.");
+    }
+
+    const before = Number(customerResult.rows[0].balance || 0);
+    const after = Math.round((before + Number(w.amount)) * 100) / 100;
+    await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [after, w.customer_id]);
+
+    await client.query(
+      `UPDATE wallet_withdrawals
+       SET status = 'Rejected', admin_note = $2, rejected_at = NOW(), updated_at = NOW()
+       WHERE id = $1`,
+      [id, note]
+    );
+
+    const refundRef = "DGM-WD-REFUND-" + Date.now().toString(36).toUpperCase() + "-" + w.id;
+    await client.query(
+      `INSERT INTO wallet_transactions
+       (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, status, reference)
+       VALUES ($1,'withdrawal_refund',$2,$3,$4,$5,$6,'Completed',$6)`,
+      [w.customer_id, Number(w.amount), before, after, "Rejected MoMo withdrawal refund - " + w.reference, refundRef]
+    );
+
+    await client.query("COMMIT");
+    return res.json({ success: true, message: "Withdrawal rejected and wallet refunded.", balance: after });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Admin reject withdrawal error:", error);
+    return sendError(res, 500, "Could not reject withdrawal.");
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/withdrawals/:id/paid", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const note = String(req.body?.note || "").trim().slice(0, 250);
+  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "Invalid withdrawal ID.");
+  try {
+    const result = await pool.query(
+      `UPDATE wallet_withdrawals
+       SET status = 'Paid', admin_note = COALESCE(NULLIF($2,''), admin_note), paid_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND status = 'Approved'
+       RETURNING *`,
+      [id, note]
+    );
+    if (!result.rows.length) return sendError(res, 409, "Only approved withdrawals can be marked as paid.");
+    return res.json({ success: true, message: "Withdrawal marked as paid.", withdrawal: result.rows[0] });
+  } catch (error) {
+    console.error("Admin paid withdrawal error:", error);
+    return sendError(res, 500, "Could not mark withdrawal as paid.");
+  }
+});
+
 app.get("/api/admin/customers", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query("SELECT id, name, phone, email, balance, created_at FROM customers ORDER BY created_at DESC LIMIT 100");
@@ -5723,6 +5876,110 @@ app.get(
     }
   }
 );
+
+// =====================================================
+// WALLET WITHDRAWALS
+// =====================================================
+
+app.get("/api/wallet/withdrawals", requireLogin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, reference, amount, momo_network, momo_phone, momo_name, status, admin_note, approved_at, rejected_at, paid_at, created_at
+       FROM wallet_withdrawals
+       WHERE customer_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.session.customerId]
+    );
+    return res.json({ success: true, withdrawals: result.rows });
+  } catch (error) {
+    console.error("Wallet withdrawals error:", error);
+    return sendError(res, 500, "Could not load withdrawal requests.");
+  }
+});
+
+app.post("/api/wallet/withdraw", requireLogin, async (req, res) => {
+  const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+  const network = String(req.body?.network || "").trim();
+  const momoPhone = normalizeGhanaPhone(req.body?.momo_phone || req.body?.phone || "");
+  const momoName = String(req.body?.momo_name || req.body?.name || "").trim().slice(0, 120);
+
+  if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+    return sendError(res, 400, "Withdrawal amount must be between GH₵1.00 and GH₵10,000.00.");
+  }
+  if (!["MTN", "Telecel", "AirtelTigo"].includes(network)) {
+    return sendError(res, 400, "Select a valid MoMo network.");
+  }
+  if (!validGhanaPhone(momoPhone)) {
+    return sendError(res, 400, "Enter a valid Ghana MoMo phone number.");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const customerResult = await client.query(
+      "SELECT id, name, balance FROM customers WHERE id = $1 FOR UPDATE",
+      [req.session.customerId]
+    );
+    if (!customerResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer account not found.");
+    }
+
+    const customer = customerResult.rows[0];
+    const before = Number(customer.balance || 0);
+    if (before < amount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        success: false,
+        code: "INSUFFICIENT_WALLET_BALANCE",
+        message: "Insufficient wallet balance.",
+        balance: before
+      });
+    }
+
+    const after = Math.round((before - amount) * 100) / 100;
+    const reference = "DGM-WD-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [after, customer.id]);
+
+    await client.query(
+      `INSERT INTO wallet_withdrawals
+       (customer_id, reference, amount, momo_network, momo_phone, momo_name, status)
+       VALUES ($1,$2,$3,$4,$5,$6,'Pending Approval')`,
+      [customer.id, reference, amount, network, momoPhone, momoName]
+    );
+
+    await client.query(
+      `INSERT INTO wallet_transactions
+       (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, status, reference)
+       VALUES ($1,'withdrawal_pending',$2,$3,$4,$5,$6,'Pending',$6)`,
+      [customer.id, amount, before, after, "MoMo withdrawal request - " + network + " - " + momoPhone, reference]
+    );
+
+    await client.query("COMMIT");
+
+    return res.json({
+      success: true,
+      message: "Withdrawal request submitted. DGM admin approval is required before payment.",
+      withdrawal: {
+        reference,
+        amount,
+        momo_network: network,
+        momo_phone: momoPhone,
+        momo_name: momoName,
+        status: "Pending Approval"
+      },
+      balance: after
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Wallet withdrawal error:", error);
+    return sendError(res, 500, "Could not submit withdrawal request.");
+  } finally {
+    client.release();
+  }
+});
 
 // =====================================================
 // CHANGE PASSWORD
