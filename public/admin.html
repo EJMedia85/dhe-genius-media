@@ -7,8 +7,9 @@
 <body><main class="wrap">
 <div class="top"><div><div class="brand">DHE GENIUS MEDIA • ADMIN</div><h1>Management Dashboard</h1><div id="who" class="sub">Checking secure session...</div></div><button class="logout" id="logout">Logout</button></div>
 <div class="grid" id="stats"><div class="card"><div class="label">Customers</div><div class="num">—</div></div><div class="card"><div class="label">Orders</div><div class="num">—</div></div><div class="card"><div class="label">Completed</div><div class="num">—</div></div><div class="card"><div class="label">Pending</div><div class="num">—</div></div><div class="card"><div class="label">Completed value</div><div class="num">—</div></div></div>
-<div class="tabs"><button class="active" data-tab="orders">Orders</button><button data-tab="customers">Customers</button><button data-tab="movies">Movie Playback</button></div>
+<div class="tabs"><button class="active" data-tab="orders">Orders</button><button data-tab="customers">Customers</button><button data-tab="withdrawals">Withdrawals</button><button data-tab="movies">Movie Playback</button></div>
 <section id="orders" class="section"><h2>Recent Orders</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Network</th><th>Phone</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="ordersBody"></tbody></table></div></section>
+<section id="withdrawals" class="section" hidden><h2>MoMo Withdrawal Requests</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Network</th><th>MoMo</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody id="withdrawalsBody"></tbody></table></div><div id="withdrawalMsg" class="msg"></div></section>
 <section id="customers" class="section" hidden><h2>Customers</h2><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Balance</th><th>Created</th><th>Wallet</th><th>Account</th></tr></thead><tbody id="customersBody"></tbody></table></div><div id="customerMsg" class="msg"></div></section>
 <div id="customerModal" class="modal" hidden><div class="modal-card"><div class="modal-head"><div><div class="brand">CUSTOMER DETAILS</div><h2 id="detailTitle">Customer</h2><div id="detailSub" class="sub"></div></div><button class="close" onclick="closeCustomerDetails()">Close</button></div><div id="detailContent"></div></div></div>\n<section id="movies" class="section" hidden><h2>Authorized Movie Playback</h2><div class="card"><form id="movieForm" class="form"><input id="tmdb" type="number" placeholder="TMDB movie ID" required><input id="title" placeholder="Movie title"><select id="type"><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option></select><input id="url" type="url" placeholder="Authorized HTTPS playback URL" required><button class="save">Save</button></form><div id="movieMsg" class="msg">Only use DGM-controlled or properly licensed playback sources.</div></div></section>
 </main>
@@ -16,6 +17,21 @@
 const $=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(r.status===401){location.replace('/admin-login.html');throw new Error('Admin session expired.')}if(!r.ok||d.success===false)throw new Error(d.message||'Request failed');return d}
+ async function loadWithdrawalsAdmin(){
+  const body=$('#withdrawalsBody'); if(!body) return;
+  try{
+    const d=await api('/api/admin/withdrawals');
+    body.innerHTML=d.withdrawals.length?d.withdrawals.map(w=>{
+      const actions = w.status==='Pending Approval'
+        ? '<button onclick="approveWithdrawal('+w.id+')">Approve</button> <button onclick="rejectWithdrawal('+w.id+')">Reject</button>'
+        : (w.status==='Approved' ? '<button onclick="markWithdrawalPaid('+w.id+')">Mark Paid</button>' : '');
+      return '<tr><td>'+esc(w.reference)+'</td><td>'+esc(w.customer_name||'')+'<br><span class="sub">'+esc(w.customer_email||'')+'</span></td><td><strong>GH₵'+Number(w.amount||0).toFixed(2)+'</strong></td><td>'+esc(w.momo_network)+'</td><td>'+esc(w.momo_phone)+(w.momo_name?' • '+esc(w.momo_name):'')+'</td><td class="status">'+esc(w.status)+'</td><td>'+new Date(w.created_at).toLocaleString()+'</td><td>'+actions+'</td></tr>';
+    }).join(''):'<tr><td colspan="8" class="empty">No withdrawal requests.</td></tr>';
+  }catch(err){body.innerHTML='<tr><td colspan="8" class="empty">'+esc(err.message)+'</td></tr>'}
+ }
+ async function approveWithdrawal(id){const note=prompt('Approval note (optional):')||'';if(!confirm('Approve this withdrawal? The wallet amount is already reserved. After approval, send the money to the listed MoMo account, then mark it Paid.'))return;try{const d=await api('/api/admin/withdrawals/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWithdrawalsAdmin();}catch(e){alert(e.message)}}
+ async function rejectWithdrawal(id){const note=prompt('Reason for rejection:')||'';if(!confirm('Reject this withdrawal and refund the customer wallet?'))return;try{const d=await api('/api/admin/withdrawals/'+id+'/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWithdrawalsAdmin();}catch(e){alert(e.message)}}
+ async function markWithdrawalPaid(id){const note=prompt('MoMo payment note/reference (optional):')||'';if(!confirm('Confirm that you have sent the approved amount to the customer MoMo account?'))return;try{const d=await api('/api/admin/withdrawals/'+id+'/paid',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWithdrawalsAdmin();}catch(e){alert(e.message)}}
 async function load(){
  const me=await api('/api/admin/me');$('#who').textContent='Signed in as '+me.admin.email;
  const st=await api('/api/admin/stats'),s=st.stats;
@@ -48,7 +64,7 @@ async function openCustomerDetails(id){
 function closeCustomerDetails(){$('#customerModal').hidden=true}
 $('#customerModal').addEventListener('click',e=>{if(e.target.id==='customerModal')closeCustomerDetails()});
 async function removeCustomer(id,name){if(!confirm('Remove '+name+' permanently? This deletes the customer account, orders and wallet history. This cannot be undone.'))return;try{await api('/api/admin/customers/'+id,{method:'DELETE'});await load();alert('Customer removed successfully.')}catch(err){alert(err.message)}}
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['orders','customers','movies'].forEach(id=>$('#'+id).hidden=id!==b.dataset.tab)});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['orders','customers','withdrawals','movies'].forEach(id=>$('#'+id).hidden=id!==b.dataset.tab)});
 $('#logout').onclick=async()=>{try{await fetch('/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
 $('#movieForm').onsubmit=async e=>{e.preventDefault();const m=$('#movieMsg');m.textContent='Saving...';try{const d=await api('/api/admin/movies/playback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tmdb_id:Number($('#tmdb').value),title:$('#title').value,playback_type:$('#type').value,playback_url:$('#url').value})});m.textContent=d.message||'Saved successfully.'}catch(err){m.textContent=err.message}};
 load().catch(err=>$('#who').textContent=err.message);
