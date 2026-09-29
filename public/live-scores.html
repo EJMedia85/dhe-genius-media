@@ -215,7 +215,7 @@ async function loadData({includeToday=false}={}){
 
    liveMatches=Array.isArray(liveData.matches)?liveData.matches:[];
 
-   if(includeToday || currentView!=="live" || !todayLoaded){
+   if(includeToday || (currentView!=="live" && !todayLoaded)){
      const todayResponse=await fetch("/api/sports/fixtures?date="+encodeURIComponent(date),{cache:"no-store",headers:{"Accept":"application/json"}});
      const todayData=await todayResponse.json();
 
