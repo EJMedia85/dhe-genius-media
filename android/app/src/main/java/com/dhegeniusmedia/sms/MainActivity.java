@@ -17,7 +17,7 @@ public class MainActivity extends Activity {
     private void buildUi(){
         LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(28,36,28,28);
         TextView title=new TextView(this);title.setText("DHE GENIUS MEDIA\nAndroid Companion");title.setTextSize(26);box.addView(title);
-        TextView intro=new TextView(this);intro.setText("\nBuild #25 • Live Sync Pending Link + WhatsApp Notification Access\nSMS received + sent • WhatsApp notification events • offline queue • automatic retry\n");box.addView(intro);
+        TextView intro=new TextView(this);intro.setText("\nBuild #58 • Launcher Fix + Live Sync Pending Link + WhatsApp Notification Access\nSMS received + sent • WhatsApp notification events • offline queue • automatic retry\n");box.addView(intro);
         token=new EditText(this);token.setHint("DGM device token");token.setSingleLine(true);token.setText(SecureTokenStore.get(this));box.addView(token);
         Button auth=new Button(this);auth.setText("Authorize Device");box.addView(auth);
         Button whatsapp=new Button(this);whatsapp.setText("WhatsApp Notification Access");box.addView(whatsapp);
