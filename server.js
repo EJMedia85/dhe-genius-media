@@ -260,6 +260,51 @@ app.get("/api/sports/fixtures", async (req, res) => {
   }
 });
 
+app.get("/api/sports/teams", async (req, res) => {
+  try {
+    const search = String(req.query.search || "").trim();
+    if (search.length < 3) {
+      return res.status(400).json({ success: false, message: "Enter at least 3 characters to search teams." });
+    }
+    const data = await sportsApiRequest("/teams", { search });
+    const teams = (data.response || []).map(item => ({
+      team: item.team || {},
+      venue: item.venue || {}
+    }));
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      search,
+      count: teams.length,
+      teams
+    });
+  } catch (error) {
+    console.error("API-Football teams error:", error.message);
+    return sendSportsApiError(res, error);
+  }
+});
+
+app.get("/api/sports/team/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ success: false, message: "A valid team ID is required." });
+    }
+    const data = await sportsApiRequest("/teams", { id });
+    const item = data.response?.[0];
+    if (!item) return res.status(404).json({ success: false, provider: "API-Football", message: "Team not found." });
+    return res.json({
+      success: true,
+      provider: "API-Football",
+      team: item.team || {},
+      venue: item.venue || {}
+    });
+  } catch (error) {
+    console.error("API-Football team detail error:", error.message);
+    return sendSportsApiError(res, error);
+  }
+});
+
 app.get("/api/sports/standings", async (req, res) => {
   try {
     const league = Number(req.query.league || 39);
