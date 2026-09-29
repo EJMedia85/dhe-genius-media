@@ -46,7 +46,9 @@ public class SyncWorker extends Worker {
                 }
             }
 
-            MainActivityPost.Result hb=MainActivityPost.postDetailed("/api/sms/heartbeat",token,"{}");
+            org.json.JSONObject heartbeatPayload=new org.json.JSONObject();
+            heartbeatPayload.put("pending_count",SyncStore.pendingCount(c));
+            MainActivityPost.Result hb=MainActivityPost.postDetailed("/api/sms/heartbeat",token,heartbeatPayload.toString());
             if(hb.isSuccess()){
                 SyncStore.clearError(c);
                 if(SyncStore.pendingCount(c)==0) SyncStore.markSuccess(c);
