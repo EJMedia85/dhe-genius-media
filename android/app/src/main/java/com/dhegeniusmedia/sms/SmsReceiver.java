@@ -10,14 +10,8 @@ import org.json.JSONObject;
 public class SmsReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context, Intent intent) {
         if (!"android.provider.Telephony.SMS_RECEIVED".equals(intent.getAction())) return;
-        String token = context.getSharedPreferences("dgm", Context.MODE_PRIVATE).getString("token", "");
-        if (token.isEmpty()) {
-            token = context.getSharedPreferences("dgm_sms", Context.MODE_PRIVATE).getString("token", "");
-        }
-        if (token.isEmpty()) {
-            // MainActivity stores its preference in the activity preference file.
-            token = context.getSharedPreferences("com.dhegeniusmedia.sms_preferences", Context.MODE_PRIVATE).getString("token", "");
-        }
+        String token = context.getSharedPreferences("MainActivity", Context.MODE_PRIVATE)
+                .getString("token", "");
         if (token.isEmpty()) return;
 
         Bundle extras=intent.getExtras();
