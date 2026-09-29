@@ -73,6 +73,7 @@ header a{color:#fff;text-decoration:none;font-weight:700}
 <button class="tab" data-view="upcoming">⏭️ Upcoming</button>
 <button class="tab" data-view="results">✅ Results</button>
 <button class="tab" data-view="standings">🏆 Standings</button>
+<button class="tab" data-view="teams">👥 Teams</button>
 </div>
 
 <div id="leagueFilters" class="filters" style="display:none">
@@ -81,6 +82,13 @@ header a{color:#fff;text-decoration:none;font-weight:700}
 <button class="filter" data-league="135">Serie A</button>
 <button class="filter" data-league="78">Bundesliga</button>
 <button class="filter" data-league="61">Ligue 1</button>
+</div>
+
+<div id="teamSearch" style="display:none;margin-bottom:14px">
+<div style="display:flex;gap:8px">
+<input id="teamSearchInput" type="search" placeholder="Search team e.g. Arsenal" style="flex:1;background:#0d2030;color:#fff;border:1px solid #ffffff15;border-radius:10px;padding:11px 12px;outline:none">
+<button class="refresh" id="teamSearchBtn">Search</button>
+</div>
 </div>
 
 <div class="bar">
@@ -110,6 +118,7 @@ let todayMatches=[];
 let todayLoaded=false;
 let currentLeague=39;
 let standingsLoading=false;
+let teamsLoading=false;
 
 function esc(v){
  return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;");
@@ -233,6 +242,43 @@ function render(){
  matchesEl.innerHTML=list.map(matchCard).join("");
 }
 
+async function renderTeams(){
+ if(teamsLoading)return;
+ const q=document.getElementById("teamSearchInput").value.trim();
+ if(q.length<3){
+   summaryEl.textContent="Search for a team";
+   matchesEl.innerHTML='<div class="empty">Enter at least 3 characters to search teams.</div>';
+   return;
+ }
+ teamsLoading=true;
+ matchesEl.innerHTML='<div class="empty">Searching teams...</div>';
+ try{
+   const r=await fetch("/api/sports/teams?search="+encodeURIComponent(q),{cache:"no-store",headers:{"Accept":"application/json"}});
+   const d=await r.json();
+   if(!r.ok||!d.success)throw new Error(d.message||"Team search unavailable.");
+   const teams=Array.isArray(d.teams)?d.teams:[];
+   summaryEl.textContent=teams.length+" team"+(teams.length===1?"":"s")+" found";
+   matchesEl.innerHTML=teams.length?teams.map(x=>{
+     const t=x.team||{},v=x.venue||{};
+     return '<article class="match" onclick="openTeam('+Number(t.id||0)+')"><div class="matchtop"><div class="team" style="width:60%;display:flex;align-items:center;gap:10px">'+(t.logo?'<img src="'+esc(t.logo)+'" alt="">':"")+esc(t.name||"Team")+'</div><div class="info">'+esc(t.country||"")+(v.name?" • "+esc(v.name):"")+'</div></div></article>';
+   }).join(""):'<div class="empty">No teams found.</div>';
+ }catch(e){matchesEl.innerHTML='<div class="error">'+esc(e.message||"Could not search teams.")+'</div>';}
+ finally{teamsLoading=false;}
+}
+
+async function openTeam(id){
+ if(!id)return;
+ const modal=document.getElementById("detailModal"),content=document.getElementById("detailContent");
+ modal.classList.add("show"); content.innerHTML='<div class="empty">Loading team...</div>';
+ try{
+   const r=await fetch("/api/sports/team/"+encodeURIComponent(id),{cache:"no-store",headers:{"Accept":"application/json"}});
+   const d=await r.json();
+   if(!r.ok||!d.success)throw new Error(d.message||"Could not load team.");
+   const t=d.team||{},v=d.venue||{};
+   content.innerHTML='<div class="detailhead">'+(t.logo?'<img src="'+esc(t.logo)+'" style="width:75px;height:75px;object-fit:contain" alt="">':"")+'<h2>'+esc(t.name||"Team")+'</h2><div class="info">'+esc(t.country||"")+'</div></div><div class="detailsection"><h3>🏟 Venue</h3><div class="info">'+esc(v.name||"Venue unavailable")+(v.city?" • "+esc(v.city):"")+(v.capacity?" • Capacity "+esc(v.capacity):"")+'</div></div><div class="detailsection"><h3>ℹ️ Team</h3><div class="info">Founded: '+esc(t.founded||"—")+' • National team: '+(t.national?"Yes":"No")+'</div></div>';
+ }catch(e){content.innerHTML='<div class="error">'+esc(e.message||"Could not load team.")+'</div>';}
+}
+ 
 async function renderStandings(){
  if(standingsLoading)return;
  standingsLoading=true;
@@ -320,8 +366,12 @@ tabs.forEach(tab=>{
    tab.classList.add("active");
    currentView=tab.dataset.view;
    document.getElementById("leagueFilters").style.display=currentView==="standings"?"flex":"none";
+   document.getElementById("teamSearch").style.display=currentView==="teams"?"block":"none";
    if(currentView==="standings"){
      renderStandings();
+   }else if(currentView==="teams"){
+     summaryEl.textContent="Search for a team";
+     matchesEl.innerHTML='<div class="empty">Search above to find football teams and open their details.</div>';
    }else if(currentView!=="live" && !todayLoaded){
      loadData({includeToday:true});
    }else{
@@ -360,6 +410,8 @@ document.querySelectorAll(".filter").forEach(btn=>{
    renderStandings();
  });
 });
+document.getElementById("teamSearchBtn").addEventListener("click",renderTeams);
+document.getElementById("teamSearchInput").addEventListener("keydown",e=>{if(e.key==="Enter")renderTeams();});
 refreshBtn.addEventListener("click",()=>currentView==="standings"?renderStandings():loadData());
 loadData();
 setInterval(()=>{if(currentView!=="standings")loadData();},900000);
