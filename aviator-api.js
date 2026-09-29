@@ -1,7 +1,9 @@
+const express = require("express");
 const { Pool } = require("pg");
 const crypto = require("crypto");
 
 module.exports = function installAviatorApi(app) {
+  app.use(express.json({ limit: "1mb" }));
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL || "",
     ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
