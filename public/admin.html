@@ -7,7 +7,7 @@
 <body><main class="wrap">
 <div class="top"><div><div class="brand">DHE GENIUS MEDIA • ADMIN</div><h1>Management Dashboard</h1><div id="who" class="sub">Checking secure session...</div></div><button class="logout" id="logout">Logout</button></div>
 <div class="grid" id="stats"><div class="card"><div class="label">Customers</div><div class="num">—</div></div><div class="card"><div class="label">Orders</div><div class="num">—</div></div><div class="card"><div class="label">Completed</div><div class="num">—</div></div><div class="card"><div class="label">Pending</div><div class="num">—</div></div><div class="card"><div class="label">Completed value</div><div class="num">—</div></div></div>
-<div class="tabs"><button class="active" data-tab="orders">Orders</button><button data-tab="customers">Customers</button><button data-tab="withdrawals">Withdrawals</button><button data-tab="movies">Movie Playback</button></div>
+<div class="tabs"><button class="active" data-tab="orders">Orders</button><button data-tab="customers">Customers</button><button data-tab="withdrawals">Withdrawals <span id="withdrawalBadge" style="display:none"></span></button><button data-tab="movies">Movie Playback</button></div>
 <section id="orders" class="section"><h2>Recent Orders</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Network</th><th>Phone</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="ordersBody"></tbody></table></div></section>
 <section id="withdrawals" class="section" hidden><h2>MoMo Withdrawal Requests</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Network</th><th>MoMo</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody id="withdrawalsBody"></tbody></table></div><div id="withdrawalMsg" class="msg"></div></section>
 <section id="customers" class="section" hidden><h2>Customers</h2><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Balance</th><th>Created</th><th>Wallet</th><th>Account</th></tr></thead><tbody id="customersBody"></tbody></table></div><div id="customerMsg" class="msg"></div></section>
@@ -21,6 +21,8 @@ async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origi
   const body=$('#withdrawalsBody'); if(!body) return;
   try{
     const d=await api('/api/admin/withdrawals');
+    const badge=$('#withdrawalBadge');
+    if(badge){badge.textContent=d.pending_count||0;badge.style.display=(d.pending_count||0)>0?'inline-flex':'none';badge.style.cssText += ';margin-left:6px;min-width:20px;height:20px;border-radius:10px;align-items:center;justify-content:center;background:#25d366;color:#001b0b;font-size:11px;font-weight:900;padding:0 6px;';}
     body.innerHTML=d.withdrawals.length?d.withdrawals.map(w=>{
       const actions = w.status==='Pending Approval'
         ? '<button onclick="approveWithdrawal('+w.id+')">Approve</button> <button onclick="rejectWithdrawal('+w.id+')">Reject</button>'
