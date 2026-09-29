@@ -99,7 +99,7 @@ header a{color:#fff;text-decoration:none;font-weight:700}
 <div id="updated" class="info">Connecting to API-Football...</div>
 <section id="matches" style="margin-top:12px"><div class="empty">Loading scores...</div></section>
 
-<div id="detailModal" class="modal" onclick="if(event.target===this)closeMatch()"><div class="modalbox"><button class="close" onclick="closeMatch()">×</button><button class="refresh detail-refresh" id="detailRefresh" onclick="refreshMatch()">↻ Refresh</button><div id="detailContent"><div class="empty">Loading match details...</div></div></div></div><div class="updated">Powered by API-Football • Live refresh every 15 minutes • Today's fixtures load on demand</div>
+<div id="detailModal" class="modal" onclick="if(event.target===this)closeMatch()"><div class="modalbox"><button class="close" onclick="closeMatch()">×</button><button class="refresh detail-refresh" id="detailRefresh" onclick="refreshMatch()">↻ Refresh</button><div id="detailContent"><div class="empty">Loading match details...</div></div></div></div><div class="updated">Powered by DGM Sports Data • Live refresh every 15 minutes • Today's fixtures load on demand</div>
 </main>
 
 <script>
@@ -151,9 +151,9 @@ function statusText(m){
 }
 
 function kickoffText(m){
- if(!m?.date) return "Scheduled";
+ if(!m?.fixture?.date) return "Scheduled";
  try{
-   return new Date(m.date).toLocaleTimeString([],{
+   return new Date(m.fixture.date).toLocaleTimeString([],{
      hour:"2-digit",
      minute:"2-digit"
    });
@@ -412,9 +412,9 @@ document.querySelectorAll(".filter").forEach(btn=>{
 });
 document.getElementById("teamSearchBtn").addEventListener("click",renderTeams);
 document.getElementById("teamSearchInput").addEventListener("keydown",e=>{if(e.key==="Enter")renderTeams();});
-refreshBtn.addEventListener("click",()=>currentView==="standings"?renderStandings():loadData());
+refreshBtn.addEventListener("click",()=>{if(currentView==="standings")return renderStandings();if(currentView==="teams")return renderTeams();return loadData();});
 loadData();
-setInterval(()=>{if(currentView!=="standings")loadData();},900000);
+setInterval(()=>{if(currentView!=="standings"&&currentView!=="teams")loadData();},900000);
 </script>
 
 <!-- DGM GLOBAL BRAND NAVIGATION -->
