@@ -113,7 +113,7 @@ function kingflexyAirtimeNetwork(network) {
   return value;
 }
 
-const FOOTBALL_DATA_API_TOKEN = process.env.FOOTBALL_DATA_API_TOKEN || "";
+const FOOTBALL_DATA_API_TOKEN = process.env.SPORTS_API_KEY || process.env.FOOTBALL_DATA_API_TOKEN || "";
 const FOOTBALL_DATA_BASE = "https://api.football-data.org/v4";
 const FOOTBALL_DATA_COMPETITIONS = {
   39: "PL",
