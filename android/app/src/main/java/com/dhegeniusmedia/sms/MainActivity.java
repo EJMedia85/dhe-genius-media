@@ -6,140 +6,45 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.TextView;
+import android.widget.*;
 import androidx.core.app.NotificationManagerCompat;
 
 public class MainActivity extends Activity {
-    private static final int SMS_REQ = 42;
-    private EditText token;
-    private TextView status;
-    private TextView whatsappStatus;
-
-    @Override public void onCreate(Bundle b) {
-        super.onCreate(b);
-        buildUi();
-        updateStatus();
-    }
-
-    @Override protected void onResume() {
-        super.onResume();
-        if (whatsappStatus != null) updateStatus();
-    }
-
-    private void buildUi() {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setPadding(32, 40, 32, 32);
-
-        TextView title = new TextView(this);
-        title.setText("DHE GENIUS MEDIA\nAndroid Companion");
-        title.setTextSize(25);
-        box.addView(title);
-
-        TextView info = new TextView(this);
-        info.setText("\nAuthorized-device synchronization\n\nSMS: received + sent\nWhatsApp: notification events + conversation grouping\nBackground sync: enabled while Android permits the service to run\n");
-        box.addView(info);
-
-        token = new EditText(this);
-        token.setHint("DGM device token");
-        token.setSingleLine(true);
-        token.setText(getSharedPreferences("dgm_sms", MODE_PRIVATE).getString("token", ""));
-        box.addView(token);
-
-        Button authorize = new Button(this);
-        authorize.setText("Authorize Device & Sync");
-        box.addView(authorize);
-
-        Button whatsapp = new Button(this);
-        whatsapp.setText("Open WhatsApp Notification Access");
-        box.addView(whatsapp);
-
-        Button sync = new Button(this);
-        sync.setText("Sync SMS Now");
-        box.addView(sync);
-
-        whatsappStatus = new TextView(this);
-        box.addView(whatsappStatus);
-
-        status = new TextView(this);
-        status.setText("\nDevice not connected");
-        box.addView(status);
-
-        TextView note = new TextView(this);
-        note.setText("\nPrivacy note: DGM uses only permissions granted on this device. WhatsApp private chat databases are not accessed.");
-        box.addView(note);
-
-        authorize.setOnClickListener(v -> authorize());
-        sync.setOnClickListener(v -> {
-            String t = getSharedPreferences("dgm_sms", MODE_PRIVATE).getString("token", "");
-            if (t.length() >= 20) syncAll(t); else status.setText("Authorize the device first.");
-        });
-        whatsapp.setOnClickListener(v -> openNotificationSettings());
+    private static final int SMS_REQ=42; private EditText token; private TextView status,wa;
+    public void onCreate(Bundle b){super.onCreate(b);buildUi();refresh();}
+    protected void onResume(){super.onResume();if(wa!=null)refresh();}
+    private void buildUi(){
+        LinearLayout box=new LinearLayout(this);box.setOrientation(LinearLayout.VERTICAL);box.setPadding(28,36,28,28);
+        TextView title=new TextView(this);title.setText("DHE GENIUS MEDIA\nAndroid Companion");title.setTextSize(26);box.addView(title);
+        TextView intro=new TextView(this);intro.setText("\nBuild #22 • Unified Conversations + Sync Center\nSMS received + sent • WhatsApp notification events • offline queue • automatic retry\n");box.addView(intro);
+        token=new EditText(this);token.setHint("DGM device token");token.setSingleLine(true);token.setText(SecureTokenStore.get(this));box.addView(token);
+        Button auth=new Button(this);auth.setText("Authorize Device");box.addView(auth);
+        Button center=new Button(this);center.setText("Open Sync Center");box.addView(center);
+        Button conv=new Button(this);conv.setText("View Conversations");box.addView(conv);
+        Button whatsapp=new Button(this);whatsapp.setText("WhatsApp Notification Access");box.addView(whatsapp);
+        Button sync=new Button(this);sync.setText("Sync Now");box.addView(sync);
+        Button logout=new Button(this);logout.setText("Unpair / Device Logout");box.addView(logout);
+        wa=new TextView(this);box.addView(wa);status=new TextView(this);box.addView(status);
+        TextView note=new TextView(this);note.setText("\nPrivacy: WhatsApp data is collected only from Android notification events. DGM does not access WhatsApp private databases.");box.addView(note);
+        auth.setOnClickListener(v->authorize());center.setOnClickListener(v->startActivity(new Intent(this,SyncCenterActivity.class)));conv.setOnClickListener(v->startActivity(new Intent(this,WhatsAppHistoryActivity.class)));whatsapp.setOnClickListener(v->openNotificationSettings());sync.setOnClickListener(v->{SyncWorker.now(this);refresh();});logout.setOnClickListener(v->{SecureTokenStore.clear(this);SyncStore.clear(this);token.setText("");refresh();});
         setContentView(box);
     }
-
-    private void authorize() {
-        String t = token.getText().toString().trim();
-        if (t.length() < 20) {
-            status.setText("Enter the DGM device token.");
-            return;
-        }
-        getSharedPreferences("dgm_sms", MODE_PRIVATE).edit().putString("token", t).apply();
-        if (android.os.Build.VERSION.SDK_INT >= 23 &&
-            checkSelfPermission(Manifest.permission.READ_SMS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS}, SMS_REQ);
-        } else {
-            syncAll(t);
-        }
+    private void authorize(){
+        String t=token.getText().toString().trim();if(t.length()<20){status.setText("Enter a valid DGM device token.");return;}
+        SecureTokenStore.put(this,t);SyncWorker.schedule(this);
+        if(android.os.Build.VERSION.SDK_INT>=23&&checkSelfPermission(Manifest.permission.READ_SMS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.READ_SMS,Manifest.permission.RECEIVE_SMS},SMS_REQ);else startSyncService();
     }
-
-    @Override public void onRequestPermissionsResult(int r, String[] p, int[] g) {
-        super.onRequestPermissionsResult(r, p, g);
-        if (r == SMS_REQ && g.length > 0 && g[0] == PackageManager.PERMISSION_GRANTED) {
-            syncAll(getSharedPreferences("dgm_sms", MODE_PRIVATE).getString("token", ""));
-        } else if (r == SMS_REQ) {
-            status.setText("SMS permission is required for SMS synchronization.");
-        }
-    }
-
-    private void syncAll(String t) {
-        status.setText("Syncing received + sent SMS and starting background sync…");
-        new Thread(() -> {
-            int count = SmsSyncService.syncFolder(this, "inbox", t)
-                    + SmsSyncService.syncFolder(this, "sent", t);
-            startSmsWatcher();
-            final int n = count;
-            runOnUiThread(() -> status.setText("Connected. Synced " + n + " SMS messages. Background sync is active."));
-        }).start();
-    }
-
-    private void startSmsWatcher() {
-        try {
-            Intent i = new Intent(this, SmsSyncService.class);
-            if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(i);
-            else startService(i);
-        } catch (Exception ignored) {}
-    }
-
-    private void openNotificationSettings() {
-        String t = token.getText().toString().trim();
-        if (t.length() >= 20)
-            getSharedPreferences("dgm_sms", MODE_PRIVATE).edit().putString("token", t).apply();
-        try {
-            startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
-        } catch (Exception e) {
-            startActivity(new Intent(Settings.ACTION_SETTINGS));
-        }
-    }
-
-    private void updateStatus() {
-        boolean enabled = NotificationManagerCompat.getEnabledListenerPackages(this).contains(getPackageName());
-        whatsappStatus.setText(enabled
-                ? "WhatsApp notification sync: ENABLED"
-                : "WhatsApp notification sync: NOT ENABLED");
-        if (status != null && enabled) status.setText("\nDevice authorization is stored locally. Background sync can run when Android allows it.");
+    public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==SMS_REQ&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startSyncService();else if(r==SMS_REQ)status.setText("SMS permission is required for SMS synchronization.");}
+    private void startSyncService(){try{Intent i=new Intent(this,SmsSyncService.class);if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);}catch(Exception e){status.setText("Could not start sync service: "+e.getMessage());}SyncWorker.now(this);refresh();}
+    private void openNotificationSettings(){try{startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));}catch(Exception e){startActivity(new Intent(Settings.ACTION_SETTINGS));}}
+    private void refresh(){
+        boolean enabled=NotificationManagerCompat.getEnabledListenerPackages(this).contains(getPackageName());
+        wa.setText(enabled?"\n🟢 WhatsApp notification sync: ENABLED":"\n🟠 WhatsApp notification sync: NOT ENABLED");
+        boolean connected=SecureTokenStore.get(this).length()>=20;
+        status.setText((connected?"\n🟢 Device authorization: active":"\n🔴 Device authorization: missing")+
+                "\nLast sync: "+(SyncStore.lastSync(this).isEmpty()?"Never":SyncStore.lastSync(this))+
+                "\nSMS events: "+SyncStore.count(this,"sms")+"  |  WhatsApp events: "+SyncStore.count(this,"whatsapp")+
+                "\nPending: "+SyncStore.pendingCount(this)+
+                (SyncStore.lastError(this).isEmpty()?"":"\nLast error: "+SyncStore.lastError(this)));
     }
 }
