@@ -2,6 +2,8 @@ package com.dhegeniusmedia.sms;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.net.Uri;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
@@ -40,6 +42,31 @@ public final class SyncStore {
             e.apply();
             return true;
         }catch(Exception e){return false;}
+    }
+
+    public static synchronized int captureSentSms(Context c){
+        int added=0;
+        Cursor cur=null;
+        try{
+            cur=c.getContentResolver().query(Uri.parse("content://sms/sent"),
+                    new String[]{"_id","address","body","date"},null,null,"date DESC");
+            if(cur!=null){
+                int limit=500;
+                while(cur.moveToNext() && limit-->0){
+                    String id=cur.getString(0), address=cur.getString(1), body=cur.getString(2);
+                    long date=cur.getLong(3);
+                    String externalId="tx-"+id;
+                    JSONObject o=new JSONObject();
+                    o.put("external_id",externalId);
+                    o.put("direction","outbound");
+                    o.put("sender",address==null?"":address);
+                    o.put("body",body==null?"":body);
+                    o.put("received_at",new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX",java.util.Locale.US).format(new java.util.Date(date)));
+                    if(enqueue(c,"sms",externalId,o.toString(),address==null?"":address,body==null?"":body,o.optString("received_at"))) added++;
+                }
+            }
+        }catch(Exception ignored){} finally{if(cur!=null)cur.close();}
+        return added;
     }
 
     public static synchronized List<JSONObject> pending(Context c){
