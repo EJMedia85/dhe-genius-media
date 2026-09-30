@@ -8408,7 +8408,7 @@ app.get("/api/sms/summary", requireCustomer, async (req,res) => {
        WHERE d.customer_id=$1 AND d.active=true`,
       [req.session.customerId]
     );
-    res.json({success:true,summary:{...r.rows[0],voice_notes:Number(r.rows[0]?.voice_notes||0)}});
+    res.json({success:true,summary:r.rows[0]});
   } catch(e) { res.status(500).json({success:false,message:"Could not load SMS summary."}); }
 });
 
