@@ -15,7 +15,19 @@ import java.util.Locale;
 public class WhatsAppNotificationService extends NotificationListenerService {
     private static final String[] PACKAGES={"com.whatsapp","com.whatsapp.w4b"};
 
-    @Override public void onListenerConnected(){\n        super.onListenerConnected();\n        try{\n            StatusBarNotification[] active=getActiveNotifications();\n            if(active!=null) for(StatusBarNotification item:active) processNotification(item);\n        }catch(Exception ignored){}\n    }\n\n    @Override public void onNotificationPosted(StatusBarNotification sbn){\n        processNotification(sbn);\n    }\n\n    private void processNotification(StatusBarNotification sbn){
+    @Override public void onListenerConnected(){
+        super.onListenerConnected();
+        try{
+            StatusBarNotification[] active=getActiveNotifications();
+            if(active!=null) for(StatusBarNotification item:active) processNotification(item);
+        }catch(Exception ignored){}
+    }
+
+    @Override public void onNotificationPosted(StatusBarNotification sbn){
+        processNotification(sbn);
+    }
+
+    private void processNotification(StatusBarNotification sbn){
         if(sbn==null||!isWhatsAppPackage(sbn.getPackageName())) return;
         Notification n=sbn.getNotification();
         if(n==null||n.extras==null) return;
@@ -55,7 +67,8 @@ public class WhatsAppNotificationService extends NotificationListenerService {
         CharSequence[] lines=e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
         if(lines!=null&&lines.length>0){
             StringBuilder out=new StringBuilder();
-            for(CharSequence line:lines)if(line!=null&&line.length()>0){if(out.length()>0)out.append("\n");out.append(line);}
+            for(CharSequence line:lines)if(line!=null&&line.length()>0){if(out.length()>0)out.append("
+");out.append(line);}
             return out.toString();
         }
         return "";
