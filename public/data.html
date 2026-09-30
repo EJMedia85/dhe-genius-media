@@ -1076,57 +1076,20 @@
   // =====================================================
 
 
-  const bundles = {
+  let bundles = {};
 
-    MTN: [
-      ["1GB", 5],
-      ["2GB", 10],
-      ["3GB", 15],
-      ["4GB", 20],
-      ["5GB", 24],
-      ["6GB", 28],
-      ["8GB", 36],
-      ["10GB", 45],
-      ["15GB", 64],
-      ["20GB", 84],
-      ["25GB", 100],
-      ["30GB", 128],
-      ["40GB", 168],
-      ["50GB", 207]
-    ],
-
-    AirtelTigo: [
-      ["1GB", 5],
-      ["2GB", 10],
-      ["3GB", 15],
-      ["4GB", 20],
-      ["5GB", 24],
-      ["6GB", 26],
-      ["8GB", 35],
-      ["10GB", 45],
-      ["12GB", 48],
-      ["15GB", 65],
-      ["25GB", 100],
-      ["30GB", 120],
-      ["40GB", 160],
-      ["50GB", 200]
-    ],
-
-    Telecel: [
-      ["10GB", 45],
-      ["15GB", 60],
-      ["20GB", 76],
-      ["25GB", 100],
-      ["30GB", 115],
-      ["35GB", 136],
-      ["40GB", 150],
-      ["45GB", 165],
-      ["50GB", 185],
-      ["100GB", 407]
-    ]
-
-  };
-
+  async function loadBundleCatalog() {
+    const response = await fetch("/api/data-bundles", {
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Accept": "application/json" }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success || !data.networks) {
+      throw new Error(data.message || "Could not load current DGM bundle prices.");
+    }
+    bundles = data.networks;
+  }
 
   let selectedNetwork = "MTN";
 
@@ -2060,9 +2023,16 @@
   // START
   // =====================================================
 
-  renderBundles();
-
-  loadWallet();
+  (async function startDataPage() {
+    try {
+      await loadBundleCatalog();
+      renderBundles();
+      await loadWallet();
+    } catch (error) {
+      console.error("DGM data catalog error:", error);
+      showMessage(error.message || "Could not load current bundle prices.", "error");
+    }
+  })();
 
 </script>
 
