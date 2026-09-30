@@ -10,7 +10,7 @@
 </style>
 </head>
 <body>
-<div class="wrap">
+<div class="wrap" id="app" style="display:none">
   <div class="top">
     <div class="brand">DHE GENIUS MEDIA<small>Stay Connected. Stay Genius.</small></div>
     <div class="actions"><button class="secondary" onclick="location.href='/sms.html'">SMS</button><button class="secondary" onclick="location.href='/dashboard.html'">Dashboard</button><button onclick="loadAll()">Refresh</button></div>
@@ -57,6 +57,7 @@
 
 <script>
 const $=id=>document.getElementById(id);
+let whatsappUnlocked=false;
 let allMessages=[],threads=[],offset=0,hasMore=true,activeThread=-1;
 
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -82,7 +83,8 @@ function rebuildThreads(){
     const key=(m.device_id||'')+'|'+(m.sender||'WhatsApp');
     (groups[key]??=[]).push(m);
   });
-  threads=Object.values(groups).map(x=>x.sort((a,b)=>new Date(a.received_at)-new Date(b.received_at)));
+  threads=Object.values(groups).map(x=>x.sort((a,b)=>new Date(b.received_at)-new Date(a.received_at)))
+    .sort((a,b)=>new Date(b[0]?.received_at||0)-new Date(a[0]?.received_at||0));
   renderThreads();
   if(activeThread>=0&&threads[activeThread]) renderConversation(threads[activeThread]);
 }
@@ -101,7 +103,7 @@ function renderConversation(t){
   $('threadTitle').textContent=t[0]?.sender||'WhatsApp conversation';
   $('threadMeta').textContent=t.length+' synchronized event'+(t.length===1?'':'s');
   let lastDay='';
-  const out=t.map(m=>{
+  const out=[...t].reverse().map(m=>{
     const day=dayKey(m.received_at);let sep='';
     if(day!==lastDay){lastDay=day;sep='<div class="date-sep">'+esc(day)+'</div>'}
     const sent=String(m.direction||'received').toLowerCase()==='sent';
@@ -123,8 +125,31 @@ async function loadChart(){
   const d=await api('/api/whatsapp/stats?days=30'),rows=d.stats||[],max=Math.max(1,...rows.map(x=>Number(x.messages)||0));
   $('chart').innerHTML=rows.map(x=>{const n=Number(x.messages)||0,h=Math.max(2,Math.round(n/max*135));return '<div class="barwrap" title="'+esc(x.date)+': '+n+' events"><div class="chartvalue">'+n+'</div><div class="bar" style="height:'+h+'px"></div><div class="barlabel">'+esc(x.date.slice(5))+'</div></div>'}).join('');
 }
-async function loadAll(){try{await loadSummary();await loadDevices();await loadMessages(true);await loadChart()}catch(e){console.error(e);$('threads').innerHTML='<div class="empty">Could not load WhatsApp data.<br><br>'+esc(e.message)+'</div>'}}
-loadAll();setInterval(loadAll,15000);
+function showGate(message='') {
+  document.body.innerHTML='<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:#07110d;color:#eef7f1;font-family:Inter,system-ui,Arial"><form id="waGate" style="width:min(420px,100%);background:#0d1b15;border:1px solid #1e3b2d;border-radius:20px;padding:26px"><div style="color:#25d366;font-weight:900;letter-spacing:1px">DHE GENIUS MEDIA</div><h1 style="margin:12px 0 8px">WhatsApp Access</h1><p style="color:#9bb0a5;line-height:1.5">Enter the WhatsApp access password provided by DGM. This is separate from your normal DGM login password.</p><input id="waPassword" type="password" autocomplete="current-password" placeholder="WhatsApp access password" required style="width:100%;padding:13px;border-radius:10px;border:1px solid #1e3b2d;background:#11241c;color:#fff;box-sizing:border-box"><button style="width:100%;margin-top:12px">Unlock WhatsApp</button><div id="waGateMsg" style="color:#f3b3b3;margin-top:10px;font-size:13px">'+esc(message)+'</div><button type="button" style="width:100%;margin-top:8px;background:#11241c;color:#eef7f1;border:1px solid #1e3b2d" onclick="location.href='/dashboard.html'">Back to Dashboard</button></form></div>';
+  document.getElementById('waGate').onsubmit=async e=>{
+    e.preventDefault();
+    const msg=document.getElementById('waGateMsg');msg.textContent='Checking…';
+    try{
+      const r=await fetch('/api/whatsapp/access/unlock',{method:'POST',credentials:'include',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('waPassword').value})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok||d.success===false) throw Error(d.message||'Could not unlock WhatsApp.');
+      whatsappUnlocked=true; location.reload();
+    }catch(err){msg.textContent=err.message}
+  };
+}
+async function bootAccess(){
+  try{
+    const r=await fetch('/api/whatsapp/access/status',{credentials:'include'});
+    if(r.status===401){location.href='/login.html';return}
+    const d=await r.json().catch(()=>({}));
+    if(!d.configured){showGate('WhatsApp access has not been enabled for this account. Contact DGM support.');return}
+    if(!d.granted){showGate();return}
+    document.getElementById('app').style.display='';
+    await loadAll();
+  }catch(e){showGate(e.message||'Could not verify WhatsApp access.')}
+}
+bootAccess();
 </script>
 <script src="/pwa.js" defer></script>
 </body>
