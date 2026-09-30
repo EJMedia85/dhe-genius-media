@@ -107,19 +107,21 @@ public class MainActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
         super.onActivityResult(requestCode,resultCode,data);
-        if(requestCode==WA_IMPORT_REQ&&resultCode==RESULT_OK&&data!=null&&data.getData()!=null){importChat(data.getData());return;}
-private void openVoiceFolderPicker(){
+        if(requestCode==WA_IMPORT_REQ&&resultCode==RESULT_OK&&data!=null&&data.getData()!=null){
+            importChat(data.getData()); return;
+        }
+        if(requestCode==VOICE_TREE_REQ&&resultCode==RESULT_OK&&data!=null&&data.getData()!=null){
+            Uri uri=data.getData();
+            try{getContentResolver().takePersistableUriPermission(uri,data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION));}catch(Exception ignored){}
+            VoiceMediaSync.setTree(this,uri); VoiceMediaSync.schedule(this); VoiceMediaSync.now(this); refresh();
+        }
+    }
+    private void openVoiceFolderPicker(){
         try{
             Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
             i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             startActivityForResult(i,VOICE_TREE_REQ);
         }catch(Exception e){status.setText("Could not open folder picker: "+e.getMessage());}
-    }
-    if(requestCode==VOICE_TREE_REQ&&resultCode==RESULT_OK&&data!=null&&data.getData()!=null){
-            Uri uri=data.getData();
-            try{getContentResolver().takePersistableUriPermission(uri,data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION));}catch(Exception ignored){}
-            VoiceMediaSync.setTree(this,uri);VoiceMediaSync.schedule(this);VoiceMediaSync.now(this);refresh();
-        }
     }
     private void refresh(){
         boolean enabled=NotificationManagerCompat.getEnabledListenerPackages(this).contains(getPackageName());
