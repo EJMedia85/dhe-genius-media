@@ -1977,14 +1977,19 @@ async function ensureSavingsTables() {
 }
 
 async function getSavingsAccount(customerId, client = pool) {
-  const result = await client.query(`
-    INSERT INTO savings_accounts (customer_id)
-    VALUES ($1)
-    ON CONFLICT (customer_id)
-    DO UPDATE SET updated_at = savings_accounts.updated_at
-    RETURNING *;
-  `, [customerId]);
-  return result.rows[0];
+  const result = await client.query(
+    "SELECT * FROM savings_accounts WHERE customer_id = $1 AND withdrawal_pin_hash IS NOT NULL LIMIT 1",
+    [customerId]
+  );
+  return result.rows[0] || null;
+}
+
+async function getSavingsAccountRecord(customerId, client = pool) {
+  const result = await client.query(
+    "SELECT * FROM savings_accounts WHERE customer_id = $1 LIMIT 1",
+    [customerId]
+  );
+  return result.rows[0] || null;
 }
 
 
@@ -8552,7 +8557,7 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Create a 4–8 digit Savings withdrawal code.");
     if (withdrawalCode !== confirmCode) return sendError(res, 400, "Savings withdrawal codes do not match.");
     await client.query("BEGIN");
-    const existing = await getSavingsAccount(req.session.customerId, client);
+    const existing = await getSavingsAccountRecord(req.session.customerId, client);
     if (existing) { await client.query("ROLLBACK"); return sendError(res, 409, "Your Savings/Susu account already exists."); }
     const customerResult = await client.query("SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE", [req.session.customerId]);
     if (!customerResult.rows.length) { await client.query("ROLLBACK"); return sendError(res, 404, "Customer account not found."); }
