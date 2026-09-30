@@ -75,7 +75,7 @@ async function load(){
  const cu=await api('/api/admin/customers');$('#customersBody').innerHTML=cu.customers.length?cu.customers.map(c=>'<tr><td>'+c.id+'</td><td>'+esc(c.name)+'</td><td><button type="button" class="email-link" onclick="openCustomerDetails('+c.id+')">'+esc(c.email)+'</button></td><td>'+esc(c.phone)+'</td><td><strong>GH₵'+Number(c.balance||0).toFixed(2)+'</strong></td><td>'+new Date(c.created_at).toLocaleString()+'</td><td><div class="wallet-actions"><button type="button" class="wallet-credit" onclick="adminCredit('+c.id+')">Admin Credit</button><button type="button" class="wallet-debit" onclick="adminDebit('+c.id+')">Admin Debit</button></div></td><td><button onclick="removeCustomer('+c.id+',\''+esc(c.name).replace(/'/g,"\\'")+'\')">Remove</button></td></tr>').join(''):'<tr><td colspan="8" class="empty">No customers found.</td></tr>';
 }
 async function adminCredit(id){
-  const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+'));
+  const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+')'));
   const currentMatch=currentRow?.innerText.match(/GH₵([0-9]+(?:\\.[0-9]+)?)/);
   const current=currentMatch?Number(currentMatch[1]):0;
   const amountText=prompt('Enter amount to CREDIT to this wallet (GH₵):','10.00');
@@ -102,7 +102,7 @@ async function adminCredit(id){
   }catch(err){alert(err.message)}
 }
 async function adminDebit(id){
-  const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+'));
+  const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+')'));
   const currentMatch=currentRow?.innerText.match(/GH₵([0-9]+(?:\\.[0-9]+)?)/);
   const current=currentMatch?Number(currentMatch[1]):0;
   const amountText=prompt('Enter amount to DEBIT from this wallet (GH₵):','10.00');
