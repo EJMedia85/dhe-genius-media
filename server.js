@@ -1884,6 +1884,63 @@ app.use(
 // HELPERS
 // =====================================================
 
+
+// =====================================================
+// SAVINGS / SUSU LEDGER
+// =====================================================
+
+async function ensureSavingsTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS savings_accounts (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER UNIQUE NOT NULL
+        REFERENCES customers(id) ON DELETE CASCADE,
+      balance NUMERIC(12,2) NOT NULL DEFAULT 0,
+      target_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      contribution_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      frequency TEXT NOT NULL DEFAULT 'Flexible',
+      status TEXT NOT NULL DEFAULT 'Active',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS savings_transactions (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL
+        REFERENCES customers(id) ON DELETE CASCADE,
+      savings_account_id INTEGER NOT NULL
+        REFERENCES savings_accounts(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      balance_before NUMERIC(12,2) NOT NULL DEFAULT 0,
+      balance_after NUMERIC(12,2) NOT NULL DEFAULT 0,
+      description TEXT,
+      reference TEXT UNIQUE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Completed',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_savings_transactions_customer
+    ON savings_transactions(customer_id, created_at DESC);
+  `);
+}
+
+async function getOrCreateSavingsAccount(customerId, client = pool) {
+  const result = await client.query(`
+    INSERT INTO savings_accounts (customer_id)
+    VALUES ($1)
+    ON CONFLICT (customer_id)
+    DO UPDATE SET updated_at = savings_accounts.updated_at
+    RETURNING *;
+  `, [customerId]);
+  return result.rows[0];
+}
+
+
 function cleanPhone(value) {
 
   return String(value || "")
@@ -8209,6 +8266,306 @@ app.get("/api/health", async (req, res) => {
   }
 });
 
+
+// =====================================================
+// SAVINGS / SUSU
+// Money is transferred atomically between the existing
+// customer wallet and a separate savings ledger.
+// =====================================================
+
+app.get("/api/savings", requireLogin, async (req, res) => {
+  try {
+    const account = await getOrCreateSavingsAccount(req.session.customerId);
+    const tx = await pool.query(`
+      SELECT id, type, amount, balance_before, balance_after,
+             description, reference, status, created_at
+      FROM savings_transactions
+      WHERE customer_id = $1
+      ORDER BY created_at DESC
+      LIMIT 100
+    `, [req.session.customerId]);
+
+    return res.json({
+      success: true,
+      account: {
+        ...account,
+        balance: Number(account.balance || 0),
+        target_amount: Number(account.target_amount || 0),
+        contribution_amount: Number(account.contribution_amount || 0)
+      },
+      transactions: tx.rows.map(row => ({
+        ...row,
+        amount: Number(row.amount || 0),
+        balance_before: Number(row.balance_before || 0),
+        balance_after: Number(row.balance_after || 0)
+      }))
+    });
+  } catch (error) {
+    console.error("Savings load error:", error);
+    return sendError(res, 500, "Could not load savings account.");
+  }
+});
+
+app.post("/api/savings/settings", requireLogin, async (req, res) => {
+  try {
+    const target = Math.max(0, Math.round(Number(req.body?.targetAmount || 0) * 100) / 100);
+    const contribution = Math.max(0, Math.round(Number(req.body?.contributionAmount || 0) * 100) / 100);
+    const frequency = String(req.body?.frequency || "Flexible").trim();
+
+    if (!["Flexible", "Daily", "Weekly", "Monthly"].includes(frequency)) {
+      return sendError(res, 400, "Invalid savings frequency.");
+    }
+
+    const account = await getOrCreateSavingsAccount(req.session.customerId);
+    const updated = await pool.query(`
+      UPDATE savings_accounts
+      SET target_amount = $1,
+          contribution_amount = $2,
+          frequency = $3,
+          updated_at = NOW()
+      WHERE id = $4
+      RETURNING *
+    `, [target, contribution, frequency, account.id]);
+
+    return res.json({ success: true, account: updated.rows[0] });
+  } catch (error) {
+    console.error("Savings settings error:", error);
+    return sendError(res, 500, "Could not save your savings plan.");
+  }
+});
+
+app.post("/api/savings/deposit", requireLogin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+      return sendError(res, 400, "Savings contribution must be between GH₵1.00 and GH₵10,000.00.");
+    }
+
+    await client.query("BEGIN");
+    const customerResult = await client.query(
+      "SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE",
+      [req.session.customerId]
+    );
+    if (!customerResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer account not found.");
+    }
+
+    const walletBalance = Number(customerResult.rows[0].balance || 0);
+    if (walletBalance < amount) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Insufficient wallet balance. Add money to your DGM wallet first.");
+    }
+
+    const account = await getOrCreateSavingsAccount(req.session.customerId, client);
+    const savingsBefore = Number(account.balance || 0);
+    const savingsAfter = Math.round((savingsBefore + amount) * 100) / 100;
+    const walletAfter = Math.round((walletBalance - amount) * 100) / 100;
+    const reference = "DGM-SUSU-IN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    await client.query(
+      "UPDATE customers SET balance = $1 WHERE id = $2",
+      [walletAfter, req.session.customerId]
+    );
+
+    await client.query(`
+      INSERT INTO wallet_transactions
+        (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, reference, status)
+      VALUES ($1, 'Savings Transfer', $2, $3, $4, $5, $6, $6, 'Completed')
+    `, [
+      req.session.customerId, amount, walletBalance, walletAfter,
+      "Transfer to DGM Savings/Susu", reference
+    ]);
+
+    await client.query(`
+      UPDATE savings_accounts
+      SET balance = $1, updated_at = NOW()
+      WHERE id = $2
+    `, [savingsAfter, account.id]);
+
+    await client.query(`
+      INSERT INTO savings_transactions
+        (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
+      VALUES ($1, $2, 'Contribution', $3, $4, $5, $6, $7)
+    `, [
+      req.session.customerId, account.id, amount, savingsBefore, savingsAfter,
+      "Wallet to Savings/Susu contribution", reference
+    ]);
+
+    await client.query("COMMIT");
+    return res.json({ success: true, balance: savingsAfter, walletBalance: walletAfter, reference });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Savings deposit error:", error);
+    return sendError(res, 500, "Could not add money to savings.");
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+      return sendError(res, 400, "Savings withdrawal must be between GH₵1.00 and GH₵10,000.00.");
+    }
+
+    await client.query("BEGIN");
+    const accountResult = await client.query(
+      "SELECT * FROM savings_accounts WHERE customer_id = $1 FOR UPDATE",
+      [req.session.customerId]
+    );
+    if (!accountResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Your savings account has not been created yet.");
+    }
+
+    const account = accountResult.rows[0];
+    const savingsBefore = Number(account.balance || 0);
+    if (savingsBefore < amount) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Insufficient savings balance.");
+    }
+
+    const customerResult = await client.query(
+      "SELECT balance FROM customers WHERE id = $1 FOR UPDATE",
+      [req.session.customerId]
+    );
+    const walletBefore = Number(customerResult.rows[0]?.balance || 0);
+    const savingsAfter = Math.round((savingsBefore - amount) * 100) / 100;
+    const walletAfter = Math.round((walletBefore + amount) * 100) / 100;
+    const reference = "DGM-SUSU-OUT-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    await client.query(
+      "UPDATE savings_accounts SET balance = $1, updated_at = NOW() WHERE id = $2",
+      [savingsAfter, account.id]
+    );
+    await client.query(
+      "UPDATE customers SET balance = $1 WHERE id = $2",
+      [walletAfter, req.session.customerId]
+    );
+
+    await client.query(`
+      INSERT INTO savings_transactions
+        (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
+      VALUES ($1, $2, 'Withdrawal', $3, $4, $5, $6, $7)
+    `, [
+      req.session.customerId, account.id, amount, savingsBefore, savingsAfter,
+      "Savings/Susu withdrawal to DGM wallet", reference
+    ]);
+
+    await client.query(`
+      INSERT INTO wallet_transactions
+        (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, reference, status)
+      VALUES ($1, 'Savings Transfer', $2, $3, $4, $5, $6, $6, 'Completed')
+    `, [
+      req.session.customerId, amount, walletBefore, walletAfter,
+      "Transfer from DGM Savings/Susu", reference
+    ]);
+
+    await client.query("COMMIT");
+    return res.json({ success: true, balance: savingsAfter, walletBalance: walletAfter, reference });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Savings withdrawal error:", error);
+    return sendError(res, 500, "Could not withdraw from savings.");
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/admin/savings", requireAdmin, async (req, res) => {
+  try {
+    const summary = await pool.query(`
+      SELECT
+        COUNT(*)::int AS accounts,
+        COALESCE(SUM(balance), 0) AS total_savings
+      FROM savings_accounts
+      WHERE status = 'Active'
+    `);
+    const customers = await pool.query(`
+      SELECT
+        sa.id, sa.customer_id, c.name, c.phone, c.email,
+        sa.balance, sa.target_amount, sa.contribution_amount,
+        sa.frequency, sa.status, sa.updated_at
+      FROM savings_accounts sa
+      JOIN customers c ON c.id = sa.customer_id
+      ORDER BY sa.updated_at DESC
+      LIMIT 500
+    `);
+    return res.json({
+      success: true,
+      summary: {
+        accounts: Number(summary.rows[0]?.accounts || 0),
+        totalSavings: Number(summary.rows[0]?.total_savings || 0)
+      },
+      accounts: customers.rows.map(x => ({
+        ...x,
+        balance: Number(x.balance || 0),
+        target_amount: Number(x.target_amount || 0),
+        contribution_amount: Number(x.contribution_amount || 0)
+      }))
+    });
+  } catch (error) {
+    console.error("Admin savings error:", error);
+    return sendError(res, 500, "Could not load savings management.");
+  }
+});
+
+app.post("/api/admin/savings/:customerId/adjust", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const customerId = Number(req.params.customerId);
+    const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    const action = String(req.body?.action || "").toLowerCase();
+    const note = String(req.body?.note || "Admin savings adjustment").trim().slice(0, 500);
+
+    if (!Number.isInteger(customerId) || customerId < 1 || !Number.isFinite(amount) || amount <= 0 || amount > 10000) {
+      return sendError(res, 400, "Invalid savings adjustment.");
+    }
+    if (!["credit", "debit"].includes(action)) {
+      return sendError(res, 400, "Adjustment must be credit or debit.");
+    }
+
+    await client.query("BEGIN");
+    const account = await getOrCreateSavingsAccount(customerId, client);
+    const before = Number(account.balance || 0);
+    const after = action === "credit"
+      ? Math.round((before + amount) * 100) / 100
+      : Math.round((before - amount) * 100) / 100;
+
+    if (after < 0) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Savings balance cannot go below zero.");
+    }
+
+    const reference = "DGM-SUSU-ADMIN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    await client.query(
+      "UPDATE savings_accounts SET balance = $1, updated_at = NOW() WHERE id = $2",
+      [after, account.id]
+    );
+    await client.query(`
+      INSERT INTO savings_transactions
+        (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    `, [
+      customerId, account.id, "Admin " + (action === "credit" ? "Credit" : "Debit"),
+      amount, before, after, note, reference
+    ]);
+
+    await client.query("COMMIT");
+    return res.json({ success: true, balance: after, reference });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Admin savings adjustment error:", error);
+    return sendError(res, 500, "Could not adjust savings balance.");
+  } finally {
+    client.release();
+  }
+});
+
 // =====================================================
 // API 404
 // =====================================================
@@ -8334,6 +8691,7 @@ async function startServer() {
   try {
 
     await initDatabase();
+    await ensureSavingsTables();
     await ensureSmsTables();
     await initializeAdminCredentials();
 
