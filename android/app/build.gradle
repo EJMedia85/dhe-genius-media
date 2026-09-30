@@ -9,9 +9,9 @@ android {
     defaultConfig {
         applicationId 'com.dhegeniusmedia.sms'
         minSdk 21
-        targetSdk 30
-        versionCode 8
-        versionName '1.4.2'
+        targetSdk 28
+        versionCode 9
+        versionName '1.4.3'
     }
 }
 
