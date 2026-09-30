@@ -1,4 +1,4 @@
-const CACHE = "dgm-pwa-v1";
+const CACHE = "dgm-pwa-v2";
 const STATIC = ["/index.html","/manifest.webmanifest","/pwa.js","/icons/dgm-192.svg","/icons/dgm-512.svg"];
 
 self.addEventListener("install", event => {
