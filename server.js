@@ -2,6 +2,7 @@ const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
 const path = require("path");
+const fs = require("fs");
 const crypto = require("crypto");
 const { Pool } = require("pg");
 
@@ -8539,18 +8540,18 @@ app.use((req,res,next)=>{
 });
 
 // DGM PWA bootstrap for customer-facing pages.
-app.get(/\\.html$/, async (req, res, next) => {
+app.get(/\.html$/, async (req, res, next) => {
   const excluded = new Set(["/admin.html", "/admin-login.html", "/movie-admin.html", "/savings-admin.html"]);
   if (excluded.has(req.path)) return next();
   try {
-    const filePath = path.join(__dirname, "public", req.path.replace(/^\\//, ""));
+    const filePath = path.join(__dirname, "public", req.path.replace(/^\//, ""));
     if (!filePath.startsWith(path.join(__dirname, "public"))) return next();
     let html = await fs.promises.readFile(filePath, "utf8");
     if (!html.includes('rel="manifest"')) {
-      html = html.replace(/<head([^>]*)>/i, '<head$1>\\n  <meta name="theme-color" content="#07131f">\\n  <meta name="mobile-web-app-capable" content="yes">\\n  <meta name="apple-mobile-web-app-capable" content="yes">\\n  <link rel="manifest" href="/manifest.webmanifest">');
+      html = html.replace(/<head([^>]*)>/i, '<head$1>\n  <meta name="theme-color" content="#07131f">\\n  <meta name="mobile-web-app-capable" content="yes">\\n  <meta name="apple-mobile-web-app-capable" content="yes">\\n  <link rel="manifest" href="/manifest.webmanifest">');
     }
     if (!html.includes('src="/pwa.js"')) {
-      html = html.replace(/<\\/body>/i, '<script src="/pwa.js" defer></script>\\n</body>');
+      html = html.replace(/<\/body>/i, '<script src="/pwa.js" defer></script>\n</body>');
     }
     res.type("html").send(html);
   } catch (error) {
