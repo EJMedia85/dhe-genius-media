@@ -34,8 +34,11 @@ const PAYSTACK_SECRET_KEY =
   process.env.PAYSTACK_SECRET_KEY || "";
 
 const SESSION_SECRET =
-  process.env.SESSION_SECRET ||
-  "dgm-change-this-secret";
+  String(process.env.SESSION_SECRET || "").trim();
+
+if (NODE_ENV === "production" && SESSION_SECRET.length < 32) {
+  throw new Error("SESSION_SECRET must be configured with at least 32 characters in production.");
+}
 
 const BASE_URL =
   process.env.BASE_URL ||
@@ -157,38 +160,30 @@ function kingflexyAirtimeNetwork(network) {
   return value;
 }
 
-const FOOTBALL_DATA_API_TOKEN = process.env.SPORTS_API_KEY || process.env.FOOTBALL_DATA_API_TOKEN || "";
-const FOOTBALL_DATA_BASE = "https://api.football-data.org/v4";
-const FOOTBALL_DATA_COMPETITIONS = {
-  39: "PL",
-  140: "PD",
-  135: "SA",
-  78: "BL1",
-  61: "FL1"
-};
-const footballDataCache = new Map();
+const SPORTS_API_KEY = process.env.SPORTS_API_KEY || process.env.API_FOOTBALL_KEY || "";
+const SPORTS_BASE = "https://v3.football.api-sports.io";
+const SPORTS_LEAGUES = [39, 140, 135, 78, 61];
+const SPORTS_SEASON = Number(
+  process.env.SPORTS_SEASON ||
+  (new Date().getUTCMonth() >= 7 ? new Date().getUTCFullYear() : new Date().getUTCFullYear() - 1)
+);
 
-async function footballDataRequest(path, params = {}) {
-  if (!FOOTBALL_DATA_API_TOKEN) {
-    const error = new Error("Football data is not configured yet. Add FOOTBALL_DATA_API_TOKEN in Render environment variables.");
+async function sportsRequest(path, params = {}) {
+  if (!SPORTS_API_KEY) {
+    const error = new Error("API-Football is not configured yet. Add SPORTS_API_KEY in Render environment variables.");
     error.status = 503;
     throw error;
   }
-
-  const url = new URL(FOOTBALL_DATA_BASE + path);
+  const url = new URL(SPORTS_BASE + path);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
   });
-
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
-
   try {
     const response = await fetch(url, {
-      method: "GET",
       headers: {
-        "X-Auth-Token": FOOTBALL_DATA_API_TOKEN,
-        "X-Unfold-Goals": "true",
+        "x-apisports-key": SPORTS_API_KEY,
         Accept: "application/json"
       },
       signal: controller.signal
@@ -196,21 +191,25 @@ async function footballDataRequest(path, params = {}) {
     const text = await response.text();
     let data = {};
     try { data = text ? JSON.parse(text) : {}; } catch { data = { raw: text }; }
-
     if (!response.ok) {
-      const error = new Error(
-        "Football-Data HTTP " + response.status + ": " +
-        (data?.message || data?.errorCode || "Request failed")
-      );
+      const message = data?.errors && Object.values(data.errors).length
+        ? Object.values(data.errors).join("; ")
+        : "Request failed";
+      const error = new Error("API-Football HTTP " + response.status + ": " + message);
       error.status = response.status;
       error.data = data;
       throw error;
     }
-
+    if (data.errors && Object.keys(data.errors).length) {
+      const error = new Error(Object.values(data.errors).join("; "));
+      error.status = 502;
+      error.data = data;
+      throw error;
+    }
     return data;
   } catch (error) {
     if (error.name === "AbortError") {
-      const timeoutError = new Error("Football data request timed out.");
+      const timeoutError = new Error("API-Football request timed out.");
       timeoutError.status = 504;
       throw timeoutError;
     }
@@ -220,118 +219,95 @@ async function footballDataRequest(path, params = {}) {
   }
 }
 
-function normalizeFootballDataMatch(match) {
-  const m = match || {};
-  const statusMap = {
-    SCHEDULED: { short: "NS", long: "Not Started", elapsed: null },
-    TIMED: { short: "NS", long: "Scheduled", elapsed: null },
-    IN_PLAY: { short: "LIVE", long: "In Play", elapsed: m.minute ?? null },
-    PAUSED: { short: "HT", long: "Half Time", elapsed: m.minute ?? 45 },
-    FINISHED: { short: "FT", long: "Match Finished", elapsed: 90 },
-    POSTPONED: { short: "PST", long: "Postponed", elapsed: null },
-    SUSPENDED: { short: "SUSP", long: "Suspended", elapsed: null },
-    CANCELLED: { short: "CANC", long: "Cancelled", elapsed: null }
+function normalizeSportsFixture(item) {
+  const f = item?.fixture || {};
+  const l = item?.league || {};
+  const t = item?.teams || {};
+  const g = item?.goals || {};
+  const s = item?.score || {};
+  const status = f.status || {};
+  const short = status.short || "NS";
+  const longMap = {
+    TBD: "To Be Defined", NS: "Not Started", LIVE: "In Play", 1H: "First Half",
+    HT: "Half Time", 2H: "Second Half", ET: "Extra Time", BT: "Break Time",
+    P: "Penalties", FT: "Match Finished", AET: "After Extra Time", PEN: "After Penalties",
+    PST: "Postponed", CANC: "Cancelled", ABD: "Abandoned", AWD: "Awarded", WO: "Walkover"
   };
-  const status = statusMap[m.status] || { short: m.status || "NS", long: m.status || "Scheduled", elapsed: null };
   return {
     fixture: {
-      id: m.id,
-      date: m.utcDate,
-      timestamp: m.utcDate ? Math.floor(new Date(m.utcDate).getTime() / 1000) : null,
-      status,
-      venue: { name: m.venue || null }
+      id: f.id,
+      date: f.date,
+      timestamp: f.timestamp || (f.date ? Math.floor(new Date(f.date).getTime() / 1000) : null),
+      status: {
+        short,
+        long: longMap[short] || status.long || short,
+        elapsed: status.elapsed ?? null
+      },
+      venue: { name: f.venue?.name || null }
     },
     league: {
-      id: m.competition?.id,
-      name: m.competition?.name,
-      code: m.competition?.code,
-      emblem: m.competition?.emblem
+      id: l.id,
+      name: l.name,
+      country: l.country,
+      logo: l.logo,
+      emblem: l.logo
     },
     teams: {
-      home: {
-        id: m.homeTeam?.id,
-        name: m.homeTeam?.name,
-        shortName: m.homeTeam?.shortName,
-        logo: m.homeTeam?.crest
-      },
-      away: {
-        id: m.awayTeam?.id,
-        name: m.awayTeam?.name,
-        shortName: m.awayTeam?.shortName,
-        logo: m.awayTeam?.crest
-      }
+      home: { id: t.home?.id, name: t.home?.name, shortName: t.home?.name, logo: t.home?.logo },
+      away: { id: t.away?.id, name: t.away?.name, shortName: t.away?.name, logo: t.away?.logo }
     },
     goals: {
-      home: m.score?.fullTime?.home ?? null,
-      away: m.score?.fullTime?.away ?? null
+      home: g.home ?? null,
+      away: g.away ?? null
     },
     score: {
-      fulltime: {
-        home: m.score?.fullTime?.home ?? null,
-        away: m.score?.fullTime?.away ?? null
-      },
-      halftime: {
-        home: m.score?.halfTime?.home ?? null,
-        away: m.score?.halfTime?.away ?? null
-      }
+      fulltime: { home: s.fulltime?.home ?? g.home ?? null, away: s.fulltime?.away ?? g.away ?? null },
+      halftime: { home: s.halftime?.home ?? null, away: s.halftime?.away ?? null }
     },
-    status: status
+    status: {
+      short,
+      long: longMap[short] || status.long || short,
+      elapsed: status.elapsed ?? null
+    }
   };
-}
-
-function footballDataCompetitionCode(league) {
-  return FOOTBALL_DATA_COMPETITIONS[Number(league)] || String(league || "").trim();
-}
-
-async function getCachedCompetitionTeams(code) {
-  const cached = footballDataCache.get("teams:" + code);
-  if (cached && cached.expiresAt > Date.now()) return cached.value;
-  const data = await footballDataRequest("/competitions/" + encodeURIComponent(code) + "/teams");
-  const teams = data.teams || [];
-  footballDataCache.set("teams:" + code, { value: teams, expiresAt: Date.now() + 30 * 60 * 1000 });
-  return teams;
 }
 
 function sendSportsApiError(res, error) {
   const status = Number.isInteger(error.status) && error.status >= 400 ? error.status : 500;
   return res.status(status).json({
     success: false,
-    provider: "Football-Data.org",
-    configured: Boolean(FOOTBALL_DATA_API_TOKEN),
+    provider: "API-Football",
+    configured: Boolean(SPORTS_API_KEY),
     message: error.message || "Sports data request failed."
   });
 }
 
-// =====================================================
-// LIVE SPORTS API — FOOTBALL-DATA.ORG
-// =====================================================
-
 app.get("/api/sports/status", (req, res) => {
   res.json({
     success: true,
-    provider: "Football-Data.org",
-    configured: Boolean(FOOTBALL_DATA_API_TOKEN),
-    competitions: FOOTBALL_DATA_COMPETITIONS,
+    provider: "API-Football",
+    configured: Boolean(SPORTS_API_KEY),
+    season: SPORTS_SEASON,
+    leagues: SPORTS_LEAGUES,
     updated_at: new Date().toISOString()
   });
 });
 
 app.get("/api/sports/live", async (req, res) => {
   try {
-    const codes = Object.values(FOOTBALL_DATA_COMPETITIONS);
-    const results = await Promise.all(
-      codes.map(code => footballDataRequest("/competitions/" + code + "/matches", { status: "IN_PLAY" }).catch(() => ({ matches: [] })))
-    );
-    const matches = results.flatMap(data => (data.matches || []).map(normalizeFootballDataMatch));
+    const data = await sportsRequest("/fixtures", { live: "all" });
+    const matches = (data.response || [])
+      .filter(item => SPORTS_LEAGUES.includes(Number(item?.league?.id)))
+      .map(normalizeSportsFixture);
     return res.json({
       success: true,
-      provider: "Football-Data.org",
+      provider: "API-Football",
       updated_at: new Date().toISOString(),
       count: matches.length,
       matches
     });
   } catch (error) {
-    console.error("Football-Data live error:", error.message);
+    console.error("API-Football live error:", error.message);
     return sendSportsApiError(res, error);
   }
 });
@@ -342,26 +318,21 @@ app.get("/api/sports/fixtures", async (req, res) => {
     const date = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
       ? requestedDate
       : new Date().toISOString().slice(0, 10);
-
-    const codes = Object.values(FOOTBALL_DATA_COMPETITIONS);
-    const results = await Promise.all(
-      codes.map(code => footballDataRequest("/competitions/" + code + "/matches", {
-        dateFrom: date,
-        dateTo: date
-      }).catch(() => ({ matches: [] })))
-    );
-    const matches = results.flatMap(data => (data.matches || []).map(normalizeFootballDataMatch));
-
+    const data = await sportsRequest("/fixtures", { date, timezone: "UTC" });
+    const matches = (data.response || [])
+      .filter(item => SPORTS_LEAGUES.includes(Number(item?.league?.id)))
+      .map(normalizeSportsFixture);
     return res.json({
       success: true,
-      provider: "Football-Data.org",
+      provider: "API-Football",
       date,
+      season: SPORTS_SEASON,
       updated_at: new Date().toISOString(),
       count: matches.length,
       matches
     });
   } catch (error) {
-    console.error("Football-Data fixtures error:", error.message);
+    console.error("API-Football fixtures error:", error.message);
     return sendSportsApiError(res, error);
   }
 });
@@ -372,47 +343,29 @@ app.get("/api/sports/teams", async (req, res) => {
     if (search.length < 3) {
       return res.status(400).json({ success: false, message: "Enter at least 3 characters to search teams." });
     }
-
-    const allTeams = [];
-    for (const code of Object.values(FOOTBALL_DATA_COMPETITIONS)) {
-      try {
-        allTeams.push(...await getCachedCompetitionTeams(code));
-      } catch {}
-    }
-
-    const seen = new Set();
-    const teams = allTeams
-      .filter(team => {
-        const key = team.id || team.name;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return String(team.name || "").toLowerCase().includes(search.toLowerCase()) ||
-          String(team.shortName || "").toLowerCase().includes(search.toLowerCase());
-      })
-      .slice(0, 20)
-      .map(team => ({
-        team: {
-          id: team.id,
-          name: team.name,
-          shortName: team.shortName,
-          tla: team.tla,
-          logo: team.crest,
-          country: team.area?.name,
-          founded: team.founded,
-          national: false
-        },
-        venue: { name: team.venue || null }
-      }));
-
+    const data = await sportsRequest("/teams", { search });
+    const teams = (data.response || []).slice(0, 20).map(item => ({
+      team: {
+        id: item.team?.id,
+        name: item.team?.name,
+        shortName: item.team?.name,
+        tla: item.team?.code,
+        logo: item.team?.logo,
+        country: item.team?.country,
+        founded: item.team?.founded,
+        national: Boolean(item.team?.national)
+      },
+      venue: { name: item.venue?.name || null }
+    }));
     return res.json({
       success: true,
-      provider: "Football-Data.org",
+      provider: "API-Football",
       search,
       count: teams.length,
       teams
     });
   } catch (error) {
-    console.error("Football-Data team search error:", error.message);
+    console.error("API-Football team search error:", error.message);
     return sendSportsApiError(res, error);
   }
 });
@@ -420,27 +373,27 @@ app.get("/api/sports/teams", async (req, res) => {
 app.get("/api/sports/team/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({ success: false, message: "A valid team ID is required." });
-    }
-    const data = await footballDataRequest("/teams/" + id);
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ success: false, message: "A valid team ID is required." });
+    const data = await sportsRequest("/teams", { id });
+    const item = data.response?.[0];
+    if (!item) return res.status(404).json({ success: false, provider: "API-Football", message: "Team not found." });
     return res.json({
       success: true,
-      provider: "Football-Data.org",
+      provider: "API-Football",
       team: {
-        id: data.id,
-        name: data.name,
-        shortName: data.shortName,
-        tla: data.tla,
-        logo: data.crest,
-        country: data.area?.name,
-        founded: data.founded,
-        national: false
+        id: item.team?.id,
+        name: item.team?.name,
+        shortName: item.team?.name,
+        tla: item.team?.code,
+        logo: item.team?.logo,
+        country: item.team?.country,
+        founded: item.team?.founded,
+        national: Boolean(item.team?.national)
       },
-      venue: { name: data.venue || null }
+      venue: { name: item.venue?.name || null }
     });
   } catch (error) {
-    console.error("Football-Data team detail error:", error.message);
+    console.error("API-Football team detail error:", error.message);
     return sendSportsApiError(res, error);
   }
 });
@@ -448,48 +401,44 @@ app.get("/api/sports/team/:id", async (req, res) => {
 app.get("/api/sports/standings", async (req, res) => {
   try {
     const league = Number(req.query.league || 39);
-    const code = footballDataCompetitionCode(league);
-    if (!code) {
-      return res.status(400).json({ success: false, message: "A valid league is required." });
+    if (!SPORTS_LEAGUES.includes(league)) {
+      return res.status(400).json({ success: false, message: "Unsupported league." });
     }
-
-    const data = await footballDataRequest("/competitions/" + encodeURIComponent(code) + "/standings");
-    const standings = (data.standings || []).map(item => ({
+    const data = await sportsRequest("/standings", { league, season: SPORTS_SEASON });
+    const rows = data.response?.[0]?.league?.standings?.[0] || [];
+    const leagueInfo = data.response?.[0]?.league || {};
+    const standings = [{
       league: {
-        id: data.competition?.id,
-        name: data.competition?.name,
-        code: data.competition?.code,
-        emblem: data.competition?.emblem
+        id: leagueInfo.id || league,
+        name: leagueInfo.name || "League",
+        code: leagueInfo.name || "",
+        emblem: leagueInfo.logo || null,
+        logo: leagueInfo.logo || null
       },
-      group: (item.table || []).map(row => ({
-        rank: row.position,
-        team: {
-          id: row.team?.id,
-          name: row.team?.name,
-          logo: row.team?.crest
-        },
+      group: rows.map(row => ({
+        rank: row.rank,
+        team: { id: row.team?.id, name: row.team?.name, logo: row.team?.logo },
         points: row.points,
-        goalsDiff: row.goalDifference,
+        goalsDiff: row.goalsDiff,
         all: {
-          played: row.playedGames,
-          win: row.won,
-          draw: row.draw,
-          lose: row.lost,
-          goals: { for: row.goalsFor, against: row.goalsAgainst }
+          played: row.all?.played,
+          win: row.all?.win,
+          draw: row.all?.draw,
+          lose: row.all?.lose,
+          goals: { for: row.all?.goals?.for, against: row.all?.goals?.against }
         }
       }))
-    }));
-
+    }];
     return res.json({
       success: true,
-      provider: "Football-Data.org",
+      provider: "API-Football",
       league,
-      season: data.season?.startDate ? Number(data.season.startDate.slice(0, 4)) : null,
+      season: SPORTS_SEASON,
       updated_at: new Date().toISOString(),
       standings
     });
   } catch (error) {
-    console.error("Football-Data standings error:", error.message);
+    console.error("API-Football standings error:", error.message);
     return sendSportsApiError(res, error);
   }
 });
@@ -497,40 +446,44 @@ app.get("/api/sports/standings", async (req, res) => {
 app.get("/api/sports/match/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    if (!Number.isInteger(id) || id <= 0) {
-      return res.status(400).json({ success: false, message: "A valid fixture ID is required." });
-    }
-
-    const data = await footballDataRequest("/matches/" + id);
-    if (!data || !data.id) {
-      return res.status(404).json({
-        success: false,
-        provider: "Football-Data.org",
-        message: "Match not found."
-      });
-    }
-
-    const match = normalizeFootballDataMatch(data);
-    const events = (data.goals || []).map(goal => ({
-      time: { elapsed: goal.minute },
-      team: { id: goal.team?.id, name: goal.team?.name },
-      player: { name: goal.scorer?.name },
-      assist: { name: goal.assist?.name },
-      type: "Goal",
-      detail: goal.type || "Normal Goal"
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ success: false, message: "A valid fixture ID is required." });
+    const [fixtureData, eventsData, statsData, lineupsData] = await Promise.all([
+      sportsRequest("/fixtures", { id }),
+      sportsRequest("/fixtures/events", { fixture: id }).catch(() => ({ response: [] })),
+      sportsRequest("/fixtures/statistics", { fixture: id }).catch(() => ({ response: [] })),
+      sportsRequest("/fixtures/lineups", { fixture: id }).catch(() => ({ response: [] }))
+    ]);
+    const item = fixtureData.response?.[0];
+    if (!item) return res.status(404).json({ success: false, provider: "API-Football", message: "Match not found." });
+    const match = normalizeSportsFixture(item);
+    const events = (eventsData.response || []).map(event => ({
+      time: { elapsed: event.time?.elapsed ?? null },
+      team: { id: event.team?.id, name: event.team?.name },
+      player: { name: event.player?.name || null },
+      assist: { name: event.assist?.name || null },
+      type: event.type || "Event",
+      detail: event.detail || ""
     }));
-
+    const statistics = (statsData.response || []).map(item => ({
+      team: { id: item.team?.id, name: item.team?.name, logo: item.team?.logo },
+      statistics: item.statistics || []
+    }));
+    const lineups = (lineupsData.response || []).map(item => ({
+      team: { id: item.team?.id, name: item.team?.name, logo: item.team?.logo },
+      startXI: item.startXI || [],
+      substitutes: item.substitutes || []
+    }));
     return res.json({
       success: true,
-      provider: "Football-Data.org",
+      provider: "API-Football",
       updated_at: new Date().toISOString(),
       match,
       events,
-      statistics: [],
-      lineups: []
+      statistics,
+      lineups
     });
   } catch (error) {
-    console.error("Football-Data match detail error:", error.message);
+    console.error("API-Football match detail error:", error.message);
     return sendSportsApiError(res, error);
   }
 });
@@ -3156,6 +3109,21 @@ const DGM_PRICES = {
   }
 };
 
+app.get("/api/data-bundles", (req, res) => {
+  const bundles = Object.fromEntries(
+    Object.entries(DGM_PRICES).map(([network, prices]) => [
+      network,
+      Object.entries(prices).map(([gb, price]) => [gb + "GB", Number(price)])
+    ])
+  );
+  return res.json({
+    success: true,
+    currency: "GHS",
+    validity_days: 90,
+    networks: bundles
+  });
+});
+
 const NETWORK_MAP = {
 
   MTN: "YELLO",
@@ -5484,6 +5452,7 @@ app.post("/api/admin/login", loginRateLimit, async (req, res) => {
     if (!email || !password) return sendError(res, 400, "Enter the admin email and password.");
     if (email !== ADMIN_EMAIL) {
       await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+      recordLoginFailure(req);
       return sendError(res, 401, "Invalid admin login details.");
     }
     if (!await bcrypt.compare(password, ADMIN_PASSWORD_HASH)) {
@@ -6260,7 +6229,6 @@ app.post(
       ) {
 
         recordLoginFailure(req);
-        recordLoginFailure(req);
         return sendError(
           res,
           401,
@@ -6278,7 +6246,7 @@ app.post(
         );
 
       if (!passwordMatches) {
-
+        recordLoginFailure(req);
         return sendError(
           res,
           401,
@@ -6304,6 +6272,8 @@ app.post(
           );
         }
       );
+
+      clearLoginFailures(req);
 
       req.session.customerId =
         customer.id;
@@ -6700,7 +6670,7 @@ app.put(
         return sendError(res, 400, "Enter a valid email address.");
       }
 
-      if (!phone || phone.length < 10) {
+      if (!validGhanaPhone(phone)) {
         return sendError(res, 400, "Enter a valid Ghana phone number.");
       }
 
@@ -9362,6 +9332,26 @@ async function startServer() {
           },
           5000
         );
+
+        const savingsSchedulerEnabled =
+          String(process.env.ENABLE_SAVINGS_SCHEDULER || "true").toLowerCase() !== "false";
+
+        if (savingsSchedulerEnabled) {
+          const runSavingsScheduler = async () => {
+            try {
+              const results = await runAutomaticSavingsContributions();
+              console.log("Savings scheduler run:", results.length, "account(s) processed.");
+            } catch (error) {
+              console.error("Savings scheduler error:", error.message);
+            }
+          };
+
+          setTimeout(runSavingsScheduler, 10000);
+          setInterval(runSavingsScheduler, 5 * 60 * 1000);
+          console.log("Savings scheduler: enabled (5-minute polling for due accounts)");
+        } else {
+          console.log("Savings scheduler: disabled by ENABLE_SAVINGS_SCHEDULER=false");
+        }
 
         // Session cleanup timer removed: cleanupExpiredSessions is not
         // defined in the current PostgreSQL/session implementation.
