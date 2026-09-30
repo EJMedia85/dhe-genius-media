@@ -8558,6 +8558,42 @@ app.get("/api/whatsapp/media/:id", requireCustomer, async (req,res) => {
   }
 });
 
+app.post("/api/whatsapp/import", express.json({limit:"5mb"}), async (req,res) => {
+  try{
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw)return res.status(401).json({success:false,message:"Device token required."});
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const d=await pool.query("SELECT id FROM sms_devices WHERE token_hash=$1 AND active=true LIMIT 1",[hash]);
+    if(!d.rows.length)return res.status(401).json({success:false,message:"Invalid or revoked device token."});
+    const deviceId=d.rows[0].id;
+    const messages=Array.isArray(req.body?.messages)?req.body.messages:[];
+    if(messages.length>2000)return res.status(413).json({success:false,message:"Import is limited to 2,000 messages per batch."});
+    let stored=0;
+    for(const m of messages){
+      const body=String(m?.body||"").slice(0,10000);
+      if(!body)continue;
+      const sender=String(m?.sender||"WhatsApp").slice(0,300);
+      const direction=String(m?.direction||"received").slice(0,20)==="sent"?"sent":"received";
+      const externalId=String(m?.external_id||"").slice(0,220)||("import-"+crypto.createHash("sha256").update(deviceId+"|"+String(m?.received_at||"")+"|"+sender+"|"+body).digest("hex"));
+      const dt=m?.received_at?new Date(m.received_at):new Date();
+      const when=Number.isNaN(dt.getTime())?new Date():dt;
+      const q=await pool.query(
+        `INSERT INTO whatsapp_messages(device_id,external_id,direction,event_type,sender_enc,body_enc,received_at)
+         VALUES($1,$2,$3,'imported_chat',$4,$5,$6)
+         ON CONFLICT(device_id,external_id) DO NOTHING RETURNING id`,
+        [deviceId,externalId,direction,smsEncrypt(sender),smsEncrypt(body),when]
+      );
+      if(q.rows.length)stored++;
+    }
+    await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
+    return res.status(201).json({success:true,stored,total:messages.length});
+  }catch(e){
+    console.error("WhatsApp history import error",e);
+    return res.status(500).json({success:false,message:"Could not import WhatsApp history."});
+  }
+});
+
 app.get("/api/whatsapp/stats", requireCustomer, async (req,res) => {
   try {
     const days=Math.min(Math.max(Number(req.query.days)||30,1),90);
