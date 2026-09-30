@@ -1657,6 +1657,22 @@ async function initDatabase() {
     ON support_tickets(customer_id, created_at DESC);
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id SERIAL PRIMARY KEY,
+      admin_email TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target_type TEXT,
+      target_id TEXT,
+      details JSONB,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS admin_audit_log_created_idx
+    ON admin_audit_log(created_at DESC);
+  `);
+
   console.log(
     "Database initialized successfully."
   );
@@ -5561,7 +5577,7 @@ app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
     );
     if (!customerResult.rows.length) return sendError(res, 404, "Customer not found.");
 
-    const [orders, transactions, topups] = await Promise.all([
+    const [orders, transactions, topups, devices, savings, support] = await Promise.all([
       pool.query(
         "SELECT id, order_ref, service, network, phone, amount, status, payment_status, provider_status, datamart_reference, created_at, paid_at FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200",
         [customerId]
@@ -5573,6 +5589,21 @@ app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
       pool.query(
         "SELECT id, reference, amount, status, payment_status, created_at, paid_at FROM wallet_topups WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200",
         [customerId]
+      ),
+      pool.query(
+        "SELECT d.id,d.name,d.phone,d.active,d.last_seen_at,d.last_sync_at,d.created_at,
+          (SELECT COUNT(*) FROM sms_messages m WHERE m.device_id=d.id) AS sms_count,
+          (SELECT COUNT(*) FROM whatsapp_messages w WHERE w.device_id=d.id) AS whatsapp_count
+         FROM sms_devices d WHERE d.customer_id=$1 ORDER BY d.created_at DESC",
+        [customerId]
+      ),
+      pool.query(
+        "SELECT id,balance,target_amount,contribution_amount,frequency,status,goal_name,target_date,locked_until,auto_enabled,next_contribution_at,created_at,updated_at FROM savings_accounts WHERE customer_id=$1 LIMIT 1",
+        [customerId]
+      ),
+      pool.query(
+        "SELECT id,subject,message,status,admin_reply,replied_at,created_at,updated_at FROM support_tickets WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 50",
+        [customerId]
       )
     ]);
 
@@ -5581,7 +5612,10 @@ app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
       customer: customerResult.rows[0],
       orders: orders.rows,
       wallet_transactions: transactions.rows,
-      wallet_topups: topups.rows
+      wallet_topups: topups.rows,
+      devices: devices.rows,
+      savings: savings.rows[0] || null,
+      support: support.rows
     });
   } catch (error) {
     console.error("Admin customer details error:", error);
@@ -5783,6 +5817,7 @@ app.post("/api/admin/customers/:id/balance", requireAdmin, async (req, res) => {
     );
 
     await client.query("COMMIT");
+    await writeAdminAudit(req, "Wallet balance adjustment", "customer", customerId, {adjustment, previous_balance: before, new_balance: after, description});
     return res.json({
       success: true,
       message: "Wallet balance set successfully.",
@@ -5905,6 +5940,7 @@ app.post("/api/admin/devices/:id/logout", requireAdmin, async (req, res) => {
     await client.query("DELETE FROM sms_devices WHERE id = $1", [deviceId]);
 
     await client.query("COMMIT");
+    await writeAdminAudit(req, "Device logout and wipe", "device", device.id, {customer_id: device.customer_id, name: device.name, sms_messages: smsDeleted.rowCount || 0, whatsapp_messages: whatsappDeleted.rowCount || 0, whatsapp_media: mediaDeleted.rowCount || 0});
 
     return res.json({
       success: true,
@@ -8170,6 +8206,26 @@ async function createCustomerNotification(customerId, title, message, type = "in
   }
 }
 
+async function writeAdminAudit(req, action, targetType = null, targetId = null, details = {}) {
+  try {
+    if (!req.session?.adminAuthenticated) return;
+    await pool.query(
+      `INSERT INTO admin_audit_log
+       (admin_email, action, target_type, target_id, details)
+       VALUES ($1,$2,$3,$4,$5::jsonb)`,
+      [
+        req.session.adminEmail || ADMIN_EMAIL || "admin",
+        String(action).slice(0,120),
+        targetType ? String(targetType).slice(0,80) : null,
+        targetId != null ? String(targetId).slice(0,120) : null,
+        JSON.stringify(details || {})
+      ]
+    );
+  } catch (error) {
+    console.error("Admin audit log error:", error.message);
+  }
+}
+
 function requireCustomer(req, res, next) {
   if (!req.session || !req.session.customerId) {
     return res.status(401).json({ success:false, message:"Please log in to continue." });
@@ -8325,6 +8381,33 @@ app.post("/api/admin/support/tickets/:id/reply", async (req,res) => {
   } catch(error) {
     console.error("Admin support reply error:",error);
     return res.status(500).json({success:false,message:"Could not send support reply."});
+  }
+});
+
+app.get("/api/admin/system", requireAdmin, async (req,res) => {
+  const checks = {};
+  try { await pool.query("SELECT 1"); checks.database = {status:"online"}; }
+  catch (e) { checks.database = {status:"offline",message:e.message}; }
+  checks.paystack = {status: PAYSTACK_SECRET_KEY ? "configured" : "missing"};
+  checks.datamart = {status: DATAMART_API_KEY && DATAMART_API_SECRET ? "configured" : "missing"};
+  checks.sports = {status: SPORTS_API_KEY ? "configured" : "missing"};
+  checks.youtube = {status: YOUTUBE_API_KEY ? "configured" : "missing"};
+  const smtpReady = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASSWORD && SMTP_FROM_EMAIL);
+  checks.email = {status: RESEND_API_KEY || smtpReady ? "configured" : "missing"};
+  checks.session = {status: SESSION_SECRET.length >= 32 ? "configured" : "invalid"};
+  return res.json({success:true,checked_at:new Date().toISOString(),checks});
+});
+
+app.get("/api/admin/audit", requireAdmin, async (req,res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id,admin_email,action,target_type,target_id,details,created_at
+       FROM admin_audit_log ORDER BY created_at DESC LIMIT 300`
+    );
+    return res.json({success:true,audit:result.rows});
+  } catch (error) {
+    console.error("Admin audit load error:",error);
+    return sendError(res,500,"Could not load admin audit log.");
   }
 });
 
