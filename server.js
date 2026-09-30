@@ -81,6 +81,9 @@ const SMTP_FROM_EMAIL =
 const DGM_API_KEY =
   process.env.DGM_API_KEY || "";
 
+const CRON_SECRET =
+  String(process.env.CRON_SECRET || "").trim();
+
 // =====================================================
 // KINGFLEXY AIRTIME API
 // =====================================================
@@ -1926,6 +1929,46 @@ async function ensureSavingsTables() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_savings_transactions_customer
     ON savings_transactions(customer_id, created_at DESC);
+  `);
+
+  // Savings product upgrades: goals, lock dates, automatic contribution plans.
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS goal_name TEXT NOT NULL DEFAULT 'My Savings Goal';`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS target_date DATE;`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS auto_enabled BOOLEAN NOT NULL DEFAULT FALSE;`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS next_contribution_at TIMESTAMPTZ;`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS savings_topups (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      reference TEXT UNIQUE NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      status TEXT NOT NULL DEFAULT 'Pending',
+      payment_status TEXT NOT NULL DEFAULT 'Pending',
+      paid_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS savings_topups_customer_created_idx
+    ON savings_topups(customer_id, created_at DESC);
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS savings_admin_audit (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      savings_account_id INTEGER NOT NULL REFERENCES savings_accounts(id) ON DELETE CASCADE,
+      admin_email TEXT NOT NULL,
+      action TEXT NOT NULL,
+      amount NUMERIC(12,2) NOT NULL,
+      balance_before NUMERIC(12,2) NOT NULL,
+      balance_after NUMERIC(12,2) NOT NULL,
+      note TEXT,
+      reference TEXT UNIQUE NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 
@@ -4570,6 +4613,83 @@ async function creditWalletFromTopup(
 }
 
 // =====================================================
+// PAYSTACK SAVINGS CREDIT
+// =====================================================
+
+async function creditSavingsFromPaystack(reference) {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const topupResult = await client.query(`
+      SELECT *
+      FROM savings_topups
+      WHERE reference = $1
+      FOR UPDATE
+    `, [reference]);
+
+    if (!topupResult.rows.length) {
+      await client.query("ROLLBACK");
+      return { found: false };
+    }
+
+    const topup = topupResult.rows[0];
+    if (String(topup.status).toLowerCase() === "completed") {
+      await client.query("COMMIT");
+      return { found: true, alreadyProcessed: true, balance: null };
+    }
+
+    const customerResult = await client.query(
+      "SELECT id FROM customers WHERE id = $1 FOR UPDATE",
+      [topup.customer_id]
+    );
+    if (!customerResult.rows.length) throw new Error("Customer account not found.");
+
+    const account = await getOrCreateSavingsAccount(topup.customer_id, client);
+    const before = Number(account.balance || 0);
+    const amount = Number(topup.amount || 0);
+    const after = Math.round((before + amount) * 100) / 100;
+
+    await client.query(`
+      UPDATE savings_accounts
+      SET balance = $1, updated_at = NOW()
+      WHERE id = $2
+    `, [after, account.id]);
+
+    await client.query(`
+      INSERT INTO savings_transactions
+        (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
+      VALUES ($1, $2, 'Paystack Contribution', $3, $4, $5, $6, $7)
+      ON CONFLICT (reference) DO NOTHING
+    `, [
+      topup.customer_id,
+      account.id,
+      amount,
+      before,
+      after,
+      "Direct Paystack contribution to DGM Savings/Susu",
+      reference
+    ]);
+
+    await client.query(`
+      UPDATE savings_topups
+      SET status = 'Completed',
+          payment_status = 'Paid',
+          paid_at = COALESCE(paid_at, NOW())
+      WHERE id = $1
+    `, [topup.id]);
+
+    await client.query("COMMIT");
+    return { found: true, alreadyProcessed: false, balance: after, amount };
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+// =====================================================
 // PAYSTACK WEBHOOK
 // =====================================================
 
@@ -4745,6 +4865,36 @@ app.post(
       }
 
       // =================================================
+      // SAVINGS PAYMENT
+      // =================================================
+
+      const savingsTopupResult = await pool.query(
+        `
+        SELECT *
+        FROM savings_topups
+        WHERE reference = $1
+        LIMIT 1
+        `,
+        [reference]
+      );
+
+      if (savingsTopupResult.rows.length) {
+        const savingsTopup = savingsTopupResult.rows[0];
+        const amountFromPaystack = Number(event?.data?.amount || 0) / 100;
+        const currency = String(event?.data?.currency || "").toUpperCase();
+
+        if (currency !== "GHS" ||
+            Math.round(amountFromPaystack * 100) !== Math.round(Number(savingsTopup.amount) * 100)) {
+          console.error("Savings Paystack amount/currency mismatch:", reference);
+          return res.sendStatus(400);
+        }
+
+        const savingsCredit = await creditSavingsFromPaystack(reference);
+        console.log("Paystack savings webhook processed:", reference, savingsCredit);
+        return res.sendStatus(200);
+      }
+
+      // =================================================
       // NORMAL ORDER
       // =================================================
 
@@ -4892,6 +5042,119 @@ app.use(
     extended: true
   })
 );
+
+// =====================================================
+// DIRECT PAYSTACK SAVINGS / SUSU
+// =====================================================
+
+app.post("/api/savings/deposit-paystack", requireLogin, async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) {
+      return sendError(res, 503, "Paystack is not configured.");
+    }
+
+    const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+      return sendError(res, 400, "Savings payment must be between GH₵1.00 and GH₵10,000.00.");
+    }
+
+    const customer = await getCustomer(req.session.customerId);
+    if (!customer) return sendError(res, 404, "Customer account not found.");
+
+    const email = cleanEmail(customer.email);
+    if (!email || !email.includes("@")) {
+      return sendError(res, 400, "Your account does not have a valid email address for Paystack.");
+    }
+
+    const reference = "DGM-SUSU-PAY-" +
+      Date.now().toString(36).toUpperCase() + "-" +
+      crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    await pool.query(`
+      INSERT INTO savings_topups (customer_id, reference, amount)
+      VALUES ($1, $2, $3)
+    `, [customer.id, reference, amount]);
+
+    const callbackUrl = BASE_URL.replace(/\/$/, "") + "/api/paystack/savings-callback";
+    const paystackResponse = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        amount: String(Math.round(amount * 100)),
+        currency: "GHS",
+        reference,
+        callback_url: callbackUrl,
+        metadata: { type: "savings_topup", customer_id: customer.id, reference }
+      })
+    });
+
+    const raw = await paystackResponse.text();
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch {}
+
+    if (!paystackResponse.ok || !data.status || !data.data?.authorization_url) {
+      await pool.query(
+        "UPDATE savings_topups SET status='Failed', payment_status='Failed' WHERE reference=$1",
+        [reference]
+      );
+      return sendError(res, 502, data?.message || "Paystack could not initialize the savings payment.");
+    }
+
+    return res.json({
+      success: true,
+      reference,
+      amount,
+      authorization_url: data.data.authorization_url,
+      access_code: data.data.access_code || null
+    });
+  } catch (error) {
+    console.error("Savings Paystack initialization error:", error);
+    return sendError(res, 500, "Unable to start the savings payment.");
+  }
+});
+
+app.get("/api/paystack/savings-callback", async (req, res) => {
+  const reference = String(req.query.reference || "").trim();
+  if (!reference) {
+    return res.redirect("/savings.html?payment=failed&message=" + encodeURIComponent("Payment reference was not returned by Paystack."));
+  }
+
+  try {
+    if (!PAYSTACK_SECRET_KEY) {
+      return res.redirect("/savings.html?payment=failed&message=" + encodeURIComponent("Paystack is not configured."));
+    }
+
+    const verifyResponse = await fetch(
+      "https://api.paystack.co/transaction/verify/" + encodeURIComponent(reference),
+      { headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`, Accept: "application/json" } }
+    );
+    const raw = await verifyResponse.text();
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch {}
+
+    if (!verifyResponse.ok || !data.status || data.data?.status !== "success") {
+      return res.redirect("/savings.html?payment=failed&message=" + encodeURIComponent(data?.message || "Paystack payment was not successful."));
+    }
+
+    const amount = Number(data.data?.amount || 0) / 100;
+    const currency = String(data.data?.currency || "").toUpperCase();
+    const topup = await pool.query("SELECT amount FROM savings_topups WHERE reference=$1 LIMIT 1", [reference]);
+    if (!topup.rows.length || currency !== "GHS" ||
+        Math.round(amount * 100) !== Math.round(Number(topup.rows[0].amount) * 100)) {
+      return res.redirect("/savings.html?payment=failed&message=" + encodeURIComponent("Payment verification failed."));
+    }
+
+    const credited = await creditSavingsFromPaystack(reference);
+    return res.redirect("/savings.html?payment=success&amount=" + encodeURIComponent(amount.toFixed(2)) + "&reference=" + encodeURIComponent(reference) + "&balance=" + encodeURIComponent(credited.balance ?? ""));
+  } catch (error) {
+    console.error("Savings Paystack callback error:", error);
+    return res.redirect("/savings.html?payment=failed&message=" + encodeURIComponent("We could not verify the savings payment yet."));
+  }
+});
 
 // =====================================================
 // WALLET DEPOSIT / PAYSTACK INITIALIZATION
@@ -8291,7 +8554,12 @@ app.get("/api/savings", requireLogin, async (req, res) => {
         ...account,
         balance: Number(account.balance || 0),
         target_amount: Number(account.target_amount || 0),
-        contribution_amount: Number(account.contribution_amount || 0)
+        contribution_amount: Number(account.contribution_amount || 0),
+        auto_enabled: Boolean(account.auto_enabled),
+        next_contribution_at: account.next_contribution_at,
+        target_date: account.target_date,
+        locked_until: account.locked_until,
+        goal_name: account.goal_name || "My Savings Goal"
       },
       transactions: tx.rows.map(row => ({
         ...row,
@@ -8311,21 +8579,48 @@ app.post("/api/savings/settings", requireLogin, async (req, res) => {
     const target = Math.max(0, Math.round(Number(req.body?.targetAmount || 0) * 100) / 100);
     const contribution = Math.max(0, Math.round(Number(req.body?.contributionAmount || 0) * 100) / 100);
     const frequency = String(req.body?.frequency || "Flexible").trim();
+    const goalName = String(req.body?.goalName || "My Savings Goal").trim().slice(0, 100) || "My Savings Goal";
+    const targetDateRaw = String(req.body?.targetDate || "").trim();
+    const lockedUntilRaw = String(req.body?.lockedUntil || "").trim();
+    const autoEnabled = Boolean(req.body?.autoEnabled);
 
     if (!["Flexible", "Daily", "Weekly", "Monthly"].includes(frequency)) {
       return sendError(res, 400, "Invalid savings frequency.");
     }
+    if (targetDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(targetDateRaw)) {
+      return sendError(res, 400, "Target date must use YYYY-MM-DD.");
+    }
+
+    let lockedUntil = null;
+    if (lockedUntilRaw) {
+      const lockDate = new Date(lockedUntilRaw + "T23:59:59.000Z");
+      if (Number.isNaN(lockDate.getTime())) return sendError(res, 400, "Invalid lock date.");
+      if (lockDate.getTime() <= Date.now()) return sendError(res, 400, "Lock date must be in the future.");
+      lockedUntil = lockDate.toISOString();
+    }
 
     const account = await getOrCreateSavingsAccount(req.session.customerId);
+    let nextContributionAt = account.next_contribution_at;
+    if (!autoEnabled || frequency === "Flexible" || contribution <= 0) {
+      nextContributionAt = null;
+    } else if (!nextContributionAt || new Date(nextContributionAt).getTime() <= Date.now()) {
+      nextContributionAt = new Date().toISOString();
+    }
+
     const updated = await pool.query(`
       UPDATE savings_accounts
       SET target_amount = $1,
           contribution_amount = $2,
           frequency = $3,
+          goal_name = $4,
+          target_date = $5,
+          locked_until = $6,
+          auto_enabled = $7,
+          next_contribution_at = $8,
           updated_at = NOW()
-      WHERE id = $4
+      WHERE id = $9
       RETURNING *
-    `, [target, contribution, frequency, account.id]);
+    `, [target, contribution, frequency, goalName, targetDateRaw || null, lockedUntil, autoEnabled && frequency !== "Flexible" && contribution > 0, nextContributionAt, account.id]);
 
     return res.json({ success: true, account: updated.rows[0] });
   } catch (error) {
@@ -8423,6 +8718,11 @@ app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
     }
 
     const account = accountResult.rows[0];
+    if (account.locked_until && new Date(account.locked_until).getTime() > Date.now()) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Your savings are locked until " + new Date(account.locked_until).toLocaleDateString() + ".");
+    }
+
     const savingsBefore = Number(account.balance || 0);
     if (savingsBefore < amount) {
       await client.query("ROLLBACK");
@@ -8476,20 +8776,45 @@ app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
   }
 });
 
+app.get("/api/savings/receipt/:reference", requireLogin, async (req, res) => {
+  try {
+    const reference = String(req.params.reference || "").trim();
+    const result = await pool.query(`
+      SELECT st.*, c.name, c.phone, c.email
+      FROM savings_transactions st
+      JOIN customers c ON c.id = st.customer_id
+      WHERE st.reference=$1 AND st.customer_id=$2
+      LIMIT 1
+    `, [reference, req.session.customerId]);
+    if (!result.rows.length) return sendError(res, 404, "Savings receipt not found.");
+    const row = result.rows[0];
+    return res.json({success:true, receipt: {
+      reference: row.reference, type: row.type, amount:Number(row.amount||0),
+      balance_before:Number(row.balance_before||0), balance_after:Number(row.balance_after||0),
+      description:row.description, status:row.status, created_at:row.created_at,
+      customer:{name:row.name,phone:row.phone,email:row.email}
+    }});
+  } catch (error) {
+    console.error("Savings receipt error:", error);
+    return sendError(res, 500, "Could not load savings receipt.");
+  }
+});
+
 app.get("/api/admin/savings", requireAdmin, async (req, res) => {
   try {
     const summary = await pool.query(`
-      SELECT
-        COUNT(*)::int AS accounts,
-        COALESCE(SUM(balance), 0) AS total_savings
+      SELECT COUNT(*)::int AS accounts,
+             COALESCE(SUM(balance), 0) AS total_savings,
+             COALESCE(SUM(CASE WHEN auto_enabled THEN 1 ELSE 0 END), 0)::int AS auto_plans,
+             COALESCE(SUM(CASE WHEN locked_until > NOW() THEN 1 ELSE 0 END), 0)::int AS locked_accounts
       FROM savings_accounts
       WHERE status = 'Active'
     `);
     const customers = await pool.query(`
-      SELECT
-        sa.id, sa.customer_id, c.name, c.phone, c.email,
-        sa.balance, sa.target_amount, sa.contribution_amount,
-        sa.frequency, sa.status, sa.updated_at
+      SELECT sa.id, sa.customer_id, c.name, c.phone, c.email,
+             sa.balance, sa.target_amount, sa.contribution_amount,
+             sa.frequency, sa.status, sa.goal_name, sa.target_date,
+             sa.locked_until, sa.auto_enabled, sa.next_contribution_at, sa.updated_at
       FROM savings_accounts sa
       JOIN customers c ON c.id = sa.customer_id
       ORDER BY sa.updated_at DESC
@@ -8499,18 +8824,37 @@ app.get("/api/admin/savings", requireAdmin, async (req, res) => {
       success: true,
       summary: {
         accounts: Number(summary.rows[0]?.accounts || 0),
-        totalSavings: Number(summary.rows[0]?.total_savings || 0)
+        totalSavings: Number(summary.rows[0]?.total_savings || 0),
+        autoPlans: Number(summary.rows[0]?.auto_plans || 0),
+        lockedAccounts: Number(summary.rows[0]?.locked_accounts || 0)
       },
       accounts: customers.rows.map(x => ({
         ...x,
         balance: Number(x.balance || 0),
         target_amount: Number(x.target_amount || 0),
-        contribution_amount: Number(x.contribution_amount || 0)
+        contribution_amount: Number(x.contribution_amount || 0),
+        auto_enabled: Boolean(x.auto_enabled)
       }))
     });
   } catch (error) {
     console.error("Admin savings error:", error);
     return sendError(res, 500, "Could not load savings management.");
+  }
+});
+
+app.get("/api/admin/savings/audit", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.*, c.name, c.phone
+      FROM savings_admin_audit a
+      JOIN customers c ON c.id = a.customer_id
+      ORDER BY a.created_at DESC
+      LIMIT 200
+    `);
+    return res.json({ success: true, audit: result.rows });
+  } catch (error) {
+    console.error("Savings audit error:", error);
+    return sendError(res, 500, "Could not load savings audit.");
   }
 });
 
@@ -8528,8 +8872,15 @@ app.post("/api/admin/savings/:customerId/adjust", requireAdmin, async (req, res)
     if (!["credit", "debit"].includes(action)) {
       return sendError(res, 400, "Adjustment must be credit or debit.");
     }
+    if (!note) return sendError(res, 400, "A reason is required for every admin savings adjustment.");
 
     await client.query("BEGIN");
+    const customer = await client.query("SELECT id FROM customers WHERE id=$1 FOR UPDATE", [customerId]);
+    if (!customer.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer account not found.");
+    }
+
     const account = await getOrCreateSavingsAccount(customerId, client);
     const before = Number(account.balance || 0);
     const after = action === "credit"
@@ -8542,18 +8893,19 @@ app.post("/api/admin/savings/:customerId/adjust", requireAdmin, async (req, res)
     }
 
     const reference = "DGM-SUSU-ADMIN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
-    await client.query(
-      "UPDATE savings_accounts SET balance = $1, updated_at = NOW() WHERE id = $2",
-      [after, account.id]
-    );
+    await client.query("UPDATE savings_accounts SET balance=$1, updated_at=NOW() WHERE id=$2", [after, account.id]);
+
     await client.query(`
       INSERT INTO savings_transactions
         (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    `, [
-      customerId, account.id, "Admin " + (action === "credit" ? "Credit" : "Debit"),
-      amount, before, after, note, reference
-    ]);
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `, [customerId, account.id, "Admin " + (action === "credit" ? "Credit" : "Debit"), amount, before, after, note, reference]);
+
+    await client.query(`
+      INSERT INTO savings_admin_audit
+        (customer_id, savings_account_id, admin_email, action, amount, balance_before, balance_after, note, reference)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `, [customerId, account.id, req.session.adminEmail || ADMIN_EMAIL || "admin", action, amount, before, after, note, reference]);
 
     await client.query("COMMIT");
     return res.json({ success: true, balance: after, reference });
@@ -8563,6 +8915,122 @@ app.post("/api/admin/savings/:customerId/adjust", requireAdmin, async (req, res)
     return sendError(res, 500, "Could not adjust savings balance.");
   } finally {
     client.release();
+  }
+});
+
+// =====================================================
+// AUTOMATIC SAVINGS CONTRIBUTION RUNNER
+// Called by the Render cron worker with CRON_SECRET.
+// =====================================================
+
+function nextSavingsRun(from, frequency) {
+  const d = new Date(from);
+  if (frequency === "Daily") d.setUTCDate(d.getUTCDate() + 1);
+  else if (frequency === "Weekly") d.setUTCDate(d.getUTCDate() + 7);
+  else if (frequency === "Monthly") d.setUTCMonth(d.getUTCMonth() + 1);
+  else return null;
+  return d;
+}
+
+async function runAutomaticSavingsContributions() {
+  const due = await pool.query(`
+    SELECT id, customer_id
+    FROM savings_accounts
+    WHERE status='Active'
+      AND auto_enabled=true
+      AND contribution_amount > 0
+      AND frequency IN ('Daily','Weekly','Monthly')
+      AND (next_contribution_at IS NULL OR next_contribution_at <= NOW())
+    ORDER BY next_contribution_at NULLS FIRST
+    LIMIT 200
+  `);
+
+  const results = [];
+  for (const candidate of due.rows) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const accountResult = await client.query(
+        "SELECT * FROM savings_accounts WHERE id=$1 FOR UPDATE",
+        [candidate.id]
+      );
+      if (!accountResult.rows.length) { await client.query("ROLLBACK"); continue; }
+      const account = accountResult.rows[0];
+
+      if (!account.auto_enabled || Number(account.contribution_amount) <= 0 ||
+          (account.next_contribution_at && new Date(account.next_contribution_at).getTime() > Date.now())) {
+        await client.query("ROLLBACK");
+        continue;
+      }
+
+      const customerResult = await client.query(
+        "SELECT id, balance FROM customers WHERE id=$1 FOR UPDATE",
+        [account.customer_id]
+      );
+      if (!customerResult.rows.length) { await client.query("ROLLBACK"); continue; }
+
+      const walletBefore = Number(customerResult.rows[0].balance || 0);
+      const amount = Number(account.contribution_amount);
+      const reference = "DGM-SUSU-AUTO-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
+      const nextRun = nextSavingsRun(account.next_contribution_at || new Date(), account.frequency);
+      if (walletBefore < amount) {
+        await client.query(
+          "UPDATE savings_accounts SET next_contribution_at=$1, updated_at=NOW() WHERE id=$2",
+          [nextRun, account.id]
+        );
+        await client.query(`
+          INSERT INTO savings_transactions
+            (customer_id,savings_account_id,type,amount,balance_before,balance_after,description,reference,status)
+          VALUES ($1,$2,'Auto Contribution Skipped',0,$3,$3,$4,$5,'Skipped')
+        `, [account.customer_id, account.id, Number(account.balance || 0), "Automatic contribution skipped: insufficient wallet balance.", reference]);
+        await client.query("COMMIT");
+        results.push({customerId: account.customer_id, status:"Skipped"});
+        continue;
+      }
+
+      const walletAfter = Math.round((walletBefore - amount) * 100) / 100;
+      const savingsBefore = Number(account.balance || 0);
+      const savingsAfter = Math.round((savingsBefore + amount) * 100) / 100;
+
+      await client.query("UPDATE customers SET balance=$1 WHERE id=$2", [walletAfter, account.customer_id]);
+      await client.query(`
+        INSERT INTO wallet_transactions
+          (customer_id,type,amount,balance_before,balance_after,description,transaction_ref,reference,status)
+        VALUES ($1,'Savings Transfer',$2,$3,$4,$5,$6,$6,'Completed')
+      `, [account.customer_id,amount,walletBefore,walletAfter,"Automatic contribution to DGM Savings/Susu",reference]);
+
+      await client.query("UPDATE savings_accounts SET balance=$1,next_contribution_at=$2,updated_at=NOW() WHERE id=$3", [savingsAfter,nextRun,account.id]);
+      await client.query(`
+        INSERT INTO savings_transactions
+          (customer_id,savings_account_id,type,amount,balance_before,balance_after,description,reference)
+        VALUES ($1,$2,'Auto Contribution',$3,$4,$5,$6,$7)
+      `, [account.customer_id,account.id,amount,savingsBefore,savingsAfter,"Automatic wallet-to-savings contribution",reference]);
+
+      await client.query("COMMIT");
+      results.push({customerId: account.customer_id,status:"Completed",amount});
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Automatic savings contribution failed:", candidate.id, error.message);
+      results.push({customerId: candidate.customer_id,status:"Failed",message:error.message});
+    } finally {
+      client.release();
+    }
+  }
+  return results;
+}
+
+app.post("/api/savings/auto-run", async (req, res) => {
+  if (!CRON_SECRET || req.headers["x-dgm-cron-secret"] !== CRON_SECRET) {
+    return sendError(res, 401, "Cron authorization required.");
+  }
+  try {
+    const results = await runAutomaticSavingsContributions();
+    return res.json({success:true,count:results.length,results,ran_at:new Date().toISOString()});
+  } catch (error) {
+    console.error("Automatic savings runner error:", error);
+    return sendError(res, 500, "Automatic savings runner failed.");
   }
 });
 
@@ -8691,7 +9159,6 @@ async function startServer() {
   try {
 
     await initDatabase();
-    await ensureSavingsTables();
     await ensureSmsTables();
     await initializeAdminCredentials();
 
