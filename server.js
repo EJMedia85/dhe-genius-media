@@ -5066,6 +5066,9 @@ app.post("/api/savings/deposit-paystack", requireLogin, async (req, res) => {
     const customer = await getCustomer(req.session.customerId);
     if (!customer) return sendError(res, 404, "Customer account not found.");
 
+    const savingsAccount = await getSavingsAccount(req.session.customerId);
+    if (!savingsAccount) return sendError(res, 400, "Create your Savings/Susu account first.");
+
     const email = cleanEmail(customer.email);
     if (!email || !email.includes("@")) {
       return sendError(res, 400, "Your account does not have a valid email address for Paystack.");
