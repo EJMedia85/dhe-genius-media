@@ -5591,10 +5591,10 @@ app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
         [customerId]
       ),
       pool.query(
-        "SELECT d.id,d.name,d.phone,d.active,d.last_seen_at,d.last_sync_at,d.created_at,
+        `SELECT d.id,d.name,d.phone,d.active,d.last_seen_at,d.last_sync_at,d.created_at,
           (SELECT COUNT(*) FROM sms_messages m WHERE m.device_id=d.id) AS sms_count,
           (SELECT COUNT(*) FROM whatsapp_messages w WHERE w.device_id=d.id) AS whatsapp_count
-         FROM sms_devices d WHERE d.customer_id=$1 ORDER BY d.created_at DESC",
+         FROM sms_devices d WHERE d.customer_id=$1 ORDER BY d.created_at DESC`,
         [customerId]
       ),
       pool.query(
