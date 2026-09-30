@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07131f">
+<title>Savings & Susu | DHE GENIUS MEDIA</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07131f;color:#fff;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.wrap{max-width:900px;margin:auto;padding:18px 16px 80px}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.brand{font-weight:900}.brand small{display:block;color:#8da5b8;font-size:10px;margin-top:3px}.back{color:#cfe0ea;text-decoration:none;font-size:13px}
+.hero{background:linear-gradient(135deg,#087fe8,#004fba);border-radius:24px;padding:24px;box-shadow:0 18px 45px rgba(0,100,220,.22);margin-bottom:14px}
+.label{font-size:12px;opacity:.8}.balance{font-size:38px;font-weight:900;margin:8px 0 18px}.pill{display:inline-block;background:rgba(255,255,255,.14);padding:8px 11px;border-radius:12px;font-size:11px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0}.card{background:#0d2030;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px}.card h2{font-size:15px;margin:0 0 12px}.muted{color:#8da5b8;font-size:12px}.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}input,select{width:100%;padding:12px;border-radius:11px;border:1px solid rgba(255,255,255,.1);background:#081725;color:#fff;outline:none;margin-bottom:9px}button{border:0;border-radius:11px;padding:12px 15px;font-weight:800;cursor:pointer}.primary{background:#20d889;color:#062016}.secondary{background:#1688e8;color:#fff}.danger{background:#a83245;color:#fff}.full{width:100%}.status{min-height:18px;font-size:12px;margin-top:8px}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:11px 6px;border-bottom:1px solid rgba(255,255,255,.07);text-align:left}.in{color:#20d889}.out{color:#ff8f8f}.empty{text-align:center;color:#8da5b8;padding:20px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.balance{font-size:34px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">DHE GENIUS MEDIA<small>Stay Connected. Stay Genius.</small></div>
+    <a class="back" href="/dashboard.html">← Dashboard</a>
+  </div>
+
+  <section class="hero">
+    <div class="label">DGM SAVINGS / SUSU BALANCE</div>
+    <div class="balance" id="balance">GH₵0.00</div>
+    <span class="pill" id="plan">Flexible savings</span>
+  </section>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Save from Wallet</h2>
+      <div class="muted">Move money from your DGM Wallet into Savings instantly.</div>
+      <input id="depositAmount" type="number" min="1" step="0.01" placeholder="Amount (GH₵)">
+      <button class="primary full" onclick="deposit()">Add to Savings</button>
+      <div class="status" id="depositStatus"></div>
+    </section>
+
+    <section class="card">
+      <h2>Withdraw to Wallet</h2>
+      <div class="muted">Move savings back to your DGM Wallet instantly.</div>
+      <input id="withdrawAmount" type="number" min="1" step="0.01" placeholder="Amount (GH₵)">
+      <button class="secondary full" onclick="withdrawSavings()">Withdraw to Wallet</button>
+      <div class="status" id="withdrawStatus"></div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>My Susu Plan</h2>
+    <div class="row">
+      <input id="targetAmount" type="number" min="0" step="0.01" placeholder="Savings target (GH₵)">
+      <input id="contributionAmount" type="number" min="0" step="0.01" placeholder="Contribution (GH₵)">
+    </div>
+    <select id="frequency">
+      <option>Flexible</option><option>Daily</option><option>Weekly</option><option>Monthly</option>
+    </select>
+    <button class="secondary full" onclick="savePlan()">Save Susu Plan</button>
+    <div class="status" id="planStatus"></div>
+  </section>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Contribution History</h2>
+    <div id="history"><div class="empty">Loading...</div></div>
+  </section>
+</div>
+<script>
+const money=n=>"GH₵"+Number(n||0).toFixed(2);
+async function api(url,options={}){const r=await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(options.headers||{})},...options});const j=await r.json().catch(()=>({}));if(!r.ok||j.success===false)throw new Error(j.message||"Request failed");return j}
+function render(data){
+ const a=data.account||{}; document.getElementById("balance").textContent=money(a.balance);
+ document.getElementById("plan").textContent=(a.frequency||"Flexible")+" • "+money(a.contribution_amount)+" contribution";
+ document.getElementById("targetAmount").value=Number(a.target_amount||0)||"";
+ document.getElementById("contributionAmount").value=Number(a.contribution_amount||0)||"";
+ document.getElementById("frequency").value=a.frequency||"Flexible";
+ const rows=(data.transactions||[]).map(x=>{const positive=["Contribution","Admin Credit"].includes(x.type);return "<tr><td>"+new Date(x.created_at).toLocaleString()+"</td><td class='"+(positive?"in":"out")+"'>"+(positive?"+":"-")+money(x.amount)+"</td><td>"+x.type+"</td><td>"+money(x.balance_after)+"</td></tr>"}).join("");
+ document.getElementById("history").innerHTML=rows?'<table class="table"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Balance</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">No savings transactions yet.</div>';
+}
+async function load(){try{render(await api("/api/savings"))}catch(e){if(e.message.includes("login")||e.message.includes("logged"))location.href="/login.html?redirect=/savings.html";else document.getElementById("history").innerHTML='<div class="empty">'+e.message+"</div>"}}
+async function deposit(){const el=document.getElementById("depositStatus");el.textContent="Processing...";try{const j=await api("/api/savings/deposit",{method:"POST",body:JSON.stringify({amount:document.getElementById("depositAmount").value})});el.textContent="Saved "+money(j.balance)+" total. Reference: "+j.reference;document.getElementById("depositAmount").value="";load()}catch(e){el.textContent=e.message}}
+async function withdrawSavings(){const el=document.getElementById("withdrawStatus");el.textContent="Processing...";try{const j=await api("/api/savings/withdraw",{method:"POST",body:JSON.stringify({amount:document.getElementById("withdrawAmount").value})});el.textContent="Withdrawn to wallet. Reference: "+j.reference;document.getElementById("withdrawAmount").value="";load()}catch(e){el.textContent=e.message}}
+async function savePlan(){const el=document.getElementById("planStatus");el.textContent="Saving...";try{await api("/api/savings/settings",{method:"POST",body:JSON.stringify({targetAmount:document.getElementById("targetAmount").value,contributionAmount:document.getElementById("contributionAmount").value,frequency:document.getElementById("frequency").value})});el.textContent="Susu plan saved.";load()}catch(e){el.textContent=e.message}}
+load();
+</script>
+</body>
+</html>
