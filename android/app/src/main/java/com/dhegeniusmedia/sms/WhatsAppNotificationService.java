@@ -15,7 +15,7 @@ import java.util.Locale;
 public class WhatsAppNotificationService extends NotificationListenerService {
     private static final String[] PACKAGES={"com.whatsapp","com.whatsapp.w4b"};
 
-    @Override public void onNotificationPosted(StatusBarNotification sbn){
+    @Override public void onListenerConnected(){\n        super.onListenerConnected();\n        try{\n            StatusBarNotification[] active=getActiveNotifications();\n            if(active!=null) for(StatusBarNotification item:active) processNotification(item);\n        }catch(Exception ignored){}\n    }\n\n    @Override public void onNotificationPosted(StatusBarNotification sbn){\n        processNotification(sbn);\n    }\n\n    private void processNotification(StatusBarNotification sbn){
         if(sbn==null||!isWhatsAppPackage(sbn.getPackageName())) return;
         Notification n=sbn.getNotification();
         if(n==null||n.extras==null) return;
