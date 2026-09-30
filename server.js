@@ -227,12 +227,25 @@ function normalizeSportsFixture(item) {
   const s = item?.score || {};
   const status = f.status || {};
   const short = status.short || "NS";
-  const longMap = {
-    TBD: "To Be Defined", NS: "Not Started", LIVE: "In Play", 1H: "First Half",
-    HT: "Half Time", 2H: "Second Half", ET: "Extra Time", BT: "Break Time",
-    P: "Penalties", FT: "Match Finished", AET: "After Extra Time", PEN: "After Penalties",
-    PST: "Postponed", CANC: "Cancelled", ABD: "Abandoned", AWD: "Awarded", WO: "Walkover"
-  };
+  const longMap = Object.freeze({
+    "TBD": "To Be Defined",
+    "NS": "Not Started",
+    "LIVE": "In Play",
+    "1H": "First Half",
+    "HT": "Half Time",
+    "2H": "Second Half",
+    "ET": "Extra Time",
+    "BT": "Break Time",
+    "P": "Penalties",
+    "FT": "Match Finished",
+    "AET": "After Extra Time",
+    "PEN": "After Penalties",
+    "PST": "Postponed",
+    "CANC": "Cancelled",
+    "ABD": "Abandoned",
+    "AWD": "Awarded",
+    "WO": "Walkover"
+  });
   return {
     fixture: {
       id: f.id,
