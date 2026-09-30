@@ -8558,7 +8558,7 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     if (withdrawalCode !== confirmCode) return sendError(res, 400, "Savings withdrawal codes do not match.");
     await client.query("BEGIN");
     const existing = await getSavingsAccountRecord(req.session.customerId, client);
-    if (existing) { await client.query("ROLLBACK"); return sendError(res, 409, "Your Savings/Susu account already exists."); }
+    if (existing?.withdrawal_pin_hash) { await client.query("ROLLBACK"); return sendError(res, 409, "Your Savings/Susu account already exists."); }
     const customerResult = await client.query("SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE", [req.session.customerId]);
     if (!customerResult.rows.length) { await client.query("ROLLBACK"); return sendError(res, 404, "Customer account not found."); }
     const walletBefore = Number(customerResult.rows[0].balance || 0), creationFee = 5;
@@ -8568,8 +8568,23 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     const reference = "DGM-SUSU-OPEN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
     await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [walletAfter, req.session.customerId]);
     await client.query(`INSERT INTO wallet_transactions (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, reference, status) VALUES ($1, 'Savings Account Fee', $2, $3, $4, $5, $6, $6, 'Completed')`, [req.session.customerId, creationFee, walletBefore, walletAfter, "DGM Savings/Susu account creation fee", reference]);
-    const accountResult = await client.query(`INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee) VALUES ($1, 0, 'Active', $2, $3) RETURNING *`, [req.session.customerId, pinHash, creationFee]);
-    await client.query(`INSERT INTO savings_transactions (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference) VALUES ($1, $2, 'Account Fee', $3, 0, 0, $4, $5)`, [req.session.customerId, accountResult.rows[0].id, creationFee, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]);
+    let accountResult;
+    if (existing) {
+      accountResult = await client.query(
+        "UPDATE savings_accounts SET status='Active', withdrawal_pin_hash=$1, creation_fee=$2, updated_at=NOW() WHERE id=$3 RETURNING *",
+        [pinHash, creationFee, existing.id]
+      );
+    } else {
+      accountResult = await client.query(
+        "INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee) VALUES ($1, 0, 'Active', $2, $3) RETURNING *",
+        [req.session.customerId, pinHash, creationFee]
+      );
+    }
+    const currentSavingsBalance = Number(accountResult.rows[0].balance || 0);
+    await client.query(
+      "INSERT INTO savings_transactions (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference) VALUES ($1, $2, 'Account Fee', $3, $4, $4, $5, $6)",
+      [req.session.customerId, accountResult.rows[0].id, creationFee, currentSavingsBalance, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]
+    );
     await client.query("COMMIT");
     return res.json({success:true,message:"Savings/Susu account created successfully.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active"},reference});
   } catch (error) {
