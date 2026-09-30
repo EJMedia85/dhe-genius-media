@@ -1903,6 +1903,8 @@ async function ensureSavingsTables() {
       contribution_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
       frequency TEXT NOT NULL DEFAULT 'Flexible',
       status TEXT NOT NULL DEFAULT 'Active',
+      withdrawal_pin_hash TEXT,
+      creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -1932,6 +1934,8 @@ async function ensureSavingsTables() {
   `);
 
   // Savings product upgrades: goals, lock dates, automatic contribution plans.
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS withdrawal_pin_hash TEXT;`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS goal_name TEXT NOT NULL DEFAULT 'My Savings Goal';`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS target_date DATE;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;`);
@@ -1972,7 +1976,7 @@ async function ensureSavingsTables() {
   `);
 }
 
-async function getOrCreateSavingsAccount(customerId, client = pool) {
+async function getSavingsAccount(customerId, client = pool) {
   const result = await client.query(`
     INSERT INTO savings_accounts (customer_id)
     VALUES ($1)
@@ -4645,7 +4649,8 @@ async function creditSavingsFromPaystack(reference) {
     );
     if (!customerResult.rows.length) throw new Error("Customer account not found.");
 
-    const account = await getOrCreateSavingsAccount(topup.customer_id, client);
+    const account = await getSavingsAccount(topup.customer_id, client);
+    if (!account) throw new Error("Savings account must be created before funding it.");
     const before = Number(account.balance || 0);
     const amount = Number(topup.amount || 0);
     const after = Math.round((before + amount) * 100) / 100;
@@ -8536,9 +8541,39 @@ app.get("/api/health", async (req, res) => {
 // customer wallet and a separate savings ledger.
 // =====================================================
 
+app.post("/api/savings/create", requireLogin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const withdrawalCode = String(req.body?.withdrawalCode || "").trim();
+    const confirmCode = String(req.body?.confirmCode || "").trim();
+    if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Create a 4–8 digit Savings withdrawal code.");
+    if (withdrawalCode !== confirmCode) return sendError(res, 400, "Savings withdrawal codes do not match.");
+    await client.query("BEGIN");
+    const existing = await getSavingsAccount(req.session.customerId, client);
+    if (existing) { await client.query("ROLLBACK"); return sendError(res, 409, "Your Savings/Susu account already exists."); }
+    const customerResult = await client.query("SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE", [req.session.customerId]);
+    if (!customerResult.rows.length) { await client.query("ROLLBACK"); return sendError(res, 404, "Customer account not found."); }
+    const walletBefore = Number(customerResult.rows[0].balance || 0), creationFee = 5;
+    if (walletBefore < creationFee) { await client.query("ROLLBACK"); return sendError(res, 400, "You need at least GH₵5.00 in your DGM Wallet to create a Savings/Susu account."); }
+    const pinHash = await bcrypt.hash(withdrawalCode, 12);
+    const walletAfter = Math.round((walletBefore - creationFee) * 100) / 100;
+    const reference = "DGM-SUSU-OPEN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [walletAfter, req.session.customerId]);
+    await client.query(`INSERT INTO wallet_transactions (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, reference, status) VALUES ($1, 'Savings Account Fee', $2, $3, $4, $5, $6, $6, 'Completed')`, [req.session.customerId, creationFee, walletBefore, walletAfter, "DGM Savings/Susu account creation fee", reference]);
+    const accountResult = await client.query(`INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee) VALUES ($1, 0, 'Active', $2, $3) RETURNING *`, [req.session.customerId, pinHash, creationFee]);
+    await client.query(`INSERT INTO savings_transactions (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference) VALUES ($1, $2, 'Account Fee', $3, 0, 0, $4, $5)`, [req.session.customerId, accountResult.rows[0].id, creationFee, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]);
+    await client.query("COMMIT");
+    return res.json({success:true,message:"Savings/Susu account created successfully.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active"},reference});
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Savings account creation error:", error);
+    return sendError(res, 500, "Could not create your Savings/Susu account.");
+  } finally { client.release(); }
+});
+
 app.get("/api/savings", requireLogin, async (req, res) => {
   try {
-    const account = await getOrCreateSavingsAccount(req.session.customerId);
+    const account = await getSavingsAccount(req.session.customerId);
     const tx = await pool.query(`
       SELECT id, type, amount, balance_before, balance_after,
              description, reference, status, created_at
@@ -8550,7 +8585,7 @@ app.get("/api/savings", requireLogin, async (req, res) => {
 
     return res.json({
       success: true,
-      account: {
+      account: account ? {
         ...account,
         balance: Number(account.balance || 0),
         target_amount: Number(account.target_amount || 0),
@@ -8560,7 +8595,7 @@ app.get("/api/savings", requireLogin, async (req, res) => {
         target_date: account.target_date,
         locked_until: account.locked_until,
         goal_name: account.goal_name || "My Savings Goal"
-      },
+      } : null,
       transactions: tx.rows.map(row => ({
         ...row,
         amount: Number(row.amount || 0),
@@ -8599,7 +8634,8 @@ app.post("/api/savings/settings", requireLogin, async (req, res) => {
       lockedUntil = lockDate.toISOString();
     }
 
-    const account = await getOrCreateSavingsAccount(req.session.customerId);
+    const account = await getSavingsAccount(req.session.customerId);
+    if (!account) return sendError(res, 400, "Create your Savings/Susu account first.");
     let nextContributionAt = account.next_contribution_at;
     if (!autoEnabled || frequency === "Flexible" || contribution <= 0) {
       nextContributionAt = null;
@@ -8653,7 +8689,8 @@ app.post("/api/savings/deposit", requireLogin, async (req, res) => {
       return sendError(res, 400, "Insufficient wallet balance. Add money to your DGM wallet first.");
     }
 
-    const account = await getOrCreateSavingsAccount(req.session.customerId, client);
+    const account = await getSavingsAccount(req.session.customerId, client);
+    if (!account) { await client.query("ROLLBACK"); return sendError(res, 400, "Create your Savings/Susu account first."); }
     const savingsBefore = Number(account.balance || 0);
     const savingsAfter = Math.round((savingsBefore + amount) * 100) / 100;
     const walletAfter = Math.round((walletBalance - amount) * 100) / 100;
@@ -8703,9 +8740,11 @@ app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
   const client = await pool.connect();
   try {
     const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    const withdrawalCode = String(req.body?.withdrawalCode || "").trim();
     if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
       return sendError(res, 400, "Savings withdrawal must be between GH₵1.00 and GH₵10,000.00.");
     }
+    if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Enter your 4–8 digit Savings withdrawal code.");
 
     await client.query("BEGIN");
     const accountResult = await client.query(
@@ -8718,6 +8757,15 @@ app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
     }
 
     const account = accountResult.rows[0];
+    if (!account.withdrawal_pin_hash) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Your Savings withdrawal code has not been set.");
+    }
+    const validWithdrawalCode = await bcrypt.compare(withdrawalCode, account.withdrawal_pin_hash);
+    if (!validWithdrawalCode) {
+      await client.query("ROLLBACK");
+      return sendError(res, 401, "Incorrect Savings withdrawal code.");
+    }
     if (account.locked_until && new Date(account.locked_until).getTime() > Date.now()) {
       await client.query("ROLLBACK");
       return sendError(res, 400, "Your savings are locked until " + new Date(account.locked_until).toLocaleDateString() + ".");
@@ -8881,7 +8929,8 @@ app.post("/api/admin/savings/:customerId/adjust", requireAdmin, async (req, res)
       return sendError(res, 404, "Customer account not found.");
     }
 
-    const account = await getOrCreateSavingsAccount(customerId, client);
+    const account = await getSavingsAccount(customerId, client);
+    if (!account) { await client.query("ROLLBACK"); return sendError(res, 404, "Customer does not have a Savings/Susu account."); }
     const before = Number(account.balance || 0);
     const after = action === "credit"
       ? Math.round((before + amount) * 100) / 100
