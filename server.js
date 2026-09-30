@@ -8538,6 +8538,28 @@ app.use((req,res,next)=>{
   next();
 });
 
+// DGM PWA bootstrap for customer-facing pages.
+app.get(/\\.html$/, async (req, res, next) => {
+  const excluded = new Set(["/admin.html", "/admin-login.html", "/movie-admin.html", "/savings-admin.html"]);
+  if (excluded.has(req.path)) return next();
+  try {
+    const filePath = path.join(__dirname, "public", req.path.replace(/^\\//, ""));
+    if (!filePath.startsWith(path.join(__dirname, "public"))) return next();
+    let html = await fs.promises.readFile(filePath, "utf8");
+    if (!html.includes('rel="manifest"')) {
+      html = html.replace(/<head([^>]*)>/i, '<head$1>\\n  <meta name="theme-color" content="#07131f">\\n  <meta name="mobile-web-app-capable" content="yes">\\n  <meta name="apple-mobile-web-app-capable" content="yes">\\n  <link rel="manifest" href="/manifest.webmanifest">');
+    }
+    if (!html.includes('src="/pwa.js"')) {
+      html = html.replace(/<\\/body>/i, '<script src="/pwa.js" defer></script>\\n</body>');
+    }
+    res.type("html").send(html);
+  } catch (error) {
+    if (error.code === "ENOENT") return next();
+    console.error("PWA HTML bootstrap error:", error.message);
+    next();
+  }
+});
+
 app.use(express.static(path.join(__dirname, "public"), {
   extensions: ["html"],
   index: "index.html"
