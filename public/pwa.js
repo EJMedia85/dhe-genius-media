@@ -31,6 +31,7 @@
   }
 
   function installNav() {
+    if (/\/(login|register|forgot-password|reset-password)\.html$/i.test(location.pathname)) return;
     if (document.querySelector(".bottom-nav")) return;
     const path = location.pathname.toLowerCase();
     const items = [
