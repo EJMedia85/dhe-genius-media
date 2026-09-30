@@ -14,54 +14,12 @@ let currentCustomer = null;
 // DGM DATA BUNDLES
 // =====================================================
 
-const bundles = {
-  MTN: [
-    ["1GB", 5],
-    ["2GB", 10],
-    ["3GB", 15],
-    ["4GB", 20],
-    ["5GB", 24],
-    ["6GB", 28],
-    ["8GB", 36],
-    ["10GB", 45],
-    ["15GB", 64],
-    ["20GB", 84],
-    ["25GB", 100],
-    ["30GB", 128],
-    ["40GB", 168],
-    ["50GB", 207]
-  ],
+let bundles = {};
 
-  AirtelTigo: [
-    ["1GB", 5],
-    ["2GB", 10],
-    ["3GB", 15],
-    ["4GB", 20],
-    ["5GB", 24],
-    ["6GB", 26],
-    ["8GB", 35],
-    ["10GB", 45],
-    ["12GB", 48],
-    ["15GB", 65],
-    ["25GB", 100],
-    ["30GB", 120],
-    ["40GB", 160],
-    ["50GB", 200]
-  ],
-
-  Telecel: [
-    ["10GB", 45],
-    ["15GB", 60],
-    ["20GB", 76],
-    ["25GB", 100],
-    ["30GB", 115],
-    ["35GB", 136],
-    ["40GB", 150],
-    ["45GB", 165],
-    ["50GB", 185],
-    ["100GB", 407]
-  ]
-};
+async function loadBundleCatalog() {
+  const data = await api("/api/data-bundles", { cache: "no-store" });
+  bundles = data.networks || {};
+}
 
 let selectedNetwork = "MTN";
 
@@ -97,6 +55,7 @@ async function api(url, options = {}) {
 // =====================================================
 
 async function load() {
+  await loadBundleCatalog();
   renderBundles(selectedNetwork);
 
   await loadCustomer();
