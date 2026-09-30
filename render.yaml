@@ -16,14 +16,4 @@ services:
       - key: YOUTUBE_CHANNEL_ID
         sync: false
 
-  - type: cron
-    name: dhe-genius-media-savings-cron
-    runtime: node
-    schedule: "0 * * * *"
-    buildCommand: npm install
-    startCommand: node scripts/savings-cron.js
-    envVars:
-      - key: BASE_URL
-        value: https://dhe-genius-media.onrender.com
-      - key: CRON_SECRET
-        sync: false
+
