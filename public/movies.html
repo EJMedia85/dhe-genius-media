@@ -155,25 +155,18 @@ header{background:linear-gradient(180deg,#050505 0%,#050505e8 58%,transparent 10
 </div>
 </header>
 <main id="home">
-<section class="hero" style="min-height:180px;margin-bottom:14px">
+<section id="hero" class="hero">
   <div class="heroShade"></div>
-  <div class="heroContent" style="padding:90px 25px 25px">
-    <div class="eyebrow">DGM MOVIES • NETMIRROR</div>
-    <h1 style="font-size:clamp(30px,6vw,56px)">Watch Movies</h1>
-    <p>Watch the NetMirror movie service directly inside DGM Movies.</p>
-    
+  <div class="heroContent">
+    <div class="eyebrow">DGM MOVIES • TMDB</div>
+    <h1>Discover Movies</h1>
+    <p>Explore trending titles, popular releases, genres, trailers and official viewing options in one DGM interface.</p>
   </div>
 </section>
-<section class="watchBox" style="padding:0;overflow:hidden">
-  <iframe
-    src="https://netmirror.center/en"
-    title="NetMirror"
-    style="display:block;width:100%;height:calc(100vh - 220px);min-height:620px;border:0;background:#050505"
-    allow="fullscreen; autoplay; encrypted-media; picture-in-picture"
-    referrerpolicy="no-referrer"
-    loading="eager">
-  </iframe>
-</section>
+<div id="status" class="watchNote" style="margin:12px 0 18px"></div>
+<section id="genres" class="toolbar"></section>
+<div id="searchPanel"></div>
+<section id="sections"></section>
 </main>
 <script>
 const state={home:null,genres:[],genrePage:1,genreTotal:1,genreId:"",genreSort:"popularity.desc",searchPage:1,searchTotal:1,query:""};
@@ -229,56 +222,12 @@ async function openMovie(id){
   const trailers=(d.trailers||[]).map((t,i)=>'<button class="trailer" onclick="playTrailer('+i+',\''+esc(t.youtube_embed_url||t.url)+'\',\''+esc(t.name)+'\')">▶ '+esc(t.name)+'</button>').join("");
   const p=[...(d.watch_providers?.flatrate||[]),...(d.watch_providers?.rent||[]),...(d.watch_providers?.buy||[])].filter((v,i,a)=>a.findIndex(x=>x.provider_id===v.provider_id)===i).slice(0,10);
   const providers=p.length?p.map(x=>'<span class="provider">'+esc(x.provider_name)+'</span>').join(""):'<span class="meta">No provider listings returned for this country.</span>';
-  const watch='<div class="watchBox"><h3>Watch on DGM</h3><div id="dgmPlayerState" class="watchNote">Checking authorized DGM playback…</div><div id="dgmPlayer"></div></div><div class="watchBox"><h3>Official availability</h3><p class="watchNote">If DGM does not have an authorized playback source for this title, TMDB availability listings are shown below.</p>'+providers+(d.watch_providers?.link?'<br><a class="watchLink" href="'+d.watch_providers.link+'" target="_blank" rel="noopener noreferrer">Open official availability</a>':"")+'</div>';
+  const watch='<div class="watchBox"><h3>Official viewing options</h3><p class="watchNote">DGM does not host full movies unless an authorized playback source is configured. TMDB availability listings are shown for the selected country.</p>'+providers+(d.watch_providers?.link?'<br><a class="watchLink" href="'+d.watch_providers.link+'" target="_blank" rel="noopener noreferrer">Open official availability</a>':"")+'</div>';
   const recommendations=(rec.success&&rec.results?.length)?'<div class="reco"><h3>More like this</h3><div class="row">'+rec.results.map(card).join("")+'</div></div>':"";
   document.getElementById("detail").innerHTML='<div class="detailHero"><button class="close" onclick="closeModal()">×</button><img src="'+img(m.backdrop_url||m.poster_url)+'" alt=""><div class="detailShade"></div></div><div class="detailInfo"><img class="detailPoster" src="'+img(m.poster_url)+'" alt="'+esc(m.title)+'"><h2>'+esc(m.title)+'</h2><div class="meta">★ '+Number(m.rating||0).toFixed(1)+' · '+esc((m.release_date||"").slice(0,4))+(m.runtime?' · '+m.runtime+' min':'')+'</div><div class="genreList">'+genres+'</div><p>'+esc(m.overview||"No synopsis available.")+'</p>'+(m.tagline?'<p><em>'+esc(m.tagline)+'</em></p>':"")+'<h3>Official trailers</h3><p class="watchNote">Trailer playback stays inside DGM. Full-movie playback is only available through authorized services listed below.</p><div id="trailerPlayer"></div>'+(trailers||'<p class="meta">No trailer returned.</p>')+watch+'<h3>Cast</h3><div class="cast">'+(cast||'<p class="meta">Cast unavailable.</p>')+'</div>'+recommendations+'<div style="clear:both"></div></div>';
-  loadPlayback(m.id);
  }catch(e){document.getElementById("detail").innerHTML='<div class="empty">'+esc(e.message)+'<br><br><button class="btn green" onclick="closeModal()">Close</button></div>'}
 }
-async function loadPlayback(id){
- const stateBox=document.getElementById("dgmPlayerState");
- const playerBox=document.getElementById("dgmPlayer");
- if(!stateBox||!playerBox)return;
- try{
-  const r=await fetch("/api/movies/playback/"+encodeURIComponent(id));
-  const d=await r.json();
-  if(!r.ok||!d.success||!d.available){
-   stateBox.textContent="Full-movie playback is not currently available on DGM for this title.";
-   return;
-  }
-  playerBox.innerHTML='<div class="trailerPlayer"><video id="dgmVideo" controls playsinline preload="metadata" style="width:100%;height:100%;background:#000" controlsList="nodownload"></video></div>';
-  const video=document.getElementById("dgmVideo");
-  if(d.playback_type==="mp4"){
-   video.src=d.playback_url;
-   stateBox.textContent="Authorized DGM playback source.";
-   return;
-  }
-  if(d.playback_type==="hls"){
-   if(video.canPlayType("application/vnd.apple.mpegurl")){
-    video.src=d.playback_url;
-    stateBox.textContent="Authorized DGM HLS playback.";
-    return;
-   }
-   const script=document.createElement("script");
-   script.src="https://cdn.jsdelivr.net/npm/hls.js@1.6.13/dist/hls.min.js";
-   script.onload=()=>{
-    if(window.Hls){
-     const hls=new Hls({enableWorker:true});
-     hls.loadSource(d.playback_url);
-     hls.attachMedia(video);
-     stateBox.textContent="Authorized DGM HLS playback.";
-    }else stateBox.textContent="This browser cannot initialize HLS playback.";
-   };
-   script.onerror=()=>stateBox.textContent="HLS player could not be loaded in this browser.";
-   document.head.appendChild(script);
-   return;
-  }
-  stateBox.textContent="Unsupported playback format.";
- }catch(e){
-  stateBox.textContent="DGM playback is temporarily unavailable.";
- }
-}
-function playTrailer(index,url,name){const box=document.getElementById("trailerPlayer");if(!box||!url)return;box.innerHTML='<div class="trailerPlayer"><iframe src="'+url+(url.includes("?")?"&":"?")+'autoplay=1&rel=0" title="'+esc(name)+'" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div>';box.scrollIntoView({behavior:"smooth",block:"center"})}
+function playTrailer(index,url,name){const box=document.getElementById("trailerPlayer");if(!box||!url)return;box.innerHTML='<div class="trailerPlayer"></div>';box.scrollIntoView({behavior:"smooth",block:"center"})}
 function closeModal(){document.getElementById("modal").classList.remove("show");const box=document.getElementById("trailerPlayer");if(box)box.innerHTML=""}
 document.getElementById("query").addEventListener("keydown",e=>{if(e.key==="Enter")searchMovies()});
 loadHome();loadGenres();
