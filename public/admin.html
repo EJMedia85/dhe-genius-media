@@ -10,7 +10,7 @@
 <div style="margin:18px 0"><button style="background:#25d366;color:#041008" onclick="location.href='/savings-admin.html'">🐷 Savings / Susu Management</button></div><div class="tabs"><button class="active" data-tab="orders">Orders</button><button data-tab="customers">Customers</button><button data-tab="withdrawals">Withdrawals <span id="withdrawalBadge" style="display:none"></span></button><button data-tab="support">Support</button><button data-tab="movies">Movie Playback</button></div>
 <section id="orders" class="section"><h2>Recent Orders</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Network</th><th>Phone</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="ordersBody"></tbody></table></div></section>
 <section id="withdrawals" class="section" hidden><h2>MoMo Withdrawal Requests</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Network</th><th>MoMo</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody id="withdrawalsBody"></tbody></table></div><div id="withdrawalMsg" class="msg"></div></section>
-<section id="customers" class="section" hidden><h2>Customers</h2><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Balance</th><th>Created</th><th>Wallet</th><th>Account</th></tr></thead><tbody id="customersBody"></tbody></table></div><div id="customerMsg" class="msg"></div></section>
+<section id="customers" class="section" hidden><h2>Customers</h2><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Balance</th><th>Created</th><th>Wallet</th><th>WhatsApp</th><th>Account</th></tr></thead><tbody id="customersBody"></tbody></table></div><div id="customerMsg" class="msg"></div></section>
 <div id="customerModal" class="modal" hidden><div class="modal-card"><div class="modal-head"><div><div class="brand">CUSTOMER DETAILS</div><h2 id="detailTitle">Customer</h2><div id="detailSub" class="sub"></div></div><button class="close" onclick="closeCustomerDetails()">Close</button></div><div id="detailContent"></div></div></div>\n<section id="support" class="section" hidden><h2>Customer Support</h2><div class="tablebox"><table class="table"><thead><tr><th>Customer</th><th>Subject</th><th>Message</th><th>Status</th><th>Reply</th></tr></thead><tbody id="supportBody"></tbody></table></div><div id="supportMsg" class="msg"></div></section>
 <section id="movies" class="section" hidden><h2>Authorized Movie Playback</h2><div class="card"><form id="movieForm" class="form"><input id="tmdb" type="number" placeholder="TMDB movie ID" required><input id="title" placeholder="Movie title"><select id="type"><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option></select><input id="url" type="url" placeholder="Authorized HTTPS playback URL" required><button class="save">Save</button></form><div id="movieMsg" class="msg">Only use DGM-controlled or properly licensed playback sources.</div></div></section>
 </main>
@@ -72,7 +72,7 @@ async function load(){
  const st=await api('/api/admin/stats'),s=st.stats;
  $('#stats').innerHTML=[['Customers',s.customers],['Orders',s.orders],['Completed',s.completed],['Pending',s.pending],['Completed value','GH₵'+Number(s.completed_value).toFixed(2)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="num">'+x[1]+'</div></div>').join('');
  const od=await api('/api/admin/orders');$('#ordersBody').innerHTML=od.orders.length?od.orders.map(o=>'<tr><td>'+esc(o.order_ref)+'</td><td>'+esc(o.customer_name||'')+'</td><td>'+esc(o.service)+'</td><td>'+esc(o.network||'')+'</td><td>'+esc(o.phone||'')+'</td><td>GH₵'+Number(o.amount||0).toFixed(2)+'</td><td class="status">'+esc(o.status)+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">No orders found.</td></tr>';
- const cu=await api('/api/admin/customers');$('#customersBody').innerHTML=cu.customers.length?cu.customers.map(c=>'<tr><td>'+c.id+'</td><td>'+esc(c.name)+'</td><td><button type="button" class="email-link" onclick="openCustomerDetails('+c.id+')">'+esc(c.email)+'</button></td><td>'+esc(c.phone)+'</td><td><strong>GH₵'+Number(c.balance||0).toFixed(2)+'</strong></td><td>'+new Date(c.created_at).toLocaleString()+'</td><td><div class="wallet-actions"><button type="button" class="wallet-credit" onclick="adminCredit('+c.id+')">Admin Credit</button><button type="button" class="wallet-debit" onclick="adminDebit('+c.id+')">Admin Debit</button></div></td><td><button onclick="removeCustomer('+c.id+',\''+esc(c.name).replace(/'/g,"\\'")+'\')">Remove</button></td></tr>').join(''):'<tr><td colspan="8" class="empty">No customers found.</td></tr>';
+ const cu=await api('/api/admin/customers');$('#customersBody').innerHTML=cu.customers.length?cu.customers.map(c=>'<tr><td>'+c.id+'</td><td>'+esc(c.name)+'</td><td><button type="button" class="email-link" onclick="openCustomerDetails('+c.id+')">'+esc(c.email)+'</button></td><td>'+esc(c.phone)+'</td><td><strong>GH₵'+Number(c.balance||0).toFixed(2)+'</strong></td><td>'+new Date(c.created_at).toLocaleString()+'</td><td><div class="wallet-actions"><button type="button" class="wallet-credit" onclick="adminCredit('+c.id+')">Admin Credit</button><button type="button" class="wallet-debit" onclick="adminDebit('+c.id+')">Admin Debit</button></div></td><td><button onclick="removeCustomer('+c.id+',\''+esc(c.name).replace(/'/g,"\\'")+'\')">Remove</button></td></tr>').join(''):'<tr><td colspan="9" class="empty">No customers found.</td></tr>';
 }
 async function adminCredit(id){
   const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+')'));
@@ -100,6 +100,21 @@ async function adminCredit(id){
     await load();
     alert('Admin credit of GH₵'+amount.toFixed(2)+' applied. New wallet balance: GH₵'+Number(d.balance).toFixed(2));
   }catch(err){alert(err.message)}
+}
+async function setWhatsAppPassword(id,name){
+  const password=prompt('Set WhatsApp access password for '+name+' (minimum 8 characters):');
+  if(password===null)return;
+  if(password.length<8){alert('Password must be at least 8 characters.');return;}
+  const confirmPassword=prompt('Confirm the WhatsApp access password:');
+  if(confirmPassword!==password){alert('Passwords do not match.');return;}
+  try{
+    const d=await api('/api/admin/customers/'+id+'/whatsapp-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});
+    alert(d.message);await load();
+  }catch(e){alert(e.message)}
+}
+async function disableWhatsApp(id){
+  if(!confirm('Disable WhatsApp access for this customer? They will no longer be able to open WhatsApp Conversations until a new password is set.'))return;
+  try{const d=await api('/api/admin/customers/'+id+'/whatsapp-password',{method:'DELETE'});alert(d.message);await load();}catch(e){alert(e.message)}
 }
 async function adminDebit(id){
   const currentRow=[...document.querySelectorAll('#customersBody tr')].find(r=>r.innerHTML.includes('adminCredit('+id+')'));
