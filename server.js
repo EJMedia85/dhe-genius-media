@@ -5520,13 +5520,43 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   } catch (error) { console.error("Admin orders error:", error); return sendError(res, 500, "Could not load orders."); }
 });
 
+app.post("/api/admin/customers/:id/whatsapp-password", requireAdmin, async (req,res) => {
+  const customerId = Number(req.params.id);
+  const password = String(req.body?.password || "");
+  if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res,400,"Invalid customer ID.");
+  if (password.length < 8 || password.length > 128) return sendError(res,400,"WhatsApp access password must be 8 to 128 characters.");
+  try {
+    const customer = await pool.query("SELECT id,name,email FROM customers WHERE id=$1 LIMIT 1",[customerId]);
+    if (!customer.rows.length) return sendError(res,404,"Customer not found.");
+    const hash = await bcrypt.hash(password,12);
+    await pool.query("UPDATE customers SET whatsapp_access_password_hash=$1 WHERE id=$2",[hash,customerId]);
+    return res.json({success:true,message:"WhatsApp access password set for "+(customer.rows[0].name||"customer")+"."});
+  } catch(e) {
+    console.error("Admin WhatsApp password error:",e);
+    return sendError(res,500,"Could not set WhatsApp access password.");
+  }
+});
+
+app.delete("/api/admin/customers/:id/whatsapp-password", requireAdmin, async (req,res) => {
+  const customerId = Number(req.params.id);
+  if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res,400,"Invalid customer ID.");
+  try {
+    const r=await pool.query("UPDATE customers SET whatsapp_access_password_hash=NULL WHERE id=$1 RETURNING id",[customerId]);
+    if(!r.rows.length) return sendError(res,404,"Customer not found.");
+    return res.json({success:true,message:"WhatsApp access disabled for this customer."});
+  } catch(e) {
+    console.error("Admin WhatsApp password removal error:",e);
+    return sendError(res,500,"Could not disable WhatsApp access.");
+  }
+});
+
 app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
   const customerId = Number(req.params.id);
   if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res, 400, "Invalid customer ID.");
 
   try {
     const customerResult = await pool.query(
-      "SELECT id, name, phone, email, balance, created_at FROM customers WHERE id = $1 LIMIT 1",
+      "SELECT id, name, phone, email, balance, created_at, (whatsapp_access_password_hash IS NOT NULL) AS whatsapp_access_enabled FROM customers WHERE id = $1 LIMIT 1",
       [customerId]
     );
     if (!customerResult.rows.length) return sendError(res, 404, "Customer not found.");
@@ -5685,7 +5715,7 @@ app.post("/api/admin/withdrawals/:id/paid", requireAdmin, async (req, res) => {
 
 app.get("/api/admin/customers", requireAdmin, async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, name, phone, email, balance, created_at FROM customers ORDER BY created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, name, phone, email, balance, created_at, (whatsapp_access_password_hash IS NOT NULL) AS whatsapp_access_enabled FROM customers ORDER BY created_at DESC LIMIT 100");
     return res.json({ success: true, customers: result.rows });
   } catch (error) {
     console.error("Admin customers error:", error);
@@ -8046,6 +8076,29 @@ function requireCustomer(req, res, next) {
   next();
 }
 
+async function requireWhatsAppAccess(req, res, next) {
+  if (!req.session || !req.session.customerId) {
+    return res.status(401).json({ success:false, message:"Please log in to continue." });
+  }
+  try {
+    const r = await pool.query(
+      "SELECT whatsapp_access_password_hash FROM customers WHERE id=$1 LIMIT 1",
+      [req.session.customerId]
+    );
+    const hash = r.rows[0]?.whatsapp_access_password_hash;
+    if (!hash) {
+      return res.status(403).json({success:false, code:"WHATSAPP_PASSWORD_REQUIRED", message:"WhatsApp access has not been enabled for your account. Contact DGM support."});
+    }
+    if (!req.session.whatsappAccessGranted) {
+      return res.status(403).json({success:false, code:"WHATSAPP_PASSWORD_REQUIRED", message:"Enter your WhatsApp access password to continue."});
+    }
+    next();
+  } catch (e) {
+    console.error("WhatsApp access check error:", e);
+    return res.status(500).json({success:false,message:"Could not verify WhatsApp access."});
+  }
+}
+
 app.get("/api/notifications", requireCustomer, async (req,res) => {
   try {
     const result = await pool.query(
@@ -8330,6 +8383,7 @@ async function ensureSmsTables() {
   await pool.query(`
     ALTER TABLE sms_devices ADD COLUMN IF NOT EXISTS pending_count INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE sms_devices ADD COLUMN IF NOT EXISTS last_sync_at TIMESTAMPTZ;
+    ALTER TABLE customers ADD COLUMN IF NOT EXISTS whatsapp_access_password_hash TEXT;
   `);
 }
 
@@ -8443,7 +8497,7 @@ app.post("/api/sms/ingest", async (req,res) => {
   }
 });
 
-app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
+app.get("/api/whatsapp/messages", requireWhatsAppAccess, async (req,res) => {
   try {
     const deviceId=Number(req.query.device_id||0);
     const limit=Math.min(Math.max(Number(req.query.limit)||500,1),500);
@@ -8533,7 +8587,7 @@ app.post("/api/whatsapp/media", express.raw({type:"application/octet-stream",lim
   }
 });
 
-app.get("/api/whatsapp/media/:id", requireCustomer, async (req,res) => {
+app.get("/api/whatsapp/media/:id", requireWhatsAppAccess, async (req,res) => {
   try{
     const id=Number(req.params.id||0);
     if(!Number.isInteger(id)||id<1)return res.status(400).send("Invalid media id.");
@@ -8594,7 +8648,7 @@ app.post("/api/whatsapp/import", express.json({limit:"5mb"}), async (req,res) =>
   }
 });
 
-app.get("/api/whatsapp/stats", requireCustomer, async (req,res) => {
+app.get("/api/whatsapp/stats", requireWhatsAppAccess, async (req,res) => {
   try {
     const days=Math.min(Math.max(Number(req.query.days)||30,1),90);
     const r=await pool.query(
@@ -8614,7 +8668,50 @@ app.get("/api/whatsapp/stats", requireCustomer, async (req,res) => {
   }
 });
 
-app.get("/api/whatsapp/summary", requireCustomer, async (req,res) => {
+app.get("/api/whatsapp/access/status", requireCustomer, async (req,res) => {
+  try {
+    const r = await pool.query(
+      "SELECT whatsapp_access_password_hash FROM customers WHERE id=$1 LIMIT 1",
+      [req.session.customerId]
+    );
+    const configured = Boolean(r.rows[0]?.whatsapp_access_password_hash);
+    res.json({success:true,configured,granted:Boolean(req.session.whatsappAccessGranted && configured)});
+  } catch(e) {
+    console.error("WhatsApp access status error:",e);
+    res.status(500).json({success:false,message:"Could not check WhatsApp access."});
+  }
+});
+
+app.post("/api/whatsapp/access/unlock", requireCustomer, async (req,res) => {
+  try {
+    const password = String(req.body?.password || "");
+    if (password.length < 1 || password.length > 128) {
+      return res.status(400).json({success:false,message:"Enter your WhatsApp access password."});
+    }
+    const r = await pool.query(
+      "SELECT whatsapp_access_password_hash FROM customers WHERE id=$1 LIMIT 1",
+      [req.session.customerId]
+    );
+    const hash = r.rows[0]?.whatsapp_access_password_hash;
+    if (!hash) {
+      return res.status(403).json({success:false,code:"WHATSAPP_PASSWORD_REQUIRED",message:"WhatsApp access has not been enabled for your account. Contact DGM support."});
+    }
+    const ok = await bcrypt.compare(password, hash);
+    if (!ok) return res.status(401).json({success:false,message:"Incorrect WhatsApp access password."});
+    req.session.whatsappAccessGranted = true;
+    return res.json({success:true,message:"WhatsApp access unlocked."});
+  } catch(e) {
+    console.error("WhatsApp access unlock error:",e);
+    res.status(500).json({success:false,message:"Could not unlock WhatsApp access."});
+  }
+});
+
+app.post("/api/whatsapp/access/lock", requireCustomer, async (req,res) => {
+  req.session.whatsappAccessGranted = false;
+  return res.json({success:true});
+});
+
+app.get("/api/whatsapp/summary", requireWhatsAppAccess, async (req,res) => {
   try{
     const r=await pool.query(`SELECT COUNT(*)::int AS messages,
       COUNT(DISTINCT d.id)::int AS devices,
