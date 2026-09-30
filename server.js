@@ -5838,6 +5838,107 @@ app.delete("/api/admin/customers/:id", requireAdmin, async (req, res) => {
 });
 
 // =====================================================
+// ADMIN DEVICE MANAGEMENT
+// Device logout/wipe is intentionally admin-only.
+// =====================================================
+
+app.get("/api/admin/devices", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT d.id, d.customer_id, c.name AS customer_name, c.email AS customer_email,
+              d.name, d.phone, d.active, d.last_seen_at, d.pending_count, d.last_sync_at, d.created_at,
+              (SELECT COUNT(*) FROM sms_messages m WHERE m.device_id = d.id) AS sms_count,
+              (SELECT COUNT(*) FROM whatsapp_messages w WHERE w.device_id = d.id) AS whatsapp_count
+       FROM sms_devices d
+       JOIN customers c ON c.id = d.customer_id
+       ORDER BY d.created_at DESC`
+    );
+    return res.json({ success: true, devices: result.rows });
+  } catch (error) {
+    console.error("Admin devices error:", error);
+    return sendError(res, 500, "Could not load devices.");
+  }
+});
+
+app.post("/api/admin/devices/:id/logout", requireAdmin, async (req, res) => {
+  const deviceId = Number(req.params.id);
+  if (!Number.isInteger(deviceId) || deviceId <= 0) {
+    return sendError(res, 400, "Invalid device ID.");
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    const deviceResult = await client.query(
+      `SELECT d.id, d.customer_id, d.name, d.phone, c.name AS customer_name
+       FROM sms_devices d
+       JOIN customers c ON c.id = d.customer_id
+       WHERE d.id = $1
+       FOR UPDATE`,
+      [deviceId]
+    );
+
+    if (!deviceResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Device not found.");
+    }
+
+    const device = deviceResult.rows[0];
+
+    // Explicitly purge device-owned communication data before removing
+    // the device registration/token. This is deliberately not customer-wide.
+    const smsDeleted = await client.query(
+      "DELETE FROM sms_messages WHERE device_id = $1",
+      [deviceId]
+    );
+    const whatsappDeleted = await client.query(
+      "DELETE FROM whatsapp_messages WHERE device_id = $1",
+      [deviceId]
+    );
+    const mediaDeleted = await client.query(
+      "DELETE FROM whatsapp_media WHERE device_id = $1",
+      [deviceId]
+    );
+
+    // Removing the registration permanently invalidates its token.
+    await client.query("DELETE FROM sms_devices WHERE id = $1", [deviceId]);
+
+    await client.query("COMMIT");
+
+    return res.json({
+      success: true,
+      message: "Device logged out and all device data wiped.",
+      device: {
+        id: device.id,
+        name: device.name,
+        phone: device.phone,
+        customer_id: device.customer_id,
+        customer_name: device.customer_name
+      },
+      wiped: {
+        sms_messages: smsDeleted.rowCount || 0,
+        whatsapp_messages: whatsappDeleted.rowCount || 0,
+        whatsapp_media: mediaDeleted.rowCount || 0,
+        device_registration: 1
+      }
+    });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Admin device logout/wipe error:", error);
+    return sendError(res, 500, "Could not log out and wipe the device. No changes were committed.");
+  } finally {
+    client.release();
+  }
+});
+
+// Customer accounts cannot revoke, wipe, or delete device records.
+// Device lifecycle/destructive actions are controlled from the admin dashboard.
+app.post("/api/sms/devices/:id/revoke", requireCustomer, async (req, res) => {
+  return sendError(res, 403, "Device logout and data wipe are available only to DGM administrators.");
+});
+
+// =====================================================
 // REGISTER
 // =====================================================
 
@@ -8420,13 +8521,6 @@ app.post("/api/sms/devices", requireCustomer, async (req,res) => {
     console.error("SMS device create error",e);
     res.status(500).json({success:false,message:"Could not register device."});
   }
-});
-
-app.post("/api/sms/devices/:id/revoke", requireCustomer, async (req,res) => {
-  try {
-    await pool.query("UPDATE sms_devices SET active=false WHERE id=$1 AND customer_id=$2",[Number(req.params.id),req.session.customerId]);
-    res.json({success:true,message:"Device access revoked."});
-  } catch(e) { res.status(500).json({success:false,message:"Could not revoke device."}); }
 });
 
 app.get("/api/sms/messages", requireCustomer, async (req,res) => {
