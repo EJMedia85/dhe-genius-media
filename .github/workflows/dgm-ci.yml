@@ -1,0 +1,23 @@
+name: DGM Server Checks
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  server-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: node --check server.js
+      - run: |
+          test -f public/movies.html
+          test -f public/data.html
+          ! grep -qi "netmirror" public/movies.html
+          ! grep -q "/api/movies/playback" public/movies.html
