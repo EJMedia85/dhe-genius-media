@@ -84,6 +84,47 @@ const DGM_API_KEY =
 const CRON_SECRET =
   String(process.env.CRON_SECRET || "").trim();
 
+// Savings withdrawal-code protection. This is intentionally process-local;
+// the account PIN remains bcrypt-hashed in PostgreSQL. Repeated failures
+// temporarily block further attempts for the same customer.
+const savingsWithdrawalAttempts = new Map();
+const SAVINGS_WITHDRAWAL_MAX_FAILURES = 5;
+const SAVINGS_WITHDRAWAL_WINDOW_MS = 15 * 60 * 1000;
+const SAVINGS_WITHDRAWAL_LOCK_MS = 15 * 60 * 1000;
+
+function checkSavingsWithdrawalRateLimit(customerId) {
+  const key = String(customerId);
+  const now = Date.now();
+  const state = savingsWithdrawalAttempts.get(key);
+  if (!state) return { allowed: true };
+  if (state.lockedUntil && state.lockedUntil > now) {
+    return { allowed: false, retryAfterSeconds: Math.ceil((state.lockedUntil - now) / 1000) };
+  }
+  if (now - state.windowStartedAt >= SAVINGS_WITHDRAWAL_WINDOW_MS) {
+    savingsWithdrawalAttempts.delete(key);
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+
+function recordSavingsWithdrawalFailure(customerId) {
+  const key = String(customerId);
+  const now = Date.now();
+  const current = savingsWithdrawalAttempts.get(key);
+  let state = current && now - current.windowStartedAt < SAVINGS_WITHDRAWAL_WINDOW_MS
+    ? current
+    : { failures: 0, windowStartedAt: now, lockedUntil: 0 };
+  state.failures += 1;
+  if (state.failures >= SAVINGS_WITHDRAWAL_MAX_FAILURES) {
+    state.lockedUntil = now + SAVINGS_WITHDRAWAL_LOCK_MS;
+  }
+  savingsWithdrawalAttempts.set(key, state);
+}
+
+function clearSavingsWithdrawalFailures(customerId) {
+  savingsWithdrawalAttempts.delete(String(customerId));
+}
+
 // =====================================================
 // KINGFLEXY AIRTIME API
 // =====================================================
@@ -8760,6 +8801,11 @@ app.post("/api/savings/deposit", requireLogin, async (req, res) => {
 });
 
 app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
+  const rateLimit = checkSavingsWithdrawalRateLimit(req.session.customerId);
+  if (!rateLimit.allowed) {
+    return sendError(res, 429, "Too many incorrect withdrawal-code attempts. Try again in " + rateLimit.retryAfterSeconds + " seconds.");
+  }
+
   const client = await pool.connect();
   try {
     const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
@@ -8786,9 +8832,15 @@ app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
     }
     const validWithdrawalCode = await bcrypt.compare(withdrawalCode, account.withdrawal_pin_hash);
     if (!validWithdrawalCode) {
+      recordSavingsWithdrawalFailure(req.session.customerId);
       await client.query("ROLLBACK");
-      return sendError(res, 401, "Incorrect Savings withdrawal code.");
+      const current = savingsWithdrawalAttempts.get(String(req.session.customerId));
+      const locked = current?.lockedUntil && current.lockedUntil > Date.now();
+      return sendError(res, locked ? 429 : 401, locked
+        ? "Too many incorrect withdrawal-code attempts. Try again in 15 minutes."
+        : "Incorrect Savings withdrawal code.");
     }
+    clearSavingsWithdrawalFailures(req.session.customerId);
     if (account.locked_until && new Date(account.locked_until).getTime() > Date.now()) {
       await client.query("ROLLBACK");
       return sendError(res, 400, "Your savings are locked until " + new Date(account.locked_until).toLocaleDateString() + ".");
