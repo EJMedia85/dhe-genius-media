@@ -46,7 +46,7 @@ input,select{width:100%;padding:12px;border-radius:11px;border:1px solid rgba(25
 </div>
 <script>
 const money=n=>"GH₵"+Number(n||0).toFixed(2);
-const esc=v=>String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));","<":"&lt;",">":"&gt;",""":"&quot;"}[m]));
+const esc=v=>String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 async function api(url,options={}){const r=await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(options.headers||{})},...options});const j=await r.json().catch(()=>({}));if(r.status===401)throw new Error("Please login to continue.");if(!r.ok||j.success===false)throw new Error(j.message||"Request failed");return j}
 function render(data){
  const a=data.account||{}, balance=Number(a.balance||0), target=Number(a.target_amount||0), pct=target?Math.min(100,balance/target*100):0;
