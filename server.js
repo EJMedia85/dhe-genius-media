@@ -8993,7 +8993,8 @@ async function runAutomaticSavingsContributions() {
   const due = await pool.query(`
     SELECT id, customer_id
     FROM savings_accounts
-    WHERE status='Active'
+    WHERE withdrawal_pin_hash IS NOT NULL
+      AND status='Active'
       AND auto_enabled=true
       AND contribution_amount > 0
       AND frequency IN ('Daily','Weekly','Monthly')
