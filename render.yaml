@@ -9,6 +9,8 @@ services:
         value: production
       - key: SESSION_SECRET
         sync: false
+      - key: CRON_SECRET
+        sync: false
       - key: YOUTUBE_API_KEY
         sync: false
       - key: YOUTUBE_CHANNEL_ID
