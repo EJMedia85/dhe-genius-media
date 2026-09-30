@@ -9291,6 +9291,7 @@ async function startServer() {
 
     await initDatabase();
     await ensureSmsTables();
+    await ensureSavingsTables();
     await initializeAdminCredentials();
 
     app.listen(
