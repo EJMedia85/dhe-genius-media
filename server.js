@@ -8246,6 +8246,28 @@ function smsDecrypt(value) {
     return Buffer.concat([decipher.update(Buffer.from(dataB64, "base64")), decipher.final()]).toString("utf8");
   } catch { return ""; }
 }
+
+function smsEncryptBuffer(value) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", SMS_CIPHER_KEY, iv);
+  const encrypted = Buffer.concat([cipher.update(Buffer.from(value || "")), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), encrypted]);
+}
+
+function smsDecryptBuffer(value) {
+  try {
+    const raw = Buffer.from(value || "");
+    if (raw.length < 28) return null;
+    const iv = raw.subarray(0, 12);
+    const tag = raw.subarray(12, 28);
+    const encrypted = raw.subarray(28);
+    const decipher = crypto.createDecipheriv("aes-256-gcm", SMS_CIPHER_KEY, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]);
+  } catch {
+    return null;
+  }
+}
 async function ensureSmsTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS sms_devices (
@@ -8273,6 +8295,17 @@ async function ensureSmsTables() {
       UNIQUE(device_id, external_id)
     );
     CREATE INDEX IF NOT EXISTS sms_messages_device_time_idx ON sms_messages(device_id, received_at DESC);
+    CREATE TABLE IF NOT EXISTS whatsapp_media (
+      id SERIAL PRIMARY KEY,
+      device_id INTEGER NOT NULL REFERENCES sms_devices(id) ON DELETE CASCADE,
+      external_id VARCHAR(240),
+      mime_type VARCHAR(120) NOT NULL DEFAULT 'audio/ogg',
+      duration_ms INTEGER NOT NULL DEFAULT 0,
+      size_bytes INTEGER NOT NULL DEFAULT 0,
+      data_enc BYTEA NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(device_id, external_id)
+    );
     CREATE TABLE IF NOT EXISTS whatsapp_messages (
       id SERIAL PRIMARY KEY,
       device_id INTEGER NOT NULL REFERENCES sms_devices(id) ON DELETE CASCADE,
@@ -8286,7 +8319,12 @@ async function ensureSmsTables() {
     );
     ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS direction VARCHAR(20) NOT NULL DEFAULT 'received';
     ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS event_type VARCHAR(40) NOT NULL DEFAULT 'notification_event';
+    ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_id INTEGER REFERENCES whatsapp_media(id) ON DELETE SET NULL;
+    ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS mime_type VARCHAR(120);
+    ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS duration_ms INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE whatsapp_messages ADD COLUMN IF NOT EXISTS media_size INTEGER NOT NULL DEFAULT 0;
     CREATE INDEX IF NOT EXISTS whatsapp_messages_device_time_idx ON whatsapp_messages(device_id, received_at DESC);
+    CREATE INDEX IF NOT EXISTS whatsapp_media_device_time_idx ON whatsapp_media(device_id, created_at DESC);
   `);
 
   await pool.query(`
@@ -8370,7 +8408,7 @@ app.get("/api/sms/summary", requireCustomer, async (req,res) => {
        WHERE d.customer_id=$1 AND d.active=true`,
       [req.session.customerId]
     );
-    res.json({success:true,summary:r.rows[0]});
+    res.json({success:true,summary:{...r.rows[0],voice_notes:Number(r.rows[0]?.voice_notes||0)}});
   } catch(e) { res.status(500).json({success:false,message:"Could not load SMS summary."}); }
 });
 
@@ -8414,14 +8452,110 @@ app.get("/api/whatsapp/messages", requireCustomer, async (req,res) => {
     let where="d.customer_id=$1 AND d.active=true";
     if(Number.isInteger(deviceId)&&deviceId>0){params.push(deviceId);where+=" AND d.id=$2";}
     const r=await pool.query(
-      `SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.event_type,w.sender_enc,w.body_enc,w.received_at
+      `SELECT w.id,w.device_id,d.name AS device_name,w.direction,w.event_type,w.sender_enc,w.body_enc,w.received_at,
+              w.media_id,w.mime_type,w.duration_ms,w.media_size
        FROM whatsapp_messages w JOIN sms_devices d ON d.id=w.device_id
        WHERE ${where} ORDER BY w.received_at DESC LIMIT ${limit} OFFSET ${offset}`,params);
     res.json({success:true,messages:r.rows.map(w=>({
       id:w.id,device_id:w.device_id,device_name:w.device_name,direction:w.direction,event_type:w.event_type,
-      sender:smsDecrypt(w.sender_enc),body:smsDecrypt(w.body_enc),received_at:w.received_at
+      sender:smsDecrypt(w.sender_enc),body:smsDecrypt(w.body_enc),received_at:w.received_at,
+      media:w.media_id?{id:w.media_id,url:"/api/whatsapp/media/"+w.media_id,mime_type:w.mime_type||"audio/ogg",duration_ms:Number(w.duration_ms||0),size_bytes:Number(w.media_size||0)}:null
     }))});
   } catch(e){console.error("WhatsApp messages error",e);res.status(500).json({success:false,message:"Could not load WhatsApp messages."});}
+});
+
+app.post("/api/whatsapp/media", express.raw({type:"application/octet-stream",limit:"20mb"}), async (req,res) => {
+  try {
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw)return res.status(401).json({success:false,message:"Device token required."});
+    if(!Buffer.isBuffer(req.body)||req.body.length<1)return res.status(400).json({success:false,message:"Voice-note media body is required."});
+    if(req.body.length>20*1024*1024)return res.status(413).json({success:false,message:"Voice note is too large. Maximum is 20 MB."});
+
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const d=await pool.query("SELECT id FROM sms_devices WHERE token_hash=$1 AND active=true LIMIT 1",[hash]);
+    if(!d.rows.length)return res.status(401).json({success:false,message:"Invalid or revoked device token."});
+    const deviceId=d.rows[0].id;
+
+    const mediaExternalId=String(req.get("X-DGM-Media-External-ID")||"").slice(0,240)||("wamedia-"+Date.now().toString(36)+"-"+crypto.randomBytes(5).toString("hex"));
+    const messageExternalId=String(req.get("X-DGM-Message-External-ID")||"").slice(0,220);
+    const sender=String(req.get("X-DGM-Sender")||"WhatsApp").slice(0,300);
+    const direction=String(req.get("X-DGM-Direction")||"received").slice(0,20)==="sent"?"sent":"received";
+    const eventType=String(req.get("X-DGM-Event-Type")||"voice_note").slice(0,40)||"voice_note";
+    const mimeType=String(req.get("X-DGM-Mime-Type")||"audio/ogg").slice(0,120)||"audio/ogg";
+    const durationMs=Math.max(0,Math.min(60*60*1000,Number(req.get("X-DGM-Duration-Ms")||0)||0));
+    const receivedAtRaw=req.get("X-DGM-Received-At");
+    const parsedReceivedAt=receivedAtRaw?new Date(receivedAtRaw):new Date();
+    const when=Number.isNaN(parsedReceivedAt.getTime())?new Date():parsedReceivedAt;
+    const encrypted=smsEncryptBuffer(req.body);
+
+    const mediaInsert=await pool.query(
+      `INSERT INTO whatsapp_media(device_id,external_id,mime_type,duration_ms,size_bytes,data_enc)
+       VALUES($1,$2,$3,$4,$5,$6)
+       ON CONFLICT(device_id,external_id) DO UPDATE SET mime_type=EXCLUDED.mime_type,duration_ms=EXCLUDED.duration_ms,size_bytes=EXCLUDED.size_bytes,data_enc=EXCLUDED.data_enc
+       RETURNING id`,
+      [deviceId,mediaExternalId,mimeType,durationMs,req.body.length,encrypted]
+    );
+    const mediaId=mediaInsert.rows[0].id;
+
+    let message;
+    if(messageExternalId){
+      const existing=await pool.query(
+        "SELECT id FROM whatsapp_messages WHERE device_id=$1 AND external_id=$2 LIMIT 1",
+        [deviceId,messageExternalId]
+      );
+      if(existing.rows.length){
+        message=await pool.query(
+          `UPDATE whatsapp_messages
+             SET media_id=$1,mime_type=$2,duration_ms=$3,media_size=$4,event_type='voice_note'
+           WHERE id=$5
+           RETURNING id`,
+          [mediaId,mimeType,durationMs,req.body.length,existing.rows[0].id]
+        );
+      }
+    }
+    if(!message){
+      const messageExternalIdFinal=messageExternalId||mediaExternalId;
+      message=await pool.query(
+        `INSERT INTO whatsapp_messages(device_id,external_id,direction,event_type,sender_enc,body_enc,received_at,media_id,mime_type,duration_ms,media_size)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+         ON CONFLICT(device_id,external_id) DO UPDATE
+           SET media_id=EXCLUDED.media_id,mime_type=EXCLUDED.mime_type,duration_ms=EXCLUDED.duration_ms,media_size=EXCLUDED.media_size,event_type='voice_note'
+         RETURNING id`,
+        [deviceId,messageExternalIdFinal,direction,eventType,smsEncrypt(sender),smsEncrypt("Voice message"),when,mediaId,mimeType,durationMs,req.body.length]
+      );
+    }
+    await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
+    return res.status(201).json({success:true,stored:true,media_id:mediaId,message_id:message.rows[0]?.id||null});
+  }catch(e){
+    console.error("WhatsApp media ingest error",e);
+    return res.status(500).json({success:false,message:"Could not store WhatsApp voice note."});
+  }
+});
+
+app.get("/api/whatsapp/media/:id", requireCustomer, async (req,res) => {
+  try{
+    const id=Number(req.params.id||0);
+    if(!Number.isInteger(id)||id<1)return res.status(400).send("Invalid media id.");
+    const r=await pool.query(
+      `SELECT wm.mime_type,wm.data_enc
+       FROM whatsapp_media wm
+       JOIN sms_devices d ON d.id=wm.device_id
+       WHERE wm.id=$1 AND d.customer_id=$2 AND d.active=true
+       LIMIT 1`,
+      [id,req.session.customerId]
+    );
+    if(!r.rows.length)return res.status(404).send("Media not found.");
+    const data=smsDecryptBuffer(r.rows[0].data_enc);
+    if(!data)return res.status(500).send("Media could not be decrypted.");
+    res.setHeader("Content-Type",r.rows[0].mime_type||"audio/ogg");
+    res.setHeader("Content-Length",String(data.length));
+    res.setHeader("Cache-Control","private, max-age=3600");
+    return res.send(data);
+  }catch(e){
+    console.error("WhatsApp media read error",e);
+    return res.status(500).send("Could not load media.");
+  }
 });
 
 app.get("/api/whatsapp/stats", requireCustomer, async (req,res) => {
@@ -8448,7 +8582,8 @@ app.get("/api/whatsapp/summary", requireCustomer, async (req,res) => {
   try{
     const r=await pool.query(`SELECT COUNT(*)::int AS messages,
       COUNT(DISTINCT d.id)::int AS devices,
-      COUNT(*) FILTER (WHERE w.received_at>=NOW()-INTERVAL '24 hours')::int AS today
+      COUNT(*) FILTER (WHERE w.received_at>=NOW()-INTERVAL '24 hours')::int AS today,
+      COUNT(w.media_id)::int AS voice_notes
       FROM sms_devices d LEFT JOIN whatsapp_messages w ON w.device_id=d.id
       WHERE d.customer_id=$1 AND d.active=true`,[req.session.customerId]);
     res.json({success:true,summary:r.rows[0]});
