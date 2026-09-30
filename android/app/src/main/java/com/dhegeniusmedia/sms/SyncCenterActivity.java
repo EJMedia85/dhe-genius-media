@@ -21,7 +21,8 @@ public class SyncCenterActivity extends Activity {
         Button sync=new Button(this); sync.setText("Sync Now"); sync.setOnClickListener(v->{SyncWorker.now(this);refresh();}); box.addView(sync);
         Button conv=new Button(this); conv.setText("View Conversations"); conv.setOnClickListener(v->startActivity(new android.content.Intent(this,ConversationsActivity.class))); box.addView(conv);
         Button settings=new Button(this); settings.setText("Device Settings"); settings.setOnClickListener(v->startActivity(new android.content.Intent(this,MainActivity.class))); box.addView(settings);
-        Button retry=new Button(this); retry.setText("Retry Pending"); retry.setOnClickListener(v->{SyncWorker.now(this);refresh();}); box.addView(retry);
+        Button retry=new Button(this); retry.setText("Retry Pending"); retry.setOnClickListener(v->{SyncWorker.now(this);VoiceMediaSync.now(this);refresh();}); box.addView(retry);
+        Button voice=new Button(this); voice.setText("Sync WhatsApp Voice Notes"); voice.setOnClickListener(v->{VoiceMediaSync.now(this);refresh();}); box.addView(voice);
         setContentView(scroll);
     }
 
@@ -34,6 +35,7 @@ public class SyncCenterActivity extends Activity {
                 "\nSMS synchronized: "+SyncStore.syncedCount(this,"sms")+
                 "\nWhatsApp events captured: "+SyncStore.count(this,"whatsapp")+
                 "\nWhatsApp synchronized: "+SyncStore.syncedCount(this,"whatsapp")+
+                "\nVoice-note folder: "+(VoiceMediaSync.tree(this).isEmpty()?"Not granted":"Granted")+
                 "\nPending: "+SyncStore.pendingCount(this)+
                 "\nFailed: "+SyncStore.failedCount(this)+
                 (SyncStore.lastError(this).isEmpty()?"":"\nError: "+SyncStore.lastError(this)));
