@@ -1,85 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#07131f">
-<title>Savings & Susu | DHE GENIUS MEDIA</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07131f"><title>Savings & Susu | DHE GENIUS MEDIA</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#07131f;color:#fff;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-.wrap{max-width:900px;margin:auto;padding:18px 16px 80px}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.brand{font-weight:900}.brand small{display:block;color:#8da5b8;font-size:10px;margin-top:3px}.back{color:#cfe0ea;text-decoration:none;font-size:13px}
-.hero{background:linear-gradient(135deg,#087fe8,#004fba);border-radius:24px;padding:24px;box-shadow:0 18px 45px rgba(0,100,220,.22);margin-bottom:14px}
-.label{font-size:12px;opacity:.8}.balance{font-size:38px;font-weight:900;margin:8px 0 18px}.pill{display:inline-block;background:rgba(255,255,255,.14);padding:8px 11px;border-radius:12px;font-size:11px}
-.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0}.card{background:#0d2030;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px}.card h2{font-size:15px;margin:0 0 12px}.muted{color:#8da5b8;font-size:12px}.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}input,select{width:100%;padding:12px;border-radius:11px;border:1px solid rgba(255,255,255,.1);background:#081725;color:#fff;outline:none;margin-bottom:9px}button{border:0;border-radius:11px;padding:12px 15px;font-weight:800;cursor:pointer}.primary{background:#20d889;color:#062016}.secondary{background:#1688e8;color:#fff}.danger{background:#a83245;color:#fff}.full{width:100%}.status{min-height:18px;font-size:12px;margin-top:8px}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:11px 6px;border-bottom:1px solid rgba(255,255,255,.07);text-align:left}.in{color:#20d889}.out{color:#ff8f8f}.empty{text-align:center;color:#8da5b8;padding:20px}
-@media(max-width:600px){.grid{grid-template-columns:1fr}.balance{font-size:34px}}
+.wrap{max-width:980px;margin:auto;padding:18px 16px 80px}.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.brand{font-weight:900}.brand small{display:block;color:#8da5b8;font-size:10px;margin-top:3px}.back{color:#cfe0ea;text-decoration:none;font-size:13px}
+.hero{background:linear-gradient(135deg,#087fe8,#004fba);border-radius:24px;padding:24px;box-shadow:0 18px 45px rgba(0,100,220,.22);margin-bottom:14px}.label{font-size:12px;opacity:.8}.balance{font-size:38px;font-weight:900;margin:8px 0 10px}.pill{display:inline-block;background:rgba(255,255,255,.14);padding:8px 11px;border-radius:12px;font-size:11px;margin:3px 4px 0 0}
+.progress{height:9px;background:rgba(255,255,255,.18);border-radius:99px;overflow:hidden;margin:14px 0 7px}.progress i{display:block;height:100%;background:#20d889;width:0}.progress-text{font-size:11px;opacity:.8}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0}.card{background:#0d2030;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:18px}.card h2{font-size:15px;margin:0 0 12px}.muted{color:#8da5b8;font-size:12px;line-height:1.5}.row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+input,select{width:100%;padding:12px;border-radius:11px;border:1px solid rgba(255,255,255,.1);background:#081725;color:#fff;outline:none;margin-bottom:9px}button{border:0;border-radius:11px;padding:12px 15px;font-weight:800;cursor:pointer}.primary{background:#20d889;color:#062016}.secondary{background:#1688e8;color:#fff}.danger{background:#a83245;color:#fff}.full{width:100%}.status{min-height:18px;font-size:12px;margin-top:8px}.ok{color:#20d889}.warn{color:#ffc76b}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:11px 6px;border-bottom:1px solid rgba(255,255,255,.07);text-align:left}.in{color:#20d889}.out{color:#ff8f8f}.empty{text-align:center;color:#8da5b8;padding:20px}.receipt{background:#081725;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;margin-top:10px}.receipt button{background:#1a3448;color:#fff;font-size:11px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}.balance{font-size:34px}.row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div class="top">
-    <div class="brand">DHE GENIUS MEDIA<small>Stay Connected. Stay Genius.</small></div>
-    <a class="back" href="/dashboard.html">← Dashboard</a>
-  </div>
+<div class="top"><div class="brand">DHE GENIUS MEDIA<small>Stay Connected. Stay Genius.</small></div><a class="back" href="/dashboard.html">← Dashboard</a></div>
 
-  <section class="hero">
-    <div class="label">DGM SAVINGS / SUSU BALANCE</div>
-    <div class="balance" id="balance">GH₵0.00</div>
-    <span class="pill" id="plan">Flexible savings</span>
-  </section>
+<section class="hero">
+<div class="label">DGM SAVINGS / SUSU BALANCE</div><div class="balance" id="balance">GH₵0.00</div>
+<div id="goalPill" class="pill">Goal: My Savings Goal</div><div id="lockPill" class="pill">Unlocked</div><div id="autoPill" class="pill">Automatic saving off</div>
+<div class="progress"><i id="progress"></i></div><div class="progress-text" id="progressText">No savings target set.</div>
+</section>
 
-  <div class="grid">
-    <section class="card">
-      <h2>Save from Wallet</h2>
-      <div class="muted">Move money from your DGM Wallet into Savings instantly.</div>
-      <input id="depositAmount" type="number" min="1" step="0.01" placeholder="Amount (GH₵)">
-      <button class="primary full" onclick="deposit()">Add to Savings</button>
-      <div class="status" id="depositStatus"></div>
-    </section>
+<div class="grid">
+<section class="card"><h2>Save from Wallet</h2><div class="muted">Move money from your DGM Wallet into Savings instantly.</div>
+<input id="depositAmount" type="number" min="1" step="0.01" placeholder="Amount (GH₵)"><button class="primary full" onclick="deposit()">Add to Savings</button><div class="status" id="depositStatus"></div></section>
 
-    <section class="card">
-      <h2>Withdraw to Wallet</h2>
-      <div class="muted">Move savings back to your DGM Wallet instantly.</div>
-      <input id="withdrawAmount" type="number" min="1" step="0.01" placeholder="Amount (GH₵)">
-      <button class="secondary full" onclick="withdrawSavings()">Withdraw to Wallet</button>
-      <div class="status" id="withdrawStatus"></div>
-    </section>
-  </div>
+<section class="card"><h2>Save directly with Paystack</h2><div class="muted">Pay into your DGM Savings/Susu balance without first moving money through Wallet.</div>
+<input id="payAmount" type="number" min="1" step="0.01" placeholder="Amount (GH₵)"><button class="secondary full" onclick="paystackSave()">Pay with Paystack</button><div class="status" id="payStatus"></div></section>
 
-  <section class="card">
-    <h2>My Susu Plan</h2>
-    <div class="row">
-      <input id="targetAmount" type="number" min="0" step="0.01" placeholder="Savings target (GH₵)">
-      <input id="contributionAmount" type="number" min="0" step="0.01" placeholder="Contribution (GH₵)">
-    </div>
-    <select id="frequency">
-      <option>Flexible</option><option>Daily</option><option>Weekly</option><option>Monthly</option>
-    </select>
-    <button class="secondary full" onclick="savePlan()">Save Susu Plan</button>
-    <div class="status" id="planStatus"></div>
-  </section>
+<section class="card"><h2>Withdraw to Wallet</h2><div class="muted">Unlocked savings can be moved back to your DGM Wallet instantly.</div>
+<input id="withdrawAmount" type="number" min="1" step="0.01" placeholder="Amount (GH₵)"><button class="secondary full" onclick="withdrawSavings()">Withdraw to Wallet</button><div class="status" id="withdrawStatus"></div></section>
 
-  <section class="card" style="margin-top:14px">
-    <h2>Contribution History</h2>
-    <div id="history"><div class="empty">Loading...</div></div>
-  </section>
+<section class="card"><h2>My Susu Plan</h2><div class="muted">Set a goal, target date, lock date and optional automatic contribution schedule.</div>
+<input id="goalName" maxlength="100" placeholder="Goal name">
+<div class="row"><input id="targetAmount" type="number" min="0" step="0.01" placeholder="Target (GH₵)"><input id="targetDate" type="date"></div>
+<div class="row"><input id="contributionAmount" type="number" min="0" step="0.01" placeholder="Auto contribution (GH₵)"><select id="frequency"><option>Flexible</option><option>Daily</option><option>Weekly</option><option>Monthly</option></select></div>
+<label class="muted"><input id="autoEnabled" type="checkbox" style="width:auto;margin-right:6px"> Enable automatic contributions from Wallet</label>
+<input id="lockedUntil" type="date" style="margin-top:10px"><div class="muted">Lock date is optional. While locked, customer withdrawals are blocked until the date.</div>
+<button class="secondary full" style="margin-top:10px" onclick="savePlan()">Save Susu Plan</button><div class="status" id="planStatus"></div></section>
+</div>
+
+<section class="card" style="margin-top:14px"><h2>Contribution History</h2><div id="history"><div class="empty">Loading...</div></div></section>
 </div>
 <script>
 const money=n=>"GH₵"+Number(n||0).toFixed(2);
-async function api(url,options={}){const r=await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(options.headers||{})},...options});const j=await r.json().catch(()=>({}));if(!r.ok||j.success===false)throw new Error(j.message||"Request failed");return j}
+const esc=v=>String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",""":"&quot;"}[m]));
+async function api(url,options={}){const r=await fetch(url,{credentials:"include",headers:{"Content-Type":"application/json",...(options.headers||{})},...options});const j=await r.json().catch(()=>({}));if(r.status===401)throw new Error("Please login to continue.");if(!r.ok||j.success===false)throw new Error(j.message||"Request failed");return j}
 function render(data){
- const a=data.account||{}; document.getElementById("balance").textContent=money(a.balance);
- document.getElementById("plan").textContent=(a.frequency||"Flexible")+" • "+money(a.contribution_amount)+" contribution";
- document.getElementById("targetAmount").value=Number(a.target_amount||0)||"";
- document.getElementById("contributionAmount").value=Number(a.contribution_amount||0)||"";
- document.getElementById("frequency").value=a.frequency||"Flexible";
- const rows=(data.transactions||[]).map(x=>{const positive=["Contribution","Admin Credit"].includes(x.type);return "<tr><td>"+new Date(x.created_at).toLocaleString()+"</td><td class='"+(positive?"in":"out")+"'>"+(positive?"+":"-")+money(x.amount)+"</td><td>"+x.type+"</td><td>"+money(x.balance_after)+"</td></tr>"}).join("");
- document.getElementById("history").innerHTML=rows?'<table class="table"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Balance</th></tr></thead><tbody>'+rows+'</tbody></table>':'<div class="empty">No savings transactions yet.</div>';
+ const a=data.account||{}, balance=Number(a.balance||0), target=Number(a.target_amount||0), pct=target?Math.min(100,balance/target*100):0;
+ document.getElementById("balance").textContent=money(balance);
+ document.getElementById("goalPill").textContent="Goal: "+(a.goal_name||"My Savings Goal");
+ document.getElementById("lockPill").textContent=a.locked_until&&new Date(a.locked_until)>new Date()?"🔒 Locked until "+new Date(a.locked_until).toLocaleDateString():"🔓 Unlocked";
+ document.getElementById("autoPill").textContent=a.auto_enabled?"⚡ "+(a.frequency||"")+" • "+money(a.contribution_amount)+" next "+(a.next_contribution_at?new Date(a.next_contribution_at).toLocaleDateString():"soon"):"Automatic saving off";
+ document.getElementById("progress").style.width=pct+"%"; document.getElementById("progressText").textContent=target?money(balance)+" of "+money(target)+" • "+pct.toFixed(0)+"%": "No savings target set.";
+ document.getElementById("goalName").value=a.goal_name||"My Savings Goal"; document.getElementById("targetAmount").value=Number(a.target_amount||0)||""; document.getElementById("targetDate").value=a.target_date?String(a.target_date).slice(0,10):""; document.getElementById("contributionAmount").value=Number(a.contribution_amount||0)||""; document.getElementById("frequency").value=a.frequency||"Flexible"; document.getElementById("autoEnabled").checked=!!a.auto_enabled; document.getElementById("lockedUntil").value=a.locked_until?String(a.locked_until).slice(0,10):"";
+ const rows=(data.transactions||[]).map(x=>{const positive=["Contribution","Paystack Contribution","Auto Contribution","Admin Credit"].includes(x.type);return "<tr><td>"+new Date(x.created_at).toLocaleString()+"</td><td class='"+(positive?"in":"out")+"'>"+(positive?"+":"-")+money(x.amount)+"</td><td>"+esc(x.type)+"</td><td>"+money(x.balance_after)+"</td><td><button onclick='printReceipt("+JSON.stringify(x.reference)+")'>Receipt</button></td></tr>"}).join("");
+ document.getElementById("history").innerHTML=rows?'<div style="overflow:auto"><table class="table"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Balance</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>':'<div class="empty">No savings transactions yet.</div>';
 }
-async function load(){try{render(await api("/api/savings"))}catch(e){if(e.message.includes("login")||e.message.includes("logged"))location.href="/login.html?redirect=/savings.html";else document.getElementById("history").innerHTML='<div class="empty">'+e.message+"</div>"}}
-async function deposit(){const el=document.getElementById("depositStatus");el.textContent="Processing...";try{const j=await api("/api/savings/deposit",{method:"POST",body:JSON.stringify({amount:document.getElementById("depositAmount").value})});el.textContent="Saved "+money(j.balance)+" total. Reference: "+j.reference;document.getElementById("depositAmount").value="";load()}catch(e){el.textContent=e.message}}
+async function load(){try{const d=await api("/api/savings");render(d);const q=new URLSearchParams(location.search);if(q.get("payment")==="success")document.getElementById("payStatus").textContent="Paystack savings payment successful: "+money(q.get("amount"))+".";if(q.get("payment")==="failed")document.getElementById("payStatus").textContent=q.get("message")||"Paystack payment failed."}catch(e){if(e.message.includes("login"))location.href="/login.html?redirect=/savings.html";else document.getElementById("history").innerHTML='<div class="empty">'+esc(e.message)+"</div>"}}
+async function deposit(){const el=document.getElementById("depositStatus");el.textContent="Processing...";try{const j=await api("/api/savings/deposit",{method:"POST",body:JSON.stringify({amount:document.getElementById("depositAmount").value})});el.innerHTML='<span class="ok">Saved '+money(j.balance)+'.</span>';document.getElementById("depositAmount").value="";load()}catch(e){el.textContent=e.message}}
+async function paystackSave(){const el=document.getElementById("payStatus");const amount=document.getElementById("payAmount").value;el.textContent="Starting Paystack...";try{const j=await api("/api/savings/deposit-paystack",{method:"POST",body:JSON.stringify({amount})});location.href=j.authorization_url}catch(e){el.textContent=e.message}}
 async function withdrawSavings(){const el=document.getElementById("withdrawStatus");el.textContent="Processing...";try{const j=await api("/api/savings/withdraw",{method:"POST",body:JSON.stringify({amount:document.getElementById("withdrawAmount").value})});el.textContent="Withdrawn to wallet. Reference: "+j.reference;document.getElementById("withdrawAmount").value="";load()}catch(e){el.textContent=e.message}}
-async function savePlan(){const el=document.getElementById("planStatus");el.textContent="Saving...";try{await api("/api/savings/settings",{method:"POST",body:JSON.stringify({targetAmount:document.getElementById("targetAmount").value,contributionAmount:document.getElementById("contributionAmount").value,frequency:document.getElementById("frequency").value})});el.textContent="Susu plan saved.";load()}catch(e){el.textContent=e.message}}
+async function savePlan(){const el=document.getElementById("planStatus");el.textContent="Saving...";try{await api("/api/savings/settings",{method:"POST",body:JSON.stringify({goalName:document.getElementById("goalName").value,targetAmount:document.getElementById("targetAmount").value,targetDate:document.getElementById("targetDate").value,contributionAmount:document.getElementById("contributionAmount").value,frequency:document.getElementById("frequency").value,autoEnabled:document.getElementById("autoEnabled").checked,lockedUntil:document.getElementById("lockedUntil").value})});el.innerHTML='<span class="ok">Susu plan saved.</span>';load()}catch(e){el.textContent=e.message}}
+async function printReceipt(reference){try{const j=await api("/api/savings/receipt/"+encodeURIComponent(reference));const r=j.receipt;const w=window.open("","_blank","width=480,height=680");if(!w){alert("Allow pop-ups to print the receipt.");return}w.document.write("<html><head><title>DGM Savings Receipt</title><style>body{font-family:Arial;padding:24px;color:#111}h2{margin-bottom:4px}.line{border-bottom:1px solid #ddd;padding:9px 0}.ref{font-size:11px;color:#666}</style></head><body><h2>DHE GENIUS MEDIA</h2><div>SAFINGS / SUSU RECEIPT</div><div class='ref'>"+esc(r.reference)+"</div><div class='line'>Customer: "+esc(r.customer.name)+"</div><div class='line'>Type: "+esc(r.type)+"</div><div class='line'>Amount: "+money(r.amount)+"</div><div class='line'>Balance: "+money(r.balance_after)+"</div><div class='line'>Status: "+esc(r.status)+"</div><div class='line'>Date: "+new Date(r.created_at).toLocaleString()+"</div><p>"+esc(r.description||"")+"</p></body></html>");w.document.close();w.focus();w.print()}catch(e){alert(e.message)}}
 load();
 </script>
-</body>
-</html>
+</body></html>
