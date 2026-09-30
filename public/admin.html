@@ -7,9 +7,9 @@
 <body><main class="wrap">
 <div class="top"><div><div class="brand">DHE GENIUS MEDIA • ADMIN</div><h1>Management Dashboard</h1><div id="who" class="sub">Checking secure session...</div></div><button class="logout" id="logout">Logout</button></div>
 <div class="grid" id="stats"><div class="card"><div class="label">Customers</div><div class="num">—</div></div><div class="card"><div class="label">Orders</div><div class="num">—</div></div><div class="card"><div class="label">Completed</div><div class="num">—</div></div><div class="card"><div class="label">Pending</div><div class="num">—</div></div><div class="card"><div class="label">Completed value</div><div class="num">—</div></div></div><section class="section"><h2>30-Day Business Overview</h2><div class="grid" id="analyticsCards"><div class="card"><div class="label">Sales</div><div class="num">—</div></div><div class="card"><div class="label">Wallet In</div><div class="num">—</div></div><div class="card"><div class="label">Wallet Out</div><div class="num">—</div></div><div class="card"><div class="label">Pending Withdrawals</div><div class="num">—</div></div><div class="card"><div class="label">Customers</div><div class="num">—</div></div></div></section>
-<div style="margin:18px 0"><button style="background:#25d366;color:#041008" onclick="location.href='/savings-admin.html'">🐷 Savings / Susu Management</button></div><div class="tabs"><button class="active" data-tab="orders">Orders</button><button data-tab="customers">Customers</button><button data-tab="withdrawals">Withdrawals <span id="withdrawalBadge" style="display:none"></span></button><button data-tab="support">Support</button><button data-tab="movies">Movie Playback</button></div>
+<div style="margin:18px 0"><button style="background:#25d366;color:#041008" onclick="location.href='/savings-admin.html'">🐷 Savings / Susu Management</button></div><div class="tabs"><button class="active" data-tab="orders">Orders</button><button data-tab="customers">Customers</button><button data-tab="devices">Devices</button><button data-tab="withdrawals">Withdrawals <span id="withdrawalBadge" style="display:none"></span></button><button data-tab="support">Support</button><button data-tab="movies">Movie Playback</button></div>
 <section id="orders" class="section"><h2>Recent Orders</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Network</th><th>Phone</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="ordersBody"></tbody></table></div></section>
-<section id="withdrawals" class="section" hidden><h2>MoMo Withdrawal Requests</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Network</th><th>MoMo</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody id="withdrawalsBody"></tbody></table></div><div id="withdrawalMsg" class="msg"></div></section>
+<section id="devices" class="section" hidden><h2>Device Management</h2><div class="sub" style="margin-bottom:12px">Only administrators can log out a device. Logging out permanently deletes that device registration, SMS messages, WhatsApp messages, WhatsApp media, and invalidates its device token. Customer wallets, orders, payments, and accounts are not affected.</div><div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Customer</th><th>Phone</th><th>Status</th><th>SMS</th><th>WhatsApp</th><th>Last Seen</th><th>Action</th></tr></thead><tbody id="devicesBody"></tbody></table></div><div id="deviceMsg" class="msg"></div></section><section id="withdrawals" class="section" hidden><h2>MoMo Withdrawal Requests</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Network</th><th>MoMo</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody id="withdrawalsBody"></tbody></table></div><div id="withdrawalMsg" class="msg"></div></section>
 <section id="customers" class="section" hidden><h2>Customers</h2><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Balance</th><th>Created</th><th>Wallet</th><th>WhatsApp</th><th>Account</th></tr></thead><tbody id="customersBody"></tbody></table></div><div id="customerMsg" class="msg"></div></section>
 <div id="customerModal" class="modal" hidden><div class="modal-card"><div class="modal-head"><div><div class="brand">CUSTOMER DETAILS</div><h2 id="detailTitle">Customer</h2><div id="detailSub" class="sub"></div></div><button class="close" onclick="closeCustomerDetails()">Close</button></div><div id="detailContent"></div></div></div>\n<section id="support" class="section" hidden><h2>Customer Support</h2><div class="tablebox"><table class="table"><thead><tr><th>Customer</th><th>Subject</th><th>Message</th><th>Status</th><th>Reply</th></tr></thead><tbody id="supportBody"></tbody></table></div><div id="supportMsg" class="msg"></div></section>
 <section id="movies" class="section" hidden><h2>Authorized Movie Playback</h2><div class="card"><form id="movieForm" class="form"><input id="tmdb" type="number" placeholder="TMDB movie ID" required><input id="title" placeholder="Movie title"><select id="type"><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option></select><input id="url" type="url" placeholder="Authorized HTTPS playback URL" required><button class="save">Save</button></form><div id="movieMsg" class="msg">Only use DGM-controlled or properly licensed playback sources.</div></div></section>
@@ -67,6 +67,35 @@ async function replySupport(id){
  async function approveWithdrawal(id){const note=prompt('Approval note (optional):')||'';if(!confirm('Approve this withdrawal? The wallet amount is already reserved. After approval, send the money to the listed MoMo account, then mark it Paid.'))return;try{const d=await api('/api/admin/withdrawals/'+id+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWithdrawalsAdmin();}catch(e){alert(e.message)}}
  async function rejectWithdrawal(id){const note=prompt('Reason for rejection:')||'';if(!confirm('Reject this withdrawal and refund the customer wallet?'))return;try{const d=await api('/api/admin/withdrawals/'+id+'/reject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWithdrawalsAdmin();}catch(e){alert(e.message)}}
  async function markWithdrawalPaid(id){const note=prompt('MoMo payment note/reference (optional):')||'';if(!confirm('Confirm that you have sent the approved amount to the customer MoMo account?'))return;try{const d=await api('/api/admin/withdrawals/'+id+'/paid',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWithdrawalsAdmin();}catch(e){alert(e.message)}}
+async function loadDevicesAdmin(){
+  const body=$('#devicesBody');
+  body.innerHTML='<tr><td colspan="8" class="empty">Loading devices...</td></tr>';
+  try{
+    const d=await api('/api/admin/devices');
+    body.innerHTML=d.devices.length?d.devices.map(x=>{
+      const status=x.active?'ACTIVE':'REVOKED';
+      return '<tr>'+
+        '<td><strong>'+esc(x.name||'Android')+'</strong><br><span class="sub">ID '+x.id+'</span></td>'+
+        '<td>'+esc(x.customer_name||'')+'<br><span class="sub">'+esc(x.customer_email||'')+'</span></td>'+
+        '<td>'+esc(x.phone||'—')+'</td>'+
+        '<td class="status">'+status+'</td>'+
+        '<td>'+Number(x.sms_count||0)+'</td>'+
+        '<td>'+Number(x.whatsapp_count||0)+'</td>'+
+        '<td>'+(x.last_seen_at?new Date(x.last_seen_at).toLocaleString():'Never')+'</td>'+
+        '<td>'+(x.active?'<button onclick="logoutDeviceAdmin('+x.id+',\''+esc(x.name||'Android').replace(/'/g,"\\'")+'\')">Logout &amp; Wipe</button>':'—')+'</td>'+
+      '</tr>';
+    }).join(''):'<tr><td colspan="8" class="empty">No registered devices.</td></tr>';
+  }catch(err){body.innerHTML='<tr><td colspan="8" class="empty">'+esc(err.message)+'</td></tr>'}
+}
+async function logoutDeviceAdmin(id,name){
+  if(!confirm('Log out '+name+' and permanently wipe ALL SMS, WhatsApp messages, WhatsApp media, device details and its access token? This cannot be undone.'))return;
+  const msg=$('#deviceMsg'); msg.textContent='Wiping device data...';
+  try{
+    const d=await api('/api/admin/devices/'+id+'/logout',{method:'POST'});
+    msg.textContent=d.message||'Device logged out and wiped.';
+    await loadDevicesAdmin();
+  }catch(err){msg.textContent=err.message}
+}
 async function load(){
  const me=await api('/api/admin/me');$('#who').textContent='Signed in as '+me.admin.email;
  const st=await api('/api/admin/stats'),s=st.stats;
@@ -167,7 +196,7 @@ async function openCustomerDetails(id){
 function closeCustomerDetails(){$('#customerModal').hidden=true}
 $('#customerModal').addEventListener('click',e=>{if(e.target.id==='customerModal')closeCustomerDetails()});
 async function removeCustomer(id,name){if(!confirm('Remove '+name+' permanently? This deletes the customer account, orders and wallet history. This cannot be undone.'))return;try{await api('/api/admin/customers/'+id,{method:'DELETE'});await load();alert('Customer removed successfully.')}catch(err){alert(err.message)}}
-document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=async()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['orders','customers','withdrawals','support','movies'].forEach(id=>$('#'+id).hidden=id!==b.dataset.tab);if(b.dataset.tab==='withdrawals')await loadWithdrawalsAdmin();if(b.dataset.tab==='support')await loadSupportAdmin();});
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=async()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.remove('active'));b.classList.add('active');['orders','customers','devices','withdrawals','support','movies'].forEach(id=>$('#'+id).hidden=id!==b.dataset.tab);if(b.dataset.tab==='devices')await loadDevicesAdmin();if(b.dataset.tab==='withdrawals')await loadWithdrawalsAdmin();if(b.dataset.tab==='support')await loadSupportAdmin();});
 $('#logout').onclick=async()=>{try{await fetch('/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
 $('#movieForm').onsubmit=async e=>{e.preventDefault();const m=$('#movieMsg');m.textContent='Saving...';try{const d=await api('/api/admin/movies/playback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tmdb_id:Number($('#tmdb').value),title:$('#title').value,playback_type:$('#type').value,playback_url:$('#url').value})});m.textContent=d.message||'Saved successfully.'}catch(err){m.textContent=err.message}};
 load().catch(err=>$('#who').textContent=err.message);
