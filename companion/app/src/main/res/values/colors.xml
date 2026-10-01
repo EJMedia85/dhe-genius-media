@@ -1,0 +1,7 @@
+<resources>
+    <color name="dgm_green">#25D366</color>
+    <color name="dgm_dark">#061416</color>
+    <color name="dgm_card">#0D2427</color>
+    <color name="dgm_text">#F5FFFF</color>
+    <color name="dgm_muted">#9DB5B7</color>
+</resources>
