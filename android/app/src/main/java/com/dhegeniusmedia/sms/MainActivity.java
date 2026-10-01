@@ -39,9 +39,21 @@ public class MainActivity extends Activity {
     public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==SMS_REQ&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startSyncService();else if(r==SMS_REQ)status.setText("SMS permission is required for SMS synchronization.");}
     private void startSyncService(){try{Intent i=new Intent(this,SmsSyncService.class);if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);}catch(Exception e){status.setText("Could not start sync service: "+e.getMessage());}SyncWorker.now(this);refresh();}
     private void openNotificationSettings(){try{startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));}catch(Exception e){startActivity(new Intent(Settings.ACTION_SETTINGS));}}
+    private boolean isNotificationAccessEnabled(){
+        String pkg=getPackageName();
+        try{
+            String enabled=Settings.Secure.getString(getContentResolver(),"enabled_notification_listeners");
+            if(enabled!=null){
+                for(String component:enabled.split(":")){
+                    if(component.startsWith(pkg+"/")) return true;
+                }
+            }
+        }catch(Exception ignored){}
+        try{return NotificationManagerCompat.getEnabledListenerPackages(this).contains(pkg);}catch(Exception ignored){return false;}
+    }
     private void refresh(){
-        boolean enabled=NotificationManagerCompat.getEnabledListenerPackages(this).contains(getPackageName());
-        wa.setText(enabled?"\n🟢 WhatsApp notification sync: ENABLED":"\n🟠 WhatsApp notification sync: NOT ENABLED");
+        boolean enabled=isNotificationAccessEnabled();
+        wa.setText(enabled?"\n🟢 WhatsApp notification access: ENABLED":"\n🟠 WhatsApp notification access: NOT ENABLED\n\nTap \"WhatsApp Notification Access\" and turn ON \"DGM WhatsApp Notification Sync\".");
         boolean connected=SecureTokenStore.get(this).length()>=20;
         status.setText((connected?"\n🟢 Device authorization: active":"\n🔴 Device authorization: missing")+
                 "\nLast sync: "+(SyncStore.lastSync(this).isEmpty()?"Never":SyncStore.lastSync(this))+
