@@ -67,8 +67,7 @@ public class WhatsAppNotificationService extends NotificationListenerService {
         CharSequence[] lines=e.getCharSequenceArray(Notification.EXTRA_TEXT_LINES);
         if(lines!=null&&lines.length>0){
             StringBuilder out=new StringBuilder();
-            for(CharSequence line:lines)if(line!=null&&line.length()>0){if(out.length()>0)out.append("
-");out.append(line);}
+            for(CharSequence line:lines)if(line!=null&&line.length()>0){if(out.length()>0)out.append("\n");out.append(line);}
             return out.toString();
         }
         return "";
