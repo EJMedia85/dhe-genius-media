@@ -69,6 +69,17 @@ jobs:
           APK="${{ steps.apk.outputs.path }}"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump xmltree "$APK" AndroidManifest.xml > /tmp/dgm-manifest.txt
           grep -q "com.dhegeniusmedia.sms" /tmp/dgm-manifest.txt
+      - name: Install APK on Android 11 emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          target: default
+          arch: x86_64
+          profile: Pixel_2
+          emulator-options: -no-window -no-audio -no-boot-anim
+          disable-animations: true
+          script: adb install -r app/build/outputs/apk/debug/app-debug.apk
+
       - name: Publish verified APK
         uses: actions/upload-artifact@v4
         with:
