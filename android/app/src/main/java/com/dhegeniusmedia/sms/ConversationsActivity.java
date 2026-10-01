@@ -68,7 +68,9 @@ public class ConversationsActivity extends Activity {
             String body=o.optString("body","");
             if(!q.isEmpty()&&!((sender+" "+body).toLowerCase(Locale.US).contains(q)))continue;
 
-            String key=sender.trim().isEmpty()?"Unknown":sender;
+            String key=o.optString("conversation_id","");
+            if(key.trim().isEmpty()) key=o.optString("conversation_name","");
+            if(key.trim().isEmpty()) key=sender.trim().isEmpty()?"Unknown":sender;
             if(!groups.containsKey(key))groups.put(key,new ArrayList<JSONObject>());
             groups.get(key).add(o);
         }
@@ -83,7 +85,9 @@ public class ConversationsActivity extends Activity {
 
         for(Map.Entry<String,List<JSONObject>> e:groups.entrySet()){
             TextView head=new TextView(this);
-            head.setText("\n"+e.getKey()+"  ("+e.getValue().size()+")");
+            String displayName=e.getValue().get(0).optString("conversation_name","");
+            if(displayName.trim().isEmpty()) displayName=e.getKey();
+            head.setText("\n"+displayName+"  ("+e.getValue().size()+" messages)");
             head.setTextSize(19);
             head.setTypeface(null,Typeface.BOLD);
             list.addView(head);
@@ -127,7 +131,7 @@ public class ConversationsActivity extends Activity {
         bubble.setBackground(bubbleBg);
 
         TextView meta=new TextView(this);
-        meta.setText(label+" • "+directionLabel);
+        meta.setText(label+" • "+directionLabel+" • "+o.optString("conversation_name",""));
         meta.setTextSize(12);
         meta.setTypeface(null,Typeface.BOLD);
         meta.setGravity(sent?Gravity.RIGHT:Gravity.LEFT);
