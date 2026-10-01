@@ -42,7 +42,7 @@ public class WhatsAppNotificationService extends NotificationListenerService {
                 List<Notification.MessagingStyle.Message> messages =
                         Notification.MessagingStyle.Message.getMessagesFromBundleArray(
                                 n.extras.getParcelableArray(Notification.EXTRA_MESSAGES));
-                if(messages!=null && messages.length>0){
+                if(messages!=null && !messages.isEmpty()){
                     String conversationId=conversationId(sbn,n);
                     String conversationName=firstNonEmpty(
                             n.extras.getString(Notification.EXTRA_TITLE),
