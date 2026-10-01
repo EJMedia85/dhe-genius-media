@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/dgm_dark">
+<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DGM" android:textColor="@color/dgm_green" android:textSize="32sp" android:textStyle="bold" />
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="DGM Companion" android:textColor="@color/dgm_text" android:textSize="24sp" android:textStyle="bold" />
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:text="Stay Connected. Stay Genius." android:textColor="@color/dgm_muted" android:textSize="14sp" />
+<TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="28dp" android:text="Connect your Android phone to your DGM account. SMS uses Android messaging APIs. WhatsApp integration uses notification access only; DGM does not access WhatsApp's private database." android:textColor="@color/dgm_text" android:textSize="15sp" />
+<TextView android:id="@+id/smsStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:background="@color/dgm_card" android:padding="18dp" android:text="SMS access: Checking…" android:textColor="@color/dgm_text" android:textSize="16sp" />
+<Button android:id="@+id/smsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Grant SMS Access" />
+<TextView android:id="@+id/whatsappStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@color/dgm_card" android:padding="18dp" android:text="WhatsApp notification access: Not enabled" android:textColor="@color/dgm_text" android:textSize="16sp" />
+<Button android:id="@+id/whatsappButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Enable Notification Access" />
+<TextView android:id="@+id/deviceStatus" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:background="@color/dgm_card" android:padding="18dp" android:text="DGM connection: Local setup" android:textColor="@color/dgm_text" android:textSize="16sp" />
+<Button android:id="@+id/settingsButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:text="Open Android Settings" />
+</LinearLayout></ScrollView>
