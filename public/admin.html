@@ -12,7 +12,7 @@
 <aside class="side">
 <div class="brand">DHE GENIUS MEDIA</div><small>Admin Control Center</small>
 <nav class="nav">
-<button class="active" data-page="overview">▣ Overview</button><button data-page="customers">♙ Customers</button><button data-page="orders">▤ Orders</button><button data-page="wallet">₵ Wallet & Withdrawals</button><button data-page="savings">◈ Savings / Susu</button><button data-page="support">✦ Support</button><button data-page="entertainment">▶ Entertainment</button><button data-page="security">⌁ Security & Audit</button><button data-page="system">⚙ System Health</button>
+<button class="active" data-page="overview">▣ Overview</button><button data-page="companion">▣ Companion Devices</button><button data-page="customers">♙ Customers</button><button data-page="orders">▤ Orders</button><button data-page="wallet">₵ Wallet & Withdrawals</button><button data-page="savings">◈ Savings / Susu</button><button data-page="support">✦ Support</button><button data-page="entertainment">▶ Entertainment</button><button data-page="security">⌁ Security & Audit</button><button data-page="system">⚙ System Health</button>
 </nav><div class="bottom"><button class="logout" id="logout">Logout Admin</button></div>
 </aside>
 <main class="main">
@@ -22,6 +22,27 @@
 <div class="cards" id="overviewCards"></div>
 <div class="grid2"><div class="panel"><h2>30-Day Business Overview</h2><div class="cards" style="grid-template-columns:repeat(3,1fr)" id="analyticsCards"></div></div><div class="panel"><h2>System Health</h2><div class="health" id="healthMini"></div></div></div>
 <div class="panel" style="margin-top:15px"><h2>Recent Orders</h2><div class="tablebox"><table class="table"><tbody id="recentOrders"></tbody></table></div></div>
+</section>
+
+<section id="companion" class="section">
+<div class="grid2">
+<div class="panel"><h2>Add Device</h2>
+<div class="notice">Generate a one-time enrollment token for your Android phone. The token expires after 15 minutes and is consumed when the Companion enrolls.</div>
+<form id="companionEnrollForm" class="toolbar">
+<input class="input" id="companionPhone" placeholder="Phone number" required>
+<input class="input" id="companionName" placeholder="Device name" value="My Android" required>
+<button class="btn green">Generate Token</button>
+</form>
+<div id="companionTokenBox" class="notice" hidden></div>
+<div id="companionEnrollMsg" class="muted"></div>
+</div>
+<div class="panel"><h2>How to connect</h2>
+<div class="notice">1. Generate the token here.<br>2. Open DGM Companion on your phone.<br>3. Enter the token.<br>4. Grant SMS permission and Notification Access when Android asks.<br>5. Return here and refresh to see the device online.</div>
+</div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Connected Devices</h2><div class="muted">Only admin can see these devices and their message data.</div></div><button class="btn" onclick="loadCompanion()">Refresh</button></div>
+<div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Phone</th><th>Status</th><th>Last Seen</th><th>Platform</th><th>Action</th></tr></thead><tbody id="companionDevicesBody"></tbody></table></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Messages</h2><div class="muted">SMS and WhatsApp notification events received from enrolled devices.</div></div><div class="toolbar" style="margin:0"><select class="select" id="companionChannel" onchange="loadCompanionMessages()"><option value="">All</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option></select></div></div>
+<div class="tablebox"><table class="table"><thead><tr><th>Time</th><th>Channel</th><th>Device</th><th>Sender</th><th>Message</th><th>Status</th></tr></thead><tbody id="companionMessagesBody"></tbody></table></div></div>
 </section>
 
 <section id="customers" class="section"><div class="panel"><h2>Customer Management</h2><div class="toolbar"><input class="input search" id="customerSearch" placeholder="Search name, email, phone or ID" oninput="filterCustomers()"></div><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th>Wallet</th><th>Created</th><th>Actions</th></tr></thead><tbody id="customersBody"></tbody></table></div></div></section>
@@ -52,8 +73,8 @@ const money=v=>'GH₵'+Number(v||0).toFixed(2);
 let customers=[],orders=[],withdrawals=[],currentPage='overview';
 
 async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(r.status===401){location.replace('/admin-login.html');throw Error('Admin session expired.')}if(!r.ok||d.success===false)throw Error(d.message||'Request failed');return d}
-function show(page){currentPage=page;$$('.section').forEach(x=>x.classList.toggle('active',x.id===page));$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const titles={overview:'Executive Overview',customers:'Customer Management',orders:'Orders & Fulfillment',wallet:'Wallet & Withdrawals',savings:'Savings / Susu',support:'Customer Support',entertainment:'Entertainment',security:'Security & Audit',system:'System Health'};$('#pageTitle').textContent=titles[page]||'Admin Control Center';refreshCurrent()}
-async function refreshCurrent(){try{if(currentPage==='overview')await loadOverview();else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='savings')await loadSavings();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='system')await loadSystem();}catch(e){console.error(e);}}
+function show(page){currentPage=page;$$('.section').forEach(x=>x.classList.toggle('active',x.id===page));$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const titles={overview:'Executive Overview',companion:'Companion Devices',customers:'Customer Management',orders:'Orders & Fulfillment',wallet:'Wallet & Withdrawals',savings:'Savings / Susu',support:'Customer Support',entertainment:'Entertainment',security:'Security & Audit',system:'System Health'};$('#pageTitle').textContent=titles[page]||'Admin Control Center';refreshCurrent()}
+async function refreshCurrent(){try{if(currentPage==='overview')await loadOverview();else if(currentPage==='companion')await loadCompanion();else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='savings')await loadSavings();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='system')await loadSystem();}catch(e){console.error(e);}}
 $$('.nav button').forEach(b=>b.onclick=()=>show(b.dataset.page));
 $('#logout').onclick=async()=>{try{await fetch('/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
 
@@ -71,6 +92,36 @@ async function loadSystem(){const d=await api('/api/admin/system');renderHealth(
 function renderOrders(rows,target='#ordersBody',compact=false){$(target).innerHTML=rows.length?rows.map(o=>'<tr><td><b>'+esc(o.order_ref)+'</b></td><td>'+esc(o.customer_name||'')+'<br><span class="muted">'+esc(o.customer_email||'')+'</span></td><td>'+esc(o.service)+'</td><td>'+esc(o.network||'')+'</td><td>'+esc(o.phone||'')+'</td><td>'+money(o.amount)+'</td><td><span class="badge">'+esc(o.status)+'</span></td><td>'+new Date(o.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">No orders found.</td></tr>'}
 async function loadOrders(){const d=await api('/api/admin/orders');orders=d.orders;filterOrders()}
 function filterOrders(){const q=String($('#orderSearch')?.value||'').toLowerCase(),st=String($('#orderStatus')?.value||'').toLowerCase();const rows=orders.filter(o=>(!q||JSON.stringify(o).toLowerCase().includes(q))&&(!st||String(o.status).toLowerCase()===st));renderOrders(rows)}
+
+async function loadCompanion(){
+  const [devices,messages]=await Promise.all([
+    api('/api/admin/companion/devices'),
+    api('/api/admin/companion/messages?limit=200'+($('#companionChannel')?.value?('&channel='+encodeURIComponent($('#companionChannel').value)):''))
+  ]);
+  $('#companionDevicesBody').innerHTML=devices.devices.length?devices.devices.map(d=>{
+    const active=d.active;
+    const status=d.enrolled_at?(active?'ACTIVE':'REVOKED'):(active?'WAITING':'REVOKED');
+    const last=d.last_seen?new Date(d.last_seen).toLocaleString():'Never';
+    return '<tr><td><b>'+esc(d.device_name)+'</b><br><span class="muted">'+esc(d.customer_name||'Admin device')+'</span></td><td>'+esc(d.phone||'')+'</td><td><span class="badge">'+status+'</span></td><td>'+last+'</td><td>'+esc(d.platform||'Android')+' '+esc(d.app_version||'')+'</td><td>'+(active?'<button class="btn red" onclick="revokeCompanion('+d.id+')">Revoke</button>':'—')+'</td></tr>';
+  }).join(''):'<tr><td colspan="6" class="empty">No Companion devices.</td></tr>';
+  $('#companionMessagesBody').innerHTML=messages.messages.length?messages.messages.map(m=>'<tr><td>'+new Date(m.created_at).toLocaleString()+'</td><td><span class="badge">'+esc(m.channel)+'</span></td><td>'+esc(m.device_name)+'<br><span class="muted">'+esc(m.phone||'')+'</span></td><td>'+esc(m.sender||'')+'</td><td style="max-width:480px;white-space:pre-wrap">'+esc(m.body)+'</td><td>'+esc(m.status)+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No messages received yet.</td></tr>';
+}
+async function loadCompanionMessages(){if(currentPage==='companion')await loadCompanion();}
+async function revokeCompanion(id){
+  if(!confirm('Revoke this Companion device? It will immediately lose server access.'))return;
+  const d=await api('/api/admin/companion/devices/'+id+'/revoke',{method:'POST'});
+  alert(d.message); await loadCompanion();
+}
+$('#companionEnrollForm').onsubmit=async e=>{
+  e.preventDefault();
+  try{
+    const d=await api('/api/admin/companion/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:$('#companionPhone').value,device_name:$('#companionName').value})});
+    $('#companionTokenBox').hidden=false;
+    $('#companionTokenBox').innerHTML='<div class="label">ONE-TIME ENROLLMENT TOKEN</div><div style="font-size:30px;font-weight:950;letter-spacing:4px;margin-top:8px">'+esc(d.enrollment_token)+'</div><div class="muted" style="margin-top:8px">Expires '+new Date(d.expires_at).toLocaleString()+'. Enter this token in DGM Companion now.</div>';
+    $('#companionEnrollMsg').textContent='Token generated successfully.';
+    await loadCompanion();
+  }catch(err){$('#companionEnrollMsg').textContent=err.message;}
+};
 async function loadCustomers(){const d=await api('/api/admin/customers');customers=d.customers;filterCustomers()}
 function filterCustomers(){const q=String($('#customerSearch')?.value||'').toLowerCase();const rows=customers.filter(c=>!q||JSON.stringify(c).toLowerCase().includes(q));$('#customersBody').innerHTML=rows.length?rows.map(c=>'<tr><td>'+c.id+'</td><td><b>'+esc(c.name)+'</b><br><span class="muted">'+esc(c.email)+'</span></td><td>'+esc(c.phone)+'</td><td><b>'+money(c.balance)+'</b></td><td>'+((false)?'<span class="badge">Enabled</span>':'<span class="muted">Off</span>')+'</td><td>'+new Date(c.created_at).toLocaleString()+'</td><td><button class="btn" onclick="openCustomer('+c.id+')">View</button> <button class="btn green" onclick="credit('+c.id+')">Credit</button> <button class="btn red" onclick="debit('+c.id+')">Debit</button></td></tr>').join(''):'<tr><td colspan="7" class="empty">No customers found.</td></tr>'}
 async function credit(id){const amount=Number(prompt('Credit amount (GH₵):','10'));if(!Number.isFinite(amount)||amount<=0)return;const note=prompt('Reason / note:','Admin credit')||'Admin credit';if(!confirm('Credit '+money(amount)+' to this wallet?'))return;const d=await api('/api/admin/customers/'+id+'/balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:note})});alert('Wallet credited. New balance: '+money(d.balance));await loadCustomers();await loadOverview()}
