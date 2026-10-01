@@ -60,6 +60,14 @@ public class MainActivity extends Activity {
         }
     }
 
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==40){
+            boolean read=checkSelfPermission(Manifest.permission.READ_SMS)==PackageManager.PERMISSION_GRANTED;
+            if(read) executor.execute(()->SmsSync.syncRecent(this));
+        }
+    }
+
     @Override protected void onResume(){
         super.onResume();
         if(TokenStore.get(this)!=null){
