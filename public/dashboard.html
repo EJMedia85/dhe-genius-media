@@ -79,18 +79,6 @@
 <button class="quick-card" onclick="goTo('/account.html#withdraw')"><div class="quick-icon">💸</div><strong>Withdraw to MoMo</strong><span>Request a wallet withdrawal</span></button>
 </section>
 
-<h2 class="section-title">Service Status</h2>
-<section class="status-card">
-<div class="status-left"><div class="status-dot" id="statusDot"></div><div><strong>DGM Services</strong><small id="statusSummary">Checking DGM systems...</small></div></div>
-<div style="text-align:right"><div class="online" id="serviceStatus">CHECKING</div><div class="health-time" id="healthTime">Checking system...</div></div>
-<div class="health-grid" style="grid-column:1/-1">
-<div class="health-item"><strong>API</strong><span class="health-state" id="healthApi">Checking</span></div>
-<div class="health-item"><strong>Database</strong><span class="health-state" id="healthDatabase">Checking</span></div>
-<div class="health-item"><strong>DataMart</strong><span class="health-state" id="healthDatamart">Checking</span></div>
-<div class="health-item"><strong>Paystack</strong><span class="health-state" id="healthPaystack">Checking</span></div>
-</div>
-</section>
-
 <div class="refresh-row"><h2 class="section-title">Notifications <span id="notificationCount" style="font-size:10px;color:#25d366"></span></h2><button class="refresh-btn" onclick="loadNotifications()">↻ Refresh</button></div>
 <section class="orders-card" id="notifications"><div class="empty-orders"><div>🔔</div>Loading notifications...</div></section>
 
