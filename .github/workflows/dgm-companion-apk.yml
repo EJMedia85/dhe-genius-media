@@ -43,6 +43,7 @@ jobs:
           unzip -l "$APK" | grep -q "AndroidManifest.xml"
           unzip -l "$APK" | grep -q "classes.dex"
           unzip -l "$APK" | grep -q "resources.arsc"
+          test "$(unzip -p "$APK" resources.arsc | wc -c)" -gt 0
       - name: Verify APK package metadata
         shell: bash
         run: |
@@ -53,7 +54,8 @@ jobs:
         shell: bash
         run: |
           APK="${{ steps.apk.outputs.path }}"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/dgm-signature.txt
+          grep -q "Verified using v2 scheme (APK Signature Scheme v2): true" /tmp/dgm-signature.txt
       - name: Verify APK alignment
         shell: bash
         run: |
