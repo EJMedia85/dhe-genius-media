@@ -18,12 +18,12 @@
 
   <section class="hero">
     <h1>WhatsApp Conversations</h1>
-    <p>Conversation view for an explicitly enrolled DGM Android device. Received WhatsApp notification events are synchronized continuously; voice notes can be uploaded for playback after you grant DGM access to the WhatsApp voice-note folder.</p>
+    <p>Conversation view for an explicitly enrolled DGM Android device. WhatsApp conversation messages are synchronized continuously from Android's conversation notifications; voice notes can be uploaded for playback after you grant DGM access to the WhatsApp voice-note folder.</p>
     <div class="note"><span class="badge">Privacy</span> DGM does not read WhatsApp's private database or bypass WhatsApp encryption. Media access is limited to the folder you explicitly select in the companion app.</div>
   </section>
 
   <div class="grid">
-    <div class="card"><div class="muted">WhatsApp events</div><div id="statMessages" class="stat">—</div></div>
+    <div class="card"><div class="muted">Conversation messages</div><div id="statMessages" class="stat">—</div></div>
     <div class="card"><div class="muted">Active devices</div><div id="statDevices" class="stat">—</div></div>
     <div class="card"><div class="muted">Last 24 hours</div><div id="statToday" class="stat">—</div></div>
     <div class="card"><div class="muted">Voice notes</div><div id="statVoice" class="stat">—</div></div>
@@ -36,7 +36,7 @@
 
   <div class="layout">
     <section class="card">
-      <div class="toolbar"><strong>Conversation threads</strong></div>
+      <div class="toolbar"><strong>WhatsApp conversation threads</strong></div>
       <div class="filters">
         <select id="deviceFilter" onchange="loadMessages()"><option value="">All active devices</option></select>
         <input id="searchBox" placeholder="Search conversations…" oninput="renderThreads()">
@@ -80,7 +80,7 @@ async function loadOlder(){await loadMessages(false)}
 function rebuildThreads(){
   const groups={};
   allMessages.forEach(m=>{
-    const key=(m.device_id||'')+'|'+(m.sender||'WhatsApp');
+    const key=(m.device_id||'')+'|'+(m.conversation_id||m.conversation_name||m.sender||'WhatsApp');
     (groups[key]??=[]).push(m);
   });
   threads=Object.values(groups).map(x=>x.sort((a,b)=>new Date(b.received_at)-new Date(a.received_at)))
@@ -94,14 +94,14 @@ function renderThreads(){
   const visible=threads.map((t,i)=>({t,i})).filter(({t})=>!q||t.some(m=>(m.sender+' '+m.body).toLowerCase().includes(q)));
   $('threads').innerHTML=visible.length?visible.map(({t,i})=>{
     const last=t[t.length-1], voice=last.media?' • 🎤 voice note':'';
-    return '<article class="thread" onclick="openThread('+i+')"><div class="threadtop"><span class="name">'+esc(last.sender||'WhatsApp')+'</span><span class="muted">'+esc(fmtTime(last.received_at))+'</span></div><div class="preview">'+esc(last.body||'Voice message')+esc(voice)+'</div><div class="count">'+t.length+' event'+(t.length===1?'':'s')+'</div></article>';
+    return '<article class="thread" onclick="openThread('+i+')"><div class="threadtop"><span class="name">'+esc(last.conversation_name||last.sender||'WhatsApp')+'</span><span class="muted">'+esc(fmtTime(last.received_at))+'</span></div><div class="preview">'+esc(last.body||'Voice message')+esc(voice)+'</div><div class="count">'+t.length+' message'+(t.length===1?'':'s')+'</div></article>';
   }).join(''):'<div class="empty">No matching WhatsApp conversations.</div>';
 }
 
 function renderConversation(t){
   if(!t)return;
-  $('threadTitle').textContent=t[0]?.sender||'WhatsApp conversation';
-  $('threadMeta').textContent=t.length+' synchronized event'+(t.length===1?'':'s');
+  $('threadTitle').textContent=t[0]?.conversation_name||t[0]?.sender||'WhatsApp conversation';
+  $('threadMeta').textContent=t.length+' synchronized message'+(t.length===1?'':'s');
   let lastDay='';
   const out=[...t].reverse().map(m=>{
     const day=dayKey(m.received_at);let sep='';
@@ -115,7 +115,7 @@ function renderConversation(t){
     }
     return sep+'<div class="row '+(sent?'sent':'received')+'"><div class="bubble">'+content+'<span class="time">'+(sent?'Sent · ':'Received · ')+esc(fmtTime(m.received_at))+'</span></div></div>';
   }).join('');
-  $('conversation').innerHTML=out||'<div class="empty">No events in this conversation.</div>';
+  $('conversation').innerHTML=out||'<div class="empty">No messages in this conversation.</div>';
   const box=$('conversation');box.scrollTop=box.scrollHeight;
 }
 
