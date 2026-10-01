@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.List;
 
 public class WhatsAppNotificationService extends NotificationListenerService {
     private static final String[] PACKAGES={"com.whatsapp","com.whatsapp.w4b"};
@@ -38,7 +39,7 @@ public class WhatsAppNotificationService extends NotificationListenerService {
         // one notification, rather than treating the notification as one chat.
         if(Build.VERSION.SDK_INT>=24){
             try{
-                Notification.MessagingStyle.Message[] messages =
+                List<Notification.MessagingStyle.Message> messages =
                         Notification.MessagingStyle.Message.getMessagesFromBundleArray(
                                 n.extras.getParcelableArray(Notification.EXTRA_MESSAGES));
                 if(messages!=null && messages.length>0){
@@ -53,8 +54,8 @@ public class WhatsAppNotificationService extends NotificationListenerService {
                         if(TextUtils.isEmpty(body)) continue;
 
                         String sender=conversationName;
-                        if(m.getSender()!=null && !TextUtils.isEmpty(m.getSender().getName())){
-                            sender=m.getSender().getName().toString();
+                        if(m.getSender()!=null && m.getSender().length()>0){
+                            sender=m.getSender().toString();
                         }
                         long when=m.getTimestamp()>0?m.getTimestamp():sbn.getPostTime();
                         String receivedAt=formatTime(when);
