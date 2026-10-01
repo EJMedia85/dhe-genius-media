@@ -1,0 +1,36 @@
+name: Build DGM Companion APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'companion/**'
+      - '.github/workflows/build-dgm-companion.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: companion
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build debug APK
+        run: gradle --no-daemon assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dgm-companion-debug
+          path: companion/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
