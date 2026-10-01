@@ -1,0 +1,9 @@
+<resources>
+    <style name="Theme.DgmCompanion" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/dgm_green</item>
+        <item name="android:navigationBarColor">@color/dgm_dark</item>
+        <item name="android:statusBarColor">@color/dgm_dark</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>
