@@ -8819,7 +8819,7 @@ app.post("/api/whatsapp/import", express.json({limit:"5mb"}), async (req,res) =>
         `INSERT INTO whatsapp_messages(device_id,external_id,direction,event_type,conversation_id,conversation_name,sender_enc,body_enc,received_at)
          VALUES($1,$2,$3,'imported_chat',$4,$5,$6,$7,$8)
          ON CONFLICT(device_id,external_id) DO NOTHING RETURNING id`,
-        [deviceId,externalId,direction,smsEncrypt(sender),smsEncrypt(body),when]
+        [deviceId,externalId,direction,conversationId,conversationName,smsEncrypt(sender),smsEncrypt(body),when]
       );
       if(q.rows.length)stored++;
     }
