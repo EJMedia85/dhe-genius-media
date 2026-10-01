@@ -1452,6 +1452,37 @@ async function initDatabase() {
     api_airtime_orders_status_created_idx
     ON api_airtime_orders(status, created_at);
   `);
+  // ===================================================
+  // DGM COMPANION MESSAGING
+  // ===================================================
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS companion_devices (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      device_name TEXT NOT NULL DEFAULT 'Android Device',
+      token_hash TEXT UNIQUE NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      last_seen TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS companion_messages (
+      id BIGSERIAL PRIMARY KEY,
+      device_id INTEGER NOT NULL REFERENCES companion_devices(id) ON DELETE CASCADE,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      channel TEXT NOT NULL,
+      sender TEXT,
+      body TEXT NOT NULL,
+      direction TEXT NOT NULL DEFAULT 'incoming',
+      status TEXT NOT NULL DEFAULT 'received',
+      client_id TEXT UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS companion_messages_customer_created_idx ON companion_messages(customer_id, created_at DESC);`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS companion_messages_device_created_idx ON companion_messages(device_id, created_at DESC);`);
+  
 
   // ===================================================
   // ORDER COLUMN MIGRATIONS
@@ -2831,6 +2862,184 @@ function requireAdmin(req, res, next) {
   if (!req.session || !req.session.adminAuthenticated) return sendError(res, 401, "Admin authentication required.");
   next();
 }
+
+
+const COMPANION_TOKEN_TTL_DAYS = 30;
+
+function getCompanionToken(req) {
+  const authorization = String(req.get("Authorization") || "").trim();
+  if (!authorization.toLowerCase().startsWith("bearer ")) return "";
+  return authorization.slice(7).trim();
+}
+
+function hashCompanionToken(token) {
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
+
+async function getCompanionDevice(req) {
+  const token = getCompanionToken(req);
+  if (!token) return null;
+  const result = await pool.query(
+    `SELECT d.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+     FROM companion_devices d
+     JOIN customers c ON c.id = d.customer_id
+     WHERE d.token_hash = $1 AND d.active = TRUE`,
+    [hashCompanionToken(token)]
+  );
+  if (!result.rows.length) return null;
+  await pool.query("UPDATE companion_devices SET last_seen = NOW() WHERE id = $1", [result.rows[0].id]);
+  return result.rows[0];
+}
+
+async function requireCompanion(req, res, next) {
+  try {
+    const device = await getCompanionDevice(req);
+    if (!device) return sendError(res, 401, "Companion is not connected or its access has been revoked.");
+    req.companionDevice = device;
+    next();
+  } catch (error) {
+    console.error("Companion authentication error:", error);
+    return sendError(res, 500, "Companion authentication failed.");
+  }
+}
+
+app.post("/api/companion/auth", loginRateLimit, async (req, res) => {
+  try {
+    const email = cleanEmail(req.body?.email);
+    const password = String(req.body?.password || "");
+    const deviceName = String(req.body?.device_name || "Android Device").trim().slice(0, 80) || "Android Device";
+    if (!email || !password) return sendError(res, 400, "Email and password are required.");
+
+    const result = await pool.query(
+      "SELECT id, name, phone, email, password FROM customers WHERE email = $1 LIMIT 1",
+      [email]
+    );
+    if (!result.rows.length || !(await bcrypt.compare(password, result.rows[0].password))) {
+      recordLoginFailure(req);
+      return sendError(res, 401, "Invalid DGM account credentials.");
+    }
+    clearLoginFailures(req);
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const tokenHash = hashCompanionToken(token);
+    await pool.query(
+      "UPDATE companion_devices SET active = FALSE WHERE customer_id = $1 AND device_name = $2",
+      [result.rows[0].id, deviceName]
+    );
+    const device = await pool.query(
+      `INSERT INTO companion_devices (customer_id, device_name, token_hash, last_seen)
+       VALUES ($1, $2, $3, NOW()) RETURNING id, device_name, last_seen`,
+      [result.rows[0].id, deviceName, tokenHash]
+    );
+    return res.json({
+      success: true,
+      token,
+      device: device.rows[0],
+      customer: { id: result.rows[0].id, name: result.rows[0].name, email: result.rows[0].email, phone: result.rows[0].phone },
+      expires_days: COMPANION_TOKEN_TTL_DAYS
+    });
+  } catch (error) {
+    console.error("Companion auth error:", error);
+    return sendError(res, 500, "Unable to connect the Companion right now.");
+  }
+});
+
+app.get("/api/companion/heartbeat", requireCompanion, async (req, res) => {
+  return res.json({
+    success: true,
+    connected: true,
+    device: {
+      id: req.companionDevice.id,
+      name: req.companionDevice.device_name,
+      last_seen: new Date().toISOString()
+    },
+    customer: {
+      id: req.companionDevice.customer_id,
+      name: req.companionDevice.customer_name
+    }
+  });
+});
+
+app.post("/api/companion/messages", requireCompanion, async (req, res) => {
+  try {
+    const channel = ["sms", "whatsapp"].includes(String(req.body?.channel || "").toLowerCase())
+      ? String(req.body.channel).toLowerCase() : null;
+    const sender = String(req.body?.sender || "").trim().slice(0, 200);
+    const body = String(req.body?.body || "").trim().slice(0, 10000);
+    const clientId = String(req.body?.client_id || "").trim().slice(0, 120) || null;
+    if (!channel || !body) return sendError(res, 400, "Message channel and body are required.");
+
+    const result = await pool.query(
+      `INSERT INTO companion_messages
+        (device_id, customer_id, channel, sender, body, direction, status, client_id)
+       VALUES ($1,$2,$3,$4,$5,'incoming','received',$6)
+       ON CONFLICT (client_id) DO NOTHING
+       RETURNING id, created_at`,
+      [req.companionDevice.id, req.companionDevice.customer_id, channel, sender, body, clientId]
+    );
+    return res.json({ success: true, stored: Boolean(result.rows.length), message: result.rows[0] || null });
+  } catch (error) {
+    console.error("Companion message ingestion error:", error);
+    return sendError(res, 500, "Unable to store the message.");
+  }
+});
+
+app.get("/api/companion/outbox", requireCompanion, async (req, res) => {
+  const result = await pool.query(
+    `SELECT id, channel, sender, body, direction, status, created_at
+     FROM companion_messages
+     WHERE device_id = $1 AND direction = 'outgoing' AND status = 'queued'
+     ORDER BY id ASC LIMIT 50`,
+    [req.companionDevice.id]
+  );
+  return res.json({ success: true, messages: result.rows });
+});
+
+app.post("/api/companion/outbox/:id/ack", requireCompanion, async (req, res) => {
+  const status = ["sent","failed"].includes(String(req.body?.status || "")) ? String(req.body.status) : "sent";
+  const result = await pool.query(
+    `UPDATE companion_messages SET status = $1
+     WHERE id = $2 AND device_id = $3 AND direction = 'outgoing'
+     RETURNING id, status`,
+    [status, Number(req.params.id), req.companionDevice.id]
+  );
+  if (!result.rows.length) return sendError(res, 404, "Message not found.");
+  return res.json({ success: true, message: result.rows[0] });
+});
+
+// Admin-only operational view; nothing here is exposed through the customer dashboard.
+app.get("/api/admin/companion/messages", requireAdmin, async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 500);
+  const result = await pool.query(
+    `SELECT m.id, m.channel, m.sender, m.body, m.direction, m.status, m.created_at,
+            c.id AS customer_id, c.name AS customer_name, c.email AS customer_email,
+            d.id AS device_id, d.device_name, d.last_seen
+     FROM companion_messages m
+     JOIN customers c ON c.id = m.customer_id
+     JOIN companion_devices d ON d.id = m.device_id
+     ORDER BY m.created_at DESC LIMIT $1`,
+    [limit]
+  );
+  return res.json({ success: true, messages: result.rows });
+});
+
+app.post("/api/admin/companion/reply", requireAdmin, async (req, res) => {
+  const deviceId = Number(req.body?.device_id);
+  const channel = String(req.body?.channel || "").toLowerCase();
+  const sender = String(req.body?.sender || "").trim().slice(0, 200);
+  const body = String(req.body?.body || "").trim().slice(0, 10000);
+  if (!Number.isInteger(deviceId) || deviceId <= 0 || !["sms","whatsapp"].includes(channel) || !body) {
+    return sendError(res, 400, "Device, channel and message are required.");
+  }
+  const device = await pool.query("SELECT id, customer_id FROM companion_devices WHERE id = $1 AND active = TRUE", [deviceId]);
+  if (!device.rows.length) return sendError(res, 404, "Active Companion device not found.");
+  const result = await pool.query(
+    `INSERT INTO companion_messages (device_id, customer_id, channel, sender, body, direction, status)
+     VALUES ($1,$2,$3,$4,$5,'outgoing','queued') RETURNING id, created_at`,
+    [deviceId, device.rows[0].customer_id, channel, sender, body]
+  );
+  return res.json({ success: true, message: result.rows[0] });
+});
 
 function requireLogin(
   req,
