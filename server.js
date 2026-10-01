@@ -1482,6 +1482,7 @@ async function initDatabase() {
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS companion_messages_customer_created_idx ON companion_messages(customer_id, created_at DESC);`);
   await pool.query(`CREATE INDEX IF NOT EXISTS companion_messages_device_created_idx ON companion_messages(device_id, created_at DESC);`);
+  await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;`);
   
 
   // ===================================================
@@ -2883,7 +2884,7 @@ async function getCompanionDevice(req) {
     `SELECT d.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
      FROM companion_devices d
      JOIN customers c ON c.id = d.customer_id
-     WHERE d.token_hash = $1 AND d.active = TRUE`,
+     WHERE d.token_hash = $1 AND d.active = TRUE AND (d.expires_at IS NULL OR d.expires_at > NOW())`,
     [hashCompanionToken(token)]
   );
   if (!result.rows.length) return null;
@@ -2928,7 +2929,7 @@ app.post("/api/companion/auth", loginRateLimit, async (req, res) => {
     );
     const device = await pool.query(
       `INSERT INTO companion_devices (customer_id, device_name, token_hash, last_seen)
-       VALUES ($1, $2, $3, NOW()) RETURNING id, device_name, last_seen`,
+       VALUES ($1, $2, $3, NOW(), NOW() + INTERVAL '30 days') RETURNING id, device_name, last_seen, expires_at`,
       [result.rows[0].id, deviceName, tokenHash]
     );
     return res.json({
