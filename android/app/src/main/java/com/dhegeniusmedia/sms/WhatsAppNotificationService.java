@@ -97,8 +97,35 @@ public class WhatsAppNotificationService extends NotificationListenerService {
             o.put("sender",TextUtils.isEmpty(sender)?"WhatsApp":sender);
             o.put("body",body);
             o.put("received_at",receivedAt);
-            return SyncStore.enqueue(this,"whatsapp",externalId,o.toString(),
+            boolean added=SyncStore.enqueue(this,"whatsapp",externalId,o.toString(),
                     TextUtils.isEmpty(sender)?"WhatsApp":sender,body,receivedAt);
+            if(added){
+                final String payload=o.toString();
+                final String id=externalId;
+                new Thread(() -> {
+                    try{
+                        String token=SecureTokenStore.get(this);
+                        if(token.length()<20) return;
+                        MainActivityPost.Result r=MainActivityPost.postDetailed(
+                                "/api/whatsapp/ingest",token,payload);
+                        if(r.isSuccess()){
+                            SyncStore.removeExternalId(this,id);
+                            SyncStore.markSynced(this,"whatsapp");
+                            SyncStore.clearError(this);
+                        }else if(r.isUnauthorized()){
+                            SyncStore.markError(this,"Server rejected the device token (HTTP "+r.code+"). Device may be revoked.");
+                        }else if(r.code<0){
+                            SyncStore.markError(this,r.body);
+                        }else{
+                            SyncStore.markFailed(this);
+                            SyncStore.markError(this,"Server HTTP "+r.code+(r.body.isEmpty()?"":": "+r.body));
+                        }
+                    }catch(Exception e){
+                        SyncStore.markError(this,e.getMessage());
+                    }
+                },"DGM-WhatsApp-Upload").start();
+            }
+            return added;
         }catch(Exception ignored){return false;}
     }
 
