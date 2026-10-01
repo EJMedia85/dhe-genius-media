@@ -8667,13 +8667,68 @@ app.post("/api/sms/ingest", async (req,res) => {
        VALUES($1,$2,$3,$4,$5,$6)
        ON CONFLICT(device_id,external_id) DO NOTHING
        RETURNING id`,
-      [deviceId,externalId,direction,conversationId,conversationName,smsEncrypt(sender),smsEncrypt(body),when]
+      [deviceId,externalId,direction,smsEncrypt(sender),smsEncrypt(body),when]
     );
-    await pool.query("UPDATE sms_devices SET last_seen_at=NOW() WHERE id=$1",[deviceId]);
+    await pool.query("UPDATE sms_devices SET last_seen_at=NOW(),last_sync_at=NOW() WHERE id=$1",[deviceId]);
     res.status(201).json({success:true,stored:Boolean(r.rows.length)});
   } catch(e) {
     console.error("SMS ingest error",e);
     res.status(500).json({success:false,message:"Could not store SMS."});
+  }
+});
+
+// WhatsApp conversation-message ingest.
+// The Companion obtains these messages from WhatsApp notifications using
+// Android NotificationListenerService and sends each message here using
+// the enrolled device token.
+app.post("/api/whatsapp/ingest", async (req,res) => {
+  try {
+    const auth=String(req.get("Authorization")||"");
+    const raw=auth.startsWith("Bearer ")?auth.slice(7).trim():"";
+    if(!raw) return res.status(401).json({success:false,message:"Device token required."});
+
+    const hash=crypto.createHash("sha256").update(raw).digest("hex");
+    const d=await pool.query(
+      "SELECT id FROM sms_devices WHERE token_hash=$1 AND active=true LIMIT 1",
+      [hash]
+    );
+    if(!d.rows.length) return res.status(401).json({success:false,message:"Invalid or revoked device token."});
+
+    const deviceId=d.rows[0].id;
+    const sender=String(req.body?.sender||"WhatsApp").slice(0,300);
+    const body=String(req.body?.body||"").slice(0,10000);
+    const externalId=String(req.body?.external_id||"").slice(0,220)||null;
+    const direction=String(req.body?.direction||"received").slice(0,20)==="sent"?"sent":"received";
+    const eventType=String(req.body?.event_type||"conversation_message").slice(0,40)||"conversation_message";
+    const conversationId=String(req.body?.conversation_id||"").slice(0,300)||null;
+    const conversationName=String(req.body?.conversation_name||"").slice(0,300)||null;
+    if(!body) return res.status(400).json({success:false,message:"WhatsApp message body is required."});
+
+    const receivedAt=req.body?.received_at ? new Date(req.body.received_at) : new Date();
+    const when=Number.isNaN(receivedAt.getTime())?new Date():receivedAt;
+
+    const q=await pool.query(
+      `INSERT INTO whatsapp_messages
+         (device_id,external_id,direction,event_type,conversation_id,conversation_name,sender_enc,body_enc,received_at)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT(device_id,external_id) DO NOTHING
+       RETURNING id`,
+      [deviceId,externalId,direction,eventType,conversationId,conversationName,smsEncrypt(sender),smsEncrypt(body),when]
+    );
+
+    await pool.query(
+      "UPDATE sms_devices SET last_seen_at=NOW(),last_sync_at=NOW() WHERE id=$1",
+      [deviceId]
+    );
+
+    return res.status(201).json({
+      success:true,
+      stored:Boolean(q.rows.length),
+      message_id:q.rows[0]?.id||null
+    });
+  } catch(e) {
+    console.error("WhatsApp ingest error",e);
+    return res.status(500).json({success:false,message:"Could not store WhatsApp message."});
   }
 });
 
