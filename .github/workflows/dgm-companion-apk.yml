@@ -21,12 +21,14 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-      - name: Make Gradle executable
-        run: chmod +x ./gradlew
+      - name: Set up Gradle 7.6.4
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "7.6.4"
       - name: Clean build
-        run: ./gradlew clean --no-daemon --stacktrace
+        run: gradle clean --no-daemon --stacktrace
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon --stacktrace
       - name: Locate APK
         id: apk
         shell: bash
