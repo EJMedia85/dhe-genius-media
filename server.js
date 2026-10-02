@@ -8601,7 +8601,7 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     const memberCount = Math.max(0, Math.floor(Number(req.body?.memberCount || 0)));
     const targetDateRaw = String(req.body?.targetDate || "").trim();
     if (!["Flexible", "Daily", "Weekly", "Monthly"].includes(frequency)) return sendError(res, 400, "Invalid savings frequency.");
-    if (targetDateRaw && !/^\\d{4}-\\d{2}-\\d{2}$/.test(targetDateRaw)) return sendError(res, 400, "Target date must use YYYY-MM-DD.");
+    if (targetDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(targetDateRaw)) return sendError(res, 400, "Target date must use YYYY-MM-DD.");
     if (accountType === "Personal" && !goalName) return sendError(res, 400, "Enter your Personal Savings goal.");
     if (accountType === "Group" && !groupName) return sendError(res, 400, "Enter your Group Susu name.");
     if (accountType === "Group" && memberCount < 2) return sendError(res, 400, "A Group Susu needs at least 2 members.");
