@@ -2040,8 +2040,7 @@ async function ensureSavingsTables() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
-
-
+}
 
 async function getSavingsAccount(customerId, client = pool) {
   // An account can legitimately exist before its withdrawal code is set
