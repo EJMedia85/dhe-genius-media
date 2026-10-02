@@ -4,7 +4,7 @@
   "description": "DHE GENIUS MEDIA - Ghana digital services platform",
   "main": "server.js",
   "scripts": {
-    "start": "node -r ./susu-enhancements.js server.js"
+    "start": "node -r ./susu-invite-code.js -r ./susu-enhancements.js server.js"
   },
   "engines": {
     "node": "22.x"
