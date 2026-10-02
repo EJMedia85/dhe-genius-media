@@ -2042,25 +2042,6 @@ async function ensureSavingsTables() {
   `);
 
 
-  // One-time maintenance: remove all test Savings/Susu accounts when explicitly enabled.
-  if (String(process.env.DGM_RESET_ALL_SAVINGS_ACCOUNTS || "").toLowerCase() === "true") {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS dgm_one_time_migrations (
-        migration_key TEXT PRIMARY KEY,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-    const migration = await pool.query(
-      "INSERT INTO dgm_one_time_migrations (migration_key) VALUES ('reset-all-savings-accounts-2026-10-02') ON CONFLICT (migration_key) DO NOTHING RETURNING migration_key"
-    );
-    if (migration.rowCount) {
-      const reset = await pool.query("DELETE FROM savings_accounts RETURNING id");
-      console.log("Savings reset completed. Removed accounts:", reset.rowCount);
-    }
-  }
-}
-
-
 
 async function getSavingsAccount(customerId, client = pool) {
   // An account can legitimately exist before its withdrawal code is set
