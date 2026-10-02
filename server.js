@@ -8635,7 +8635,8 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
       [req.session.customerId, accountResult.rows[0].id, creationFee, currentSavingsBalance, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]
     );
     await client.query("COMMIT");
-if(accountType==="Group") await getOrCreateSusuGroup(req.session.customerId,client);\n        return res.json({success:true,message:accountType+" Savings/Susu account created successfully. GH₵5.00 creation fee charged from your DGM Wallet.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active",account_type:accountType},reference});
+if(accountType==="Group") await getOrCreateSusuGroup(req.session.customerId,client);
+        return res.json({success:true,message:accountType+" Savings/Susu account created successfully. GH₵5.00 creation fee charged from your DGM Wallet.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active",account_type:accountType},reference});
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Savings account creation error:", error);
