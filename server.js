@@ -2000,7 +2000,8 @@ async function ensureSavingsTables() {
 
   // Savings product upgrades: goals, lock dates, automatic contribution plans.
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS withdrawal_pin_hash TEXT;`);
-  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00;`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00;
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'Personal';`);`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS goal_name TEXT NOT NULL DEFAULT 'My Savings Goal';`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS target_date DATE;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;`);
@@ -8581,6 +8582,9 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
   const client = await pool.connect();
   try {
     const withdrawalCode = String(req.body?.withdrawalCode || "").trim();
+    const accountType = String(req.body?.accountType || "Personal").trim();
+    if (!["Personal", "Group"].includes(accountType)) return sendError(res, 400, "Choose Personal or Group Savings.");
+    if (accountType === "Group") return sendError(res, 400, "Group Susu is being prepared. Personal Savings is available now.");
     const confirmCode = String(req.body?.confirmCode || "").trim();
     if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Create a 4–8 digit Savings withdrawal code.");
     if (withdrawalCode !== confirmCode) return sendError(res, 400, "Savings withdrawal codes do not match.");
@@ -8599,13 +8603,13 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     let accountResult;
     if (existing) {
       accountResult = await client.query(
-        "UPDATE savings_accounts SET status='Active', withdrawal_pin_hash=$1, creation_fee=$2, updated_at=NOW() WHERE id=$3 RETURNING *",
-        [pinHash, creationFee, existing.id]
+        "UPDATE savings_accounts SET status='Active', withdrawal_pin_hash=$1, creation_fee=$2, account_type=$3, updated_at=NOW() WHERE id=$4 RETURNING *",
+        [pinHash, creationFee, accountType, existing.id]
       );
     } else {
       accountResult = await client.query(
-        "INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee) VALUES ($1, 0, 'Active', $2, $3) RETURNING *",
-        [req.session.customerId, pinHash, creationFee]
+        "INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee, account_type) VALUES ($1, 0, 'Active', $2, $3, $4) RETURNING *",
+        [req.session.customerId, pinHash, creationFee, accountType]
       );
     }
     const currentSavingsBalance = Number(accountResult.rows[0].balance || 0);
@@ -8614,7 +8618,7 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
       [req.session.customerId, accountResult.rows[0].id, creationFee, currentSavingsBalance, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]
     );
     await client.query("COMMIT");
-    return res.json({success:true,message:"Savings/Susu account created successfully.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active"},reference});
+    return res.json({success:true,message:"Savings/Susu account created successfully.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active",account_type:accountType},reference});
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Savings account creation error:", error);
@@ -8645,7 +8649,8 @@ app.get("/api/savings", requireLogin, async (req, res) => {
         next_contribution_at: account.next_contribution_at,
         target_date: account.target_date,
         locked_until: account.locked_until,
-        goal_name: account.goal_name || "My Savings Goal"
+        goal_name: account.goal_name || "My Savings Goal",
+        account_type: account.account_type || "Personal"
       } : null,
       transactions: tx.rows.map(row => ({
         ...row,
