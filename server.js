@@ -8658,7 +8658,11 @@ app.get("/api/savings", requireLogin, async (req, res) => {
     return res.json({
       success: true,
       account: account ? {
-        ...account,
+        id: account.id,
+        account_type: account.account_type || "Personal",
+        group_name: account.group_name || null,
+        member_count: account.member_count || null,
+        has_withdrawal_code: Boolean(account.withdrawal_pin_hash),
         balance: Number(account.balance || 0),
         target_amount: Number(account.target_amount || 0),
         contribution_amount: Number(account.contribution_amount || 0),
