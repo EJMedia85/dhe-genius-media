@@ -2001,7 +2001,7 @@ async function ensureSavingsTables() {
   // Savings product upgrades: goals, lock dates, automatic contribution plans.
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS withdrawal_pin_hash TEXT;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00;`);
-  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'Personal';`);`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'Personal';`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS goal_name TEXT NOT NULL DEFAULT 'My Savings Goal';`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS target_date DATE;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;`);
