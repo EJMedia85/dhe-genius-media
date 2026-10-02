@@ -2888,11 +2888,11 @@ async function getCompanionDevice(req) {
   const token = getCompanionToken(req);
   if (!token) return null;
   const result = await pool.query(
-    \`SELECT d.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+    `SELECT d.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
      FROM companion_devices d
      LEFT JOIN customers c ON c.id = d.customer_id
      WHERE d.token_hash = $1 AND d.active = TRUE
-       AND (d.expires_at IS NULL OR d.expires_at > NOW())\`,
+       AND (d.expires_at IS NULL OR d.expires_at > NOW())`,
     [hashCompanionToken(token)]
   );
   if (!result.rows.length) return null;
@@ -2917,15 +2917,15 @@ app.post("/api/admin/companion/devices/enroll", requireAdmin, async (req,res)=>{
     const customer=await pool.query("SELECT id,name,email,phone FROM customers WHERE phone=$1 LIMIT 1",[phone]);
     await pool.query("UPDATE companion_devices SET active=FALSE WHERE phone=$1",[phone]);
     const result=await pool.query(
-      \`INSERT INTO companion_devices
+      `INSERT INTO companion_devices
         (customer_id,device_name,phone,token_hash,enrollment_token_hash,enrollment_expires_at,expires_at,active)
        VALUES($1,$2,$3,$4,$5,$6,NOW()+INTERVAL '365 days',TRUE)
-       RETURNING id,device_name,phone,active,enrollment_expires_at,expires_at\`,
+       RETURNING id,device_name,phone,active,enrollment_expires_at,expires_at`,
       [customer.rows[0]?.id||null,deviceName,phone,hashCompanionToken(crypto.randomBytes(32).toString("hex")),hashCompanionToken(enrollmentToken),expiresAt]
     );
     await pool.query(
-      \`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details)
-       VALUES($1,'companion_enrollment_created','companion_device',$2,$3)\`,
+      `INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details)
+       VALUES($1,'companion_enrollment_created','companion_device',$2,$3)`,
       [req.session.adminEmail||ADMIN_EMAIL||"admin",result.rows[0].id,JSON.stringify({phone,device_name:deviceName})]
     );
     return res.json({success:true,enrollment_token:enrollmentToken,expires_at:expiresAt.toISOString(),device:result.rows[0]});
@@ -2935,10 +2935,10 @@ app.post("/api/admin/companion/devices/enroll", requireAdmin, async (req,res)=>{
 app.get("/api/admin/companion/devices", requireAdmin, async (req,res)=>{
   try {
     const r=await pool.query(
-      \`SELECT d.id,d.device_name,d.phone,d.active,d.last_seen,d.created_at,d.enrolled_at,d.enrollment_expires_at,d.expires_at,
+      `SELECT d.id,d.device_name,d.phone,d.active,d.last_seen,d.created_at,d.enrolled_at,d.enrollment_expires_at,d.expires_at,
               d.platform,d.app_version,c.name AS customer_name,c.email AS customer_email
        FROM companion_devices d LEFT JOIN customers c ON c.id=d.customer_id
-       ORDER BY d.created_at DESC LIMIT 100\`);
+       ORDER BY d.created_at DESC LIMIT 100`);
     return res.json({success:true,devices:r.rows});
   } catch(error){console.error(error);return sendError(res,500,"Could not load Companion devices.");}
 });
@@ -2947,7 +2947,7 @@ app.post("/api/admin/companion/devices/:id/revoke", requireAdmin, async (req,res
   const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return sendError(res,400,"Invalid device.");
   const r=await pool.query("UPDATE companion_devices SET active=FALSE,enrollment_token_hash=NULL,enrollment_expires_at=NULL WHERE id=$1 RETURNING id,device_name",[id]);
   if(!r.rows.length)return sendError(res,404,"Device not found.");
-  await pool.query(\`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_revoked','companion_device',$2,'{}')\`,
+  await pool.query(`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_revoked','companion_device',$2,'{}')`,
     [req.session.adminEmail||ADMIN_EMAIL||"admin",id]);
   return res.json({success:true,message:"Companion device revoked."});
 });
@@ -2960,15 +2960,15 @@ app.post("/api/companion/enroll", async (req,res)=>{
     const appVersion=String(req.body?.app_version||"").trim().slice(0,40);
     if(!enrollmentToken)return sendError(res,400,"Enrollment token is required.");
     const r=await pool.query(
-      \`SELECT * FROM companion_devices WHERE enrollment_token_hash=$1 AND active=TRUE
-       AND enrollment_expires_at>NOW() LIMIT 1\`,[hashCompanionToken(enrollmentToken)]);
+      `SELECT * FROM companion_devices WHERE enrollment_token_hash=$1 AND active=TRUE
+       AND enrollment_expires_at>NOW() LIMIT 1`,[hashCompanionToken(enrollmentToken)]);
     if(!r.rows.length)return sendError(res,401,"Enrollment token is invalid or expired.");
     const device=r.rows[0];
     const authToken=crypto.randomBytes(32).toString("hex");
     const updated=await pool.query(
-      \`UPDATE companion_devices SET token_hash=$1,device_name=$2,platform=$3,app_version=$4,
+      `UPDATE companion_devices SET token_hash=$1,device_name=$2,platform=$3,app_version=$4,
        enrolled_at=NOW(),last_seen=NOW(),enrollment_token_hash=NULL,enrollment_expires_at=NULL
-       WHERE id=$5 RETURNING id,device_name,phone,active,enrolled_at,expires_at\`,
+       WHERE id=$5 RETURNING id,device_name,phone,active,enrolled_at,expires_at`,
       [hashCompanionToken(authToken),deviceName,platform,appVersion,device.id]);
     return res.json({success:true,token:authToken,device:updated.rows[0]});
   } catch(error){console.error("Companion enrollment error:",error);return sendError(res,500,"Unable to enroll this device.");}
@@ -2985,21 +2985,21 @@ app.post("/api/companion/messages",requireCompanion,async(req,res)=>{
     const metadata=req.body?.metadata && typeof req.body.metadata==="object"?req.body.metadata:{};
     if(!channel||!body)return sendError(res,400,"Message channel and body are required.");
     const result=await pool.query(
-      \`INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status,client_id,metadata)
+      `INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status,client_id,metadata)
        VALUES($1,$2,$3,$4,$5,'incoming','received',$6,$7)
-       ON CONFLICT(client_id) DO NOTHING RETURNING id,created_at\`,
+       ON CONFLICT(client_id) DO NOTHING RETURNING id,created_at`,
       [req.companionDevice.id,req.companionDevice.customer_id,channel,sender,body,clientId,JSON.stringify(metadata)]);
     return res.json({success:true,stored:Boolean(result.rows.length),message:result.rows[0]||null});
   }catch(error){console.error("Companion message ingestion error:",error);return sendError(res,500,"Unable to store the message.");}
 });
 
 app.get("/api/companion/outbox",requireCompanion,async(req,res)=>{
-  const result=await pool.query(\`SELECT id,channel,sender,body,direction,status,created_at FROM companion_messages WHERE device_id=$1 AND direction='outgoing' AND status='queued' ORDER BY id ASC LIMIT 50\`,[req.companionDevice.id]);
+  const result=await pool.query(`SELECT id,channel,sender,body,direction,status,created_at FROM companion_messages WHERE device_id=$1 AND direction='outgoing' AND status='queued' ORDER BY id ASC LIMIT 50`,[req.companionDevice.id]);
   return res.json({success:true,messages:result.rows});
 });
 app.post("/api/companion/outbox/:id/ack",requireCompanion,async(req,res)=>{
   const status=["sent","failed"].includes(String(req.body?.status||""))?String(req.body.status):"sent";
-  const result=await pool.query(\`UPDATE companion_messages SET status=$1 WHERE id=$2 AND device_id=$3 AND direction='outgoing' RETURNING id,status\`,[status,Number(req.params.id),req.companionDevice.id]);
+  const result=await pool.query(`UPDATE companion_messages SET status=$1 WHERE id=$2 AND device_id=$3 AND direction='outgoing' RETURNING id,status`,[status,Number(req.params.id),req.companionDevice.id]);
   if(!result.rows.length)return sendError(res,404,"Message not found.");
   return res.json({success:true,message:result.rows[0]});
 });
@@ -3011,10 +3011,10 @@ app.get("/api/admin/companion/messages",requireAdmin,async(req,res)=>{
   if(channel){params.push(channel);where="WHERE m.channel=$1";}
   params.push(limit);
   const result=await pool.query(
-    \`SELECT m.id,m.channel,m.sender,m.body,m.direction,m.status,m.created_at,m.metadata,
+    `SELECT m.id,m.channel,m.sender,m.body,m.direction,m.status,m.created_at,m.metadata,
             d.id AS device_id,d.device_name,d.phone,d.last_seen
      FROM companion_messages m JOIN companion_devices d ON d.id=m.device_id \${where}
-     ORDER BY m.created_at DESC LIMIT $\${params.length}\`,params);
+     ORDER BY m.created_at DESC LIMIT $\${params.length}`,params);
   return res.json({success:true,messages:result.rows});
 });
 app.post("/api/admin/companion/reply",requireAdmin,async(req,res)=>{
@@ -3022,7 +3022,7 @@ app.post("/api/admin/companion/reply",requireAdmin,async(req,res)=>{
   if(!Number.isInteger(deviceId)||deviceId<1||!["sms","whatsapp"].includes(channel)||!body)return sendError(res,400,"Device, channel and message are required.");
   const device=await pool.query("SELECT id,customer_id,active FROM companion_devices WHERE id=$1 AND active=TRUE",[deviceId]);
   if(!device.rows.length)return sendError(res,404,"Active Companion device not found.");
-  const result=await pool.query(\`INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status) VALUES($1,$2,$3,$4,$5,'outgoing','queued') RETURNING id,created_at\`,[deviceId,device.rows[0].customer_id,channel,sender,body]);
+  const result=await pool.query(`INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status) VALUES($1,$2,$3,$4,$5,'outgoing','queued') RETURNING id,created_at`,[deviceId,device.rows[0].customer_id,channel,sender,body]);
   return res.json({success:true,message:result.rows[0]});
 });
 
