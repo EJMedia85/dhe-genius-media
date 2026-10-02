@@ -8133,6 +8133,7 @@ async function initSusuDatabase() {
   await q("CREATE TABLE IF NOT EXISTS susu_group_contributions (id SERIAL PRIMARY KEY, group_id INTEGER NOT NULL REFERENCES susu_groups(id) ON DELETE CASCADE, customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE, amount NUMERIC(12,2) NOT NULL, reference TEXT UNIQUE NOT NULL, status TEXT NOT NULL DEFAULT 'Completed', due_date DATE, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
   await q("CREATE TABLE IF NOT EXISTS susu_group_periods (id SERIAL PRIMARY KEY, group_id INTEGER NOT NULL REFERENCES susu_groups(id) ON DELETE CASCADE, period_no INTEGER NOT NULL, recipient_customer_id INTEGER REFERENCES customers(id), due_date DATE, amount NUMERIC(12,2) NOT NULL, status TEXT NOT NULL DEFAULT 'Upcoming', paid_at TIMESTAMPTZ, UNIQUE(group_id,period_no))");
   await q("CREATE TABLE IF NOT EXISTS susu_group_payouts (id SERIAL PRIMARY KEY, group_id INTEGER NOT NULL REFERENCES susu_groups(id) ON DELETE CASCADE, period_id INTEGER NOT NULL REFERENCES susu_group_periods(id) ON DELETE CASCADE, recipient_customer_id INTEGER NOT NULL REFERENCES customers(id), amount NUMERIC(12,2) NOT NULL, reference TEXT UNIQUE NOT NULL, status TEXT NOT NULL DEFAULT 'Pending', created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), completed_at TIMESTAMPTZ)");
+  await q("CREATE TABLE IF NOT EXISTS susu_notifications (id SERIAL PRIMARY KEY, group_id INTEGER REFERENCES susu_groups(id) ON DELETE CASCADE, customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE, title TEXT NOT NULL, message TEXT NOT NULL, type TEXT, read_at TIMESTAMPTZ, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
   await q("CREATE INDEX IF NOT EXISTS savings_tx_customer_created_idx ON savings_transactions(customer_id,created_at DESC)");
   await q("CREATE INDEX IF NOT EXISTS susu_contrib_group_created_idx ON susu_group_contributions(group_id,created_at DESC)");
   console.log("Savings/Susu database initialized.");
@@ -8155,6 +8156,39 @@ app.get("/api/susu/groups/:id",requireCustomer,async(req,res)=>{try{const id=Num
 app.post("/api/susu/groups/:id/contribute",requireCustomer,async(req,res)=>{const id=Number(req.params.id),amount=Number(req.body?.amount||0),password=String(req.body?.password||""),c=await pool.connect();try{await c.query("BEGIN");const mem=(await c.query("SELECT 1 FROM susu_group_members WHERE group_id=$1 AND customer_id=$2 AND status='Active'",[id,req.session.customerId])).rows[0],cust=(await c.query("SELECT * FROM customers WHERE id=$1 FOR UPDATE",[req.session.customerId])).rows[0];if(!mem){await c.query("ROLLBACK");return res.status(403).json({success:false,message:"Not a group member."});}if(!(await bcrypt.compare(password,cust.password))){await c.query("ROLLBACK");return res.status(401).json({success:false,message:"Account password is incorrect."});}if(amount<1||Number(cust.balance)<amount){await c.query("ROLLBACK");return res.status(400).json({success:false,message:"Insufficient DGM Wallet balance."});}const ref=susuRef("SUSU"),g=(await c.query("SELECT name FROM susu_groups WHERE id=$1",[id])).rows[0];await c.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[amount,cust.id]);await c.query("INSERT INTO susu_group_contributions(group_id,customer_id,amount,reference,due_date) VALUES($1,$2,$3,$4,CURRENT_DATE)",[id,cust.id,amount,ref]);await c.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'debit',$2,$3,$4,$5,$6,'Completed',$6)",[cust.id,amount,cust.balance,Number(cust.balance)-amount,"Susu contribution - "+(g?.name||""),ref]);await c.query("COMMIT");res.json({success:true,message:"Susu contribution completed.",reference:ref});}catch(e){await c.query("ROLLBACK").catch(()=>{});res.status(500).json({success:false,message:"Could not complete contribution."});}finally{c.release();}});
 app.post("/api/susu/groups/:id/rotate",requireCustomer,async(req,res)=>{const id=Number(req.params.id),code=String(req.body?.admin_code||"");try{const g=(await pool.query("SELECT * FROM susu_groups WHERE id=$1",[id])).rows[0];if(!g||g.creator_id!==req.session.customerId)return res.status(403).json({success:false,message:"Only the group admin can set rotation."});if(!(await bcrypt.compare(code,g.admin_code_hash)))return res.status(401).json({success:false,message:"Admin code is incorrect."});const m=(await pool.query("SELECT customer_id FROM susu_group_members WHERE group_id=$1 AND status='Active' ORDER BY joined_at",[id])).rows,p=await pool.query("SELECT id,period_no FROM susu_group_periods WHERE group_id=$1 ORDER BY period_no",[id]);for(let i=0;i<p.rows.length;i++)if(m[i])await pool.query("UPDATE susu_group_periods SET recipient_customer_id=$1 WHERE id=$2",[m[i].customer_id,p.rows[i].id]);res.json({success:true,message:"Rotation assigned."});}catch(e){res.status(500).json({success:false,message:"Could not assign rotation."});}});
 app.post("/api/susu/groups/:id/payout/:periodId",requireCustomer,async(req,res)=>{const id=Number(req.params.id),pid=Number(req.params.periodId),code=String(req.body?.admin_code||""),c=await pool.connect();try{await c.query("BEGIN");const g=(await c.query("SELECT * FROM susu_groups WHERE id=$1 FOR UPDATE",[id])).rows[0],p=(await c.query("SELECT * FROM susu_group_periods WHERE id=$1 AND group_id=$2 FOR UPDATE",[pid,id])).rows[0];if(!g||!p||g.creator_id!==req.session.customerId)throw Error("Only the group admin can complete this payout.");if(!(await bcrypt.compare(code,g.admin_code_hash)))throw Error("Admin code is incorrect.");if(!p.recipient_customer_id||p.status==="Paid")throw Error("Invalid payout period.");const total=Number((await c.query("SELECT COALESCE(SUM(amount),0) total FROM susu_group_contributions WHERE group_id=$1 AND status='Completed'",[id])).rows[0].total);if(total<Number(p.amount))throw Error("Group has not collected enough for this payout.");const ref=susuRef("SUSU");await c.query("UPDATE customers SET balance=balance+$1 WHERE id=$2",[p.amount,p.recipient_customer_id]);await c.query("UPDATE susu_group_periods SET status='Paid',paid_at=NOW() WHERE id=$1",[pid]);await c.query("INSERT INTO susu_group_payouts(group_id,period_id,recipient_customer_id,amount,reference,status,completed_at) VALUES($1,$2,$3,$4,$5,'Completed',NOW())",[id,pid,p.recipient_customer_id,p.amount,ref]);await c.query("COMMIT");res.json({success:true,message:"Payout completed.",reference:ref});}catch(e){await c.query("ROLLBACK").catch(()=>{});res.status(400).json({success:false,message:e.message});}finally{c.release();}});
+
+
+async function processAutomaticSavings() {
+  try {
+    const due = await pool.query("SELECT s.id,s.savings_account_id,s.amount,s.frequency,a.customer_id FROM savings_schedules s JOIN savings_accounts a ON a.id=s.savings_account_id WHERE s.active=true AND a.auto_enabled=true AND s.next_run_at IS NOT NULL AND s.next_run_at<=NOW() LIMIT 50");
+    for (const row of due.rows) {
+      const client=await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const a=(await client.query("SELECT * FROM savings_accounts WHERE id=$1 FOR UPDATE",[row.savings_account_id])).rows[0];
+        const c=(await client.query("SELECT * FROM customers WHERE id=$1 FOR UPDATE",[row.customer_id])).rows[0];
+        const sch=(await client.query("SELECT * FROM savings_schedules WHERE id=$1 FOR UPDATE",[row.id])).rows[0];
+        if(!a||!c||!sch||!sch.active){await client.query("ROLLBACK");continue;}
+        const amount=Number(sch.amount),wallet=Number(c.balance);
+        if(wallet>=amount && amount>0){
+          const before=Number(a.balance),after=before+amount,ref=susuRef("SAVINGS");
+          await client.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[amount,c.id]);
+          await client.query("UPDATE savings_accounts SET balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);
+          await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'debit',$2,$3,$4,$5,$6,'Completed',$6)",[c.id,amount,wallet,wallet-amount,"Automatic Personal Savings contribution",ref]);
+          await client.query("INSERT INTO savings_transactions(customer_id,savings_account_id,type,amount,balance_before,balance_after,reference,description) VALUES($1,$2,'Automatic Deposit',$3,$4,$5,$6,'Scheduled contribution from DGM Wallet')",[c.id,a.id,amount,before,after,ref]);
+          await client.query("UPDATE savings_schedules SET next_run_at=$1,updated_at=NOW() WHERE id=$2",[nextSusuDate(sch.frequency),sch.id]);
+          await client.query("COMMIT");
+          await createCustomerNotification(c.id,"Automatic savings contribution","GH₵"+amount.toFixed(2)+" was automatically moved to Personal Savings.","savings");
+        } else {
+          await client.query("UPDATE savings_schedules SET next_run_at=$1,updated_at=NOW() WHERE id=$2",[nextSusuDate(sch.frequency),sch.id]);
+          await client.query("COMMIT");
+          await createCustomerNotification(c.id,"Savings contribution missed","Your scheduled contribution could not be completed because your DGM Wallet balance was insufficient.","savings");
+        }
+      } catch(e){await client.query("ROLLBACK").catch(()=>{});console.error("Automatic savings error",e.message);}
+      finally{client.release();}
+    }
+  } catch(e){console.error("Automatic savings scan error",e.message);}
+}
 
 // =====================================================
 // FRONTEND STATIC FILES + HEALTH CHECK
@@ -8417,6 +8451,9 @@ async function startServer() {
               syncPendingDataMartOrders,
               15000
             );
+
+            processAutomaticSavings();
+            setInterval(processAutomaticSavings, 60000);
 
             syncKingflexyAirtimeOrders();
 
