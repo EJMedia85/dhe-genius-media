@@ -26,13 +26,48 @@
 </div>
 
 <section class="card" id="createCard" style="display:block;margin-top:14px">
-<h2 id="createTitle">Create DGM Savings / Susu</h2><div class="muted">Choose the savings account you want to create. A one-time <b>GH₵5.00</b> creation fee is required for both Personal and Group Savings and is charged from your DGM Wallet.</div>
-<div class="row" style="margin:12px 0"><button id="personalTypeBtn" class="primary" type="button" onclick="selectSavingsType('Personal')">Personal</button><button id="groupTypeBtn" class="secondary" type="button" onclick="selectSavingsType('Group')">Group</button></div>
-<div id="groupNotice" class="status warn"></div>
-<div class="muted">Creation/setup fee: <b>GH₵5.00</b> • Your DGM Wallet must have at least GH₵5.00.</div>
-<input id="createCode" type="password" inputmode="numeric" maxlength="8" placeholder="Create withdrawal code">
-<input id="confirmCreateCode" type="password" inputmode="numeric" maxlength="8" placeholder="Confirm withdrawal code">
-<button id="createSavingsBtn" class="primary full" onclick="createSavingsAccount()">Create Personal Savings • GH₵5.00</button><div id="createStatus" class="status"></div>
+<h2 id="createTitle">Choose Your Savings Type</h2>
+<div class="muted">Personal Savings and Group Susu have separate setup processes. Choose the one you want to create. A one-time <b>GH₵5.00</b> setup fee is charged from your DGM Wallet.</div>
+
+<div id="typeChooser" class="grid" style="margin-top:12px">
+  <div class="card" style="margin-top:0">
+    <div style="font-size:28px">💰</div><h2>Personal Savings</h2>
+    <div class="muted">Save for yourself with your own goal, target and withdrawal code.</div>
+    <button class="primary full" style="margin-top:12px" type="button" onclick="openSetup('Personal')">Set Up Personal Savings</button>
+  </div>
+  <div class="card" style="margin-top:0">
+    <div style="font-size:28px">👥</div><h2>Group Susu</h2>
+    <div class="muted">Create a separate group setup with a group name, members, contribution amount and schedule.</div>
+    <button class="secondary full" style="margin-top:12px" type="button" onclick="openSetup('Group')">Set Up Group Susu</button>
+  </div>
+</div>
+
+<div id="personalSetup" style="display:none">
+  <button class="secondary" type="button" onclick="backToChooser()">← Choose another</button>
+  <h2 style="margin-top:14px">Personal Savings Setup</h2>
+  <div class="muted">This is your individual DGM Savings account. Set your own goal and protect withdrawals with a private code.</div>
+  <input id="personalGoal" maxlength="100" placeholder="Savings goal (e.g. New Phone, Rent)">
+  <div class="row"><input id="personalTarget" type="number" min="0" step=".01" placeholder="Target amount (GH₵)"><input id="personalTargetDate" type="date"></div>
+  <input id="personalCode" type="password" inputmode="numeric" maxlength="8" placeholder="Create withdrawal code">
+  <input id="personalConfirmCode" type="password" inputmode="numeric" maxlength="8" placeholder="Confirm withdrawal code">
+  <div class="muted">Setup fee: <b>GH₵5.00</b> • DGM Wallet balance must be at least GH₵5.00.</div>
+  <button class="primary full" style="margin-top:8px" onclick="createSavingsAccount('Personal')">Create Personal Savings • GH₵5.00</button>
+  <div id="personalStatus" class="status"></div>
+</div>
+
+<div id="groupSetup" style="display:none">
+  <button class="secondary" type="button" onclick="backToChooser()">← Choose another</button>
+  <h2 style="margin-top:14px">Group Susu Setup</h2>
+  <div class="muted">This is a separate group setup. Define the group before contributions begin.</div>
+  <input id="groupName" maxlength="100" placeholder="Group Susu name">
+  <div class="row"><input id="groupMembers" type="number" min="2" step="1" placeholder="Number of members"><input id="groupContribution" type="number" min="1" step=".01" placeholder="Contribution per member (GH₵)"></div>
+  <div class="row"><select id="groupFrequency"><option>Daily</option><option>Weekly</option><option>Monthly</option></select><input id="groupTargetDate" type="date"></div>
+  <input id="groupCode" type="password" inputmode="numeric" maxlength="8" placeholder="Create group withdrawal/admin code">
+  <input id="groupConfirmCode" type="password" inputmode="numeric" maxlength="8" placeholder="Confirm group code">
+  <div class="muted">Setup fee: <b>GH₵5.00</b> • DGM Wallet balance must be at least GH₵5.00. Group members and rotation rules are configured separately.</div>
+  <button class="primary full" style="margin-top:8px" onclick="createSavingsAccount('Group')">Create Group Susu • GH₵5.00</button>
+  <div id="groupStatus" class="status"></div>
+</div>
 </section>
 
 <div class="grid" id="mainGrid" style="display:none">
@@ -84,10 +119,48 @@ function render(data){
  const rows=tx.map(x=>{const positive=["Contribution","Paystack Contribution","Auto Contribution","Admin Credit"].includes(x.type);return "<tr><td>"+new Date(x.created_at).toLocaleString()+"</td><td class='"+(positive?"in":"out")+"'>"+(positive?"+":"-")+money(x.amount)+"</td><td>"+esc(x.type)+"</td><td>"+money(x.balance_after)+"</td><td><button onclick='receipt("+JSON.stringify(x.reference)+")'>Receipt</button></td></tr>"}).join("");
  document.getElementById("history").innerHTML=rows?'<div style="overflow:auto"><table class="table"><thead><tr><th>Date</th><th>Amount</th><th>Type</th><th>Balance</th><th></th></tr></thead><tbody>'+rows+"</tbody></table></div>":'<div class="empty">No savings transactions yet.</div>';
 }
-async function load(){try{const d=await api("/api/savings");const has=!!d.account;const needsSetup=has&&!d.account.withdrawal_pin_hash;const createCard=document.getElementById("createCard");const mainGrid=document.getElementById("mainGrid");createCard.style.display=(!has||needsSetup)?"block":"none";mainGrid.style.display=has?"grid":"none";document.getElementById("digitalFeatures").style.display=has?"block":"none";document.getElementById("historyCard").style.display=has?"block":"none";if(!has){document.getElementById("createTitle").textContent="Create DGM Savings / Susu";document.getElementById("groupNotice").textContent="";document.getElementById("history").innerHTML='<div class="empty">Create your Savings/Susu account to begin.</div>';return}if(needsSetup){document.getElementById("createTitle").textContent="Finish Savings / Susu Setup";document.getElementById("groupNotice").textContent="Your Savings account exists, but its withdrawal code has not been set. Complete setup below.";document.getElementById("createSavingsBtn").textContent="Complete Savings Setup • GH₵5.00";}render(d);const q=new URLSearchParams(location.search);if(q.get("payment")==="success")document.getElementById("payStatus").innerHTML='<span class="ok">Paystack contribution completed.</span>';if(q.get("payment")==="failed")document.getElementById("payStatus").textContent=q.get("message")||"Paystack payment failed."}catch(e){if(e.message.includes("login"))location.href="/login.html?redirect=/savings.html";else document.getElementById("history").innerHTML='<div class="empty">'+esc(e.message)+"</div>"}}
-let selectedSavingsType="Personal";
-function selectSavingsType(type){selectedSavingsType=type==="Group"?"Group":"Personal";const personal=document.getElementById("personalTypeBtn"),group=document.getElementById("groupTypeBtn"),notice=document.getElementById("groupNotice"),btn=document.getElementById("createSavingsBtn");personal.className=selectedSavingsType==="Personal"?"primary":"secondary";group.className=selectedSavingsType==="Group"?"primary":"secondary";notice.textContent=selectedSavingsType==="Group"?"Create your Group Savings account for GH₵5.00 from your DGM Wallet.":"Create your Personal Savings account for GH₵5.00 from your DGM Wallet.";btn.disabled=false;btn.textContent="Create "+selectedSavingsType+" Savings • GH₵5.00"}
-async function createSavingsAccount(){const el=document.getElementById("createStatus");el.textContent="Creating "+selectedSavingsType+" Savings...";try{const j=await api("/api/savings/create",{method:"POST",body:JSON.stringify({accountType:selectedSavingsType,withdrawalCode:document.getElementById("createCode").value,confirmCode:document.getElementById("confirmCreateCode").value})});el.innerHTML='<span class="ok">'+esc(j.message||"Savings account created successfully.")+" Reference: "+esc(j.reference)+"</span>";load()}catch(e){el.textContent=e.message}}
+async function load(){try{const d=await api("/api/savings");const has=!!d.account;const needsSetup=has&&!d.account.withdrawal_pin_hash;const createCard=document.getElementById("createCard");const mainGrid=document.getElementById("mainGrid");createCard.style.display=(!has||needsSetup)?"block":"none";mainGrid.style.display=has?"grid":"none";document.getElementById("digitalFeatures").style.display=has?"block":"none";document.getElementById("historyCard").style.display=has?"block":"none";if(!has){document.getElementById("createTitle").textContent="Choose Your Savings Type";document.getElementById("typeChooser").style.display="grid";document.getElementById("personalSetup").style.display="none";document.getElementById("groupSetup").style.display="none";document.getElementById("history").innerHTML='<div class="empty">Choose Personal Savings or Group Susu to begin.</div>';return}if(needsSetup){document.getElementById("createTitle").textContent="Complete Savings Setup";document.getElementById("typeChooser").style.display="none";document.getElementById("personalSetup").style.display=d.account.account_type==="Group"?"none":"block";document.getElementById("groupSetup").style.display=d.account.account_type==="Group"?"block":"none";}render(d);const q=new URLSearchParams(location.search);if(q.get("payment")==="success")document.getElementById("payStatus").innerHTML='<span class="ok">Paystack contribution completed.</span>';if(q.get("payment")==="failed")document.getElementById("payStatus").textContent=q.get("message")||"Paystack payment failed."}catch(e){if(e.message.includes("login"))location.href="/login.html?redirect=/savings.html";else document.getElementById("history").innerHTML='<div class="empty">'+esc(e.message)+"</div>"}}
+function openSetup(type){
+  document.getElementById("typeChooser").style.display="none";
+  document.getElementById("personalSetup").style.display=type==="Personal"?"block":"none";
+  document.getElementById("groupSetup").style.display=type==="Group"?"block":"none";
+  document.getElementById("createTitle").textContent=type==="Personal"?"Personal Savings Setup":"Group Susu Setup";
+}
+function backToChooser(){
+  document.getElementById("typeChooser").style.display="grid";
+  document.getElementById("personalSetup").style.display="none";
+  document.getElementById("groupSetup").style.display="none";
+  document.getElementById("createTitle").textContent="Choose Your Savings Type";
+}
+async function createSavingsAccount(type){
+  const personal=type==="Personal";
+  const status=document.getElementById(personal?"personalStatus":"groupStatus");
+  const payload=personal?{
+    accountType:"Personal",
+    goalName:document.getElementById("personalGoal").value,
+    targetAmount:document.getElementById("personalTarget").value,
+    targetDate:document.getElementById("personalTargetDate").value,
+    contributionAmount:0,
+    frequency:"Flexible",
+    withdrawalCode:document.getElementById("personalCode").value,
+    confirmCode:document.getElementById("personalConfirmCode").value
+  }:{
+    accountType:"Group",
+    groupName:document.getElementById("groupName").value,
+    memberCount:document.getElementById("groupMembers").value,
+    contributionAmount:document.getElementById("groupContribution").value,
+    frequency:document.getElementById("groupFrequency").value,
+    targetDate:document.getElementById("groupTargetDate").value,
+    withdrawalCode:document.getElementById("groupCode").value,
+    confirmCode:document.getElementById("groupConfirmCode").value
+  };
+  status.textContent="Creating "+(personal?"Personal Savings":"Group Susu")+"...";
+  try{
+    const j=await api("/api/savings/create",{method:"POST",body:JSON.stringify(payload)});
+    status.innerHTML='<span class="ok">'+esc(j.message||"Created successfully.")+" Reference: "+esc(j.reference)+"</span>";
+    await load();
+  }catch(e){status.textContent=e.message}
+}
 async function deposit(){const el=document.getElementById("depositStatus");const amount=Number(document.getElementById("depositAmount").value||0);if(!Number.isFinite(amount)||amount<1){el.innerHTML='<span class="warn">Enter at least GH₵1.00.</span>';return}el.textContent="Processing...";try{const j=await api("/api/savings/deposit",{method:"POST",body:JSON.stringify({amount})});el.innerHTML='<span class="ok">Saved '+money(j.balance)+".</span>";document.getElementById("depositAmount").value="";load()}catch(e){el.textContent=e.message}}
 async function paystackSave(){const el=document.getElementById("payStatus");try{const j=await api("/api/savings/deposit-paystack",{method:"POST",body:JSON.stringify({amount:document.getElementById("payAmount").value})});location.href=j.authorization_url}catch(e){el.textContent=e.message}}
 async function withdrawSavings(){const el=document.getElementById("withdrawStatus");const code=document.getElementById("withdrawCode").value;if(!confirm("Confirm this Savings withdrawal to your DGM Wallet?"))return;el.textContent="Processing...";try{const j=await api("/api/savings/withdraw",{method:"POST",body:JSON.stringify({amount:document.getElementById("withdrawAmount").value,withdrawalCode:code})});el.innerHTML='<span class="ok">Withdrawn. Reference: '+esc(j.reference)+"</span>";load()}catch(e){el.textContent=e.message}}
