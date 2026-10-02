@@ -8634,14 +8634,50 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
       "INSERT INTO savings_transactions (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference) VALUES ($1, $2, 'Account Fee', $3, $4, $4, $5, $6)",
       [req.session.customerId, accountResult.rows[0].id, creationFee, currentSavingsBalance, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]
     );
+    // Group Susu setup must happen inside the same database transaction.
+    // Previously this ran after COMMIT using the transaction client. If group
+    // setup failed, the account/fee had already been committed while the API
+    // returned a generic 500, leaving the customer unable to retry cleanly.
+    if (accountType === "Group") {
+      await getOrCreateSusuGroup(req.session.customerId, client);
+    }
+
     await client.query("COMMIT");
-if(accountType==="Group") await getOrCreateSusuGroup(req.session.customerId,client);
-        return res.json({success:true,message:accountType+" Savings/Susu account created successfully. GH₵5.00 creation fee charged from your DGM Wallet.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active",account_type:accountType},reference});
+
+    return res.json({
+      success: true,
+      message: accountType + " Savings/Susu account created successfully. GH₵5.00 creation fee charged from your DGM Wallet.",
+      fee: creationFee,
+      walletBalance: walletAfter,
+      account: {
+        id: accountResult.rows[0].id,
+        balance: Number(accountResult.rows[0].balance || 0),
+        status: "Active",
+        account_type: accountType
+      },
+      reference
+    });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Savings account creation error:", error);
-    return sendError(res, 500, "Could not create your Savings/Susu account.");
-  } finally { client.release(); }
+
+    // Return the real validation/database reason when it is safe and useful,
+    // instead of masking every failure as the same generic 500 response.
+    if (error && error.code === "23505") {
+      return sendError(res, 409, "A Savings/Susu account or transaction already exists for this customer. Please refresh the Savings page and try again.");
+    }
+    if (error && error.code === "23503") {
+      return sendError(res, 400, "Your customer account is not ready for Savings/Susu creation. Please refresh and try again.");
+    }
+
+    return sendError(
+      res,
+      Number.isInteger(error?.status) ? error.status : 500,
+      error?.message || "Could not create your Savings/Susu account."
+    );
+  } finally {
+    client.release();
+  }
 });
 
 app.get("/api/savings", requireLogin, async (req, res) => {
