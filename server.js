@@ -797,6 +797,7 @@ function sendMovieApiError(res, error) {
 // =====================================================
 // MOVIE API
 // =====================================================
+
 app.get("/api/movies/status", (req, res) => {
   res.json({
     success: true,
@@ -1596,7 +1597,8 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS loyalty_transactions (
       id SERIAL PRIMARY KEY,
       customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
-      points INTEGER NOT NULL,      reason TEXT NOT NULL,
+      points INTEGER NOT NULL,
+      reason TEXT NOT NULL,
       reference TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -2396,6 +2398,7 @@ async function submitKingflexyAirtime(order) {
   if (KINGFLEXY_AIRTIME_KEY_TYPE !== "commission_services") {
     const message =
       "KingFlexy Airtime requires a Commission Services API key (kf_cs_live_...). The configured key is not an Airtime key.";
+
     await pool.query(
       `
       UPDATE orders
@@ -2885,11 +2888,11 @@ async function getCompanionDevice(req) {
   const token = getCompanionToken(req);
   if (!token) return null;
   const result = await pool.query(
-    `SELECT d.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
+    \`SELECT d.*, c.name AS customer_name, c.email AS customer_email, c.phone AS customer_phone
      FROM companion_devices d
      LEFT JOIN customers c ON c.id = d.customer_id
      WHERE d.token_hash = $1 AND d.active = TRUE
-       AND (d.expires_at IS NULL OR d.expires_at > NOW())`,
+       AND (d.expires_at IS NULL OR d.expires_at > NOW())\`,
     [hashCompanionToken(token)]
   );
   if (!result.rows.length) return null;
@@ -2914,15 +2917,15 @@ app.post("/api/admin/companion/devices/enroll", requireAdmin, async (req,res)=>{
     const customer=await pool.query("SELECT id,name,email,phone FROM customers WHERE phone=$1 LIMIT 1",[phone]);
     await pool.query("UPDATE companion_devices SET active=FALSE WHERE phone=$1",[phone]);
     const result=await pool.query(
-      `INSERT INTO companion_devices
+      \`INSERT INTO companion_devices
         (customer_id,device_name,phone,token_hash,enrollment_token_hash,enrollment_expires_at,expires_at,active)
        VALUES($1,$2,$3,$4,$5,$6,NOW()+INTERVAL '365 days',TRUE)
-       RETURNING id,device_name,phone,active,enrollment_expires_at,expires_at`,
+       RETURNING id,device_name,phone,active,enrollment_expires_at,expires_at\`,
       [customer.rows[0]?.id||null,deviceName,phone,hashCompanionToken(crypto.randomBytes(32).toString("hex")),hashCompanionToken(enrollmentToken),expiresAt]
     );
     await pool.query(
-      `INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details)
-       VALUES($1,'companion_enrollment_created','companion_device',$2,$3)`,
+      \`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details)
+       VALUES($1,'companion_enrollment_created','companion_device',$2,$3)\`,
       [req.session.adminEmail||ADMIN_EMAIL||"admin",result.rows[0].id,JSON.stringify({phone,device_name:deviceName})]
     );
     return res.json({success:true,enrollment_token:enrollmentToken,expires_at:expiresAt.toISOString(),device:result.rows[0]});
@@ -2932,10 +2935,10 @@ app.post("/api/admin/companion/devices/enroll", requireAdmin, async (req,res)=>{
 app.get("/api/admin/companion/devices", requireAdmin, async (req,res)=>{
   try {
     const r=await pool.query(
-      `SELECT d.id,d.device_name,d.phone,d.active,d.last_seen,d.created_at,d.enrolled_at,d.enrollment_expires_at,d.expires_at,
+      \`SELECT d.id,d.device_name,d.phone,d.active,d.last_seen,d.created_at,d.enrolled_at,d.enrollment_expires_at,d.expires_at,
               d.platform,d.app_version,c.name AS customer_name,c.email AS customer_email
        FROM companion_devices d LEFT JOIN customers c ON c.id=d.customer_id
-       ORDER BY d.created_at DESC LIMIT 100`);
+       ORDER BY d.created_at DESC LIMIT 100\`);
     return res.json({success:true,devices:r.rows});
   } catch(error){console.error(error);return sendError(res,500,"Could not load Companion devices.");}
 });
@@ -2944,7 +2947,7 @@ app.post("/api/admin/companion/devices/:id/revoke", requireAdmin, async (req,res
   const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return sendError(res,400,"Invalid device.");
   const r=await pool.query("UPDATE companion_devices SET active=FALSE,enrollment_token_hash=NULL,enrollment_expires_at=NULL WHERE id=$1 RETURNING id,device_name",[id]);
   if(!r.rows.length)return sendError(res,404,"Device not found.");
-  await pool.query(`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_revoked','companion_device',$2,'{}')`,
+  await pool.query(\`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_revoked','companion_device',$2,'{}')\`,
     [req.session.adminEmail||ADMIN_EMAIL||"admin",id]);
   return res.json({success:true,message:"Companion device revoked."});
 });
@@ -2957,15 +2960,15 @@ app.post("/api/companion/enroll", async (req,res)=>{
     const appVersion=String(req.body?.app_version||"").trim().slice(0,40);
     if(!enrollmentToken)return sendError(res,400,"Enrollment token is required.");
     const r=await pool.query(
-      `SELECT * FROM companion_devices WHERE enrollment_token_hash=$1 AND active=TRUE
-       AND enrollment_expires_at>NOW() LIMIT 1`,[hashCompanionToken(enrollmentToken)]);
+      \`SELECT * FROM companion_devices WHERE enrollment_token_hash=$1 AND active=TRUE
+       AND enrollment_expires_at>NOW() LIMIT 1\`,[hashCompanionToken(enrollmentToken)]);
     if(!r.rows.length)return sendError(res,401,"Enrollment token is invalid or expired.");
     const device=r.rows[0];
     const authToken=crypto.randomBytes(32).toString("hex");
     const updated=await pool.query(
-      `UPDATE companion_devices SET token_hash=$1,device_name=$2,platform=$3,app_version=$4,
+      \`UPDATE companion_devices SET token_hash=$1,device_name=$2,platform=$3,app_version=$4,
        enrolled_at=NOW(),last_seen=NOW(),enrollment_token_hash=NULL,enrollment_expires_at=NULL
-       WHERE id=$5 RETURNING id,device_name,phone,active,enrolled_at,expires_at`,
+       WHERE id=$5 RETURNING id,device_name,phone,active,enrolled_at,expires_at\`,
       [hashCompanionToken(authToken),deviceName,platform,appVersion,device.id]);
     return res.json({success:true,token:authToken,device:updated.rows[0]});
   } catch(error){console.error("Companion enrollment error:",error);return sendError(res,500,"Unable to enroll this device.");}
@@ -2982,21 +2985,21 @@ app.post("/api/companion/messages",requireCompanion,async(req,res)=>{
     const metadata=req.body?.metadata && typeof req.body.metadata==="object"?req.body.metadata:{};
     if(!channel||!body)return sendError(res,400,"Message channel and body are required.");
     const result=await pool.query(
-      `INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status,client_id,metadata)
+      \`INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status,client_id,metadata)
        VALUES($1,$2,$3,$4,$5,'incoming','received',$6,$7)
-       ON CONFLICT(client_id) DO NOTHING RETURNING id,created_at`,
+       ON CONFLICT(client_id) DO NOTHING RETURNING id,created_at\`,
       [req.companionDevice.id,req.companionDevice.customer_id,channel,sender,body,clientId,JSON.stringify(metadata)]);
     return res.json({success:true,stored:Boolean(result.rows.length),message:result.rows[0]||null});
   }catch(error){console.error("Companion message ingestion error:",error);return sendError(res,500,"Unable to store the message.");}
 });
 
 app.get("/api/companion/outbox",requireCompanion,async(req,res)=>{
-  const result=await pool.query(`SELECT id,channel,sender,body,direction,status,created_at FROM companion_messages WHERE device_id=$1 AND direction='outgoing' AND status='queued' ORDER BY id ASC LIMIT 50`,[req.companionDevice.id]);
+  const result=await pool.query(\`SELECT id,channel,sender,body,direction,status,created_at FROM companion_messages WHERE device_id=$1 AND direction='outgoing' AND status='queued' ORDER BY id ASC LIMIT 50\`,[req.companionDevice.id]);
   return res.json({success:true,messages:result.rows});
 });
 app.post("/api/companion/outbox/:id/ack",requireCompanion,async(req,res)=>{
   const status=["sent","failed"].includes(String(req.body?.status||""))?String(req.body.status):"sent";
-  const result=await pool.query(`UPDATE companion_messages SET status=$1 WHERE id=$2 AND device_id=$3 AND direction='outgoing' RETURNING id,status`,[status,Number(req.params.id),req.companionDevice.id]);
+  const result=await pool.query(\`UPDATE companion_messages SET status=$1 WHERE id=$2 AND device_id=$3 AND direction='outgoing' RETURNING id,status\`,[status,Number(req.params.id),req.companionDevice.id]);
   if(!result.rows.length)return sendError(res,404,"Message not found.");
   return res.json({success:true,message:result.rows[0]});
 });
@@ -3008,10 +3011,10 @@ app.get("/api/admin/companion/messages",requireAdmin,async(req,res)=>{
   if(channel){params.push(channel);where="WHERE m.channel=$1";}
   params.push(limit);
   const result=await pool.query(
-    `SELECT m.id,m.channel,m.sender,m.body,m.direction,m.status,m.created_at,m.metadata,
+    \`SELECT m.id,m.channel,m.sender,m.body,m.direction,m.status,m.created_at,m.metadata,
             d.id AS device_id,d.device_name,d.phone,d.last_seen
      FROM companion_messages m JOIN companion_devices d ON d.id=m.device_id \${where}
-     ORDER BY m.created_at DESC LIMIT $\${params.length}`,params);
+     ORDER BY m.created_at DESC LIMIT $\${params.length}\`,params);
   return res.json({success:true,messages:result.rows});
 });
 app.post("/api/admin/companion/reply",requireAdmin,async(req,res)=>{
@@ -3019,7 +3022,7 @@ app.post("/api/admin/companion/reply",requireAdmin,async(req,res)=>{
   if(!Number.isInteger(deviceId)||deviceId<1||!["sms","whatsapp"].includes(channel)||!body)return sendError(res,400,"Device, channel and message are required.");
   const device=await pool.query("SELECT id,customer_id,active FROM companion_devices WHERE id=$1 AND active=TRUE",[deviceId]);
   if(!device.rows.length)return sendError(res,404,"Active Companion device not found.");
-  const result=await pool.query(`INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status) VALUES($1,$2,$3,$4,$5,'outgoing','queued') RETURNING id,created_at`,[deviceId,device.rows[0].customer_id,channel,sender,body]);
+  const result=await pool.query(\`INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status) VALUES($1,$2,$3,$4,$5,'outgoing','queued') RETURNING id,created_at\`,[deviceId,device.rows[0].customer_id,channel,sender,body]);
   return res.json({success:true,message:result.rows[0]});
 });
 
@@ -3194,7 +3197,8 @@ async function sendPasswordResetEmail(customer, resetUrl) {
       );
     }
 
-    const transporter = nodemailer.createTransport({      host: SMTP_HOST,
+    const transporter = nodemailer.createTransport({
+      host: SMTP_HOST,
       port: SMTP_PORT,
       secure: SMTP_SECURE,
       auth: {
@@ -3993,6 +3997,7 @@ async function fulfillDataOrder(
       await syncDataMartOrder(
         order
       );
+
     return {
       success:
         syncResult.success,
@@ -4793,6 +4798,7 @@ async function creditWalletFromTopup(
     await client.query(
       "COMMIT"
     );
+
     console.log(
       `WALLET CREDITED: ${walletReference} | ` +
       `GH₵${amount.toFixed(2)} | ` +
@@ -5591,7 +5597,8 @@ app.get(
         SELECT *
         FROM wallet_topups
         WHERE reference = $1
-        LIMIT 1        `,
+        LIMIT 1
+        `,
         [reference]
       );
 
@@ -6390,7 +6397,8 @@ app.post("/api/reset-password", async (req, res) => {
     return sendError(res, 500, "Could not reset your password.");
   } finally {
     client.release();
-  }});
+  }
+});
 
 // =====================================================
 // LOGIN
@@ -7189,7 +7197,8 @@ app.post(
             phone,
             amount,
             status,
-            capacity,            payment_status
+            capacity,
+            payment_status
           )
           VALUES
           (
@@ -7989,3 +7998,1403 @@ app.post(
         return res.status(400).json({
           success:false,
           code:"INSUFFICIENT_WALLET_BALANCE",
+          message:
+            "Insufficient wallet balance. You need GH₵" +
+            roundedAmount.toFixed(2) +
+            " but your wallet has GH₵" +
+            balanceBefore.toFixed(2) + ".",
+          balance:balanceBefore,
+          required:roundedAmount,
+          shortfall:
+            Math.round((roundedAmount - balanceBefore) * 100) / 100
+        });
+      }
+
+      const orderRef = createOrderReference();
+      const walletReference = "DGM-AIRTIME-" + orderRef;
+      const balanceAfter =
+        Math.round((balanceBefore - roundedAmount) * 100) / 100;
+
+      await client.query(
+        "UPDATE customers SET balance = $1 WHERE id = $2",
+        [balanceAfter,customer.id]
+      );
+
+      const orderResult = await client.query(
+        `
+        INSERT INTO orders
+        (order_ref,customer_id,service,network,phone,amount,status,payment_status,paid_at,provider_status)
+        VALUES ($1,$2,'Airtime',$3,$4,$5,'Pending','Paid',NOW(),'pending')
+        RETURNING *
+        `,
+        [
+          orderRef,
+          customer.id,
+          network,
+          phone,
+          roundedAmount
+        ]
+      );
+
+      const transactionResult = await client.query(
+        `
+        INSERT INTO wallet_transactions
+        (customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference)
+        VALUES ($1,'Debit',$2,$3,$4,$5,$6,'Completed',$7)
+        RETURNING id,amount,balance_before,balance_after,description,transaction_ref,status,reference,created_at
+        `,
+        [
+          customer.id,
+          roundedAmount,
+          balanceBefore,
+          balanceAfter,
+          "Airtime purchase - " + network + " - " + phone,
+          orderRef,
+          walletReference
+        ]
+      );
+
+      await client.query("COMMIT");
+
+      const fulfillment =
+        await submitKingflexyAirtime(orderResult.rows[0]);
+
+      const finalResult = await pool.query(
+        "SELECT * FROM orders WHERE id = $1 LIMIT 1",
+        [orderResult.rows[0].id]
+      );
+
+      const finalOrder =
+        finalResult.rows[0] || orderResult.rows[0];
+
+      return res.json({
+        success:true,
+        paid:true,
+        paymentMethod:"Wallet",
+        order:finalOrder,
+        transaction:transactionResult.rows[0],
+        balance:balanceAfter,
+        fulfillment,
+        message:
+          finalOrder.status === "Completed"
+            ? "Airtime delivered successfully."
+            : finalOrder.status === "Refunded"
+              ? "Airtime provider refunded the transaction and your wallet was credited."
+              : "Wallet payment confirmed. KingFlexy is processing the airtime."
+      });
+    } catch (error) {
+      try { await client.query("ROLLBACK"); } catch {}
+      console.error("Create airtime order error:",error);
+      return sendError(
+        res,500,error.message || "Could not create airtime order."
+      );
+    } finally {
+      client.release();
+    }
+  }
+);
+
+// =====================================================
+// DGM USSD STORE
+// Provider-neutral webhook. A Ghana USSD provider can POST
+// sessionId, phoneNumber, text and serviceCode to /api/ussd.
+// =====================================================
+
+const ussdSessions = new Map();
+
+const DGM_USSD_PRICES = {
+  MTN: { "1": 5, "2": 10, "3": 15, "4": 20, "5": 24, "6": 28, "8": 36, "10": 45, "15": 64, "20": 84, "25": 100, "30": 128, "40": 168, "50": 207 },
+  AirtelTigo: { "1": 5, "2": 10, "3": 15, "4": 20, "5": 24, "6": 26, "8": 35, "10": 45, "12": 48, "15": 65, "25": 100, "30": 120, "40": 160, "50": 200 },
+  Telecel: { "10": 45, "15": 60, "20": 76, "25": 100, "30": 115, "35": 136, "40": 150, "45": 165, "50": 185, "100": 407 }
+};
+
+function ussdClean(value) {
+  return String(value || "").trim();
+}
+
+function ussdSessionKey(req) {
+  return ussdClean(req.body?.sessionId || req.body?.session_id || req.body?.phoneNumber || req.body?.phone || "unknown");
+}
+
+function ussdResponse(res, message, end = false) {
+  return res.type("text/plain").send((end ? "END " : "CON ") + message);
+}
+
+function ussdMenu(state) {
+  if (!state.step) {
+    return "DHE GENIUS MEDIA\\n1. Buy Data\\n2. Buy Airtime\\n3. Check Balance\\n4. My Orders\\n5. Support";
+  }
+  if (state.step === "data_network") return "Select network:\\n1. MTN\\n2. Telecel\\n3. AirtelTigo";
+  if (state.step === "data_package") {
+    const prices = DGM_USSD_PRICES[state.network] || {};
+    return state.network + " bundles:\\n" + Object.entries(prices).map(([gb, price], i) => (i + 1) + ". " + gb + "GB - GH₵" + price).join("\\n");
+  }
+  if (state.step === "data_phone") return "Enter recipient Ghana phone number:";
+  if (state.step === "data_confirm") return "Buy " + state.capacity + "GB " + state.network + " for GH₵" + state.amount + " to " + state.phone + "?\\n1. Confirm\\n2. Cancel";
+  if (state.step === "airtime_network") return "Select network:\\n1. MTN\\n2. Telecel\\n3. AirtelTigo";
+  if (state.step === "airtime_amount") return "Enter airtime amount (GH₵1-500):";
+  if (state.step === "airtime_phone") return "Enter recipient Ghana phone number:";
+  if (state.step === "airtime_confirm") return "Buy GH₵" + state.amount + " airtime on " + state.network + " for " + state.phone + "?\\n1. Confirm\\n2. Cancel";
+  return "DHE GENIUS MEDIA\\n1. Buy Data\\n2. Buy Airtime\\n3. Check Balance\\n4. My Orders\\n5. Support";
+}
+
+function ussdNetwork(choice) {
+  return ({ "1": "MTN", "2": "Telecel", "3": "AirtelTigo" })[choice] || null;
+}
+
+function ussdDataNetwork(choice) {
+  return ({ "1": "MTN", "2": "Telecel", "3": "AirtelTigo" })[choice] || null;
+}
+
+function ussdPhone(value) {
+  const digits = ussdClean(value).replace(/[^0-9+]/g, "");
+  const normalized = typeof normalizeGhanaPhone === "function" ? normalizeGhanaPhone(digits) : digits;
+  return normalized;
+}
+
+app.post("/api/ussd", async (req, res) => {
+  const sessionKey = ussdSessionKey(req);
+  const text = ussdClean(req.body?.text || "");
+  const phoneNumber = ussdPhone(req.body?.phoneNumber || req.body?.phone || "");
+
+  let state = ussdSessions.get(sessionKey) || { step: "", phoneNumber };
+  if (phoneNumber) state.phoneNumber = phoneNumber;
+
+  const parts = text ? text.split("*").map(ussdClean).filter(Boolean) : [];
+  const choice = parts.length ? parts[parts.length - 1] : "";
+
+  try {
+    if (!text) {
+      state = { step: "", phoneNumber };
+      ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    }
+
+    if (state.step === "") {
+      if (choice === "1") state.step = "data_network";
+      else if (choice === "2") state.step = "airtime_network";
+      else if (choice === "3") {
+        if (!validGhanaPhone(phoneNumber)) return ussdResponse(res, "Please use the Ghana phone number registered on your DGM account.", true);
+        const customer = await pool.query("SELECT balance FROM customers WHERE phone = $1 LIMIT 1", [phoneNumber]);
+        if (!customer.rows.length) return ussdResponse(res, "No DGM account found for " + phoneNumber + ". Register on the DGM website first.", true);
+        return ussdResponse(res, "DGM Wallet Balance: GH₵" + Number(customer.rows[0].balance || 0).toFixed(2), true);
+      } else if (choice === "4") {
+        if (!validGhanaPhone(phoneNumber)) return ussdResponse(res, "Please use your registered Ghana phone number.", true);
+        const customer = await pool.query("SELECT id FROM customers WHERE phone = $1 LIMIT 1", [phoneNumber]);
+        if (!customer.rows.length) return ussdResponse(res, "No DGM account found for this number.", true);
+        const orders = await pool.query("SELECT order_ref, service, amount, status FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 3", [customer.rows[0].id]);
+        if (!orders.rows.length) return ussdResponse(res, "No orders found.", true);
+        return ussdResponse(res, "Recent orders:\\n" + orders.rows.map(o => o.order_ref + " " + o.service + " GH₵" + Number(o.amount).toFixed(2) + " " + o.status).join("\\n"), true);
+      } else if (choice === "5") {
+        return ussdResponse(res, "DGM Support: WhatsApp 0241518385\\nCall 0508667776", true);
+      } else return ussdResponse(res, ussdMenu({}));
+    } else if (state.step === "data_network") {
+      const network = ussdDataNetwork(choice);
+      if (!network) return ussdResponse(res, "Invalid network.\\n" + ussdMenu(state));
+      state.network = network; state.step = "data_package"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "data_package") {
+      const entries = Object.entries(DGM_USSD_PRICES[state.network] || {});
+      const index = Number(choice) - 1;
+      if (!entries[index]) return ussdResponse(res, ussdMenu(state));
+      const [capacity, amount] = entries[index];
+      state.capacity = capacity; state.amount = amount; state.step = "data_phone"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "data_phone") {
+      const phone = ussdPhone(choice);
+      if (!validGhanaPhone(phone)) return ussdResponse(res, "Invalid Ghana phone number. Try again.");
+      state.phone = phone; state.step = "data_confirm"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "data_confirm") {
+      if (choice !== "1") { ussdSessions.delete(sessionKey); return ussdResponse(res, "Transaction cancelled.", true); }
+      if (!validGhanaPhone(state.phone) || !validGhanaPhone(phoneNumber)) return ussdResponse(res, "A valid registered DGM phone number is required.", true);
+      const customerResult = await pool.query("SELECT id,balance FROM customers WHERE phone = $1 LIMIT 1", [phoneNumber]);
+      if (!customerResult.rows.length) return ussdResponse(res, "No DGM account found. Register on the website first.", true);
+      const customer = customerResult.rows[0];
+      const amount = Number(state.amount);
+      if (Number(customer.balance || 0) < amount) return ussdResponse(res, "Insufficient wallet balance. Please top up your DGM wallet first.", true);
+      return ussdResponse(res, "USSD purchase is ready. For safety, data fulfillment is completed through the authenticated DGM checkout until your USSD provider is connected.", true);
+    } else if (state.step === "airtime_network") {
+      const network = ussdNetwork(choice);
+      if (!network) return ussdResponse(res, "Invalid network.\\n" + ussdMenu(state));
+      state.network = network; state.step = "airtime_amount"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "airtime_amount") {
+      const amount = Number(choice);
+      if (!Number.isFinite(amount) || amount < 1 || amount > 500) return ussdResponse(res, "Enter an amount from GH₵1 to GH₵500.");
+      state.amount = Math.round(amount * 100) / 100; state.step = "airtime_phone"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "airtime_phone") {
+      const phone = ussdPhone(choice);
+      if (!validGhanaPhone(phone)) return ussdResponse(res, "Invalid Ghana phone number. Try again.");
+      state.phone = phone; state.step = "airtime_confirm"; ussdSessions.set(sessionKey, state);
+      return ussdResponse(res, ussdMenu(state));
+    } else if (state.step === "airtime_confirm") {
+      ussdSessions.delete(sessionKey);
+      return ussdResponse(res, choice === "1" ? "USSD airtime purchase is ready. Connect your approved USSD provider to enable live wallet debit and delivery." : "Transaction cancelled.", true);
+    }
+
+    ussdSessions.delete(sessionKey);
+    return ussdResponse(res, "Session expired. Dial the DGM USSD code again.", true);
+  } catch (error) {
+    console.error("USSD error:", error);
+    ussdSessions.delete(sessionKey);
+    return ussdResponse(res, "DGM USSD service is temporarily unavailable. Please try again.", true);
+  }
+});
+
+// =====================================================
+// =====================================================
+ // TRANSACTION CENTER / NOTIFICATIONS / SUPPORT / RECEIPTS
+ // =====================================================
+
+async function createCustomerNotification(customerId, title, message, type = "info") {
+  try {
+    await pool.query(
+      `INSERT INTO customer_notifications
+       (customer_id,title,message,type)
+       VALUES ($1,$2,$3,$4)`,
+      [customerId, String(title).slice(0,160), String(message).slice(0,2000), String(type).slice(0,40)]
+    );
+  } catch (error) {
+    console.error("Notification creation error:", error.message);
+  }
+}
+
+async function writeAdminAudit(req, action, targetType = null, targetId = null, details = {}) {
+  try {
+    if (!req.session?.adminAuthenticated) return;
+    await pool.query(
+      `INSERT INTO admin_audit_log
+       (admin_email, action, target_type, target_id, details)
+       VALUES ($1,$2,$3,$4,$5::jsonb)`,
+      [
+        req.session.adminEmail || ADMIN_EMAIL || "admin",
+        String(action).slice(0,120),
+        targetType ? String(targetType).slice(0,80) : null,
+        targetId != null ? String(targetId).slice(0,120) : null,
+        JSON.stringify(details || {})
+      ]
+    );
+  } catch (error) {
+    console.error("Admin audit log error:", error.message);
+  }
+}
+
+function requireCustomer(req, res, next) {
+  if (!req.session || !req.session.customerId) {
+    return res.status(401).json({ success:false, message:"Please log in to continue." });
+  }
+  next();
+}
+
+app.get("/api/notifications", requireCustomer, async (req,res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id,title,message,type,read_at,created_at
+       FROM customer_notifications
+       WHERE customer_id=$1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [req.session.customerId]
+    );
+    return res.json({success:true,notifications:result.rows,unread_count:result.rows.filter(n=>!n.read_at).length});
+  } catch (error) {
+    console.error("Notifications load error:",error);
+    return res.status(500).json({success:false,message:"Could not load notifications."});
+  }
+});
+
+app.post("/api/notifications/:id/read", requireCustomer, async (req,res) => {
+  try {
+    const result=await pool.query(
+      `UPDATE customer_notifications SET read_at=COALESCE(read_at,NOW())
+       WHERE id=$1 AND customer_id=$2 RETURNING id,read_at`,
+      [Number(req.params.id),req.session.customerId]
+    );
+    if(!result.rows.length) return res.status(404).json({success:false,message:"Notification not found."});
+    return res.json({success:true,notification:result.rows[0]});
+  } catch(error) {
+    console.error("Notification read error:",error);
+    return res.status(500).json({success:false,message:"Could not update notification."});
+  }
+});
+
+app.get("/api/transactions", requireCustomer, async (req,res) => {
+  try {
+    const [wallet,topups,withdrawals,orders]=await Promise.all([
+      pool.query(`SELECT id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference,created_at FROM wallet_transactions WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
+      pool.query(`SELECT id,reference,amount,status,payment_status,paid_at,created_at FROM wallet_topups WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
+      pool.query(`SELECT id,reference,amount,momo_network,momo_phone,momo_name,status,admin_note,created_at,updated_at FROM wallet_withdrawals WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
+      pool.query(`SELECT id,order_ref,service,network,phone,amount,status,payment_status,provider_reference,created_at,completed_at FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId])
+    ]);
+    return res.json({success:true,wallet_transactions:wallet.rows,wallet_topups:topups.rows,withdrawals:withdrawals.rows,orders:orders.rows});
+  } catch(error) {
+    console.error("Transaction center error:",error);
+    return res.status(500).json({success:false,message:"Could not load your transaction center."});
+  }
+});
+
+app.get("/api/receipts/order/:id", requireCustomer, async (req,res) => {
+  try {
+    const result=await pool.query(
+      `SELECT id,order_ref,service,network,phone,amount,status,payment_status,provider_reference,created_at,completed_at FROM orders WHERE id=$1 AND customer_id=$2 LIMIT 1`,
+      [Number(req.params.id),req.session.customerId]
+    );
+    if(!result.rows.length) return res.status(404).json({success:false,message:"Order not found."});
+    return res.json({success:true,receipt:result.rows[0]});
+  } catch(error) {
+    console.error("Receipt error:",error);
+    return res.status(500).json({success:false,message:"Could not load receipt."});
+  }
+});
+
+app.get("/api/support/tickets", requireCustomer, async (req,res) => {
+  try {
+    const result=await pool.query(
+      `SELECT id,subject,message,status,admin_reply,replied_at,created_at,updated_at FROM support_tickets WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 50`,
+      [req.session.customerId]
+    );
+    return res.json({success:true,tickets:result.rows});
+  } catch(error) {
+    console.error("Support load error:",error);
+    return res.status(500).json({success:false,message:"Could not load support tickets."});
+  }
+});
+
+app.post("/api/support/tickets", requireCustomer, async (req,res) => {
+  try {
+    const subject=String(req.body?.subject||"").trim();
+    const message=String(req.body?.message||"").trim();
+    if(subject.length<3 || message.length<5) return res.status(400).json({success:false,message:"Please enter a subject and message."});
+    const result=await pool.query(
+      `INSERT INTO support_tickets(customer_id,subject,message) VALUES($1,$2,$3) RETURNING id,subject,message,status,created_at`,
+      [req.session.customerId,subject.slice(0,160),message.slice(0,5000)]
+    );
+    await createCustomerNotification(req.session.customerId,"Support request received","Your support request has been received. Our team will review it.","support");
+    return res.status(201).json({success:true,ticket:result.rows[0]});
+  } catch(error) {
+    console.error("Support create error:",error);
+    return res.status(500).json({success:false,message:"Could not create support request."});
+  }
+});
+
+app.get("/api/admin/support/tickets", async (req,res) => {
+  if(!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+  try {
+    const result=await pool.query(
+      `SELECT t.id,t.subject,t.message,t.status,t.admin_reply,t.replied_at,t.created_at,t.updated_at,
+              c.name AS customer_name,c.email AS customer_email,c.phone AS customer_phone
+       FROM support_tickets t JOIN customers c ON c.id=t.customer_id
+       ORDER BY CASE WHEN t.status='Open' THEN 0 ELSE 1 END,t.created_at DESC
+       LIMIT 200`
+    );
+    return res.json({success:true,tickets:result.rows});
+  } catch(error) {
+    console.error("Admin support load error:",error);
+    return res.status(500).json({success:false,message:"Could not load support tickets."});
+  }
+});
+
+app.post("/api/admin/support/tickets/:id/reply", async (req,res) => {
+  if(!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+  try {
+    const id=Number(req.params.id);
+    const reply=String(req.body?.reply||"").trim().slice(0,5000);
+    if(!Number.isInteger(id)||id<=0||reply.length<2) return res.status(400).json({success:false,message:"Enter a valid reply."});
+    const result=await pool.query(
+      `UPDATE support_tickets SET admin_reply=$2,status='Closed',replied_at=NOW(),updated_at=NOW()
+       WHERE id=$1 RETURNING *`,
+      [id,reply]
+    );
+    if(!result.rows.length) return res.status(404).json({success:false,message:"Support ticket not found."});
+    await createCustomerNotification(result.rows[0].customer_id,"Support reply received",reply,"support");
+    return res.json({success:true,message:"Reply sent and ticket closed.",ticket:result.rows[0]});
+  } catch(error) {
+    console.error("Admin support reply error:",error);
+    return res.status(500).json({success:false,message:"Could not send support reply."});
+  }
+});
+
+app.get("/api/admin/system", requireAdmin, async (req,res) => {
+  const checks = {};
+  try { await pool.query("SELECT 1"); checks.database = {status:"online"}; }
+  catch (e) { checks.database = {status:"offline",message:e.message}; }
+  checks.paystack = {status: PAYSTACK_SECRET_KEY ? "configured" : "missing"};
+  checks.datamart = {status: DATAMART_API_KEY && DATAMART_API_SECRET ? "configured" : "missing"};
+  checks.sports = {status: SPORTS_API_KEY ? "configured" : "missing"};
+  checks.youtube = {status: YOUTUBE_API_KEY ? "configured" : "missing"};
+  const smtpReady = Boolean(SMTP_HOST && SMTP_USER && SMTP_PASSWORD && SMTP_FROM_EMAIL);
+  checks.email = {status: RESEND_API_KEY || smtpReady ? "configured" : "missing"};
+  checks.session = {status: SESSION_SECRET.length >= 32 ? "configured" : "invalid"};
+  return res.json({success:true,checked_at:new Date().toISOString(),checks});
+});
+
+app.get("/api/admin/audit", requireAdmin, async (req,res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id,admin_email,action,target_type,target_id,details,created_at
+       FROM admin_audit_log ORDER BY created_at DESC LIMIT 300`
+    );
+    return res.json({success:true,audit:result.rows});
+  } catch (error) {
+    console.error("Admin audit load error:",error);
+    return sendError(res,500,"Could not load admin audit log.");
+  }
+});
+
+app.get("/api/admin/analytics", async (req,res) => {
+  if(!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+  try {
+    const [sales,wallet,withdrawals,customers]=await Promise.all([
+      pool.query(`SELECT COALESCE(SUM(amount) FILTER (WHERE status IN ('Completed','completed')),0) AS completed_sales, COALESCE(SUM(amount),0) AS total_order_value, COUNT(*) AS order_count FROM orders WHERE created_at >= NOW()-INTERVAL '30 days'`),
+      pool.query(`SELECT COALESCE(SUM(amount) FILTER (WHERE LOWER(type) IN ('credit','admin_credit','topup')),0) AS wallet_in, COALESCE(SUM(amount) FILTER (WHERE LOWER(type) IN ('debit','admin_debit','purchase','withdrawal_pending')),0) AS wallet_out FROM wallet_transactions WHERE created_at >= NOW()-INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) FILTER (WHERE status='Pending Approval') AS pending, COALESCE(SUM(amount) FILTER (WHERE status IN ('Approved','Paid')),0) AS approved_value FROM wallet_withdrawals WHERE created_at >= NOW()-INTERVAL '30 days'`),
+      pool.query(`SELECT COUNT(*) AS total FROM customers`)
+    ]);
+    return res.json({success:true,period:"30 days",sales:sales.rows[0],wallet:wallet.rows[0],withdrawals:withdrawals.rows[0],customers:customers.rows[0]});
+  } catch(error) {
+    console.error("Admin analytics error:",error);
+    return res.status(500).json({success:false,message:"Could not load analytics."});
+  }
+});
+
+// =====================================================
+// REWARDS / REFERRALS / SAVED RECIPIENTS / DEVELOPER API
+// =====================================================
+function makeReferralCode(id){ return "DGM" + String(id).padStart(4,"0") + crypto.randomBytes(2).toString("hex").toUpperCase(); }
+async function ensureReferralCode(customerId){
+  const r=await pool.query("SELECT referral_code FROM customers WHERE id=$1",[customerId]);
+  if(!r.rows.length) return null;
+  if(r.rows[0].referral_code) return r.rows[0].referral_code;
+  let code; for(let i=0;i<5;i++){ code=makeReferralCode(customerId); try{ const u=await pool.query("UPDATE customers SET referral_code=$1 WHERE id=$2 AND referral_code IS NULL RETURNING referral_code",[code,customerId]); if(u.rows.length)return u.rows[0].referral_code; }catch{} }
+  return null;
+}
+app.get("/api/rewards", requireCustomer, async(req,res)=>{try{
+  const id=req.session.customerId; const code=await ensureReferralCode(id);
+  const [c,r,l]=await Promise.all([
+    pool.query("SELECT balance,loyalty_points,cashback_balance,account_type FROM customers WHERE id=$1",[id]),
+    pool.query("SELECT COUNT(*)::int AS count,COALESCE(SUM(reward_points),0)::int AS points,COALESCE(SUM(reward_amount),0)::numeric AS amount FROM referrals WHERE referrer_id=$1 AND status='Rewarded'",[id]),
+    pool.query("SELECT points,reason,reference,created_at FROM loyalty_transactions WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 50",[id])
+  ]); return res.json({success:true,referral_code:code,customer:c.rows[0],referrals:r.rows[0],loyalty:l.rows});
+}catch(e){console.error("Rewards error",e);res.status(500).json({success:false,message:"Could not load rewards."});}});
+app.post("/api/rewards/apply-referral", requireCustomer, async(req,res)=>{try{
+  const code=String(req.body?.code||"").trim().toUpperCase(); const id=req.session.customerId;
+  if(!code) return res.status(400).json({success:false,message:"Enter a referral code."});
+  const rr=await pool.query("SELECT id FROM customers WHERE referral_code=$1 LIMIT 1",[code]);
+  if(!rr.rows.length||Number(rr.rows[0].id)===Number(id)) return res.status(400).json({success:false,message:"Invalid referral code."});
+  const ins=await pool.query("INSERT INTO referrals(referrer_id,referred_id) VALUES($1,$2) ON CONFLICT(referred_id) DO NOTHING RETURNING id",[rr.rows[0].id,id]);
+  if(!ins.rows.length) return res.status(400).json({success:false,message:"A referral has already been applied to this account."});
+  return res.json({success:true,message:"Referral applied. Rewards are issued after the qualifying purchase."});
+}catch(e){console.error("Referral apply error",e);res.status(500).json({success:false,message:"Could not apply referral."});}});
+app.get("/api/saved-recipients",requireCustomer,async(req,res)=>{const r=await pool.query("SELECT id,label,phone,network,created_at FROM saved_recipients WHERE customer_id=$1 ORDER BY created_at DESC",[req.session.customerId]);res.json({success:true,recipients:r.rows});});
+app.post("/api/saved-recipients",requireCustomer,async(req,res)=>{try{const label=String(req.body?.label||"").trim().slice(0,80),phone=String(req.body?.phone||"").trim(),network=String(req.body?.network||"").trim();if(label.length<1||!validGhanaPhone(phone))return res.status(400).json({success:false,message:"Enter a valid label and Ghana phone number."});const r=await pool.query("INSERT INTO saved_recipients(customer_id,label,phone,network) VALUES($1,$2,$3,$4) ON CONFLICT(customer_id,label) DO UPDATE SET phone=EXCLUDED.phone,network=EXCLUDED.network RETURNING *",[req.session.customerId,label,phone,network||null]);res.status(201).json({success:true,recipient:r.rows[0]});}catch(e){res.status(500).json({success:false,message:"Could not save recipient."});}});
+app.delete("/api/saved-recipients/:id",requireCustomer,async(req,res)=>{await pool.query("DELETE FROM saved_recipients WHERE id=$1 AND customer_id=$2",[Number(req.params.id),req.session.customerId]);res.json({success:true});});
+app.post("/api/admin/promo-codes",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});try{const code=String(req.body?.code||"").trim().toUpperCase();const value=Number(req.body?.discount_value);if(!code||!Number.isFinite(value)||value<=0)return res.status(400).json({success:false,message:"Invalid promotion."});const r=await pool.query("INSERT INTO promo_codes(code,discount_type,discount_value,max_uses,min_amount,expires_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[code,req.body?.discount_type||"percent",value,req.body?.max_uses?Number(req.body.max_uses):null,Number(req.body?.min_amount||0),req.body?.expires_at||null]);res.status(201).json({success:true,promo:r.rows[0]});}catch(e){res.status(400).json({success:false,message:e.message});}});
+app.get("/api/admin/promo-codes",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});const r=await pool.query("SELECT * FROM promo_codes ORDER BY created_at DESC LIMIT 200");res.json({success:true,promos:r.rows});});
+app.post("/api/admin/api-keys",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});try{const customerId=Number(req.body?.customer_id);const name=String(req.body?.name||"DGM API").slice(0,80);if(!Number.isInteger(customerId))return res.status(400).json({success:false,message:"Valid customer_id required."});const raw="dgm_live_"+crypto.randomBytes(24).toString("hex");const hash=crypto.createHash("sha256").update(raw).digest("hex");const r=await pool.query("INSERT INTO customer_api_keys(customer_id,name,key_hash,key_prefix) VALUES($1,$2,$3,$4) RETURNING id,name,key_prefix,created_at",[customerId,name,hash,raw.slice(0,16)]);res.status(201).json({success:true,key:raw,record:r.rows[0],warning:"Save this key now. It cannot be shown again."});}catch(e){res.status(400).json({success:false,message:e.message});}});
+app.get("/api/admin/api-keys",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});const r=await pool.query("SELECT k.id,k.customer_id,k.name,k.key_prefix,k.active,k.last_used_at,k.created_at,c.email,c.name AS customer_name FROM customer_api_keys k JOIN customers c ON c.id=k.customer_id ORDER BY k.created_at DESC LIMIT 200");res.json({success:true,keys:r.rows});});
+
+
+// =====================================================
+// FRONTEND STATIC FILES + HEALTH CHECK
+// =====================================================
+// Prevent browsers/CDNs from serving stale HTML after dashboard deployments.
+app.use((req,res,next)=>{
+  if(req.path.endsWith(".html") || req.path==="/"){
+    res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma","no-cache");
+    res.setHeader("Expires","0");
+  }
+  next();
+});
+
+// DGM PWA bootstrap for customer-facing pages.
+app.get(/\.html$/, async (req, res, next) => {
+  const excluded = new Set(["/admin.html", "/admin-login.html", "/movie-admin.html", "/savings-admin.html"]);
+  if (excluded.has(req.path)) return next();
+  try {
+    const filePath = path.join(__dirname, "public", req.path.replace(/^\//, ""));
+    if (!filePath.startsWith(path.join(__dirname, "public"))) return next();
+    let html = await fs.promises.readFile(filePath, "utf8");
+    if (!html.includes('rel="manifest"')) {
+      html = html.replace(/<head([^>]*)>/i, '<head$1>\n  <meta name="theme-color" content="#07131f">\\n  <meta name="mobile-web-app-capable" content="yes">\\n  <meta name="apple-mobile-web-app-capable" content="yes">\\n  <link rel="manifest" href="/manifest.webmanifest">');
+    }
+    if (!html.includes('src="/pwa.js"')) {
+      html = html.replace(/<\/body>/i, '<script src="/pwa.js" defer></script>\n</body>');
+    }
+    res.type("html").send(html);
+  } catch (error) {
+    if (error.code === "ENOENT") return next();
+    console.error("PWA HTML bootstrap error:", error.message);
+    next();
+  }
+});
+
+app.use(express.static(path.join(__dirname, "public"), {
+  extensions: ["html"],
+  index: "index.html",
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith(".html")) {
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+    }
+  }
+}));
+
+app.get("/api/health", async (req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    return res.status(200).json({
+      success: true,
+      status: "online",
+      database: "online",
+      paystack: Boolean(PAYSTACK_SECRET_KEY),
+      datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
+      airtime: Boolean(KINGFLEXY_API_KEY),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Health check failed:", error.message);
+    return res.status(503).json({
+      success: false,
+      status: "offline",
+      database: "offline",
+      message: "Database unavailable."
+    });
+  }
+});
+
+
+// =====================================================
+// SAVINGS / SUSU
+// Money is transferred atomically between the existing
+// customer wallet and a separate savings ledger.
+// =====================================================
+
+app.post("/api/savings/create", requireLogin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const withdrawalCode = String(req.body?.withdrawalCode || "").trim();
+    const confirmCode = String(req.body?.confirmCode || "").trim();
+    if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Create a 4–8 digit Savings withdrawal code.");
+    if (withdrawalCode !== confirmCode) return sendError(res, 400, "Savings withdrawal codes do not match.");
+    await client.query("BEGIN");
+    const existing = await getSavingsAccountRecord(req.session.customerId, client);
+    if (existing?.withdrawal_pin_hash) { await client.query("ROLLBACK"); return sendError(res, 409, "Your Savings/Susu account already exists."); }
+    const customerResult = await client.query("SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE", [req.session.customerId]);
+    if (!customerResult.rows.length) { await client.query("ROLLBACK"); return sendError(res, 404, "Customer account not found."); }
+    const walletBefore = Number(customerResult.rows[0].balance || 0), creationFee = 5;
+    if (walletBefore < creationFee) { await client.query("ROLLBACK"); return sendError(res, 400, "You need at least GH₵5.00 in your DGM Wallet to create a Savings/Susu account."); }
+    const pinHash = await bcrypt.hash(withdrawalCode, 12);
+    const walletAfter = Math.round((walletBefore - creationFee) * 100) / 100;
+    const reference = "DGM-SUSU-OPEN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [walletAfter, req.session.customerId]);
+    await client.query(`INSERT INTO wallet_transactions (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, reference, status) VALUES ($1, 'Savings Account Fee', $2, $3, $4, $5, $6, $6, 'Completed')`, [req.session.customerId, creationFee, walletBefore, walletAfter, "DGM Savings/Susu account creation fee", reference]);
+    let accountResult;
+    if (existing) {
+      accountResult = await client.query(
+        "UPDATE savings_accounts SET status='Active', withdrawal_pin_hash=$1, creation_fee=$2, updated_at=NOW() WHERE id=$3 RETURNING *",
+        [pinHash, creationFee, existing.id]
+      );
+    } else {
+      accountResult = await client.query(
+        "INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee) VALUES ($1, 0, 'Active', $2, $3) RETURNING *",
+        [req.session.customerId, pinHash, creationFee]
+      );
+    }
+    const currentSavingsBalance = Number(accountResult.rows[0].balance || 0);
+    await client.query(
+      "INSERT INTO savings_transactions (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference) VALUES ($1, $2, 'Account Fee', $3, $4, $4, $5, $6)",
+      [req.session.customerId, accountResult.rows[0].id, creationFee, currentSavingsBalance, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]
+    );
+    await client.query("COMMIT");
+    return res.json({success:true,message:"Savings/Susu account created successfully.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active"},reference});
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Savings account creation error:", error);
+    return sendError(res, 500, "Could not create your Savings/Susu account.");
+  } finally { client.release(); }
+});
+
+app.get("/api/savings", requireLogin, async (req, res) => {
+  try {
+    const account = await getSavingsAccount(req.session.customerId);
+    const tx = await pool.query(`
+      SELECT id, type, amount, balance_before, balance_after,
+             description, reference, status, created_at
+      FROM savings_transactions
+      WHERE customer_id = $1
+      ORDER BY created_at DESC
+      LIMIT 100
+    `, [req.session.customerId]);
+
+    return res.json({
+      success: true,
+      account: account ? {
+        ...account,
+        balance: Number(account.balance || 0),
+        target_amount: Number(account.target_amount || 0),
+        contribution_amount: Number(account.contribution_amount || 0),
+        auto_enabled: Boolean(account.auto_enabled),
+        next_contribution_at: account.next_contribution_at,
+        target_date: account.target_date,
+        locked_until: account.locked_until,
+        goal_name: account.goal_name || "My Savings Goal"
+      } : null,
+      transactions: tx.rows.map(row => ({
+        ...row,
+        amount: Number(row.amount || 0),
+        balance_before: Number(row.balance_before || 0),
+        balance_after: Number(row.balance_after || 0)
+      }))
+    });
+  } catch (error) {
+    console.error("Savings load error:", error);
+    return sendError(res, 500, "Could not load savings account.");
+  }
+});
+
+app.post("/api/savings/settings", requireLogin, async (req, res) => {
+  try {
+    const target = Math.max(0, Math.round(Number(req.body?.targetAmount || 0) * 100) / 100);
+    const contribution = Math.max(0, Math.round(Number(req.body?.contributionAmount || 0) * 100) / 100);
+    const frequency = String(req.body?.frequency || "Flexible").trim();
+    const goalName = String(req.body?.goalName || "My Savings Goal").trim().slice(0, 100) || "My Savings Goal";
+    const targetDateRaw = String(req.body?.targetDate || "").trim();
+    const lockedUntilRaw = String(req.body?.lockedUntil || "").trim();
+    const autoEnabled = Boolean(req.body?.autoEnabled);
+
+    if (!["Flexible", "Daily", "Weekly", "Monthly"].includes(frequency)) {
+      return sendError(res, 400, "Invalid savings frequency.");
+    }
+    if (targetDateRaw && !/^\d{4}-\d{2}-\d{2}$/.test(targetDateRaw)) {
+      return sendError(res, 400, "Target date must use YYYY-MM-DD.");
+    }
+
+    let lockedUntil = null;
+    if (lockedUntilRaw) {
+      const lockDate = new Date(lockedUntilRaw + "T23:59:59.000Z");
+      if (Number.isNaN(lockDate.getTime())) return sendError(res, 400, "Invalid lock date.");
+      if (lockDate.getTime() <= Date.now()) return sendError(res, 400, "Lock date must be in the future.");
+      lockedUntil = lockDate.toISOString();
+    }
+
+    const account = await getSavingsAccount(req.session.customerId);
+    if (!account) return sendError(res, 400, "Create your Savings/Susu account first.");
+    let nextContributionAt = account.next_contribution_at;
+    if (!autoEnabled || frequency === "Flexible" || contribution <= 0) {
+      nextContributionAt = null;
+    } else if (!nextContributionAt || new Date(nextContributionAt).getTime() <= Date.now()) {
+      nextContributionAt = new Date().toISOString();
+    }
+
+    const updated = await pool.query(`
+      UPDATE savings_accounts
+      SET target_amount = $1,
+          contribution_amount = $2,
+          frequency = $3,
+          goal_name = $4,
+          target_date = $5,
+          locked_until = $6,
+          auto_enabled = $7,
+          next_contribution_at = $8,
+          updated_at = NOW()
+      WHERE id = $9
+      RETURNING *
+    `, [target, contribution, frequency, goalName, targetDateRaw || null, lockedUntil, autoEnabled && frequency !== "Flexible" && contribution > 0, nextContributionAt, account.id]);
+
+    return res.json({ success: true, account: updated.rows[0] });
+  } catch (error) {
+    console.error("Savings settings error:", error);
+    return sendError(res, 500, "Could not save your savings plan.");
+  }
+});
+
+app.post("/api/savings/deposit", requireLogin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+      return sendError(res, 400, "Savings contribution must be between GH₵1.00 and GH₵10,000.00.");
+    }
+
+    await client.query("BEGIN");
+    const customerResult = await client.query(
+      "SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE",
+      [req.session.customerId]
+    );
+    if (!customerResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer account not found.");
+    }
+
+    const walletBalance = Number(customerResult.rows[0].balance || 0);
+    if (walletBalance < amount) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Insufficient wallet balance. Add money to your DGM wallet first.");
+    }
+
+    const account = await getSavingsAccount(req.session.customerId, client);
+    if (!account) { await client.query("ROLLBACK"); return sendError(res, 400, "Create your Savings/Susu account first."); }
+    const savingsBefore = Number(account.balance || 0);
+    const savingsAfter = Math.round((savingsBefore + amount) * 100) / 100;
+    const walletAfter = Math.round((walletBalance - amount) * 100) / 100;
+    const reference = "DGM-SUSU-IN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    await client.query(
+      "UPDATE customers SET balance = $1 WHERE id = $2",
+      [walletAfter, req.session.customerId]
+    );
+
+    await client.query(`
+      INSERT INTO wallet_transactions
+        (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, reference, status)
+      VALUES ($1, 'Savings Transfer', $2, $3, $4, $5, $6, $6, 'Completed')
+    `, [
+      req.session.customerId, amount, walletBalance, walletAfter,
+      "Transfer to DGM Savings/Susu", reference
+    ]);
+
+    await client.query(`
+      UPDATE savings_accounts
+      SET balance = $1, updated_at = NOW()
+      WHERE id = $2
+    `, [savingsAfter, account.id]);
+
+    await client.query(`
+      INSERT INTO savings_transactions
+        (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
+      VALUES ($1, $2, 'Contribution', $3, $4, $5, $6, $7)
+    `, [
+      req.session.customerId, account.id, amount, savingsBefore, savingsAfter,
+      "Wallet to Savings/Susu contribution", reference
+    ]);
+
+    await client.query("COMMIT");
+    return res.json({ success: true, balance: savingsAfter, walletBalance: walletAfter, reference });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Savings deposit error:", error);
+    return sendError(res, 500, "Could not add money to savings.");
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/savings/withdraw", requireLogin, async (req, res) => {
+  const rateLimit = checkSavingsWithdrawalRateLimit(req.session.customerId);
+  if (!rateLimit.allowed) {
+    return sendError(res, 429, "Too many incorrect withdrawal-code attempts. Try again in " + rateLimit.retryAfterSeconds + " seconds.");
+  }
+
+  const client = await pool.connect();
+  try {
+    const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    const withdrawalCode = String(req.body?.withdrawalCode || "").trim();
+    if (!Number.isFinite(amount) || amount < 1 || amount > 10000) {
+      return sendError(res, 400, "Savings withdrawal must be between GH₵1.00 and GH₵10,000.00.");
+    }
+    if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Enter your 4–8 digit Savings withdrawal code.");
+
+    await client.query("BEGIN");
+    const accountResult = await client.query(
+      "SELECT * FROM savings_accounts WHERE customer_id = $1 FOR UPDATE",
+      [req.session.customerId]
+    );
+    if (!accountResult.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Your savings account has not been created yet.");
+    }
+
+    const account = accountResult.rows[0];
+    if (!account.withdrawal_pin_hash) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Your Savings withdrawal code has not been set.");
+    }
+    const validWithdrawalCode = await bcrypt.compare(withdrawalCode, account.withdrawal_pin_hash);
+    if (!validWithdrawalCode) {
+      recordSavingsWithdrawalFailure(req.session.customerId);
+      await client.query("ROLLBACK");
+      const current = savingsWithdrawalAttempts.get(String(req.session.customerId));
+      const locked = current?.lockedUntil && current.lockedUntil > Date.now();
+      return sendError(res, locked ? 429 : 401, locked
+        ? "Too many incorrect withdrawal-code attempts. Try again in 15 minutes."
+        : "Incorrect Savings withdrawal code.");
+    }
+    clearSavingsWithdrawalFailures(req.session.customerId);
+    if (account.locked_until && new Date(account.locked_until).getTime() > Date.now()) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Your savings are locked until " + new Date(account.locked_until).toLocaleDateString() + ".");
+    }
+
+    const savingsBefore = Number(account.balance || 0);
+    if (savingsBefore < amount) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Insufficient savings balance.");
+    }
+
+    const customerResult = await client.query(
+      "SELECT balance FROM customers WHERE id = $1 FOR UPDATE",
+      [req.session.customerId]
+    );
+    const walletBefore = Number(customerResult.rows[0]?.balance || 0);
+    const savingsAfter = Math.round((savingsBefore - amount) * 100) / 100;
+    const walletAfter = Math.round((walletBefore + amount) * 100) / 100;
+    const reference = "DGM-SUSU-OUT-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    await client.query(
+      "UPDATE savings_accounts SET balance = $1, updated_at = NOW() WHERE id = $2",
+      [savingsAfter, account.id]
+    );
+    await client.query(
+      "UPDATE customers SET balance = $1 WHERE id = $2",
+      [walletAfter, req.session.customerId]
+    );
+
+    await client.query(`
+      INSERT INTO savings_transactions
+        (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
+      VALUES ($1, $2, 'Withdrawal', $3, $4, $5, $6, $7)
+    `, [
+      req.session.customerId, account.id, amount, savingsBefore, savingsAfter,
+      "Savings/Susu withdrawal to DGM wallet", reference
+    ]);
+
+    await client.query(`
+      INSERT INTO wallet_transactions
+        (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, reference, status)
+      VALUES ($1, 'Savings Transfer', $2, $3, $4, $5, $6, $6, 'Completed')
+    `, [
+      req.session.customerId, amount, walletBefore, walletAfter,
+      "Transfer from DGM Savings/Susu", reference
+    ]);
+
+    await client.query("COMMIT");
+    return res.json({ success: true, balance: savingsAfter, walletBalance: walletAfter, reference });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Savings withdrawal error:", error);
+    return sendError(res, 500, "Could not withdraw from savings.");
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/api/savings/receipt/:reference", requireLogin, async (req, res) => {
+  try {
+    const reference = String(req.params.reference || "").trim();
+    const result = await pool.query(`
+      SELECT st.*, c.name, c.phone, c.email
+      FROM savings_transactions st
+      JOIN customers c ON c.id = st.customer_id
+      WHERE st.reference=$1 AND st.customer_id=$2
+      LIMIT 1
+    `, [reference, req.session.customerId]);
+    if (!result.rows.length) return sendError(res, 404, "Savings receipt not found.");
+    const row = result.rows[0];
+    return res.json({success:true, receipt: {
+      reference: row.reference, type: row.type, amount:Number(row.amount||0),
+      balance_before:Number(row.balance_before||0), balance_after:Number(row.balance_after||0),
+      description:row.description, status:row.status, created_at:row.created_at,
+      customer:{name:row.name,phone:row.phone,email:row.email}
+    }});
+  } catch (error) {
+    console.error("Savings receipt error:", error);
+    return sendError(res, 500, "Could not load savings receipt.");
+  }
+});
+
+app.get("/api/admin/savings", requireAdmin, async (req, res) => {
+  try {
+    const summary = await pool.query(`
+      SELECT COUNT(*)::int AS accounts,
+             COALESCE(SUM(balance), 0) AS total_savings,
+             COALESCE(SUM(CASE WHEN auto_enabled THEN 1 ELSE 0 END), 0)::int AS auto_plans,
+             COALESCE(SUM(CASE WHEN locked_until > NOW() THEN 1 ELSE 0 END), 0)::int AS locked_accounts
+      FROM savings_accounts
+      WHERE status = 'Active'
+    `);
+    const customers = await pool.query(`
+      SELECT sa.id, sa.customer_id, c.name, c.phone, c.email,
+             sa.balance, sa.target_amount, sa.contribution_amount,
+             sa.frequency, sa.status, sa.goal_name, sa.target_date,
+             sa.locked_until, sa.auto_enabled, sa.next_contribution_at, sa.updated_at
+      FROM savings_accounts sa
+      JOIN customers c ON c.id = sa.customer_id
+      ORDER BY sa.updated_at DESC
+      LIMIT 500
+    `);
+    return res.json({
+      success: true,
+      summary: {
+        accounts: Number(summary.rows[0]?.accounts || 0),
+        totalSavings: Number(summary.rows[0]?.total_savings || 0),
+        autoPlans: Number(summary.rows[0]?.auto_plans || 0),
+        lockedAccounts: Number(summary.rows[0]?.locked_accounts || 0)
+      },
+      accounts: customers.rows.map(x => ({
+        ...x,
+        balance: Number(x.balance || 0),
+        target_amount: Number(x.target_amount || 0),
+        contribution_amount: Number(x.contribution_amount || 0),
+        auto_enabled: Boolean(x.auto_enabled)
+      }))
+    });
+  } catch (error) {
+    console.error("Admin savings error:", error);
+    return sendError(res, 500, "Could not load savings management.");
+  }
+});
+
+app.get("/api/admin/savings/audit", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT a.*, c.name, c.phone
+      FROM savings_admin_audit a
+      JOIN customers c ON c.id = a.customer_id
+      ORDER BY a.created_at DESC
+      LIMIT 200
+    `);
+    return res.json({ success: true, audit: result.rows });
+  } catch (error) {
+    console.error("Savings audit error:", error);
+    return sendError(res, 500, "Could not load savings audit.");
+  }
+});
+
+app.post("/api/admin/savings/:customerId/adjust", requireAdmin, async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const customerId = Number(req.params.customerId);
+    const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
+    const action = String(req.body?.action || "").toLowerCase();
+    const note = String(req.body?.note || "Admin savings adjustment").trim().slice(0, 500);
+
+    if (!Number.isInteger(customerId) || customerId < 1 || !Number.isFinite(amount) || amount <= 0 || amount > 10000) {
+      return sendError(res, 400, "Invalid savings adjustment.");
+    }
+    if (!["credit", "debit"].includes(action)) {
+      return sendError(res, 400, "Adjustment must be credit or debit.");
+    }
+    if (!note) return sendError(res, 400, "A reason is required for every admin savings adjustment.");
+
+    await client.query("BEGIN");
+    const customer = await client.query("SELECT id FROM customers WHERE id=$1 FOR UPDATE", [customerId]);
+    if (!customer.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Customer account not found.");
+    }
+
+    const account = await getSavingsAccount(customerId, client);
+    if (!account) { await client.query("ROLLBACK"); return sendError(res, 404, "Customer does not have a Savings/Susu account."); }
+    const before = Number(account.balance || 0);
+    const after = action === "credit"
+      ? Math.round((before + amount) * 100) / 100
+      : Math.round((before - amount) * 100) / 100;
+
+    if (after < 0) {
+      await client.query("ROLLBACK");
+      return sendError(res, 400, "Savings balance cannot go below zero.");
+    }
+
+    const reference = "DGM-SUSU-ADMIN-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+    await client.query("UPDATE savings_accounts SET balance=$1, updated_at=NOW() WHERE id=$2", [after, account.id]);
+
+    await client.query(`
+      INSERT INTO savings_transactions
+        (customer_id, savings_account_id, type, amount, balance_before, balance_after, description, reference)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+    `, [customerId, account.id, "Admin " + (action === "credit" ? "Credit" : "Debit"), amount, before, after, note, reference]);
+
+    await client.query(`
+      INSERT INTO savings_admin_audit
+        (customer_id, savings_account_id, admin_email, action, amount, balance_before, balance_after, note, reference)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `, [customerId, account.id, req.session.adminEmail || ADMIN_EMAIL || "admin", action, amount, before, after, note, reference]);
+
+    await client.query("COMMIT");
+    return res.json({ success: true, balance: after, reference });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Admin savings adjustment error:", error);
+    return sendError(res, 500, "Could not adjust savings balance.");
+  } finally {
+    client.release();
+  }
+});
+
+// =====================================================
+// AUTOMATIC SAVINGS CONTRIBUTION RUNNER
+// Called by the Render cron worker with CRON_SECRET.
+// =====================================================
+
+function nextSavingsRun(from, frequency) {
+  const d = new Date(from);
+  if (frequency === "Daily") d.setUTCDate(d.getUTCDate() + 1);
+  else if (frequency === "Weekly") d.setUTCDate(d.getUTCDate() + 7);
+  else if (frequency === "Monthly") d.setUTCMonth(d.getUTCMonth() + 1);
+  else return null;
+  return d;
+}
+
+async function runAutomaticSavingsContributions() {
+  const due = await pool.query(`
+    SELECT id, customer_id
+    FROM savings_accounts
+    WHERE withdrawal_pin_hash IS NOT NULL
+      AND status='Active'
+      AND auto_enabled=true
+      AND contribution_amount > 0
+      AND frequency IN ('Daily','Weekly','Monthly')
+      AND (next_contribution_at IS NULL OR next_contribution_at <= NOW())
+    ORDER BY next_contribution_at NULLS FIRST
+    LIMIT 200
+  `);
+
+  const results = [];
+  for (const candidate of due.rows) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const accountResult = await client.query(
+        "SELECT * FROM savings_accounts WHERE id=$1 FOR UPDATE",
+        [candidate.id]
+      );
+      if (!accountResult.rows.length) { await client.query("ROLLBACK"); continue; }
+      const account = accountResult.rows[0];
+
+      if (!account.auto_enabled || Number(account.contribution_amount) <= 0 ||
+          (account.next_contribution_at && new Date(account.next_contribution_at).getTime() > Date.now())) {
+        await client.query("ROLLBACK");
+        continue;
+      }
+
+      const customerResult = await client.query(
+        "SELECT id, balance FROM customers WHERE id=$1 FOR UPDATE",
+        [account.customer_id]
+      );
+      if (!customerResult.rows.length) { await client.query("ROLLBACK"); continue; }
+
+      const walletBefore = Number(customerResult.rows[0].balance || 0);
+      const amount = Number(account.contribution_amount);
+      const reference = "DGM-SUSU-AUTO-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(4).toString("hex").toUpperCase();
+
+      const nextRun = nextSavingsRun(account.next_contribution_at || new Date(), account.frequency);
+      if (walletBefore < amount) {
+        await client.query(
+          "UPDATE savings_accounts SET next_contribution_at=$1, updated_at=NOW() WHERE id=$2",
+          [nextRun, account.id]
+        );
+        await client.query(`
+          INSERT INTO savings_transactions
+            (customer_id,savings_account_id,type,amount,balance_before,balance_after,description,reference,status)
+          VALUES ($1,$2,'Auto Contribution Skipped',0,$3,$3,$4,$5,'Skipped')
+        `, [account.customer_id, account.id, Number(account.balance || 0), "Automatic contribution skipped: insufficient wallet balance.", reference]);
+        await client.query("COMMIT");
+        results.push({customerId: account.customer_id, status:"Skipped"});
+        continue;
+      }
+
+      const walletAfter = Math.round((walletBefore - amount) * 100) / 100;
+      const savingsBefore = Number(account.balance || 0);
+      const savingsAfter = Math.round((savingsBefore + amount) * 100) / 100;
+
+      await client.query("UPDATE customers SET balance=$1 WHERE id=$2", [walletAfter, account.customer_id]);
+      await client.query(`
+        INSERT INTO wallet_transactions
+          (customer_id,type,amount,balance_before,balance_after,description,transaction_ref,reference,status)
+        VALUES ($1,'Savings Transfer',$2,$3,$4,$5,$6,$6,'Completed')
+      `, [account.customer_id,amount,walletBefore,walletAfter,"Automatic contribution to DGM Savings/Susu",reference]);
+
+      await client.query("UPDATE savings_accounts SET balance=$1,next_contribution_at=$2,updated_at=NOW() WHERE id=$3", [savingsAfter,nextRun,account.id]);
+      await client.query(`
+        INSERT INTO savings_transactions
+          (customer_id,savings_account_id,type,amount,balance_before,balance_after,description,reference)
+        VALUES ($1,$2,'Auto Contribution',$3,$4,$5,$6,$7)
+      `, [account.customer_id,account.id,amount,savingsBefore,savingsAfter,"Automatic wallet-to-savings contribution",reference]);
+
+      await client.query("COMMIT");
+      results.push({customerId: account.customer_id,status:"Completed",amount});
+    } catch (error) {
+      await client.query("ROLLBACK").catch(() => {});
+      console.error("Automatic savings contribution failed:", candidate.id, error.message);
+      results.push({customerId: candidate.customer_id,status:"Failed",message:error.message});
+    } finally {
+      client.release();
+    }
+  }
+  return results;
+}
+
+app.post("/api/savings/auto-run", async (req, res) => {
+  if (!CRON_SECRET || req.headers["x-dgm-cron-secret"] !== CRON_SECRET) {
+    return sendError(res, 401, "Cron authorization required.");
+  }
+  try {
+    const results = await runAutomaticSavingsContributions();
+    return res.json({success:true,count:results.length,results,ran_at:new Date().toISOString()});
+  } catch (error) {
+    console.error("Automatic savings runner error:", error);
+    return sendError(res, 500, "Automatic savings runner failed.");
+  }
+});
+
+// =====================================================
+// API 404
+// =====================================================
+
+app.use(
+  "/api",
+  (req, res) => {
+
+    return res
+      .status(404)
+      .json({
+        success: false,
+
+        message:
+          "API endpoint not found."
+      });
+  }
+);
+
+// =====================================================
+// FRONTEND 404
+// =====================================================
+
+app.use(
+  (req, res) => {
+
+    if (
+      req.path.endsWith(
+        ".html"
+      ) ||
+      req.path.includes(".")
+    ) {
+
+      return res
+        .status(404)
+        .send(`
+          <!DOCTYPE html>
+
+          <html>
+
+          <head>
+
+            <meta charset="UTF-8">
+
+            <meta
+              name="viewport"
+              content="width=device-width, initial-scale=1.0"
+            >
+
+            <title>
+              Page Not Found
+            </title>
+
+          </head>
+
+          <body style="
+            margin:0;
+            min-height:100vh;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:#07110d;
+            color:white;
+            font-family:Arial,sans-serif;
+            text-align:center;
+            padding:20px;
+          ">
+
+            <div>
+
+              <h1 style="
+                font-size:70px;
+                margin:0;
+                color:#25d366;
+              ">
+                404
+              </h1>
+
+              <h2>
+                Page Not Found
+              </h2>
+
+              <p style="
+                color:#aebdb5;
+              ">
+                The page you requested
+                does not exist.
+              </p>
+
+              <a
+                href="/dashboard.html"
+                style="
+                  display:inline-block;
+                  padding:13px 22px;
+                  background:#25d366;
+                  color:#07110d;
+                  text-decoration:none;
+                  border-radius:10px;
+                  font-weight:bold;
+                "
+              >
+                Back to Dashboard
+              </a>
+
+            </div>
+
+          </body>
+
+          </html>
+        `);
+    }
+
+    return res.redirect("/");
+  }
+);
+
+// =====================================================
+// START SERVER
+// =====================================================
+
+async function startServer() {
+
+  try {
+    await initDatabase();
+    await ensureSavingsTables();
+    await initializeAdminCredentials();
+
+    app.listen(
+      PORT,
+      () => {
+
+        console.log(
+          `DHE GENIUS MEDIA running on port ${PORT}`
+        );
+
+        console.log(
+          `Environment: ${NODE_ENV}`
+        );
+
+        console.log(
+          `Database: ${
+            DATABASE_URL
+              ? "configured"
+              : "MISSING"
+          }`
+        );
+
+        console.log(
+          `Paystack: ${
+            PAYSTACK_SECRET_KEY
+              ? "configured"
+              : "MISSING"
+          }`
+        );
+
+        console.log(
+          `DataMart: ${
+            DATAMART_API_KEY &&
+            DATAMART_API_SECRET &&
+            DATAMART_REF_PREFIX
+              ? "configured"
+              : "INCOMPLETE"
+          }`
+        );
+
+        console.log(
+          `DataMart reference prefix: ${
+            DATAMART_REF_PREFIX || "MISSING"
+          }`
+        );
+
+        console.log(
+          `DataMart second secret: ${
+            DATAMART_API_SECRET
+              ? "configured"
+              : "MISSING"
+          }`
+        );
+
+        setTimeout(
+          () => {
+
+            // Start DataMart reconciliation immediately, then every 15 seconds.
+            // This updates existing paid orders from Processing to Completed
+            // when DataMart reports delivery completion.
+            syncPendingDataMartOrders();
+
+            setInterval(
+              syncPendingDataMartOrders,
+              15000
+            );
+
+            syncKingflexyAirtimeOrders();
+
+            setInterval(
+              syncKingflexyAirtimeOrders,
+              20000
+            );
+
+          },
+          5000
+        );
+
+        const savingsSchedulerEnabled =
+          String(process.env.ENABLE_SAVINGS_SCHEDULER || "true").toLowerCase() !== "false";
+
+        if (savingsSchedulerEnabled) {
+          const runSavingsScheduler = async () => {
+            try {
+              const results = await runAutomaticSavingsContributions();
+              console.log("Savings scheduler run:", results.length, "account(s) processed.");
+            } catch (error) {
+              console.error("Savings scheduler error:", error.message);
+            }
+          };
+
+          setTimeout(runSavingsScheduler, 10000);
+          setInterval(runSavingsScheduler, 5 * 60 * 1000);
+          console.log("Savings scheduler: enabled (5-minute polling for due accounts)");
+        } else {
+          console.log("Savings scheduler: disabled by ENABLE_SAVINGS_SCHEDULER=false");
+        }
+
+        // Session cleanup timer removed: cleanupExpiredSessions is not
+        // defined in the current PostgreSQL/session implementation.
+        // Express-session handles active session expiry through the
+        // configured store; the missing legacy cleanup job must not
+        // terminate the production server.
+
+        const smtpReady =
+          SMTP_HOST &&
+          SMTP_USER &&
+          SMTP_PASSWORD &&
+          SMTP_FROM_EMAIL;
+
+        console.log(
+          "Password reset email: " +
+          (RESEND_API_KEY || smtpReady ? "configured" : "MISSING") +
+          " | provider=" +
+          RESET_EMAIL_PROVIDER
+        );
+      }
+    );
+
+  } catch (error) {
+
+    console.error(
+      "SERVER STARTUP FAILED:",
+      error
+    );
+
+    process.exit(1);
+  }
+}
+
+startServer();
