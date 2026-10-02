@@ -2000,7 +2000,7 @@ async function ensureSavingsTables() {
 
   // Savings product upgrades: goals, lock dates, automatic contribution plans.
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS withdrawal_pin_hash TEXT;`);
-  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00;
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'Personal';`);`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS goal_name TEXT NOT NULL DEFAULT 'My Savings Goal';`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS target_date DATE;`);
@@ -8584,7 +8584,6 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     const withdrawalCode = String(req.body?.withdrawalCode || "").trim();
     const accountType = String(req.body?.accountType || "Personal").trim();
     if (!["Personal", "Group"].includes(accountType)) return sendError(res, 400, "Choose Personal or Group Savings.");
-    if (accountType === "Group") return sendError(res, 400, "Group Susu is being prepared. Personal Savings is available now.");
     const confirmCode = String(req.body?.confirmCode || "").trim();
     if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Create a 4–8 digit Savings withdrawal code.");
     if (withdrawalCode !== confirmCode) return sendError(res, 400, "Savings withdrawal codes do not match.");
@@ -8618,7 +8617,7 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
       [req.session.customerId, accountResult.rows[0].id, creationFee, currentSavingsBalance, "Savings/Susu account creation fee (charged from DGM Wallet)", reference]
     );
     await client.query("COMMIT");
-    return res.json({success:true,message:"Savings/Susu account created successfully.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active",account_type:accountType},reference});
+    return res.json({success:true,message:accountType+" Savings/Susu account created successfully. GH₵5.00 creation fee charged from your DGM Wallet.",fee:creationFee,walletBalance:walletAfter,account:{id:accountResult.rows[0].id,balance:0,status:"Active",account_type:accountType},reference});
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Savings account creation error:", error);
