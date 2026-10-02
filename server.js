@@ -2002,6 +2002,8 @@ async function ensureSavingsTables() {
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS withdrawal_pin_hash TEXT;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS creation_fee NUMERIC(12,2) NOT NULL DEFAULT 5.00;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'Personal';`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS group_name TEXT;`);
+  await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS member_count INTEGER;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS goal_name TEXT NOT NULL DEFAULT 'My Savings Goal';`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS target_date DATE;`);
   await pool.query(`ALTER TABLE savings_accounts ADD COLUMN IF NOT EXISTS locked_until TIMESTAMPTZ;`);
@@ -8587,6 +8589,18 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     const confirmCode = String(req.body?.confirmCode || "").trim();
     if (!/^\d{4,8}$/.test(withdrawalCode)) return sendError(res, 400, "Create a 4–8 digit Savings withdrawal code.");
     if (withdrawalCode !== confirmCode) return sendError(res, 400, "Savings withdrawal codes do not match.");
+    const goalName = String(req.body?.goalName || "").trim().slice(0, 100);
+    const groupName = String(req.body?.groupName || "").trim().slice(0, 100);
+    const targetAmount = Math.max(0, Math.round(Number(req.body?.targetAmount || 0) * 100) / 100);
+    const contributionAmount = Math.max(0, Math.round(Number(req.body?.contributionAmount || 0) * 100) / 100);
+    const frequency = String(req.body?.frequency || "Flexible").trim();
+    const memberCount = Math.max(0, Math.floor(Number(req.body?.memberCount || 0)));
+    const targetDateRaw = String(req.body?.targetDate || "").trim();
+    if (!["Flexible", "Daily", "Weekly", "Monthly"].includes(frequency)) return sendError(res, 400, "Invalid savings frequency.");
+    if (targetDateRaw && !/^\\d{4}-\\d{2}-\\d{2}$/.test(targetDateRaw)) return sendError(res, 400, "Target date must use YYYY-MM-DD.");
+    if (accountType === "Personal" && !goalName) return sendError(res, 400, "Enter your Personal Savings goal.");
+    if (accountType === "Group" && !groupName) return sendError(res, 400, "Enter your Group Susu name.");
+    if (accountType === "Group" && memberCount < 2) return sendError(res, 400, "A Group Susu needs at least 2 members.");
     await client.query("BEGIN");
     const existing = await getSavingsAccountRecord(req.session.customerId, client);
     if (existing?.withdrawal_pin_hash) { await client.query("ROLLBACK"); return sendError(res, 409, "Your Savings/Susu account already exists."); }
@@ -8602,13 +8616,13 @@ app.post("/api/savings/create", requireLogin, async (req, res) => {
     let accountResult;
     if (existing) {
       accountResult = await client.query(
-        "UPDATE savings_accounts SET status='Active', withdrawal_pin_hash=$1, creation_fee=$2, account_type=$3, updated_at=NOW() WHERE id=$4 RETURNING *",
-        [pinHash, creationFee, accountType, existing.id]
+        "UPDATE savings_accounts SET status='Active', withdrawal_pin_hash=$1, creation_fee=$2, account_type=$3, goal_name=$4, target_amount=$5, target_date=$6, contribution_amount=$7, frequency=$8, group_name=$9, member_count=$10, updated_at=NOW() WHERE id=$11 RETURNING *",
+        [pinHash, creationFee, accountType, accountType === "Personal" ? goalName : groupName, targetAmount, targetDateRaw || null, contributionAmount, frequency, accountType === "Group" ? groupName : null, accountType === "Group" ? memberCount : null, existing.id]
       );
     } else {
       accountResult = await client.query(
-        "INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee, account_type) VALUES ($1, 0, 'Active', $2, $3, $4) RETURNING *",
-        [req.session.customerId, pinHash, creationFee, accountType]
+        "INSERT INTO savings_accounts (customer_id, balance, status, withdrawal_pin_hash, creation_fee, account_type, goal_name, target_amount, target_date, contribution_amount, frequency, group_name, member_count) VALUES ($1, 0, 'Active', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *",
+        [req.session.customerId, pinHash, creationFee, accountType, accountType === "Personal" ? goalName : groupName, targetAmount, targetDateRaw || null, contributionAmount, frequency, accountType === "Group" ? groupName : null, accountType === "Group" ? memberCount : null]
       );
     }
     const currentSavingsBalance = Number(accountResult.rows[0].balance || 0);
