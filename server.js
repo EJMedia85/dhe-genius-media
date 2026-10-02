@@ -2042,8 +2042,12 @@ async function ensureSavingsTables() {
 }
 
 async function getSavingsAccount(customerId, client = pool) {
+  // An account can legitimately exist before its withdrawal code is set
+  // (for example, an account created by an admin adjustment). Deposits and
+  // balance display must still work in that state. Withdrawal remains
+  // protected separately by /api/savings/withdraw, which requires the code.
   const result = await client.query(
-    "SELECT * FROM savings_accounts WHERE customer_id = $1 AND withdrawal_pin_hash IS NOT NULL LIMIT 1",
+    "SELECT * FROM savings_accounts WHERE customer_id = $1 AND status = 'Active' LIMIT 1",
     [customerId]
   );
   return result.rows[0] || null;
