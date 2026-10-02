@@ -8282,6 +8282,42 @@ app.get("/api/health", async (req, res) => {
 });
 
 
+// Group Susu invitation endpoints (must be registered before API 404)
+app.get("/api/susu/v2/invitations", requireLogin, async (req,res)=>{
+  try {
+    const r=await pool.query("SELECT i.*,g.name group_name,g.icon FROM susu_group_invitations i JOIN susu_groups g ON g.id=i.group_id WHERE i.invited_customer_id=$1 OR i.inviter_customer_id=$1 ORDER BY i.created_at DESC",[req.session.customerId]);
+    res.json({success:true,invitations:r.rows});
+  } catch(e){ console.error("Susu invitations:",e.message); res.status(500).json({success:false,message:"Could not load invitations."}); }
+});
+app.post("/api/susu/v2/groups/:id/invitations", requireLogin, async (req,res)=>{
+  try {
+    const id=Number(req.params.id), identifier=String(req.body?.identifier||"").trim();
+    if(!identifier) return res.status(400).json({success:false,message:"Enter phone or email."});
+    const g=(await pool.query("SELECT * FROM susu_groups WHERE id=$1",[id])).rows[0];
+    const m=(await pool.query("SELECT * FROM susu_group_members WHERE group_id=$1 AND customer_id=$2 AND status='Active'",[id,req.session.customerId])).rows[0];
+    if(!g||m?.role!=="Admin") return res.status(403).json({success:false,message:"Admin access required."});
+    if(g.frozen) return res.status(423).json({success:false,message:"Group is frozen."});
+    const count=Number((await pool.query("SELECT COUNT(*) FROM susu_group_members WHERE group_id=$1 AND status='Active'",[id])).rows[0].count);
+    if(count>=Number(g.member_limit)) return res.status(400).json({success:false,message:"Group is full."});
+    const target=(await pool.query("SELECT id FROM customers WHERE phone=$1 OR LOWER(email)=LOWER($1) LIMIT 1",[identifier])).rows[0];
+    const code="DGM-SUSU-"+crypto.randomBytes(6).toString("hex").toUpperCase();
+    await pool.query("INSERT INTO susu_group_invitations(group_id,inviter_customer_id,invited_customer_id,invited_identifier,invite_code) VALUES($1,$2,$3,$4,$5)",[id,req.session.customerId,target?.id||null,identifier,code]);
+    if(target) await pool.query("INSERT INTO susu_group_notifications(group_id,customer_id,type,title,message,reference) VALUES($1,$2,'invitation','New Susu invitation',$3,$4)",[id,target.id,"You were invited to join "+g.name,code]);
+    res.json({success:true,share_code:code,share_link:(process.env.BASE_URL||"https://dhe-genius-media.onrender.com")+"/susu.html?invite="+encodeURIComponent(code)});
+  } catch(e){ console.error("Create Susu invitation:",e.message); res.status(500).json({success:false,message:"Could not create invitation."}); }
+});
+app.post("/api/susu/v2/invitations/:id/respond", requireLogin, async (req,res)=>{
+  try {
+    const i=(await pool.query("SELECT i.*,g.name,g.member_limit,g.frozen FROM susu_group_invitations i JOIN susu_groups g ON g.id=i.group_id WHERE i.id=$1",[Number(req.params.id)])).rows[0];
+    if(!i||i.invited_customer_id!==req.session.customerId) return res.status(404).json({success:false,message:"Invitation not found."});
+    if(i.status!=="Pending") return res.status(400).json({success:false,message:"Invitation is no longer pending."});
+    const accept=String(req.body?.action||"").toLowerCase()==="accept";
+    await pool.query("UPDATE susu_group_invitations SET status=$1,responded_at=NOW() WHERE id=$2",[accept?"Accepted":"Rejected",i.id]);
+    if(accept) await pool.query("INSERT INTO susu_group_members(group_id,customer_id,role,status,display_name,turn_order,joined_at) VALUES($1,$2,'Member','Pending',$3,COALESCE((SELECT MAX(turn_order)+1 FROM susu_group_members WHERE group_id=$1),1),NOW()) ON CONFLICT(group_id,customer_id) DO UPDATE SET status='Pending'",[i.group_id,req.session.customerId,"Member"]);
+    res.json({success:true,message:accept?"Invitation accepted; waiting for admin approval.":"Invitation rejected."});
+  } catch(e){ console.error("Respond Susu invitation:",e.message); res.status(500).json({success:false,message:"Could not process invitation."}); }
+});
+
 // API 404
 // =====================================================
 
