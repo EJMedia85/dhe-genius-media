@@ -152,18 +152,18 @@ function backToChooser(){
   document.getElementById("groupSetup").style.display="none";
   document.getElementById("createTitle").textContent="Choose Your Savings Type";
 }
-async function createSavingsAccount(type){
+async function createSavingsAccount(type,targetAmount,frequency,pin){
   const personal=type==="Personal";
   const status=document.getElementById(personal?"personalStatus":"groupStatus");
   const payload=personal?{
     accountType:"Personal",
     goalName:document.getElementById("personalGoal").value,
-    targetAmount:document.getElementById("personalTarget").value,
+    targetAmount:targetAmount ?? document.getElementById("personalTarget").value,
     targetDate:document.getElementById("personalTargetDate").value,
     contributionAmount:0,
-    frequency:"Flexible",
-    withdrawalCode:document.getElementById("personalCode").value,
-    confirmCode:document.getElementById("personalConfirmCode").value
+    frequency:frequency || "Flexible",
+    withdrawalCode:pin || document.getElementById("personalCode").value,
+    confirmCode:pin || document.getElementById("personalConfirmCode").value
   }:{
     accountType:"Group",
     groupName:document.getElementById("groupName").value,
@@ -171,8 +171,8 @@ async function createSavingsAccount(type){
     contributionAmount:document.getElementById("groupContribution").value,
     frequency:document.getElementById("groupFrequency").value,
     targetDate:document.getElementById("groupTargetDate").value,
-    withdrawalCode:document.getElementById("groupCode").value,
-    confirmCode:document.getElementById("groupConfirmCode").value
+    withdrawalCode:pin || document.getElementById("groupCode").value,
+    confirmCode:pin || document.getElementById("groupConfirmCode").value
   };
   status.textContent="Creating "+(personal?"Personal Savings":"Group Susu")+"...";
   try{
@@ -182,8 +182,32 @@ async function createSavingsAccount(type){
   }catch(e){status.textContent=e.message}
 }
 async function deposit(){const el=document.getElementById("depositStatus");const amount=Number(document.getElementById("depositAmount").value||0);if(!Number.isFinite(amount)||amount<1){el.innerHTML='<span class="warn">Enter at least GH₵1.00.</span>';return}el.textContent="Processing...";try{const j=await api("/api/savings/deposit",{method:"POST",body:JSON.stringify({amount})});el.innerHTML='<span class="ok">Saved '+money(j.balance)+".</span>";document.getElementById("depositAmount").value="";load()}catch(e){el.textContent=e.message}}
+
+// Public helper: this uses the existing DGM wallet-to-savings endpoint.
+async function topUpSavings(savingsAccountId, amount){
+  const value=Number(amount);
+  try{
+    if(!Number.isFinite(value)||value<1) throw new Error("Enter at least GH₵1.00.");
+    const j=await api("/api/savings/deposit",{method:"POST",body:JSON.stringify({amount:value})});
+    alert("Successfully transferred GH₵"+value.toFixed(2)+" into your Savings balance!");
+    await load();
+    return j;
+  }catch(err){console.error("Deposit failed:",err);alert(err.message||"Deposit failed.");throw err;}
+}
 async function paystackSave(){const el=document.getElementById("payStatus");try{const j=await api("/api/savings/deposit-paystack",{method:"POST",body:JSON.stringify({amount:document.getElementById("payAmount").value})});location.href=j.authorization_url}catch(e){el.textContent=e.message}}
 async function withdrawSavings(){const el=document.getElementById("withdrawStatus");const code=document.getElementById("withdrawCode").value;if(!confirm("Confirm this Savings withdrawal to your DGM Wallet?"))return;el.textContent="Processing...";try{const j=await api("/api/savings/withdraw",{method:"POST",body:JSON.stringify({amount:document.getElementById("withdrawAmount").value,withdrawalCode:code})});el.innerHTML='<span class="ok">Withdrawn. Reference: '+esc(j.reference)+"</span>";load()}catch(e){el.textContent=e.message}}
+
+// Public helper: this uses the existing DGM PIN-protected withdrawal endpoint.
+async function withdrawSavingsToWallet(savingsAccountId, amount, pin){
+  const value=Number(amount);
+  try{
+    if(!Number.isFinite(value)||value<1) throw new Error("Enter at least GH₵1.00.");
+    const j=await api("/api/savings/withdraw",{method:"POST",body:JSON.stringify({amount:value,withdrawalCode:String(pin||"")})});
+    alert("Successfully withdrawn GH₵"+value.toFixed(2)+" back to your main DGM Wallet!");
+    await load();
+    return j;
+  }catch(err){console.error("Withdrawal failed:",err);alert(err.message||"Withdrawal failed.");throw err;}
+}
 async function savePlan(){const el=document.getElementById("planStatus");const lock=document.getElementById("lockedUntil").value;if(lock&&!confirm("Lock Savings until "+new Date(lock+"T23:59:59").toLocaleDateString()+"? Withdrawals will be blocked until then."))return;el.textContent="Saving...";try{await api("/api/savings/settings",{method:"POST",body:JSON.stringify({goalName:document.getElementById("goalName").value,targetAmount:document.getElementById("targetAmount").value,targetDate:document.getElementById("targetDate").value,contributionAmount:document.getElementById("contributionAmount").value,frequency:document.getElementById("frequency").value,autoEnabled:document.getElementById("autoEnabled").checked,lockedUntil:lock})});el.innerHTML='<span class="ok">Susu plan saved.</span>';load()}catch(e){el.textContent=e.message}}
 async function receipt(reference){try{const j=await api("/api/savings/receipt/"+encodeURIComponent(reference));const r=j.receipt;const text="DHE GENIUS MEDIA\nSavings / Susu Receipt\nReference: "+r.reference+"\nType: "+r.type+"\nAmount: "+money(r.amount)+"\nBalance: "+money(r.balance_after)+"\nStatus: "+r.status+"\nDate: "+new Date(r.created_at).toLocaleString();const w=window.open("","_blank","width=480,height=680");if(!w){alert("Allow pop-ups to view the receipt.");return}const shareText=JSON.stringify(text).replace(/&/g,"&amp;").replace(/'/g,"&#39;");w.document.write("<html><body style='font-family:Arial;padding:24px;white-space:pre-line'><h2>DHE GENIUS MEDIA</h2><h3>Savings / Susu Receipt</h3><p>"+esc(text)+"</p><button onclick='navigator.share?navigator.share({title:&quot;DGM Savings Receipt&quot;,text:"+shareText+"}):window.print()'>Share / Print</button></body></html>");w.document.close()}catch(e){alert(e.message)}}
 load();
