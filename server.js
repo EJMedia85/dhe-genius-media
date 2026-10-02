@@ -8145,6 +8145,8 @@ async function initSusuDatabase() {
   // New Group Susu groups are independent of a personal savings account.
   // The legacy schema required savings_account_id, so allow it to be NULL for new groups.
   await q("ALTER TABLE susu_groups ALTER COLUMN savings_account_id DROP NOT NULL");
+  // Repair legacy groups created before creator memberships were marked Active.
+  await q("UPDATE susu_group_members m SET status='Active', joined_at=COALESCE(m.joined_at,NOW()), turn_order=COALESCE(m.turn_order,1) FROM susu_groups g WHERE m.group_id=g.id AND m.customer_id=g.creator_id AND m.role='Admin' AND m.status<>'Active'");
   await q("ALTER TABLE susu_groups ADD COLUMN IF NOT EXISTS invite_code TEXT");
   await q("ALTER TABLE susu_group_contributions ADD COLUMN IF NOT EXISTS due_date DATE");
   await q("ALTER TABLE susu_group_payouts ADD COLUMN IF NOT EXISTS period_id INTEGER");
