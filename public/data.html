@@ -1787,10 +1787,20 @@
       }
 
 
-      showMessage(
-        "Payment confirmed. Your data order has been sent for delivery.",
-        "success"
-      );
+      if (data.order && (data.order.status === "Refunded" || data.fulfillment?.status === "Refunded")) {
+        showMessage(
+          "The data order could not be placed. Your GH₵" + Number(data.order.amount || currentOrder.amount || 0).toFixed(2) + " has been returned to your DGM Wallet.",
+          "error"
+        );
+        button.textContent = "Payment Refunded ✓";
+        await loadWallet();
+      } else {
+        showMessage(
+          "Payment confirmed. Your data bundle is being processed.",
+          "success"
+        );
+        button.textContent = "Payment Confirmed ✓";
+      }
 
 
       button.textContent =
