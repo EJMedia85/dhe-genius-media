@@ -21,7 +21,7 @@
 <div class="card"><h3>Audit & transparency</h3><div id="audit" class="list"></div></div></div></div>
 </section></div>
 <script>
-window.DGM_SUSU_VERSION="20261004-4";const $=id=>document.getElementById(id),esc=x=>String(x??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));let gid=0,data=null;
+window.DGM_SUSU_VERSION="20261004-4";function formatSusuDate(v){if(!v)return"—";const d=new Date(v);return isNaN(d)?String(v).slice(0,10):d.toLocaleDateString("en-GH",{year:"numeric",month:"short",day:"numeric"})}const $=id=>document.getElementById(id),esc=x=>String(x??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));let gid=0,data=null;
 async function api(u,o={}){const r=await fetch(u,{credentials:"include",cache:"no-store",headers:{"Content-Type":"application/json"},...o}),j=await r.json().catch(()=>({success:false,message:"Server error"}));if(r.status===401){location="/login.html";throw Error("Login required.")}if(!r.ok||j.success===false)throw Error(j.message||"Request failed");return j}
 function panel(x){["home","create","join","detail"].forEach(i=>$(i).classList.toggle("hide",i!==x));if(x==="home"){loadGroups();loadInvites()}}
 function tab(x){document.querySelectorAll(".tabpage").forEach(e=>e.classList.add("hide"));$(x).classList.remove("hide");if(x==="chat")loadChat();if(x==="timeline")loadTimeline()}
