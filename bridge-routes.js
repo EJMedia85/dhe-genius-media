@@ -102,10 +102,11 @@ function installBridge(app) {
         "INSERT INTO dgm_bridge_pairings(code,secret_hash,host_device_id,expires_at,session_id) VALUES($1,$2,$3,NOW()+INTERVAL '5 minutes',$4)",
         [code,hmac("pair:"+secret),auth.sub,sessionId]
       );
+      const hostRelayToken=token({sid:sessionId,host:auth.sub,exp:Date.now()+12*60*60*1000});
       res.json({
         success:true,
         expires_in:300,
-        pairing:{code,secret,session_id:sessionId,qr_payload:`DGM-BRIDGE|1|${code}|${secret}`}
+        pairing:{code,secret,session_id:sessionId,host_relay_token:hostRelayToken,qr_payload:`DGM-BRIDGE|1|${code}|${secret}`}
       });
     } catch(e) {
       console.error("Bridge pair create:",e.message);
@@ -148,6 +149,7 @@ function installBridge(app) {
   app.__dgmBridgeListenPatched=true;
   app.listen = function(...args) {
     installBridge(this);
+    initBridgeDatabase().catch((e)=>console.error("DGM Bridge database init:",e.message));
     const server=originalListen.apply(this,args);
     const wss=new WebSocketServer({server,path:"/api/bridge/relay",maxPayload:2*1024*1024});
     const sessions=new Map();
