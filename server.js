@@ -4985,21 +4985,26 @@ app.post(
           [order.id]
         );
 
-      const fulfillmentResult =
-        await fulfillDataOrder(
-          updatedResult.rows[0]
-        );
+      let fulfillmentResult;
+      try {
+        fulfillmentResult = await fulfillDataOrder(updatedResult.rows[0]);
+      } catch (fulfillmentError) {
+        fulfillmentResult = {
+          success: false,
+          status: "Failed",
+          error: fulfillmentError.message
+        };
+      }
 
-      if (
-        !fulfillmentResult.success
-      ) {
-
+      if (!fulfillmentResult.success || fulfillmentResult.status === "Failed") {
         console.error(
-          `DataMart fulfillment failed after Paystack payment: ${order.order_ref}`,
+          `Data fulfillment failed after Paystack payment: ${order.order_ref}`,
           fulfillmentResult.error
         );
-
-        return res.sendStatus(500);
+        await refundFailedCustomerOrder(
+          order.id,
+          fulfillmentResult.error || "Data bundle could not be placed."
+        );
       }
 
       return res.sendStatus(200);
@@ -7411,35 +7416,20 @@ app.post(
       } catch (fulfillmentError) {
 
         console.error(
-          `Wallet-paid DataMart fulfillment error for ${order.order_ref}:`,
+          `Wallet-paid data fulfillment error for ${order.order_ref}:`,
           fulfillmentError
         );
 
-        await pool.query(
-          `
-          UPDATE orders
-          SET
-            status = 'Processing',
-            datamart_status = $1
-          WHERE id = $2
-            AND payment_status = 'Paid'
-          `,
-          [
-            `payment_confirmed_pending_fulfillment: ${fulfillmentError.message}`,
-
-            order.id
-          ]
+        await refundFailedCustomerOrder(
+          order.id,
+          fulfillmentError.message || "Data bundle could not be placed."
         );
 
         fulfillmentResult = {
           success: false,
-
-          status: "Processing",
-
-          pendingFulfillment: true,
-
-          error:
-            fulfillmentError.message
+          status: "Refunded",
+          refunded: true,
+          error: fulfillmentError.message
         };
       }
 
@@ -7448,34 +7438,18 @@ app.post(
         fulfillmentResult.status ===
           "Failed"
       ) {
-
-        await pool.query(
-          `
-          UPDATE orders
-          SET
-            status = 'Processing',
-            datamart_status = $1
-          WHERE id = $2
-            AND payment_status = 'Paid'
-          `,
-          [
-            `payment_confirmed_pending_fulfillment: ${
-              fulfillmentResult.error ||
-              "DataMart fulfillment requires retry."
-            }`,
-
-            order.id
-          ]
+        // Payment succeeded, but the bundle could not be placed.
+        // Mark the order failed and immediately return the customer's money.
+        await refundFailedCustomerOrder(
+          order.id,
+          fulfillmentResult.error || "Data bundle could not be placed."
         );
 
         fulfillmentResult = {
           ...fulfillmentResult,
-
           success: false,
-
-          status: "Processing",
-
-          pendingFulfillment: true
+          status: "Refunded",
+          refunded: true
         };
       }
 
