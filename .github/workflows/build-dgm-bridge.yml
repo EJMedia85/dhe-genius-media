@@ -29,6 +29,13 @@ jobs:
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.7
 
+      - name: Download hev-socks5-tunnel Android AAR
+        run: |
+          mkdir -p app/libs
+          gh release download 2.18.0 --repo heiher/hev-socks5-tunnel --pattern 'hev-socks5-tunnel.aar' --dir app/libs
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Build debug APK
         run: ./gradlew assembleDebug --stacktrace
 
