@@ -1292,13 +1292,6 @@
         order.paystackReference ||
         "";
 
-      const datamartReference =
-        order.datamart_reference ||
-        order.datamartReference ||
-        order.delivery_reference ||
-        order.deliveryReference ||
-        "";
-
       const statusInfo = getStatusMessage(status);
 
 
@@ -1364,13 +1357,6 @@
             <span class="ref-label">Order Reference</span>
             <span class="ref-value">${escapeHtml(reference)}</span>
           </div>
-
-          ${datamartReference ? `
-            <div class="delivery-ref">
-              <span class="delivery-label">Delivery Reference</span>
-              <span class="delivery-value" title="${escapeHtml(datamartReference)}">${escapeHtml(datamartReference)}</span>
-            </div>
-          ` : ""}
 
 
           <div class="details">
@@ -1484,9 +1470,9 @@
         case "completed":
           return { title:"Data delivered successfully", message:"Your payment was confirmed and the requested service has been completed." };
         case "processing":
-          return { title:"Payment confirmed", message:"Your payment was confirmed. DataMart is processing your bundle delivery." };
+          return { title:"Payment confirmed", message:"Your payment was confirmed. Your service is being processed." };
         case "failed":
-          return { title:"Delivery failed", message:"Your payment was recorded, but delivery could not be completed. Please contact DHE GENIUS MEDIA Support." };
+          return { title:"Delivery failed", message:"Your order could not be completed. If applicable, the amount has been returned to your DGM Wallet." };
         case "cancelled":
           return { title:"Order cancelled", message:"This order has been cancelled. Please contact DHE GENIUS MEDIA Support if you need assistance." };
         default:
