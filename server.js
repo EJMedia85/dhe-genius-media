@@ -8300,7 +8300,11 @@ app.post("/api/susu/v2/groups/:id/invitations", requireLogin, async (req,res)=>{
     if(g.frozen) return res.status(423).json({success:false,message:"Group is frozen."});
     const count=Number((await pool.query("SELECT COUNT(*) FROM susu_group_members WHERE group_id=$1 AND status='Active'",[id])).rows[0].count);
     if(count>=Number(g.member_limit)) return res.status(400).json({success:false,message:"Group is full."});
-    const target=(await pool.query("SELECT id FROM customers WHERE phone=$1 OR LOWER(email)=LOWER($1) LIMIT 1",[identifier])).rows[0];
+    const digits=identifier.replace(/[^0-9]/g,"");
+    const phoneCandidates=[identifier];
+    if(/^\+?233\d{9}$/.test(digits)){ phoneCandidates.push("0"+digits.slice(3),digits); }
+    else if(/^0\d{9}$/.test(digits)){ phoneCandidates.push("233"+digits.slice(1),"+"+"233"+digits.slice(1)); }
+    const target=(await pool.query("SELECT id FROM customers WHERE phone = ANY($1::text[]) OR LOWER(email)=LOWER($2) LIMIT 1",[phoneCandidates,identifier])).rows[0];
     const code="DGM-SUSU-"+crypto.randomBytes(6).toString("hex").toUpperCase();
     await pool.query("INSERT INTO susu_group_invitations(group_id,inviter_customer_id,invited_customer_id,invited_identifier,invite_code) VALUES($1,$2,$3,$4,$5)",[id,req.session.customerId,target?.id||null,identifier,code]);
     if(target) await pool.query("INSERT INTO susu_group_notifications(group_id,customer_id,type,title,message,reference) VALUES($1,$2,'invitation','New Susu invitation',$3,$4)",[id,target.id,"You were invited to join "+g.name,code]);
