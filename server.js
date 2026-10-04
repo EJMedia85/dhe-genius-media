@@ -2,6 +2,7 @@ const express = require("express");
 const session = require("express-session");
 const bcrypt = require("bcryptjs");
 const path = require("path");
+const { install: installSusuEnhancements } = require("./susu-enhancements");
 const fs = require("fs");
 const crypto = require("crypto");
 const { Pool } = require("pg");
@@ -8442,6 +8443,7 @@ async function startServer() {
   try {
     await initDatabase();
     await initSusuDatabase();
+    await installSusuEnhancements(app);
     await initializeAdminCredentials();
 
     app.listen(
