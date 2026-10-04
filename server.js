@@ -6,6 +6,7 @@ const { install: installSusuEnhancements } = require("./susu-enhancements");
 const fs = require("fs");
 const crypto = require("crypto");
 const { Pool } = require("pg");
+const { installBridge } = require("./bridge-routes");
 
 const app = express();
 
