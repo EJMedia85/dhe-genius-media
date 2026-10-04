@@ -41,4 +41,4 @@ async function automation(){try{const ps=(await pool.query("SELECT p.*,g.name FR
 const stack=app._router?.stack;if(stack){const moved=stack.filter(l=>l.route&&String(l.route.path).startsWith("/api/susu/v2/"));for(const l of moved){const i=stack.indexOf(l);if(i>=0)stack.splice(i,1)}let at=stack.length;for(let i=0;i<stack.length;i++){const l=stack[i];if(l.name==="anonymous"&&!l.route){at=i;break}}stack.splice(at,0,...moved)}
 console.log("DGM Group Susu enhancements installed")
  setTimeout(automation,5000);setInterval(automation,60000);}
-express.application.listen=function(...args){const app=this;const out=original.apply(this,args);install(app).catch(e=>console.error("Susu enhancements startup:",e));return out};
+express.application.listen=function(...args){const app=this;install(app).then(()=>original.apply(this,args)).catch(e=>{console.error("Susu enhancements startup:",e);process.exit(1)});};
