@@ -48,6 +48,11 @@ class MainActivity : Activity() {
                 api.register(deviceIdValue, BridgeVpnService.MODE_HOST, BridgeSecurity.publicKey(this))
                 val pair = api.createPairing()
                 val p = pair.getJSONObject("pairing")
+                getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit()
+                    .putString("session_id", p.getString("session_id"))
+                    .putString("host_relay_token", p.getString("host_relay_token"))
+                    .putString("pair_secret", p.getString("secret"))
+                    .apply()
                 runOnUiThread {
                     AlertDialog.Builder(this)
                         .setTitle("DGM Bridge Pairing")
