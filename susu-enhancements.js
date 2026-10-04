@@ -69,8 +69,34 @@ async function v2Api(){
   app.post("/api/susu/v2/notifications/read",auth,async(req,res)=>{try{const ids=(req.body?.ids||[]).map(Number).filter(Number.isInteger);if(ids.length)await pool.query("UPDATE susu_group_notifications SET read_at=NOW() WHERE customer_id=$1 AND id=ANY($2::bigint[])",[req.session.customerId,ids]);res.json({success:true})}catch(e){fail(res,e,400)}});
 }
 
+async function autopayAutomation(){
+  try{
+    const rows=(await pool.query("SELECT m.*,g.name group_name,g.contribution_amount,g.frozen,p.id period_id,p.period_no FROM susu_group_members m JOIN susu_groups g ON g.id=m.group_id JOIN LATERAL (SELECT * FROM susu_group_periods z WHERE z.group_id=m.group_id AND z.status<>'Paid' ORDER BY z.period_no LIMIT 1) p ON TRUE WHERE m.status='Active' AND m.autopay_enabled=TRUE AND g.frozen=FALSE")).rows;
+    for(const m of rows){
+      const paid=(await pool.query("SELECT 1 FROM susu_group_contributions WHERE group_id=$1 AND customer_id=$2 AND period_key=$3 AND status='Completed'",[m.group_id,m.customer_id,String(m.period_no)])).rows[0];
+      if(paid)continue;
+      const u=(await pool.query("SELECT * FROM customers WHERE id=$1 FOR UPDATE",[m.customer_id])).rows[0];
+      if(!u||Number(u.balance)<Number(m.contribution_amount))continue;
+      const c=await pool.connect();
+      try{
+        await c.query("BEGIN");
+        const fresh=(await c.query("SELECT balance FROM customers WHERE id=$1 FOR UPDATE",[m.customer_id])).rows[0];
+        if(Number(fresh.balance)<Number(m.contribution_amount)){await c.query("ROLLBACK");continue}
+        const r=ref(),before=Number(fresh.balance),amount=Number(m.contribution_amount);
+        await c.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[amount,m.customer_id]);
+        await c.query("INSERT INTO susu_group_contributions(group_id,member_id,customer_id,amount,period_key,reference,status,due_date,idempotency_key) VALUES($1,$2,$3,$4,$5,$6,'Completed',CURRENT_DATE,$7)",[m.group_id,m.id,m.customer_id,amount,String(m.period_no),r,"auto-"+m.group_id+"-"+m.customer_id+"-"+m.period_no]);
+        await c.query("UPDATE susu_group_members SET contribution_streak=contribution_streak+1,last_autopay_at=NOW() WHERE id=$1",[m.id]);
+        await c.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'debit',$2,$3,$4,$5,$6,'Completed',$6)",[m.customer_id,amount,before,before-amount,"Automatic Susu contribution - "+m.group_name,r]);
+        await c.query("INSERT INTO susu_group_notifications(group_id,customer_id,type,title,message,reference) VALUES($1,$2,'autopay','Automatic contribution completed',$3,$4)",[m.group_id,m.customer_id,"GH₵"+amount.toFixed(2)+" was automatically contributed to "+m.group_name,r]);
+        await c.query("INSERT INTO susu_group_audit(group_id,actor_customer_id,action,reference,details) VALUES($1,$2,'AUTOPAY_COMPLETED',$3,$4)",[m.group_id,m.customer_id,r,{period:m.period_no,amount}]);
+        await c.query("COMMIT");
+      }catch(e){await c.query("ROLLBACK").catch(()=>{})}finally{c.release()}
+    }
+  }catch(e){console.error("Susu autopay:",e.message)}
+}
+
 const stack=app._router?.stack;if(stack){const moved=stack.filter(l=>l.route&&String(l.route.path).startsWith("/api/susu/v2/"));for(const l of moved){const i=stack.indexOf(l);if(i>=0)stack.splice(i,1)}let at=stack.length;for(let i=0;i<stack.length;i++){const l=stack[i];if(l.name==="anonymous"&&!l.route){at=i;break}}stack.splice(at,0,...moved)}
 await v2Api();
 console.log("DGM Group Susu enhancements installed")
- setTimeout(automation,5000);setInterval(automation,60000);}
+ setTimeout(automation,5000);setTimeout(autopayAutomation,7000);setInterval(automation,60000);setInterval(autopayAutomation,60000);}
 module.exports={install};
