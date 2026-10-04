@@ -30,4 +30,5 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.activity:activity-ktx:1.10.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation(files("libs/hev-socks5-tunnel.aar"))
 }
