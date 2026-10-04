@@ -8309,14 +8309,28 @@ app.post("/api/susu/v2/groups/:id/invitations", requireLogin, async (req,res)=>{
 });
 app.post("/api/susu/v2/invitations/:id/respond", requireLogin, async (req,res)=>{
   try {
-    const i=(await pool.query("SELECT i.*,g.name,g.member_limit,g.frozen FROM susu_group_invitations i JOIN susu_groups g ON g.id=i.group_id WHERE i.id=$1",[Number(req.params.id)])).rows[0];
-    if(!i||i.invited_customer_id!==req.session.customerId) return res.status(404).json({success:false,message:"Invitation not found."});
+    const id=Number(req.params.id);
+    const i=(await pool.query("SELECT i.*,g.name,g.member_limit,g.frozen FROM susu_group_invitations i JOIN susu_groups g ON g.id=i.group_id WHERE i.id=$1",[id])).rows[0];
+    if(!i) return res.status(404).json({success:false,message:"Invitation not found."});
     if(i.status!=="Pending") return res.status(400).json({success:false,message:"Invitation is no longer pending."});
-    const accept=String(req.body?.action||"").toLowerCase()==="accept";
-    await pool.query("UPDATE susu_group_invitations SET status=$1,responded_at=NOW() WHERE id=$2",[accept?"Accepted":"Rejected",i.id]);
-    if(accept) await pool.query("INSERT INTO susu_group_members(group_id,customer_id,role,status,display_name,turn_order,joined_at) VALUES($1,$2,'Member','Pending',$3,COALESCE((SELECT MAX(turn_order)+1 FROM susu_group_members WHERE group_id=$1),1),NOW()) ON CONFLICT(group_id,customer_id) DO UPDATE SET status='Pending'",[i.group_id,req.session.customerId,"Member"]);
-    res.json({success:true,message:accept?"Invitation accepted; waiting for admin approval.":"Invitation rejected."});
-  } catch(e){ console.error("Respond Susu invitation:",e.message); res.status(500).json({success:false,message:"Could not process invitation."}); }
+
+    const customer=(await pool.query("SELECT id,phone,email,name FROM customers WHERE id=$1",[req.session.customerId])).rows[0];
+    const normalized=(v)=>String(v||"").replace(/[^0-9]/g,"").replace(/^233/,"0");
+    const targetMatches=Number(i.invited_customer_id)===Number(req.session.customerId) ||
+      (!i.invited_customer_id && customer && (
+        (customer.email && i.invited_identifier && String(customer.email).trim().toLowerCase()===String(i.invited_identifier).trim().toLowerCase()) ||
+        (customer.phone && i.invited_identifier && normalized(customer.phone)===normalized(i.invited_identifier))
+      ));
+    if(!targetMatches) return res.status(403).json({success:false,message:"This invitation was not issued to this account."});
+
+    if(i.frozen) return res.status(423).json({success:false,message:"Group is frozen."});
+    const active=Number((await pool.query("SELECT COUNT(*) FROM susu_group_members WHERE group_id=$1 AND status='Active'",[i.group_id])).rows[0].count);
+    if(active>=Number(i.member_limit)) return res.status(400).json({success:false,message:"Group is full."});
+
+    await pool.query("INSERT INTO susu_group_members(group_id,customer_id,role,status,display_name,turn_order,joined_at) VALUES($1,$2,'Member','Pending',$3,COALESCE((SELECT MAX(turn_order)+1 FROM susu_group_members WHERE group_id=$1),1),NOW()) ON CONFLICT(group_id,customer_id) DO UPDATE SET status='Pending'",[i.group_id,req.session.customerId,customer?.name||"Member"]);
+    await pool.query("UPDATE susu_group_invitations SET status='Accepted',invited_customer_id=$1,responded_at=NOW() WHERE id=$2",[req.session.customerId,i.id]);
+    res.json({success:true,message:"Invitation accepted; waiting for group admin approval.",group_id:i.group_id});
+  } catch(e){ console.error("Respond Susu invitation:",e.message); res.status(500).json({success:false,message:e.message||"Could not process invitation."}); }
 });
 
 // START SERVER
