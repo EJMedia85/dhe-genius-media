@@ -8234,7 +8234,7 @@ app.get(/\.html$/, async (req, res, next) => {
     if (!filePath.startsWith(path.join(__dirname, "public"))) return next();
     let html = await fs.promises.readFile(filePath, "utf8");
     if (!html.includes('rel="manifest"')) {
-      html = html.replace(/<head([^>]*)>/i, '<head$1>\n  <meta name="theme-color" content="#07131f">\\n  <meta name="mobile-web-app-capable" content="yes">\\n  <meta name="apple-mobile-web-app-capable" content="yes">\\n  <link rel="manifest" href="/manifest.webmanifest">');
+      html = html.replace(/<head([^>]*)>/i, '<head$1>\n  <meta name="theme-color" content="#07131f">\n  <meta name="mobile-web-app-capable" content="yes">\n  <meta name="apple-mobile-web-app-capable" content="yes">\n  <link rel="manifest" href="/manifest.webmanifest">');
     }
     if (!html.includes('src="/pwa.js"')) {
       html = html.replace(/<\/body>/i, '<script src="/pwa.js" defer></script>\n</body>');
@@ -8319,122 +8319,6 @@ app.post("/api/susu/v2/invitations/:id/respond", requireLogin, async (req,res)=>
   } catch(e){ console.error("Respond Susu invitation:",e.message); res.status(500).json({success:false,message:"Could not process invitation."}); }
 });
 
-// API 404
-// =====================================================
-
-app.use(
-  "/api",
-  (req, res) => {
-
-    return res
-      .status(404)
-      .json({
-        success: false,
-
-        message:
-          "API endpoint not found."
-      });
-  }
-);
-
-// =====================================================
-// FRONTEND 404
-// =====================================================
-
-app.use(
-  (req, res) => {
-
-    if (
-      req.path.endsWith(
-        ".html"
-      ) ||
-      req.path.includes(".")
-    ) {
-
-      return res
-        .status(404)
-        .send(`
-          <!DOCTYPE html>
-
-          <html>
-
-          <head>
-
-            <meta charset="UTF-8">
-
-            <meta
-              name="viewport"
-              content="width=device-width, initial-scale=1.0"
-            >
-
-            <title>
-              Page Not Found
-            </title>
-
-          </head>
-
-          <body style="
-            margin:0;
-            min-height:100vh;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            background:#07110d;
-            color:white;
-            font-family:Arial,sans-serif;
-            text-align:center;
-            padding:20px;
-          ">
-
-            <div>
-
-              <h1 style="
-                font-size:70px;
-                margin:0;
-                color:#25d366;
-              ">
-                404
-              </h1>
-
-              <h2>
-                Page Not Found
-              </h2>
-
-              <p style="
-                color:#aebdb5;
-              ">
-                The page you requested
-                does not exist.
-              </p>
-
-              <a
-                href="/dashboard.html"
-                style="
-                  display:inline-block;
-                  padding:13px 22px;
-                  background:#25d366;
-                  color:#07110d;
-                  text-decoration:none;
-                  border-radius:10px;
-                  font-weight:bold;
-                "
-              >
-                Back to Dashboard
-              </a>
-
-            </div>
-
-          </body>
-
-          </html>
-        `);
-    }
-
-    return res.redirect("/");
-  }
-);
-
-// =====================================================
 // START SERVER
 // =====================================================
 
@@ -8445,6 +8329,27 @@ async function startServer() {
     await initSusuDatabase();
     await installSusuEnhancements(app);
     await initializeAdminCredentials();
+
+    // Register terminal 404 handlers only after all dynamic routes
+    // (including Group Susu V2) have been installed.
+    app.use("/api", (req, res) => {
+      return res.status(404).json({
+        success: false,
+        message: "API endpoint not found."
+      });
+    });
+
+    app.use((req, res) => {
+      if (req.path.endsWith(".html") || req.path.includes(".")) {
+        return res.status(404).send(
+          "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Page Not Found</title></head>" +
+          "<body style=\"margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#07110d;color:white;font-family:Arial,sans-serif;text-align:center;padding:20px;\"><div>" +
+          "<h1 style=\"font-size:70px;margin:0;color:#25d366;\">404</h1><h2>Page Not Found</h2><p style=\"color:#aebdb5;\">The page you requested does not exist.</p>" +
+          "<a href=\"/dashboard.html\" style=\"display:inline-block;padding:13px 22px;background:#25d366;color:#07110d;text-decoration:none;border-radius:10px;font-weight:bold;\">Back to Dashboard</a></div></body></html>"
+        );
+      }
+      return res.redirect("/");
+    });
 
     app.listen(
       PORT,
