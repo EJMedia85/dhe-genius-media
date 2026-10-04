@@ -6,10 +6,72 @@ const auth=(req,res,next)=>req.session?.customerId?next():res.status(401).json({
 const fail=(res,e,s=500)=>res.status(s).json({success:false,message:e.message||"Request failed."});
 const admin=async(id,uid)=>{const g=(await pool.query("SELECT * FROM susu_groups WHERE id=$1",[id])).rows[0];const m=(await pool.query("SELECT * FROM susu_group_members WHERE group_id=$1 AND customer_id=$2 AND status='Active'",[id,uid])).rows[0];return [g,m]};
 async function repairAcceptedMemberships(groupId=null){
- const args=[]; let where="i.status='Accepted' AND i.invited_customer_id IS NOT NULL";
+ const args=[]; let where="i.status='Accepted'";
  if(groupId){args.push(groupId);where+=" AND i.group_id=$1";}
- await pool.query("UPDATE susu_group_members m SET status='Active',approved_at=COALESCE(m.approved_at,NOW()),removed_at=NULL WHERE m.status<>'Active' AND EXISTS (SELECT 1 FROM susu_group_invitations i WHERE i.group_id=m.group_id AND i.invited_customer_id=m.customer_id AND "+where+")",args);
- await pool.query("INSERT INTO susu_group_members(group_id,customer_id,role,status,display_name,turn_order,joined_at,approved_at) SELECT i.group_id,i.invited_customer_id,'Member','Active',COALESCE(c.name,'Member'),COALESCE((SELECT MAX(x.turn_order)+1 FROM susu_group_members x WHERE x.group_id=i.group_id),1),COALESCE(i.responded_at,NOW()),COALESCE(i.responded_at,NOW()) FROM susu_group_invitations i LEFT JOIN customers c ON c.id=i.invited_customer_id WHERE "+where+" AND NOT EXISTS (SELECT 1 FROM susu_group_members m WHERE m.group_id=i.group_id AND m.customer_id=i.invited_customer_id)",args);
+ // Recover accepted invitations even when the invitation was created before
+ // invited_customer_id was populated. Match the stored identifier to phone/email.
+ await pool.query(`
+   UPDATE susu_group_invitations i
+   SET invited_customer_id=c.id
+   FROM customers c
+   WHERE ${where}
+     AND i.invited_customer_id IS NULL
+     AND (
+       regexp_replace(COALESCE(c.phone,''),'[^0-9]','','g') =
+       regexp_replace(COALESCE(i.invited_identifier,''),'[^0-9]','','g')
+       OR lower(COALESCE(c.email,''))=lower(COALESCE(i.invited_identifier,''))
+     )
+ `,args);
+ await pool.query(`
+   UPDATE susu_group_members m
+   SET status='Active',approved_at=COALESCE(m.approved_at,NOW()),removed_at=NULL
+   WHERE m.status<>'Active'
+     AND EXISTS (
+       SELECT 1 FROM susu_group_invitations i
+       WHERE i.group_id=m.group_id AND i.invited_customer_id=m.customer_id
+         AND ${where}
+     )
+ `,args);
+ await pool.query(`
+   INSERT INTO susu_group_members(group_id,customer_id,role,status,display_name,turn_order,joined_at,approved_at)
+   SELECT i.group_id,i.invited_customer_id,'Member','Active',COALESCE(c.name,'Member'),
+          1,COALESCE(i.responded_at,NOW()),COALESCE(i.responded_at,NOW())
+   FROM susu_group_invitations i
+   LEFT JOIN customers c ON c.id=i.invited_customer_id
+   WHERE ${where}
+     AND i.invited_customer_id IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1 FROM susu_group_members m
+       WHERE m.group_id=i.group_id AND m.customer_id=i.invited_customer_id
+     )
+ `,args);
+ // Rebuild the active rotation deterministically: admin/earliest member first,
+ // then accepted members in join order. This also repairs stale turn_order values.
+ const groups=groupId
+   ? [groupId]
+   : (await pool.query("SELECT id FROM susu_groups WHERE status='Active'")).rows.map(x=>x.id);
+ for(const gid of groups){
+   const ms=(await pool.query(
+     "SELECT id FROM susu_group_members WHERE group_id=$1 AND status='Active' ORDER BY joined_at NULLS LAST,id",
+     [gid])).rows;
+   for(let i=0;i<ms.length;i++){
+     await pool.query("UPDATE susu_group_members SET turn_order=$1 WHERE id=$2",[i+1,ms[i].id]);
+   }
+   // Build/repair the payout rotation from the active membership list.
+   // Only future/unpaid rounds are changed; completed history stays intact.
+   const ps=(await pool.query(
+     "SELECT id,period_no FROM susu_group_periods WHERE group_id=$1 AND status<>'Paid' ORDER BY period_no",
+     [gid])).rows;
+   for(let i=0;i<ps.length;i++){
+     const recipient=ms.length?ms[i%ms.length].id:null;
+     const customerId=recipient ? (await pool.query(
+       "SELECT customer_id FROM susu_group_members WHERE id=$1",[recipient])).rows[0]?.customer_id : null;
+     await pool.query(
+       "UPDATE susu_group_periods SET recipient_customer_id=$1,amount=(SELECT contribution_amount FROM susu_groups WHERE id=$2)*GREATEST((SELECT COUNT(*) FROM susu_group_members WHERE group_id=$2 AND status='Active'),1) WHERE id=$3",
+       [customerId,gid,ps[i].id]
+     );
+   }
+ }
 }
 async function migrate(){await pool.query(`
 CREATE TABLE IF NOT EXISTS susu_group_invitations(id BIGSERIAL PRIMARY KEY,group_id BIGINT REFERENCES susu_groups(id) ON DELETE CASCADE,inviter_customer_id BIGINT REFERENCES customers(id),invited_customer_id BIGINT REFERENCES customers(id),invited_identifier TEXT NOT NULL,invite_code TEXT NOT NULL UNIQUE,status TEXT NOT NULL DEFAULT 'Pending',expires_at TIMESTAMPTZ DEFAULT(NOW()+INTERVAL '7 days'),responded_at TIMESTAMPTZ,created_at TIMESTAMPTZ DEFAULT NOW());
