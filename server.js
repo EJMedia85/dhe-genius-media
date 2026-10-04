@@ -10,6 +10,9 @@ const { installBridge } = require("./bridge-routes");
 
 const app = express();
 
+// Register DGM Bridge control-plane routes before terminal API 404 handling.
+installBridge(app);
+
 const PORT = Number(process.env.PORT || 10000);
 
 // =====================================================
