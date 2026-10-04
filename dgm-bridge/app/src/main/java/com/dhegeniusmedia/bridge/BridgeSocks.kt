@@ -47,7 +47,7 @@ class BridgeSocks(private val relay: BridgeRelayClient, private val hostMode: Bo
             val pb=ByteArray(2);input.readFully(pb);val dstPort=ByteBuffer.wrap(pb).short.toInt()and 65535
             val id=nextId.getAndIncrement();streams[id]=Stream(socket,input,output)
             val hb=host.toByteArray(Charsets.UTF_8)
-            relay.sendFrame(BridgeMux.frame(BridgeMux.OPEN,id,ByteBuffer.allocate(2+hb.size+2).putShort(hb.size.toShort()).put(hb).putShort(dstPort).array()))
+            relay.sendFrame(BridgeMux.frame(BridgeMux.OPEN,id,ByteBuffer.allocate(2+hb.size+2).putShort(hb.size.toShort()).put(hb).putShort(dstPort.toShort()).array()))
             executor.execute{readClient(id)}
         }catch(_:Exception){close(socket)}
     }
