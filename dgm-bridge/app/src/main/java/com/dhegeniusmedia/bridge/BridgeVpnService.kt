@@ -106,7 +106,7 @@ class BridgeVpnService : VpnService() {
               icmp: off
             """.trimIndent()
         )
-        if (!TProxyService.TProxyStartService(config.absolutePath, tun.fileDescriptor)) {
+        if (!TProxyService.TProxyStartService(config.absolutePath, tun.fd)) {
             throw IllegalStateException("TUN-to-SOCKS engine could not start")
         }
         Log.d(TAG, "DGM Bridge client data plane started")
