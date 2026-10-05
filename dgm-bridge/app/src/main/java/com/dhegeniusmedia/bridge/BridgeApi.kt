@@ -28,6 +28,25 @@ class BridgeApi(private val baseUrl: String = "https://dhe-genius-media.onrender
         return result
     }
 
+
+    fun registrationStatus(deviceId: String): JSONObject {
+        val result = get("/api/bridge/registration-status?device_id=" + java.net.URLEncoder.encode(deviceId, "UTF-8"))
+        result.optString("token").takeIf { it.isNotBlank() }?.let { authToken = it }
+        return result
+    }
+
+    private fun get(path: String): JSONObject {
+        val request = Request.Builder().url(baseUrl.trimEnd('/') + path).get().build()
+        client.newCall(request).execute().use { response ->
+            val text = response.body?.string().orEmpty()
+            val obj = if (text.isBlank()) JSONObject() else JSONObject(text)
+            if (!response.isSuccessful || !obj.optBoolean("success", false)) {
+                throw IllegalStateException(obj.optString("message", "DGM Bridge request failed"))
+            }
+            return obj
+        }
+    }
+
     fun createPairing(): JSONObject {
         return post("/api/bridge/pair/create", JSONObject(), true)
     }
