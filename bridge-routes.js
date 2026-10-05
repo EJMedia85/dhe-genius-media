@@ -7,9 +7,9 @@ const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false })
   : null;
 
-const BRIDGE_SECRET = String(process.env.DGM_BRIDGE_SECRET || "").trim();
+const BRIDGE_SECRET = String(process.env.DGM_BRIDGE_SECRET || process.env.SESSION_SECRET || "").trim();
 if (process.env.NODE_ENV === "production" && BRIDGE_SECRET.length < 32) {
-  console.warn("DGM Bridge: DGM_BRIDGE_SECRET is missing/short; pairing routes will refuse writes.");
+  console.warn("DGM Bridge: DGM_BRIDGE_SECRET is missing/short; using SESSION_SECRET fallback. Set DGM_BRIDGE_SECRET to a dedicated 32+ character secret for production.");
 }
 
 function hmac(value) {
