@@ -6,8 +6,10 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.content.*;
 import android.content.pm.PackageManager;
-import android.net.Uri;
 import android.graphics.Color;
+import android.service.notification.NotificationListenerService;
+import android.service.notification.StatusBarNotification;
+import android.app.NotificationManager;
 import android.view.*;
 import android.widget.*;
 import org.json.JSONObject;
@@ -32,10 +34,10 @@ public class MainActivity extends Activity {
         status=new TextView(this); status.setTextColor(Color.LTGRAY); status.setPadding(0,24,0,0); root.addView(status);
         setContentView(root);
         String saved=TokenStore.get(this);
-        if(saved!=null){status.setText("Device enrolled. Grant the requested permissions, then leave Companion installed.");}
+        if(saved!=null)status.setText("Device enrolled. Grant the requested permissions, then leave Companion installed.");
         enroll.setOnClickListener(v->enroll());
         sms.setOnClickListener(v->requestSms());
-        wa.setOnClickListener(v->{try{startActivity(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"));}catch(Exception e){startActivity(new Intent(Settings.ACTION_SETTINGS));}});
+        wa.setOnClickListener(v->openNotificationAccess());
     }
 
     private void enroll(){
@@ -44,12 +46,12 @@ public class MainActivity extends Activity {
         status.setText("Enrolling…");
         executor.execute(()->{
             try{
-                JSONObject p=new JSONObject(); p.put("enrollment_token",t); p.put("device_name",deviceName.getText().toString().trim()); p.put("platform","Android"); p.put("app_version","1.0");
+                JSONObject p=new JSONObject(); p.put("enrollment_token",t); p.put("device_name",deviceName.getText().toString().trim()); p.put("platform","Android"); p.put("app_version","1.1");
                 JSONObject r=DgmApi.post(this,"/api/companion/enroll",p,null);
                 String serverToken=r.optString("token","");
                 if(serverToken.isEmpty())throw new Exception("Server did not return a device token.");
                 TokenStore.save(this,serverToken);
-                runOnUiThread(()->{status.setText("ENROLLED ✓\nDevice is now authorized. Grant SMS and WhatsApp notification access."); tokenInput.setText(""); requestSms();});
+                runOnUiThread(()->{status.setText("ENROLLED ✓\nDevice authorized. Now grant SMS and WhatsApp notification access."); tokenInput.setText(""); requestSms();});
             }catch(Exception e){runOnUiThread(()->status.setText("Enrollment failed: "+e.getMessage()));}
         });
     }
@@ -57,25 +59,52 @@ public class MainActivity extends Activity {
     private void requestSms(){
         if(android.os.Build.VERSION.SDK_INT>=23){
             requestPermissions(new String[]{Manifest.permission.RECEIVE_SMS,Manifest.permission.READ_SMS},40);
+        }else{
+            syncAndShowStatus();
         }
+    }
+
+    private void openNotificationAccess(){
+        try{
+            startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+        }catch(Exception e){
+            startActivity(new Intent(Settings.ACTION_SETTINGS));
+        }
+    }
+
+    private boolean smsGranted(){
+        return android.os.Build.VERSION.SDK_INT<23 ||
+            (checkSelfPermission(Manifest.permission.READ_SMS)==PackageManager.PERMISSION_GRANTED &&
+             checkSelfPermission(Manifest.permission.RECEIVE_SMS)==PackageManager.PERMISSION_GRANTED);
+    }
+
+    private boolean whatsappAccessGranted(){
+        if(android.os.Build.VERSION.SDK_INT<18)return false;
+        NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+        return nm!=null && nm.isNotificationListenerAccessGranted(
+            new ComponentName(this,WhatsAppNotificationListener.class));
+    }
+
+    private void syncAndShowStatus(){
+        executor.execute(()->{
+            if(smsGranted()) SmsSync.syncRecent(this);
+            boolean connected=DgmApi.heartbeat(this);
+            runOnUiThread(()->status.setText(
+                (connected?"CONNECTED ✓":"ENROLLED ✓")+
+                "\nSMS access: "+(smsGranted()?"ON":"OFF")+
+                "\nWhatsApp notification access: "+(whatsappAccessGranted()?"ON":"OFF")+
+                (connected?"\nDGM server: reachable":"\nDGM server: unavailable")));
+        });
     }
 
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
-        if(requestCode==40){
-            boolean read=checkSelfPermission(Manifest.permission.READ_SMS)==PackageManager.PERMISSION_GRANTED;
-            if(read) executor.execute(()->SmsSync.syncRecent(this));
-        }
+        if(requestCode==40) syncAndShowStatus();
     }
 
     @Override protected void onResume(){
         super.onResume();
-        if(TokenStore.get(this)!=null){
-            executor.execute(()->{
-                boolean ok=DgmApi.heartbeat(this);
-                runOnUiThread(()->status.setText(ok?"CONNECTED ✓\nDGM server is reachable.":"ENROLLED ✓\nWaiting for DGM server connection."));
-            });
-        }
+        if(TokenStore.get(this)!=null) syncAndShowStatus();
     }
 
     @Override protected void onDestroy(){executor.shutdownNow();super.onDestroy();}
