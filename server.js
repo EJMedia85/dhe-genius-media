@@ -10,9 +10,6 @@ const { installBridge } = require("./bridge-routes");
 
 const app = express();
 
-// Register DGM Bridge control-plane routes before terminal API 404 handling.
-installBridge(app);
-
 const PORT = Number(process.env.PORT || 10000);
 
 // =====================================================
@@ -1911,6 +1908,10 @@ app.use(
     }
   })
 );
+
+// DGM Bridge routes are registered after the session middleware so the
+// protected /api/admin/bridge/* endpoints can see req.session.
+installBridge(app);
 
 // =====================================================
 // HELPERS
