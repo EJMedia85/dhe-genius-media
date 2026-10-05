@@ -25,6 +25,9 @@
 </section>
 
 <section id="bridge" class="section">
+<div class="panel"><div class="kpi"><div><h2>Bridge Registration Requests</h2><div class="muted">Every newly installed DGM Bridge must be approved here before it can create or claim a pairing.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
+<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>Country</th><th>Registration</th><th>Status</th><th>Registered</th><th>Action</th></tr></thead><tbody id="bridgeRegistrationsBody"></tbody></table></div></div>
+<div class="panel" style="margin-top:15px">
 <div class="panel">
   <div class="kpi"><div><h2>DGM Bridge Devices</h2><div class="muted">View registered Bridge phones, roles, connection state and pairing status. Pairing secrets are never shown here.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
   <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device ID</th><th>Role</th><th>Country</th><th>Status</th><th>Paired</th><th>Last Seen</th><th>Created</th></tr></thead><tbody id="bridgeDevicesBody"></tbody></table></div>
@@ -127,53 +130,30 @@ async function loadOrders(){const d=await api('/api/admin/orders');orders=d.orde
 function filterOrders(){const q=String($('#orderSearch')?.value||'').toLowerCase(),st=String($('#orderStatus')?.value||'').toLowerCase();const rows=orders.filter(o=>(!q||JSON.stringify(o).toLowerCase().includes(q))&&(!st||String(o.status).toLowerCase()===st));renderOrders(rows)}
 
 async function loadBridge(){
-  const d=await api('/api/admin/bridge/devices');
+  const [d,r]=await Promise.all([api('/api/admin/bridge/devices'),api('/api/admin/bridge/registrations')]);
+  $('#bridgeRegistrationsBody').innerHTML=r.registrations.length?r.registrations.map(x=>{
+    const pending=x.approval_status==='pending';
+    const denied=x.approval_status==='denied';
+    const actions=pending?'<button class="btn green" onclick="bridgeApprove(\''+encodeURIComponent(x.device_id)+'\')">Approve</button> <button class="btn" onclick="bridgeDeny(\''+encodeURIComponent(x.device_id)+'\')">Deny</button>':(denied?'<span class="muted">Denied</span>':'<span class="badge">AUTHORIZED</span>');
+    return '<tr><td><b>'+esc(x.device_id)+'</b></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.country||'unknown')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" class="empty">No Bridge registration requests.</td></tr>';
   $('#bridgeDevicesBody').innerHTML=d.devices.length?d.devices.map(x=>{
-    const status=String(x.status||'offline').toLowerCase();
-    const online=status==='online';
-    return '<tr><td><b>'+esc(x.device_id)+'</b></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.country||'unknown')+'</td><td><span class="dot '+(online?'':'bad')+'"></span>'+esc(x.status||'offline')+'</td><td><span class="badge">'+(x.paired?'PAIRED':'NOT PAIRED')+'</span></td><td>'+(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>';
+    const online=String(x.status||'').toLowerCase()==='online';
+    return '<tr><td><b>'+esc(x.device_id)+'</b></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.country||'unknown')+'</td><td><span class="dot '+(online?'':'bad')+'"></span>'+esc(x.status||'offline')+'</td><td><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>';
   }).join(''):'<tr><td colspan="7" class="empty">No DGM Bridge devices registered.</td></tr>';
   $('#bridgePairingsBody').innerHTML=d.pairings.length?d.pairings.map(x=>'<tr><td><b>'+esc(x.code)+'</b></td><td>'+esc(x.host_device_id)+'</td><td><span class="badge">'+esc(x.state)+'</span></td><td>'+new Date(x.expires_at).toLocaleString()+'</td><td>'+esc(x.claimed_by||'—')+'</td><td>'+(x.claimed_at?new Date(x.claimed_at).toLocaleString():'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No pairing activity.</td></tr>';
 }
-async function loadCompanion(){
-  const [devices,messages]=await Promise.all([
-    api('/api/admin/companion/devices'),
-    api('/api/admin/companion/messages?limit=200'+($('#companionChannel')?.value?('&channel='+encodeURIComponent($('#companionChannel').value)):''))
-  ]);
-  $('#companionDevicesBody').innerHTML=devices.devices.length?devices.devices.map(d=>{
-    const active=d.active;
-    const status=d.enrolled_at?(active?'ACTIVE':'REVOKED'):(active?'WAITING':'REVOKED');
-    const last=d.last_seen?new Date(d.last_seen).toLocaleString():'Never';
-    return '<tr><td><b>'+esc(d.device_name)+'</b><br><span class="muted">'+esc(d.customer_name||'Admin device')+'</span></td><td>'+esc(d.phone||'')+'</td><td><span class="badge">'+status+'</span></td><td>'+last+'</td><td>'+esc(d.platform||'Android')+' '+esc(d.app_version||'')+'</td><td>'+(active?'<button class="btn red" onclick="revokeCompanion('+d.id+')">Revoke</button>':'—')+'</td></tr>';
-  }).join(''):'<tr><td colspan="6" class="empty">No Companion devices.</td></tr>';
-  $('#companionMessagesBody').innerHTML=messages.messages.length?messages.messages.map(m=>'<tr><td>'+new Date(m.created_at).toLocaleString()+'</td><td><span class="badge">'+esc(m.channel)+'</span></td><td>'+esc(m.device_name)+'<br><span class="muted">'+esc(m.phone||'')+'</span></td><td>'+esc(m.sender||'')+'</td><td style="max-width:480px;white-space:pre-wrap">'+esc(m.body)+'</td><td>'+esc(m.status)+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No messages received yet.</td></tr>';
+async function bridgeApprove(id){
+  if(!confirm('Authorize this DGM Bridge device?')) return;
+  await api('/api/admin/bridge/registrations/'+id+'/approve',{method:'POST'});
+  await loadBridge();
 }
-async function loadCompanionMessages(){if(currentPage==='companion')await loadCompanion();}
-async function revokeCompanion(id){
-  if(!confirm('Revoke this Companion device? It will immediately lose server access.'))return;
-  const d=await api('/api/admin/companion/devices/'+id+'/revoke',{method:'POST'});
-  alert(d.message); await loadCompanion();
+async function bridgeDeny(id){
+  if(!confirm('Deny this DGM Bridge registration?')) return;
+  await api('/api/admin/bridge/registrations/'+id+'/deny',{method:'POST'});
+  await loadBridge();
 }
-$('#companionEnrollForm').onsubmit=async e=>{
-  e.preventDefault();
-  try{
-    const d=await api('/api/admin/companion/devices/enroll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone:$('#companionPhone').value,device_name:$('#companionName').value})});
-    $('#companionTokenBox').hidden=false;
-    $('#companionTokenBox').innerHTML='<div class="label">ONE-TIME ENROLLMENT TOKEN</div><div style="font-size:30px;font-weight:950;letter-spacing:4px;margin-top:8px">'+esc(d.enrollment_token)+'</div><div class="muted" style="margin-top:8px">Expires '+new Date(d.expires_at).toLocaleString()+'. Enter this token in DGM Companion now.</div>';
-    $('#companionEnrollMsg').textContent='Token generated successfully.';
-    await loadCompanion();
-  }catch(err){$('#companionEnrollMsg').textContent=err.message;}
-};
-async function loadCustomers(){const d=await api('/api/admin/customers');customers=d.customers;filterCustomers()}
-function filterCustomers(){const q=String($('#customerSearch')?.value||'').toLowerCase();const rows=customers.filter(c=>!q||JSON.stringify(c).toLowerCase().includes(q));$('#customersBody').innerHTML=rows.length?rows.map(c=>'<tr><td>'+c.id+'</td><td><b>'+esc(c.name)+'</b><br><span class="muted">'+esc(c.email)+'</span></td><td>'+esc(c.phone)+'</td><td><b>'+money(c.balance)+'</b></td><td>'+((false)?'<span class="badge">Enabled</span>':'<span class="muted">Off</span>')+'</td><td>'+new Date(c.created_at).toLocaleString()+'</td><td><button class="btn" onclick="openCustomer('+c.id+')">View</button> <button class="btn green" onclick="credit('+c.id+')">Credit</button> <button class="btn red" onclick="debit('+c.id+')">Debit</button></td></tr>').join(''):'<tr><td colspan="7" class="empty">No customers found.</td></tr>'}
-async function credit(id){const amount=Number(prompt('Credit amount (GH₵):','10'));if(!Number.isFinite(amount)||amount<=0)return;const note=prompt('Reason / note:','Admin credit')||'Admin credit';if(!confirm('Credit '+money(amount)+' to this wallet?'))return;const d=await api('/api/admin/customers/'+id+'/balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,description:note})});alert('Wallet credited. New balance: '+money(d.balance));await loadCustomers();await loadOverview()}
-async function debit(id){const amount=Number(prompt('Debit amount (GH₵):','10'));if(!Number.isFinite(amount)||amount<=0)return;const note=prompt('Reason / note:','Admin debit')||'Admin debit';if(!confirm('Debit '+money(amount)+' from this wallet?'))return;const d=await api('/api/admin/customers/'+id+'/balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:-amount,description:note})});alert('Wallet debited. New balance: '+money(d.balance));await loadCustomers();await loadOverview()}
-async function openCustomer(id){const d=await api('/api/admin/customers/'+id+'/details');$('#detailTitle').textContent=d.customer.name;$('#detailSub').textContent=d.customer.email+' • '+d.customer.phone;$('#detailContent').innerHTML='<div class="detail"><div class="mini"><span class="muted">Wallet</span><br><b>'+money(d.customer.balance)+'</b></div><div class="mini"><span class="muted">Orders</span><br><b>'+d.orders.length+'</b></div><div class="mini"><span class="muted">Devices</span><br><b>'+0+'</b></div></div><div class="tabs2"><button class="active" onclick="detailTab(this,\'dOrders\')">Orders</button><button onclick="detailTab(this,\'dWallet\')">Wallet</button><button onclick="detailTab(this,\'dSupport\')">Support</button></div><div id="dOrders"><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Service</th><th>Phone</th><th>Amount</th><th>Status</th></tr></thead><tbody>'+d.orders.map(o=>'<tr><td>'+esc(o.order_ref)+'</td><td>'+esc(o.service)+' '+esc(o.network||'')+'</td><td>'+esc(o.phone)+'</td><td>'+money(o.amount)+'</td><td>'+esc(o.status)+'</td></tr>').join('')+'</tbody></table></div></div><div id="dWallet" hidden><div class="tablebox"><table class="table"><thead><tr><th>Time</th><th>Type</th><th>Amount</th><th>Balance After</th><th>Description</th></tr></thead><tbody>'+d.wallet_transactions.map(t=>'<tr><td>'+new Date(t.created_at).toLocaleString()+'</td><td>'+esc(t.type)+'</td><td>'+money(t.amount)+'</td><td>'+money(t.balance_after)+'</td><td>'+esc(t.description)+'</td></tr>').join('')+'</tbody></table></div></div><div id="dSupport" hidden><div class="tablebox"><table class="table"><thead><tr><th>Subject</th><th>Status</th><th>Message</th></tr></thead><tbody>'+d.support.map(t=>'<tr><td>'+esc(t.subject)+'</td><td>'+esc(t.status)+'</td><td>'+esc(t.message)+'</td></tr>').join('')+'</tbody></table></div></div>';$('#customerModal').hidden=false}
-function detailTab(btn,id){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');['dOrders','dWallet','dSupport'].forEach(x=>$('#'+x).hidden=x!==id)}
-function closeCustomer(){$('#customerModal').hidden=true}
-async function loadWallet(){const d=await api('/api/admin/withdrawals');withdrawals=d.withdrawals;$('#walletCards').innerHTML=[['Pending',d.pending_count],['Pending Value',money(withdrawals.filter(x=>x.status==='Pending Approval').reduce((a,x)=>a+Number(x.amount||0),0))],['Approved',withdrawals.filter(x=>x.status==='Approved').length],['Paid',withdrawals.filter(x=>x.status==='Paid').length],['Requests',withdrawals.length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');$('#withdrawalsBody').innerHTML=withdrawals.map(w=>{let a=w.status==='Pending Approval'?'<button class="btn green" onclick="withdrawAction('+w.id+',\'approve\')">Approve</button> <button class="btn red" onclick="withdrawAction('+w.id+',\'reject\')">Reject</button>':w.status==='Approved'?'<button class="btn green" onclick="withdrawAction('+w.id+',\'paid\')">Mark Paid</button>':'—';return '<tr><td>'+esc(w.reference)+'</td><td>'+esc(w.customer_name)+'<br><span class="muted">'+esc(w.customer_email)+'</span></td><td>'+money(w.amount)+'</td><td>'+esc(w.momo_network)+'</td><td>'+esc(w.momo_phone)+(w.momo_name?' • '+esc(w.momo_name):'')+'</td><td>'+esc(w.status)+'</td><td>'+new Date(w.created_at).toLocaleString()+'</td><td>'+a+'</td></tr>'}).join('')||'<tr><td colspan="8" class="empty">No withdrawal requests.</td></tr>'}
-async function withdrawAction(id,action){const prompts={approve:'Approval note:',reject:'Reason for rejection:',paid:'Payment note/reference:'};const note=prompt(prompts[action]||'Note:')||'';if(!confirm(action==='paid'?'Confirm MoMo payment has been sent?':action==='reject'?'Reject and refund this withdrawal?':'Approve this withdrawal?'))return;const d=await api('/api/admin/withdrawals/'+id+'/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWallet();await loadOverview()}
-async function loadServices(){const d=await api('/api/admin/system');renderHealth(d.checks,'#servicesHealth');$('#servicesChecked').textContent='Checked '+new Date(d.checked_at).toLocaleString()}
+
 async function loadSavings(){
   const d=await api('/api/admin/savings');
   const s=d.summary;
