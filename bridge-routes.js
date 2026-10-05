@@ -114,6 +114,36 @@ function installBridge(app) {
     }
   });
 
+  app.get("/api/admin/bridge/devices", async (req,res) => {
+    if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+    try {
+      if (!pool) return res.status(503).json({success:false,message:"Database unavailable."});
+      const devices = await pool.query(
+        `SELECT d.device_id,d.role,d.country,d.status,d.last_seen,d.created_at,
+                EXISTS(
+                  SELECT 1 FROM dgm_bridge_pairings p
+                  WHERE p.host_device_id=d.device_id
+                    AND p.expires_at>NOW()
+                    AND p.claimed_by IS NOT NULL
+                ) AS paired
+         FROM dgm_bridge_devices d
+         ORDER BY d.last_seen DESC NULLS LAST,d.created_at DESC`
+      );
+      const pairings = await pool.query(
+        `SELECT p.code,p.host_device_id,p.expires_at,p.claimed_by,p.claimed_at,p.session_id,
+                CASE WHEN p.expires_at<=NOW() THEN 'expired'
+                     WHEN p.claimed_by IS NOT NULL THEN 'claimed'
+                     ELSE 'waiting' END AS state
+         FROM dgm_bridge_pairings p
+         ORDER BY p.created_at DESC LIMIT 100`
+      );
+      return res.json({success:true,devices:devices.rows,pairings:pairings.rows});
+    } catch(e) {
+      console.error("Admin Bridge devices error:",e.message);
+      return res.status(500).json({success:false,message:"Could not load DGM Bridge devices."});
+    }
+  });
+
   app.post("/api/bridge/pair/claim", async (req,res) => {
     try {
       const auth=verifyToken(req.get("authorization")?.replace(/^Bearer\s+/i,""));
