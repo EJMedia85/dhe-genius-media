@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07130d">
+<title>DGM Bridge</title>
+<style>
+:root{--bg:#06100c;--panel:#0b1711;--line:#20372b;--text:#f4faf7;--muted:#91a49a;--green:#25d366;--danger:#ef5350;--amber:#f6c453}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#10251a,#06100c 55%);color:var(--text);font-family:Inter,Arial,sans-serif;min-height:100vh}.wrap{width:min(920px,100%);margin:auto;padding:22px}.brand{color:var(--green);font-weight:950;letter-spacing:1.3px;font-size:14px}.hero{padding:28px 0 18px}.hero h1{font-size:38px;margin:8px 0}.muted{color:var(--muted);line-height:1.55}.panel{background:rgba(11,23,17,.96);border:1px solid var(--line);border-radius:20px;padding:20px;margin-top:15px;box-shadow:0 16px 45px #0005}.tabs{display:flex;gap:8px}.tabs button{flex:1;background:#102018;border:1px solid var(--line);color:#dce9e2;padding:12px;border-radius:12px;font-weight:900}.tabs button.active{background:var(--green);color:#041008;border-color:var(--green)}label{display:block;font-size:12px;color:var(--muted);margin:14px 0 6px}.input{width:100%;background:#07110d;color:#fff;border:1px solid #294236;border-radius:11px;padding:12px}.btn{border:1px solid #294236;background:#17251e;color:#fff;border-radius:11px;padding:12px 15px;font-weight:900;cursor:pointer}.btn.green{background:var(--green);color:#041008;border-color:var(--green)}.btn:disabled{opacity:.55;cursor:not-allowed}.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.status{margin-top:14px;padding:14px;border-radius:13px;background:#07110d;border:1px solid var(--line)}.badge{display:inline-flex;padding:5px 9px;border-radius:20px;background:#163021;color:var(--green);font-weight:900;font-size:11px}.badge.pending{color:var(--amber);background:#352d12}.badge.denied{color:#ff9b97;background:#351615}.code{font-size:38px;letter-spacing:8px;font-weight:950;text-align:center;padding:18px}.hidden{display:none!important}.steps{display:grid;gap:9px}.step{padding:12px;border:1px solid var(--line);border-radius:12px}.notice{padding:12px;border:1px solid var(--line);border-radius:12px;background:#0a1710}.error{color:#ff9b97}.ok{color:var(--green)}a{color:var(--green)}@media(max-width:600px){.wrap{padding:15px}.hero h1{font-size:30px}.code{font-size:28px;letter-spacing:5px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">DHE GENIUS MEDIA</div>
+  <div class="hero">
+    <div class="muted">Stay Connected. Stay Genius.</div>
+    <h1>DGM Bridge</h1>
+    <div class="muted">Register this device, wait for DGM Admin authorization, then connect it to an approved Bridge host.</div>
+  </div>
+
+  <div class="panel">
+    <div class="tabs">
+      <button id="hostTab" class="active">Host Device</button>
+      <button id="clientTab">Client Device</button>
+    </div>
+
+    <div id="registration">
+      <h2>Device registration</h2>
+      <p class="muted">Every new DGM Bridge device must be registered before it can access Bridge services. Your registration will appear in the DGM Admin Dashboard.</p>
+      <label>Device name</label>
+      <input id="deviceName" class="input" value="DGM Bridge">
+      <label>Country</label>
+      <input id="country" class="input" value="Ghana">
+      <div class="row" style="margin-top:14px">
+        <button id="registerBtn" class="btn green">Register Device</button>
+        <button id="checkBtn" class="btn">Check Authorization</button>
+      </div>
+      <div id="status" class="status">Not registered on this browser.</div>
+    </div>
+
+    <div id="authorized" class="hidden">
+      <div class="status"><span class="badge">AUTHORIZED</span><p id="authText" class="muted"></p></div>
+      <div id="hostPanel" class="hidden">
+        <h2>Create Pairing</h2>
+        <p class="muted">Create a five-minute pairing code for an authorized client device.</p>
+        <button id="pairBtn" class="btn green">Create Pairing Code</button>
+        <div id="pairBox" class="status hidden">
+          <div class="muted">Pairing code</div>
+          <div id="pairCode" class="code"></div>
+          <div class="muted" id="pairExpiry"></div>
+          <div class="notice" style="margin-top:10px"><b>Secret</b><br><span id="pairSecret"></span></div>
+          <div class="notice" style="margin-top:10px"><b>QR payload</b><br><span id="qrPayload"></span></div>
+        </div>
+      </div>
+      <div id="clientPanel" class="hidden">
+        <h2>Join Host</h2>
+        <p class="muted">Enter the six-digit pairing code and secret displayed by the authorized host.</p>
+        <label>Pairing code</label><input id="pairCodeInput" class="input" inputmode="numeric" maxlength="6" placeholder="123456">
+        <label>Pairing secret</label><input id="pairSecretInput" class="input" placeholder="Paste pairing secret">
+        <button id="claimBtn" class="btn green" style="margin-top:14px">Pair Device</button>
+        <div id="claimMsg" class="status hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>How authorization works</h2>
+    <div class="steps">
+      <div class="step"><b>1. Register</b><br><span class="muted">This browser/device sends a registration request to DGM.</span></div>
+      <div class="step"><b>2. Admin approval</b><br><span class="muted">DGM Admin opens Admin → DGM Bridge and chooses Approve or Deny.</span></div>
+      <div class="step"><b>3. Authorization</b><br><span class="muted">Once approved, this page receives a signed Bridge session token.</span></div>
+      <div class="step"><b>4. Pair</b><br><span class="muted">An approved host can create a temporary pairing code for an approved client.</span></div>
+    </div>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const key='dgm.bridge.device';
+let role=localStorage.getItem(key+'.role')||'host';
+let device=JSON.parse(localStorage.getItem(key)||'null');
+let token=localStorage.getItem(key+'.token')||'';
+
+function setRole(r){
+  role=r; localStorage.setItem(key+'.role',r);
+  $('hostTab').classList.toggle('active',r==='host');
+  $('clientTab').classList.toggle('active',r==='client');
+  $('deviceName').value=r==='host'?'DGM Bridge Host':'DGM Bridge Client';
+  render();
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+async function api(url,opt={}){
+  const r=await fetch(url,{credentials:'same-origin',...opt});
+  const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));
+  if(!r.ok||d.success===false) throw new Error(d.message||('HTTP '+r.status));
+  return d;
+}
+function statusHtml(d){
+  const cls=d.approval_status==='approved'?'':' '+(d.approval_status==='denied'?'denied':'pending');
+  const label=d.approval_status==='approved'?'AUTHORIZED':d.approval_status==='denied'?'DENIED':'PENDING';
+  return '<span class="badge'+cls+'">'+label+'</span><p class="muted">'+esc(d.message||'')+'</p><small>Device ID: '+esc(d.device_id||device?.device_id||'')+'</small>';
+}
+function render(){
+  if(!device){$('status').innerHTML='Not registered on this browser.';$('authorized').classList.add('hidden');return}
+  $('status').innerHTML='<span class="badge pending">REGISTERED</span><p class="muted">Checking DGM authorization…</p><small>Device ID: '+esc(device.device_id)+'</small>';
+}
+async function check(){
+  if(!device?.device_id){render();return}
+  try{
+    const d=await api('/api/bridge/registration-status?device_id='+encodeURIComponent(device.device_id));
+    if(d.token){token=d.token;localStorage.setItem(key+'.token',token)}
+    $('status').innerHTML=statusHtml(d);
+    if(d.approval_status==='approved' && d.status==='authorized'){
+      $('authorized').classList.remove('hidden');
+      $('registration').classList.add('hidden');
+      $('authText').textContent='This device is authorized by DGM Admin. Bridge services are available.';
+      $('hostPanel').classList.toggle('hidden',role!=='host');
+      $('clientPanel').classList.toggle('hidden',role!=='client');
+    } else {
+      $('authorized').classList.add('hidden');
+      $('registration').classList.remove('hidden');
+    }
+  }catch(e){$('status').innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+async function register(){
+  try{
+    const deviceId=device?.device_id||crypto.randomUUID();
+    const bytes=new Uint8Array(32); crypto.getRandomValues(bytes);
+    const publicKey=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    device={device_id:deviceId,role,public_key:publicKey};
+    localStorage.setItem(key,JSON.stringify(device));
+    const d=await api('/api/bridge/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      device_id:deviceId,role,public_key:publicKey,country:$('country').value.trim(),device_name:$('deviceName').value.trim()||'DGM Bridge',app_version:'web-1.0.0',platform:'Web'
+    })});
+    if(d.token){token=d.token;localStorage.setItem(key+'.token',token)}
+    $('status').innerHTML=statusHtml(d);
+    await check();
+  }catch(e){$('status').innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+async function createPair(){
+  try{
+    const d=await api('/api/bridge/pair/create',{method:'POST',headers:{Authorization:'Bearer '+token}});
+    $('pairBox').classList.remove('hidden');$('pairCode').textContent=d.pairing.code;$('pairSecret').textContent=d.pairing.secret;$('qrPayload').textContent=d.pairing.qr_payload;
+    $('pairExpiry').textContent='Expires in 5 minutes.';
+  }catch(e){alert(e.message)}
+}
+async function claim(){
+  const box=$('claimMsg');box.classList.remove('hidden');
+  try{
+    const d=await api('/api/bridge/pair/claim',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({code:$('pairCodeInput').value.trim(),secret:$('pairSecretInput').value.trim()})});
+    localStorage.setItem(key+'.session',d.session_token);
+    box.innerHTML='<span class="ok"><b>Paired successfully.</b></span><p class="muted">Host: '+esc(d.host_device_id)+'</p>';
+  }catch(e){box.innerHTML='<span class="error">'+esc(e.message)+'</span>'}
+}
+$('hostTab').onclick=()=>setRole('host');$('clientTab').onclick=()=>setRole('client');$('registerBtn').onclick=register;$('checkBtn').onclick=check;$('pairBtn').onclick=createPair;$('claimBtn').onclick=claim;
+render(); if(device) check();
+setInterval(()=>{if(device&&!$('authorized').classList.contains('hidden')){fetch('/api/bridge/heartbeat',{method:'POST',headers:{Authorization:'Bearer '+token}}).catch(()=>{})}else if(device)check()},30000);
+</script>
+</body>
+</html>
