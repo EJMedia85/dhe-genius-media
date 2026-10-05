@@ -12,7 +12,7 @@
 <aside class="side">
 <div class="brand">DHE GENIUS MEDIA</div><small>Admin Control Center</small>
 <nav class="nav">
-<button class="active" data-page="overview">▣ Overview</button><button data-page="bridge">🌉 DGM Bridge</button><button data-page="companion">📱 Add Device / Companion</button><button data-page="customers">♙ Customers</button><button data-page="orders">▤ Orders</button><button data-page="wallet">₵ Wallet & Withdrawals</button><button data-page="support">✦ Support</button><button data-page="entertainment">▶ Entertainment</button><button data-page="security">⌁ Security & Audit</button><button data-page="system">⚙ System Health</button>
+<button class="active" data-page="overview">▣ Overview</button><button data-page="bridge">🌉 DGM Bridge</button><button data-page="companion">📱 Add Device / Companion</button><button data-page="customers">♙ Customers</button><button data-page="orders">▤ Orders</button><button data-page="wallet">₵ Wallet & Withdrawals</button><button data-page="savings">💾 Savings / Susu</button><button data-page="analytics">📊 Analytics</button><button data-page="notifications">🔔 Notifications</button><button data-page="support">✦ Support</button><button data-page="entertainment">▶ Entertainment</button><button data-page="security">⌁ Security & Audit</button><button data-page="system">⚙ System Health</button>
 </nav><div class="bottom"><button class="logout" id="logout">Logout Admin</button></div>
 </aside>
 <main class="main">
@@ -66,6 +66,23 @@
 
 
 
+<section id="savings" class="section">
+<div class="cards" id="savingsCards"></div>
+<div class="grid2"><div class="panel"><div class="kpi"><div><h2>Personal Savings</h2><div class="muted">Goals, balances and active accounts.</div></div><button class="btn" onclick="loadSavings()">Refresh</button></div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Customer</th><th>Goal</th><th>Target</th><th>Balance</th><th>Progress</th><th>Frequency</th><th>Status</th></tr></thead><tbody id="savingsAccountsBody"></tbody></table></div></div>
+<div class="panel"><h2>Group Susu</h2><div class="muted">Groups, members, contributions and payouts.</div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Group</th><th>Members</th><th>Contribution</th><th>Collected</th><th>Status</th><th>Created</th></tr></thead><tbody id="susuGroupsBody"></tbody></table></div></div></div>
+</section>
+
+<section id="analytics" class="section">
+<div class="cards" id="analyticsPageCards"></div>
+<div class="grid2"><div class="panel"><h2>Top Services — 30 Days</h2><div class="tablebox"><table class="table"><thead><tr><th>Service</th><th>Orders</th><th>Value</th></tr></thead><tbody id="topServicesBody"></tbody></table></div></div><div class="panel"><h2>Top Networks — 30 Days</h2><div class="tablebox"><table class="table"><thead><tr><th>Network</th><th>Orders</th><th>Value</th></tr></thead><tbody id="topNetworksBody"></tbody></table></div></div></div>
+</section>
+
+<section id="notifications" class="section">
+<div class="grid2"><div class="panel"><h2>Send Customer Notification</h2><div class="notice">Send an announcement to every customer. This creates an in-app notification and is recorded in the admin audit log.</div>
+<form id="broadcastForm"><input class="input" id="broadcastTitle" placeholder="Notification title" maxlength="160" required><select class="select" id="broadcastType"><option value="info">Information</option><option value="promotion">Promotion</option><option value="maintenance">Maintenance</option><option value="alert">Alert</option></select><textarea class="textarea" id="broadcastMessage" rows="6" placeholder="Message" maxlength="2000" required></textarea><button class="btn green" style="margin-top:9px">Send to all customers</button></form><div id="broadcastMsg" class="muted" style="margin-top:10px"></div></div>
+<div class="panel"><h2>Notification Safety</h2><div class="notice">Broadcasts are sent only to registered DGM customer accounts. No SMS, WhatsApp, or external messaging is triggered by this panel.</div><div class="health"><div><span class="dot"></span><b>In-app delivery</b><br><span class="muted">Enabled</span></div><div><span class="dot"></span><b>Audit logging</b><br><span class="muted">Enabled</span></div></div></div></div>
+</section>
+
 <section id="support" class="section"><div class="panel"><h2>Customer Support</h2><div class="tablebox"><table class="table"><thead><tr><th>Customer</th><th>Subject</th><th>Message</th><th>Status</th><th>Reply</th></tr></thead><tbody id="supportBody"></tbody></table></div><div id="supportMsg" class="muted"></div></div></section>
 
 <section id="entertainment" class="section"><div class="panel"><h2>Authorized Movie Playback</h2><div class="notice">Only DGM-controlled or properly licensed playback sources may be saved.</div><form id="movieForm" class="toolbar"><input class="input" id="tmdb" type="number" placeholder="TMDB movie ID" required><input class="input" id="movieTitle" placeholder="Movie title"><select class="select" id="movieType"><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option></select><input class="input" id="movieUrl" type="url" placeholder="Authorized HTTPS playback URL" required><button class="btn green">Save</button></form><div id="movieMsg" class="muted"></div></div></section>
@@ -84,8 +101,8 @@ const money=v=>'GH₵'+Number(v||0).toFixed(2);
 let customers=[],orders=[],withdrawals=[],currentPage='overview';
 
 async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(r.status===401){location.replace('/admin-login.html');throw Error('Admin session expired.')}if(!r.ok||d.success===false)throw Error(d.message||'Request failed');return d}
-function show(page){currentPage=page;$$('.section').forEach(x=>x.classList.toggle('active',x.id===page));$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const titles={overview:'Executive Overview',bridge:'DGM Bridge',companion:'Companion Devices',customers:'Customer Management',orders:'Orders & Fulfillment',wallet:'Wallet & Withdrawals',support:'Customer Support',entertainment:'Entertainment',security:'Security & Audit',system:'System Health'};$('#pageTitle').textContent=titles[page]||'Admin Control Center';refreshCurrent()}
-async function refreshCurrent(){try{if(currentPage==='overview')await loadOverview();else if(currentPage==='bridge')await loadBridge();else if(currentPage==='companion')await loadCompanion();else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='system')await loadSystem();}catch(e){console.error(e);}}
+function show(page){currentPage=page;$$('.section').forEach(x=>x.classList.toggle('active',x.id===page));$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const titles={overview:'Executive Overview',bridge:'DGM Bridge',companion:'Companion Devices',customers:'Customer Management',orders:'Orders & Fulfillment',wallet:'Wallet & Withdrawals',savings:'Savings / Susu',analytics:'Business Analytics',notifications:'Customer Notifications',support:'Customer Support',entertainment:'Entertainment',security:'Security & Audit',system:'System Health'};$('#pageTitle').textContent=titles[page]||'Admin Control Center';refreshCurrent()}
+async function refreshCurrent(){try{if(currentPage==='overview')await loadOverview();else if(currentPage==='bridge')await loadBridge();else if(currentPage==='companion')await loadCompanion();else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='savings')await loadSavings();else if(currentPage==='analytics')await loadAnalyticsPage();else if(currentPage==='notifications'){}else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='system')await loadSystem();}catch(e){console.error(e);}}
 $$('.nav button').forEach(b=>b.onclick=()=>show(b.dataset.page));
 $('#logout').onclick=async()=>{try{await fetch('/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
 
@@ -151,6 +168,32 @@ function detailTab(btn,id){btn.parentElement.querySelectorAll('button').forEach(
 function closeCustomer(){$('#customerModal').hidden=true}
 async function loadWallet(){const d=await api('/api/admin/withdrawals');withdrawals=d.withdrawals;$('#walletCards').innerHTML=[['Pending',d.pending_count],['Pending Value',money(withdrawals.filter(x=>x.status==='Pending Approval').reduce((a,x)=>a+Number(x.amount||0),0))],['Approved',withdrawals.filter(x=>x.status==='Approved').length],['Paid',withdrawals.filter(x=>x.status==='Paid').length],['Requests',withdrawals.length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');$('#withdrawalsBody').innerHTML=withdrawals.map(w=>{let a=w.status==='Pending Approval'?'<button class="btn green" onclick="withdrawAction('+w.id+',\'approve\')">Approve</button> <button class="btn red" onclick="withdrawAction('+w.id+',\'reject\')">Reject</button>':w.status==='Approved'?'<button class="btn green" onclick="withdrawAction('+w.id+',\'paid\')">Mark Paid</button>':'—';return '<tr><td>'+esc(w.reference)+'</td><td>'+esc(w.customer_name)+'<br><span class="muted">'+esc(w.customer_email)+'</span></td><td>'+money(w.amount)+'</td><td>'+esc(w.momo_network)+'</td><td>'+esc(w.momo_phone)+(w.momo_name?' • '+esc(w.momo_name):'')+'</td><td>'+esc(w.status)+'</td><td>'+new Date(w.created_at).toLocaleString()+'</td><td>'+a+'</td></tr>'}).join('')||'<tr><td colspan="8" class="empty">No withdrawal requests.</td></tr>'}
 async function withdrawAction(id,action){const prompts={approve:'Approval note:',reject:'Reason for rejection:',paid:'Payment note/reference:'};const note=prompt(prompts[action]||'Note:')||'';if(!confirm(action==='paid'?'Confirm MoMo payment has been sent?':action==='reject'?'Reject and refund this withdrawal?':'Approve this withdrawal?'))return;const d=await api('/api/admin/withdrawals/'+id+'/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note})});alert(d.message);await loadWallet();await loadOverview()}
+async function loadSavings(){
+  const d=await api('/api/admin/savings');
+  const s=d.summary;
+  $('#savingsCards').innerHTML=[['Personal Accounts',s.personal_accounts],['Personal Saved',money(s.personal_balance)],['Susu Groups',s.groups],['Susu Collected',money(s.group_contributions)],['Pending Payouts',money(s.pending_payouts)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:21px">'+x[1]+'</div></div>').join('');
+  $('#savingsAccountsBody').innerHTML=d.accounts.length?d.accounts.map(x=>{
+    const pct=Number(x.target_amount)>0?Math.min(100,Number(x.balance)/Number(x.target_amount)*100):0;
+    return '<tr><td><b>'+esc(x.customer_name||'')+'</b><br><span class="muted">'+esc(x.email||'')+'</span></td><td>'+esc(x.goal_name)+'</td><td>'+money(x.target_amount)+'</td><td>'+money(x.balance)+'</td><td>'+pct.toFixed(1)+'%</td><td>'+esc(x.frequency)+'</td><td><span class="badge">'+esc(x.status)+'</span></td></tr>';
+  }).join(''):'<tr><td colspan="7" class="empty">No Personal Savings accounts.</td></tr>';
+  $('#susuGroupsBody').innerHTML=d.groups.length?d.groups.map(x=>'<tr><td><b>'+esc((x.icon||'👥')+' '+x.name)+'</b></td><td>'+x.members+' / '+x.member_limit+'</td><td>'+money(x.contribution_amount)+'</td><td>'+money(x.collected)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No Group Susu groups.</td></tr>';
+}
+async function loadAnalyticsPage(){
+  const d=await api('/api/admin/analytics');
+  const a=d.sales,w=d.wallet,wd=d.withdrawals,c=d.customers;
+  $('#analyticsPageCards').innerHTML=[['30-Day Completed Sales',money(a.completed_sales)],['30-Day Order Value',money(a.total_order_value)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',c.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+  $('#topServicesBody').innerHTML=(d.top_services||[]).map(x=>'<tr><td>'+esc(x.service||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No service data.</td></tr>';
+  $('#topNetworksBody').innerHTML=(d.top_networks||[]).map(x=>'<tr><td>'+esc(x.network||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No network data.</td></tr>';
+}
+$('#broadcastForm').onsubmit=async e=>{
+  e.preventDefault();
+  const msg=$('#broadcastMsg'); msg.textContent='Sending…';
+  try{
+    const d=await api('/api/admin/notifications/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('#broadcastTitle').value,message:$('#broadcastMessage').value,type:$('#broadcastType').value})});
+    msg.textContent=d.message+' '+d.sent+' customers notified.';
+    e.target.reset();
+  }catch(err){msg.textContent=err.message;}
+};
 async function loadSupport(){const d=await api('/api/admin/support/tickets');$('#supportBody').innerHTML=d.tickets.map(t=>'<tr><td>'+esc(t.customer_name)+'<br><span class="muted">'+esc(t.customer_email)+'</span></td><td>'+esc(t.subject)+'</td><td style="max-width:320px">'+esc(t.message)+'</td><td>'+esc(t.status)+'</td><td>'+(t.status==='Open'?'<textarea class="textarea" id="reply'+t.id+'" rows="2" placeholder="Reply"></textarea><button class="btn green" onclick="replySupport('+t.id+')">Send</button>':'<span class="muted">'+esc(t.admin_reply||'Replied')+'</span>')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">No support requests.</td></tr>'}
 async function replySupport(id){const box=$('#reply'+id);if(!box?.value.trim())return;const d=await api('/api/admin/support/tickets/'+id+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reply:box.value})});$('#supportMsg').textContent=d.message;await loadSupport()}
 async function loadAudit(){const d=await api('/api/admin/audit');$('#auditBody').innerHTML=d.audit.length?d.audit.map(a=>'<tr><td>'+new Date(a.created_at).toLocaleString()+'</td><td>'+esc(a.admin_email)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.target_type||'')+' '+esc(a.target_id||'')+'</td><td><pre style="white-space:pre-wrap;margin:0">'+esc(JSON.stringify(a.details||{}))+'</pre></td></tr>').join(''):'<tr><td colspan="5" class="empty">No admin audit events yet.</td></tr>'}
