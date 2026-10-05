@@ -46,6 +46,8 @@ class MainActivity : Activity() {
         io.execute {
             try {
                 api.register(deviceIdValue, BridgeVpnService.MODE_HOST, BridgeSecurity.publicKey(this))
+                runOnUiThread { status.text = "● WAITING FOR ADMIN APPROVAL" }
+                awaitAuthorization()
                 val pair = api.createPairing()
                 val p = pair.getJSONObject("pairing")
                 getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit()
@@ -72,6 +74,16 @@ class MainActivity : Activity() {
                     Toast.makeText(this, e.message ?: "Pairing failed", Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    private fun awaitAuthorization() {
+        while (true) {
+            val result = api.registrationStatus(deviceIdValue)
+            val state = result.optString("approval_status", "pending")
+            if (state == "approved") return
+            if (state == "denied") throw IllegalStateException("Registration denied by DGM Admin.")
+            Thread.sleep(3000)
         }
     }
 
@@ -110,6 +122,8 @@ class MainActivity : Activity() {
         io.execute {
             try {
                 api.register(deviceIdValue, BridgeVpnService.MODE_CLIENT, BridgeSecurity.publicKey(this))
+                runOnUiThread { status.text = "● WAITING FOR ADMIN APPROVAL" }
+                awaitAuthorization()
                 val result = api.claimPairing(code, secret)
                 getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit()
                     .putString("session_id", result.getString("session_id"))
