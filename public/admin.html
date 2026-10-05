@@ -12,7 +12,7 @@
 <aside class="side">
 <div class="brand">DHE GENIUS MEDIA</div><small>Admin Control Center</small>
 <nav class="nav">
-<button class="active" data-page="overview">▣ Overview</button><button data-page="companion">📱 Add Device / Companion</button><button data-page="customers">♙ Customers</button><button data-page="orders">▤ Orders</button><button data-page="wallet">₵ Wallet & Withdrawals</button><button data-page="support">✦ Support</button><button data-page="entertainment">▶ Entertainment</button><button data-page="security">⌁ Security & Audit</button><button data-page="system">⚙ System Health</button>
+<button class="active" data-page="overview">▣ Overview</button><button data-page="bridge">🌉 DGM Bridge</button><button data-page="companion">📱 Add Device / Companion</button><button data-page="customers">♙ Customers</button><button data-page="orders">▤ Orders</button><button data-page="wallet">₵ Wallet & Withdrawals</button><button data-page="support">✦ Support</button><button data-page="entertainment">▶ Entertainment</button><button data-page="security">⌁ Security & Audit</button><button data-page="system">⚙ System Health</button>
 </nav><div class="bottom"><button class="logout" id="logout">Logout Admin</button></div>
 </aside>
 <main class="main">
@@ -22,6 +22,17 @@
 <div class="cards" id="overviewCards"></div>
 <div class="grid2"><div class="panel"><h2>30-Day Business Overview</h2><div class="cards" style="grid-template-columns:repeat(3,1fr)" id="analyticsCards"></div></div><div class="panel"><h2>System Health</h2><div class="health" id="healthMini"></div></div></div>
 <div class="panel" style="margin-top:15px"><h2>Recent Orders</h2><div class="tablebox"><table class="table"><tbody id="recentOrders"></tbody></table></div></div>
+</section>
+
+<section id="bridge" class="section">
+<div class="panel">
+  <div class="kpi"><div><h2>DGM Bridge Devices</h2><div class="muted">View registered Bridge phones, roles, connection state and pairing status. Pairing secrets are never shown here.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
+  <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device ID</th><th>Role</th><th>Country</th><th>Status</th><th>Paired</th><th>Last Seen</th><th>Created</th></tr></thead><tbody id="bridgeDevicesBody"></tbody></table></div>
+</div>
+<div class="panel" style="margin-top:15px">
+  <div class="kpi"><div><h2>Pairing Activity</h2><div class="muted">Recent pairing codes and their state. Secret values are intentionally hidden.</div></div></div>
+  <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Code</th><th>Host Device</th><th>State</th><th>Expires</th><th>Claimed By</th><th>Claimed At</th></tr></thead><tbody id="bridgePairingsBody"></tbody></table></div>
+</div>
 </section>
 
 <section id="companion" class="section">
@@ -73,8 +84,8 @@ const money=v=>'GH₵'+Number(v||0).toFixed(2);
 let customers=[],orders=[],withdrawals=[],currentPage='overview';
 
 async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(r.status===401){location.replace('/admin-login.html');throw Error('Admin session expired.')}if(!r.ok||d.success===false)throw Error(d.message||'Request failed');return d}
-function show(page){currentPage=page;$$('.section').forEach(x=>x.classList.toggle('active',x.id===page));$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const titles={overview:'Executive Overview',companion:'Companion Devices',customers:'Customer Management',orders:'Orders & Fulfillment',wallet:'Wallet & Withdrawals',support:'Customer Support',entertainment:'Entertainment',security:'Security & Audit',system:'System Health'};$('#pageTitle').textContent=titles[page]||'Admin Control Center';refreshCurrent()}
-async function refreshCurrent(){try{if(currentPage==='overview')await loadOverview();else if(currentPage==='companion')await loadCompanion();else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='system')await loadSystem();}catch(e){console.error(e);}}
+function show(page){currentPage=page;$$('.section').forEach(x=>x.classList.toggle('active',x.id===page));$$('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const titles={overview:'Executive Overview',bridge:'DGM Bridge',companion:'Companion Devices',customers:'Customer Management',orders:'Orders & Fulfillment',wallet:'Wallet & Withdrawals',support:'Customer Support',entertainment:'Entertainment',security:'Security & Audit',system:'System Health'};$('#pageTitle').textContent=titles[page]||'Admin Control Center';refreshCurrent()}
+async function refreshCurrent(){try{if(currentPage==='overview')await loadOverview();else if(currentPage==='bridge')await loadBridge();else if(currentPage==='companion')await loadCompanion();else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='system')await loadSystem();}catch(e){console.error(e);}}
 $$('.nav button').forEach(b=>b.onclick=()=>show(b.dataset.page));
 $('#logout').onclick=async()=>{try{await fetch('/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
 
@@ -93,6 +104,15 @@ function renderOrders(rows,target='#ordersBody',compact=false){$(target).innerHT
 async function loadOrders(){const d=await api('/api/admin/orders');orders=d.orders;filterOrders()}
 function filterOrders(){const q=String($('#orderSearch')?.value||'').toLowerCase(),st=String($('#orderStatus')?.value||'').toLowerCase();const rows=orders.filter(o=>(!q||JSON.stringify(o).toLowerCase().includes(q))&&(!st||String(o.status).toLowerCase()===st));renderOrders(rows)}
 
+async function loadBridge(){
+  const d=await api('/api/admin/bridge/devices');
+  $('#bridgeDevicesBody').innerHTML=d.devices.length?d.devices.map(x=>{
+    const status=String(x.status||'offline').toLowerCase();
+    const online=status==='online';
+    return '<tr><td><b>'+esc(x.device_id)+'</b></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.country||'unknown')+'</td><td><span class="dot '+(online?'':'bad')+'"></span>'+esc(x.status||'offline')+'</td><td><span class="badge">'+(x.paired?'PAIRED':'NOT PAIRED')+'</span></td><td>'+(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>';
+  }).join(''):'<tr><td colspan="7" class="empty">No DGM Bridge devices registered.</td></tr>';
+  $('#bridgePairingsBody').innerHTML=d.pairings.length?d.pairings.map(x=>'<tr><td><b>'+esc(x.code)+'</b></td><td>'+esc(x.host_device_id)+'</td><td><span class="badge">'+esc(x.state)+'</span></td><td>'+new Date(x.expires_at).toLocaleString()+'</td><td>'+esc(x.claimed_by||'—')+'</td><td>'+(x.claimed_at?new Date(x.claimed_at).toLocaleString():'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No pairing activity.</td></tr>';
+}
 async function loadCompanion(){
   const [devices,messages]=await Promise.all([
     api('/api/admin/companion/devices'),
