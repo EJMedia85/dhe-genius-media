@@ -25,19 +25,18 @@
 </section>
 
 <section id="bridge" class="section">
-<div class="panel"><div class="kpi"><div><h2>Bridge Registration Requests</h2><div class="muted">Every newly installed DGM Bridge must be approved here before it can create or claim a pairing.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
-<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>Country</th><th>Registration</th><th>Status</th><th>Registered</th><th>Action</th></tr></thead><tbody id="bridgeRegistrationsBody"></tbody></table></div></div>
-<div class="panel" style="margin-top:15px">
-  <div class="kpi"><div><h2>DGM Bridge Devices</h2><div class="muted">View registered Bridge phones, roles, connection state and pairing status. Pairing secrets are never shown here.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
-  <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device ID</th><th>Role</th><th>Country</th><th>Status</th><th>Paired</th><th>Last Seen</th><th>Created</th></tr></thead><tbody id="bridgeDevicesBody"></tbody></table></div>
-</div>
-<div class="panel" style="margin-top:15px">
-  <div class="kpi"><div><h2>Pairing Activity</h2><div class="muted">Recent pairing codes and their state. Secret values are intentionally hidden.</div></div></div>
-  <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Code</th><th>Host Device</th><th>State</th><th>Expires</th><th>Claimed By</th><th>Claimed At</th></tr></thead><tbody id="bridgePairingsBody"></tbody></table></div>
-</div>
-</section>
-
-<section id="companion" class="section">
+<div class="cards" id="bridgeStats"></div>
+<div class="panel"><div class="kpi"><div><h2>Bridge Registration Requests</h2><div class="muted">Every newly installed DGM Bridge must register, then receive explicit DGM Admin authorization before access.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
+<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>Version</th><th>Registration</th><th>Status</th><th>Registered</th><th>Action</th></tr></thead><tbody id="bridgeRegistrationsBody"></tbody></table></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Bridge Devices</h2><div class="muted">Monitor authorization, connection state, version, diagnostics and pairing status.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
+<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>Version</th><th>Status</th><th>Paired</th><th>Last Seen</th><th>Action</th></tr></thead><tbody id="bridgeDevicesBody"></tbody></table></div></div>
+<div class="grid2" style="margin-top:15px">
+<div class="panel"><h2>Bridge Update Policy</h2><div class="notice">Control the version policy checked by authorized Bridge devices.</div>
+<form id="bridgeConfigForm" class="toolbar"><input class="input" id="bridgeLatestVersion" placeholder="Latest version" required><input class="input" id="bridgeMinimumVersion" placeholder="Minimum version" required><input class="input" id="bridgeUpdateUrl" placeholder="APK/update URL (optional)"><button class="btn green">Save Update Policy</button></form><div id="bridgeConfigMsg" class="muted"></div></div>
+<div class="panel"><h2>Security & Diagnostics</h2><div class="notice">Approve only devices you recognize. Revoke immediately if a device is lost or compromised.</div><div id="bridgeDiagnostics" class="muted">No diagnostics loaded.</div></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Pairing Activity</h2><div class="muted">Recent pairing codes and their state. Secret values are intentionally hidden.</div></div></div>
+<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Code</th><th>Host Device</th><th>State</th><th>Expires</th><th>Claimed By</th><th>Claimed At</th></tr></thead><tbody id="bridgePairingsBody"></tbody></table></div></div>
+</section><section id="companion" class="section">
 <div class="grid2">
 <div class="panel"><h2>Add Device</h2>
 <div class="notice">Generate a one-time enrollment token for your Android phone. The token expires after 15 minutes and is consumed when the Companion enrolls.</div>
@@ -129,29 +128,29 @@ async function loadOrders(){const d=await api('/api/admin/orders');orders=d.orde
 function filterOrders(){const q=String($('#orderSearch')?.value||'').toLowerCase(),st=String($('#orderStatus')?.value||'').toLowerCase();const rows=orders.filter(o=>(!q||JSON.stringify(o).toLowerCase().includes(q))&&(!st||String(o.status).toLowerCase()===st));renderOrders(rows)}
 
 async function loadBridge(){
-  const [d,r]=await Promise.all([api('/api/admin/bridge/devices'),api('/api/admin/bridge/registrations')]);
+  const [d,r,s,cfg]=await Promise.all([api('/api/admin/bridge/devices'),api('/api/admin/bridge/registrations'),api('/api/admin/bridge/stats'),api('/api/admin/bridge/config')]);
+  const st=s.stats||{};
+  $('#bridgeStats').innerHTML=[['Total Devices',st.total||0],['Pending Approval',st.pending||0],['Authorized',st.approved||0],['Online',st.online||0],['Offline',st.offline||0],['Suspended / Revoked',(st.suspended||0)+' / '+(st.revoked||0)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+  $('#bridgeLatestVersion').value=cfg.config.latest_version||''; $('#bridgeMinimumVersion').value=cfg.config.minimum_version||''; $('#bridgeUpdateUrl').value=cfg.config.update_url||'';
   $('#bridgeRegistrationsBody').innerHTML=r.registrations.length?r.registrations.map(x=>{
-    const pending=x.approval_status==='pending';
-    const denied=x.approval_status==='denied';
+    const pending=x.approval_status==='pending',denied=x.approval_status==='denied';
     const actions=pending?'<button class="btn green" onclick="bridgeApprove(\''+encodeURIComponent(x.device_id)+'\')">Approve</button> <button class="btn" onclick="bridgeDeny(\''+encodeURIComponent(x.device_id)+'\')">Deny</button>':(denied?'<span class="muted">Denied</span>':'<span class="badge">AUTHORIZED</span>');
-    return '<tr><td><b>'+esc(x.device_id)+'</b></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.country||'unknown')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+'</td></tr>';
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.app_version||'—')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+'</td></tr>';
   }).join(''):'<tr><td colspan="7" class="empty">No Bridge registration requests.</td></tr>';
   $('#bridgeDevicesBody').innerHTML=d.devices.length?d.devices.map(x=>{
     const online=String(x.status||'').toLowerCase()==='online';
-    return '<tr><td><b>'+esc(x.device_id)+'</b></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.country||'unknown')+'</td><td><span class="dot '+(online?'':'bad')+'"></span>'+esc(x.status||'offline')+'</td><td><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>';
+    const action=x.status==='suspended'?'<button class="btn green" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'resume\')">Resume</button>':x.status==='revoked'?'<button class="btn" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'resume\')">Re-enable</button>':'<button class="btn" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'suspend\')">Suspend</button> <button class="btn red" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'revoke\')">Revoke</button>';
+    const rename='<button class="btn" onclick="bridgeRename(\''+encodeURIComponent(x.device_id)+'\',\''+encodeURIComponent(x.device_name||'DGM Bridge')+'\')">Rename</button>';
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td>'+esc(x.app_version||'—')+'<br><span class="muted">'+esc(x.platform||'Android')+'</span></td><td><span class="dot '+(online?'':'bad')+'"></span>'+esc(x.status||'offline')+'<br><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td><span class="badge">'+(x.paired?'PAIRED':'—')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+(x.last_error?'<br><span class="danger">'+esc(x.last_error)+'</span>':'')+'</td><td>'+rename+' '+action+'</td></tr>';
   }).join(''):'<tr><td colspan="7" class="empty">No DGM Bridge devices registered.</td></tr>';
   $('#bridgePairingsBody').innerHTML=d.pairings.length?d.pairings.map(x=>'<tr><td><b>'+esc(x.code)+'</b></td><td>'+esc(x.host_device_id)+'</td><td><span class="badge">'+esc(x.state)+'</span></td><td>'+new Date(x.expires_at).toLocaleString()+'</td><td>'+esc(x.claimed_by||'—')+'</td><td>'+(x.claimed_at?new Date(x.claimed_at).toLocaleString():'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No pairing activity.</td></tr>';
+  $('#bridgeDiagnostics').textContent=d.devices.length?'Diagnostics loaded. '+d.devices.filter(x=>x.last_error).length+' device(s) reporting an error.':'No Bridge devices registered.';
 }
-async function bridgeApprove(id){
-  if(!confirm('Authorize this DGM Bridge device?')) return;
-  await api('/api/admin/bridge/registrations/'+id+'/approve',{method:'POST'});
-  await loadBridge();
-}
-async function bridgeDeny(id){
-  if(!confirm('Deny this DGM Bridge registration?')) return;
-  await api('/api/admin/bridge/registrations/'+id+'/deny',{method:'POST'});
-  await loadBridge();
-}
+async function bridgeApprove(id){if(!confirm('Authorize this DGM Bridge device?'))return;await api('/api/admin/bridge/registrations/'+id+'/approve',{method:'POST'});await loadBridge();}
+async function bridgeDeny(id){if(!confirm('Deny this DGM Bridge registration?'))return;await api('/api/admin/bridge/registrations/'+id+'/deny',{method:'POST'});await loadBridge();}
+async function bridgeAction(id,action){if(!confirm('Are you sure you want to '+action+' this Bridge device?'))return;await api('/api/admin/bridge/devices/'+id+'/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});await loadBridge();}
+async function bridgeRename(id,current){const name=prompt('Device name:',decodeURIComponent(current));if(!name||!name.trim())return;await api('/api/admin/bridge/devices/'+id+'/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_name:name.trim()})});await loadBridge();}
+$('#bridgeConfigForm').onsubmit=async e=>{e.preventDefault();const msg=$('#bridgeConfigMsg');msg.textContent='Saving…';try{await api('/api/admin/bridge/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latest_version:$('#bridgeLatestVersion').value.trim(),minimum_version:$('#bridgeMinimumVersion').value.trim(),update_url:$('#bridgeUpdateUrl').value.trim()})});msg.textContent='Bridge update policy saved.';}catch(err){msg.textContent=err.message;}};
 
 async function loadSavings(){
   const d=await api('/api/admin/savings');
