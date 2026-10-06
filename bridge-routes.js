@@ -134,6 +134,7 @@ function installBridge(app) {
       if(!deviceId) return res.status(400).json({success:false,message:"device_id is required."});
       const row=(await pool.query(`SELECT device_id,role,approval_status,status,approved_at,app_version FROM dgm_bridge_devices WHERE device_id=$1`,[deviceId])).rows[0];
       if(!row) return res.status(404).json({success:false,message:"Device registration not found."});
+      if(row.role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge status is restricted to DGM Admin."});
       if(row.approval_status==="approved" && !["revoked","suspended"].includes(row.status)){
         const issued=token({sub:row.device_id,role:row.role,exp:Date.now()+24*60*60*1000});
         const minimum=await bridgeConfig("minimum_version",String(process.env.DGM_BRIDGE_MIN_VERSION || "1.1.0"));
@@ -186,6 +187,7 @@ function installBridge(app) {
       const platform=String(req.body?.platform||"Android").trim().slice(0,40);
       const pin=String(req.body?.pin||"").trim();
       if (!deviceId || !publicKey || !["host","client"].includes(role)) return res.status(400).json({success:false,message:"device_id, role and public_key are required."});
+      if (role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge is restricted to DGM Admin. Please sign in as Admin first."});
       if (!/^\\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"A 6-digit Bridge PIN is required."});
       await pool.query(
         `INSERT INTO dgm_bridge_devices(device_id,role,public_key,country,device_name,app_version,platform,pin_ciphertext,status,approval_status,last_seen)
@@ -214,6 +216,7 @@ function installBridge(app) {
       if (!deviceId || !/^\\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"Device ID and 6-digit PIN are required."});
       const row=(await pool.query("SELECT device_id,role,approval_status,status,pin_ciphertext FROM dgm_bridge_devices WHERE device_id=$1",[deviceId])).rows[0];
       if(!row) return res.status(404).json({success:false,message:"Bridge device is not registered."});
+      if(row.role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge access is restricted to DGM Admin."});
       if(row.approval_status!=="approved" || ["revoked","suspended"].includes(row.status)) return res.status(403).json({success:false,message:"Bridge is not authorized by DGM Admin."});
       const stored=decryptPin(row.pin_ciphertext);
       if(!stored || !crypto.timingSafeEqual(Buffer.from(stored),Buffer.from(pin))) return res.status(401).json({success:false,message:"Incorrect Bridge PIN."});
