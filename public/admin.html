@@ -37,7 +37,12 @@
 <div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Pairing Activity</h2><div class="muted">Recent pairing codes and their state. Secret values are intentionally hidden.</div></div></div>
 <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Code</th><th>Host Device</th><th>State</th><th>Expires</th><th>Claimed By</th><th>Claimed At</th></tr></thead><tbody id="bridgePairingsBody"></tbody></table></div></div>
 </section><section id="companion" class="section">
+<div class="cards" id="companionStats"></div>
 <div class="grid2">
+<div class="panel"><h2>Registration & Authorization</h2><div class="notice">Every Companion installation must register here. The device stays pending until DGM Admin explicitly authorizes it.</div><div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Customer / Phone</th><th>App</th><th>Registration</th><th>Action</th></tr></thead><tbody id="companionRegistrationsBody"></tbody></table></div></div>
+<div class="panel"><h2>Device Health</h2><div id="companionHealth" class="health"></div><div class="notice" style="margin-top:10px">Online means the device has recently contacted DGM. Permissions are controlled by Android and must be granted on the phone.</div></div>
+</div>
+<div class="grid2" style="margin-top:15px">
 <div class="panel"><h2>Add Device</h2>
 <div class="notice">Generate a one-time enrollment token for your Android phone. The token expires after 15 minutes and is consumed when the Companion enrolls.</div>
 <form id="companionEnrollForm" class="toolbar">
@@ -53,8 +58,8 @@
 </div></div>
 <div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Connected Devices</h2><div class="muted">Only admin can see these devices and their message data.</div></div><button class="btn" onclick="loadCompanion()">Refresh</button></div>
 <div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Phone</th><th>Status</th><th>Last Seen</th><th>Platform</th><th>Action</th></tr></thead><tbody id="companionDevicesBody"></tbody></table></div></div>
-<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Messages</h2><div class="muted">SMS and WhatsApp notification events received from enrolled devices.</div></div><div class="toolbar" style="margin:0"><select class="select" id="companionChannel" onchange="loadCompanionMessages()"><option value="">All</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option></select></div></div>
-<div class="tablebox"><table class="table"><thead><tr><th>Time</th><th>Channel</th><th>Device</th><th>Sender</th><th>Message</th><th>Status</th></tr></thead><tbody id="companionMessagesBody"></tbody></table></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Messages</h2><div class="muted">SMS, WhatsApp notification events and Android call-log metadata received from authorized devices.</div></div><div class="toolbar" style="margin:0"><select class="select" id="companionChannel" onchange="loadCompanionMessages()"><option value="">All</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option><option value="call_log">Call Logs</option></select></div></div>
+<div class="tablebox"><table class="table"><thead><tr><th>Time</th><th>Channel</th><th>Device</th><th>Sender / Number</th><th>Message / Call Details</th><th>Status</th></tr></thead><tbody id="companionMessagesBody"></tbody></table></div></div>
 </section>
 
 <section id="customers" class="section"><div class="panel"><h2>Customer Management</h2><div class="toolbar"><input class="input search" id="customerSearch" placeholder="Search name, email, phone or ID" oninput="filterCustomers()"></div><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th>Wallet</th><th>Created</th><th>Actions</th></tr></thead><tbody id="customersBody"></tbody></table></div></div></section>
@@ -172,8 +177,30 @@ async function loadAnalyticsPage(){
 }
 async function loadCompanion(){
   const d=await api('/api/admin/companion/devices');
-  $('#companionDevicesBody').innerHTML=d.devices.length?d.devices.map(x=>{
-    const status=x.active?(x.last_seen?'Online / Active':'Awaiting enrollment'):'Revoked';
+  const devices=d.devices||[];
+  const pending=devices.filter(x=>x.authorization_status==='pending').length;
+  const approved=devices.filter(x=>x.authorization_status==='approved').length;
+  const denied=devices.filter(x=>x.authorization_status==='denied').length;
+  const online=devices.filter(x=>x.active&&x.last_seen&&(Date.now()-new Date(x.last_seen).getTime()<5*60*1000)).length;
+  const offline=devices.filter(x=>x.active&&!devices.some(y=>y.id===x.id&&y.last_seen&&(Date.now()-new Date(y.last_seen).getTime()<5*60*1000))).length;
+  $('#companionStats').innerHTML=[['Total Devices',devices.length],['Pending Approval',pending],['Authorized',approved],['Online',online],['Offline',Math.max(0,offline)],['Denied / Revoked',denied+devices.filter(x=>!x.active).length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+  $('#companionHealth').innerHTML=[
+    ['Online now',online,''],
+    ['Pending authorization',pending,pending?'warn':''],
+    ['Authorized',approved,''],
+    ['Denied / revoked',denied+devices.filter(x=>!x.active).length,(denied||devices.filter(x=>!x.active).length)?'bad':'']
+  ].map(x=>'<div><span class="dot '+x[2]+'"></span><b>'+x[0]+'</b><br><span class="muted">'+x[1]+'</span></div>').join('');
+  $('#companionRegistrationsBody').innerHTML=devices.length?devices.map(x=>{
+    const status=x.authorization_status||'approved';
+    let action='';
+    if(status==='pending') action='<button class="btn green" onclick="approveCompanion('+Number(x.id)+')">Authorize</button> <button class="btn red" onclick="rejectCompanion('+Number(x.id)+')">Reject</button>';
+    else if(status==='approved') action='<span class="badge">AUTHORIZED</span> <button class="btn" onclick="reauthorizeCompanion('+Number(x.id)+')">New Token</button>';
+    else action='<span class="danger">DENIED</span> <button class="btn" onclick="reauthorizeCompanion('+Number(x.id)+')">Re-authorize</button>';
+    return '<tr><td><b>'+esc(x.device_name||'Android Device')+'</b><br><span class="muted">ID '+esc(x.id)+'</span></td><td>'+esc(x.customer_name||'Unmatched customer')+'<br>'+esc(x.phone||'')+'</td><td>'+esc(x.platform||'Android')+' '+esc(x.app_version||'')+'</td><td><span class="badge">'+esc(status)+'</span><br><span class="muted">'+esc(x.enrolled_at?new Date(x.enrolled_at).toLocaleString():'Not registered yet')+'</span></td><td>'+action+'</td></tr>';
+  }).join(''):'<tr><td colspan="5" class="empty">No Companion registrations yet.</td></tr>';
+  $('#companionDevicesBody').innerHTML=devices.length?devices.map(x=>{
+    const online=x.active&&x.last_seen&&(Date.now()-new Date(x.last_seen).getTime()<5*60*1000);
+    const status=!x.active?'Revoked':(x.authorization_status==='pending'?'Awaiting Admin Approval':(online?'Online / Active':'Offline'));
     const seen=x.last_seen?new Date(x.last_seen).toLocaleString():'Never';
     const action=x.active?'<button class="btn red" onclick="revokeCompanion('+Number(x.id)+')">Revoke</button>':'<span class="muted">Revoked</span>';
     return '<tr><td><b>'+esc(x.device_name||'Android Device')+'</b><br><span class="muted">'+esc(x.customer_name||'')+'</span></td><td>'+esc(x.phone||'')+'</td><td><span class="badge">'+esc(status)+'</span></td><td>'+esc(seen)+'</td><td>'+esc(x.platform||'Android')+' '+esc(x.app_version||'')+'</td><td>'+action+'</td></tr>';
@@ -183,8 +210,20 @@ async function loadCompanion(){
 async function loadCompanionMessages(){
   const channel=String($('#companionChannel')?.value||'');
   const d=await api('/api/admin/companion/messages?limit=200'+(channel?'&channel='+encodeURIComponent(channel):''));
-  $('#companionMessagesBody').innerHTML=d.messages.length?d.messages.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td><span class="badge">'+esc(x.channel)+'</span></td><td>'+esc(x.device_name||'')+'<br><span class="muted">'+esc(x.phone||'')+'</span></td><td>'+esc(x.sender||'')+'</td><td style="max-width:420px;white-space:pre-wrap">'+esc(x.body||'')+'</td><td>'+esc(x.status||'')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No Companion messages received.</td></tr>';
+  $('#companionMessagesBody').innerHTML=d.messages.length?d.messages.map(x=>{
+    let body=String(x.body||'');
+    let sender=String(x.sender||'');
+    if(x.channel==='call_log'){
+      let m={};try{m=typeof x.metadata==='string'?JSON.parse(x.metadata):(x.metadata||{});}catch{}
+      sender=m.phone_number||sender||'Unknown number';
+      body='<b>'+esc(m.call_type||'Call')+'</b> • '+esc(m.contact_name||'Unknown contact')+'<br>Duration: '+esc(m.duration_seconds||0)+' sec<br>Time: '+esc(m.timestamp?new Date(m.timestamp).toLocaleString():new Date(x.created_at).toLocaleString());
+    }
+    return '<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td><span class="badge">'+esc(x.channel)+'</span></td><td>'+esc(x.device_name||'')+'<br><span class="muted">'+esc(x.phone||'')+'</span></td><td>'+esc(sender)+'</td><td style="max-width:420px;white-space:pre-wrap">'+(x.channel==='call_log'?body:esc(body))+'</td><td>'+esc(x.status||'')+'</td></tr>';
+  }).join(''):'<tr><td colspan="6" class="empty">No Companion events received.</td></tr>';
 }
+async function approveCompanion(id){if(!confirm('Authorize this Companion device?'))return;await api('/api/admin/companion/devices/'+id+'/approve',{method:'POST'});await loadCompanion();}
+async function rejectCompanion(id){if(!confirm('Reject this Companion registration?'))return;await api('/api/admin/companion/devices/'+id+'/reject',{method:'POST'});await loadCompanion();}
+async function reauthorizeCompanion(id){if(!confirm('Generate a new one-time enrollment token for this device?'))return;const d=await api('/api/admin/companion/devices/'+id+'/reauthorize',{method:'POST'});const box=$('#companionTokenBox');box.hidden=false;box.innerHTML='<b>New enrollment token</b><div style="font-size:28px;font-weight:950;letter-spacing:3px;margin:10px 0;user-select:text">'+esc(d.enrollment_token)+'</div><div class="muted">Expires: '+new Date(d.expires_at).toLocaleString()+'</div><button type="button" class="btn" style="margin-top:10px" onclick="navigator.clipboard?.writeText('+JSON.stringify(d.enrollment_token)+')">Copy token</button>';}
 async function revokeCompanion(id){
   if(!confirm('Revoke this Companion device?')) return;
   await api('/api/admin/companion/devices/'+encodeURIComponent(id)+'/revoke',{method:'POST'});
