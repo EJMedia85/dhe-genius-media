@@ -55,6 +55,7 @@ class MainActivity : Activity() {
 
         findViewById<Button>(R.id.hostButton).setOnClickListener { showAdminLogin() }
         findViewById<Button>(R.id.clientButton).setOnClickListener { registerClient() }
+        findViewById<Button>(R.id.startClientButton).setOnClickListener { requestVpn(BridgeVpnService.MODE_CLIENT) }
         findViewById<Button>(R.id.testButton).setOnClickListener { testHostInternetPath() }
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             stopService(Intent(this, BridgeVpnService::class.java))
@@ -312,8 +313,8 @@ class MainActivity : Activity() {
                     .apply()
                 runOnUiThread {
                     try {
-                        status.text = "● PAIRED — STARTING CLIENT"
-                        requestVpn(BridgeVpnService.MODE_CLIENT)
+                        status.text = "● PAIRED — READY TO START CLIENT"
+                        Toast.makeText(this, "Pairing successful. Tap Start Client to begin the tunnel.", Toast.LENGTH_LONG).show()
                     } catch (t: Throwable) {
                         status.text = "● PAIRED — VPN START FAILED"
                         Toast.makeText(this, t.message ?: "VPN start failed", Toast.LENGTH_LONG).show()
