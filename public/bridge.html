@@ -11,7 +11,7 @@
 <h2 id="registerTitle">Register Bridge</h2><p id="registerIntro" class="muted">Register this device once. DGM Admin will authorize it before Bridge access is enabled.</p>
 <label>Device name</label><input id="deviceName" class="input" style="font-size:16px;letter-spacing:0;text-align:left" value="DGM Bridge">
 <label style="display:block;margin:14px 0 6px">Device type</label>
-<div class="role"><button id="hostRole" class="active">Host</button><button id="clientRole">Client</button></div>
+<div class="role"><button type="button" id="hostRole" class="active">Host</button><button type="button" id="clientRole">Client</button></div>
 
 <div id="hostAdminPanel" class="status" style="margin-top:14px">
   <b>🔐 Host is Admin-only</b>
@@ -66,6 +66,7 @@ function setRole(r){
   $('hostRole').classList.toggle('active',r==='host');
   $('clientRole').classList.toggle('active',r==='client');
   if(r==='host') checkAdminSession();
+  else { $('hostAdminPanel').classList.add('hidden'); $('clientPinPanel').classList.remove('hidden'); $('regStatus').innerHTML='This device is not registered.'; }
   updateHostPanel();
 }
 async function api(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(!r.ok||d.success===false)throw Error(d.message||('HTTP '+r.status));return d}
@@ -98,7 +99,7 @@ function openHost(){
   $('deviceInfo').textContent='DGM Host';
 }
 function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPanel').classList.add('hidden');$('registerPanel').classList.remove('hidden');setRole('host')}
-$('hostRole').onclick=()=>setRole('host');$('clientRole').onclick=()=>setRole('client');$('adminLoginBtn').onclick=adminLogin;$('registerBtn').onclick=register;$('connectBtn').onclick=connect;$('logoutBtn').onclick=lock;
+$('hostRole').addEventListener('click',()=>setRole('host'));$('clientRole').addEventListener('click',()=>setRole('client'));$('adminLoginBtn').onclick=adminLogin;$('registerBtn').onclick=register;$('connectBtn').onclick=connect;$('logoutBtn').onclick=lock;
 updateHostPanel();
 if(role==='host')checkAdminSession();
 if(device&&role!=='host')check();
