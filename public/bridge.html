@@ -94,7 +94,7 @@ function openHost(){
 }
 function registerClient(){
  var pin=el("regPin").value.trim();
- if(!/^\\d{6}$/.test(pin)){el("regStatus").innerHTML='<span class="error">Enter exactly 6 digits for the Bridge PIN.</span>';return;}
+ if(!/^\d{6}$/.test(pin)){el("regStatus").innerHTML='<span class="error">Enter exactly 6 digits for the Bridge PIN.</span>';return;}
  var id=(device&&device.device_id)||((window.crypto&&crypto.randomUUID)?crypto.randomUUID():"dgm-"+Date.now()+"-"+Math.random().toString(36).slice(2));
  var bytes=new Uint8Array(32);
  if(window.crypto&&crypto.getRandomValues)crypto.getRandomValues(bytes);
@@ -130,7 +130,7 @@ el("adminLogin").onclick=function(){
 el("registerBtn").onclick=registerClient;
 el("connectBtn").onclick=function(){
  var pin=el("loginPin").value.trim();
- if(!/^\\d{6}$/.test(pin)){el("connectStatus").innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return;}
+ if(!/^\d{6}$/.test(pin)){el("connectStatus").innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return;}
  api("/api/bridge/connect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_id:device.device_id,pin:pin})})
  .then(function(data){token=data.token||"";localStorage.setItem(KEY+".token",token);show("connectPanel",false);show("authorizedPanel",true);el("readyTitle").textContent="Client Connected";el("readyIntro").textContent="DGM Admin approved this device.";el("readyStatus").textContent="Bridge connection is active.";})
  .catch(function(err){el("connectStatus").innerHTML='<span class="error">'+err.message+"</span>";});
