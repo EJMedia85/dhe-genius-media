@@ -47,7 +47,7 @@ class BridgeSocks(
             BridgeMux.OPEN_OK -> streams[p.id]?.let { sendClientReply(it.socket, 0) }
             BridgeMux.OPEN_FAIL -> streams.remove(p.id)?.let { close(it.socket) }
             BridgeMux.DATA -> streams[p.id]?.let { write(it.output, p.payload) }
-            BridgeMux.UDP -> if (hostMode) executor.execute { openRemoteUdp(p.id, p.payload) }
+            BridgeMux.UDP -> if (hostMode) executor.execute { openRemoteUdp(p.id, p.payload) } else executor.execute { sendClientUdp(p.id, p.payload) }
             BridgeMux.CLOSE -> {
                 streams.remove(p.id)?.let { close(it.socket) }
                 udpSockets.remove(p.id)?.close()
@@ -221,6 +221,61 @@ class BridgeSocks(
             } catch (_: SocketTimeoutException) {
                 // UDP is connectionless; no response is a normal condition.
             }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun sendClientUdp(id: Int, payload: ByteArray) {
+        val udp = udpSockets[id] ?: return
+        try {
+            val b = ByteBuffer.wrap(payload)
+            val hostLen = b.short.toInt() and 65535
+            require(hostLen > 0 && hostLen <= b.remaining())
+            val hostBytes = ByteArray(hostLen)
+            b.get(hostBytes)
+            val port = b.short.toInt() and 65535
+            val dataLen = b.int
+            require(dataLen >= 0 && dataLen <= b.remaining())
+            val data = ByteArray(dataLen)
+            b.get(data)
+
+            val host = String(hostBytes, Charsets.UTF_8)
+            val address = InetAddress.getByName(host)
+            val header = ByteArrayOutputStream()
+            val out = DataOutputStream(header)
+            out.writeShort(0)
+            out.writeByte(0)
+
+            when (address) {
+                is Inet4Address -> {
+                    out.writeByte(1)
+                    out.write(address.address)
+                }
+                is Inet6Address -> {
+                    out.writeByte(4)
+                    out.write(address.address)
+                }
+                else -> {
+                    val domain = host.toByteArray(Charsets.UTF_8)
+                    require(domain.size <= 255)
+                    out.writeByte(3)
+                    out.writeByte(domain.size)
+                    out.write(domain)
+                }
+            }
+
+            out.writeShort(port)
+            out.write(data)
+            out.flush()
+
+            val packetBytes = header.toByteArray()
+            val packet = DatagramPacket(
+                packetBytes,
+                packetBytes.size,
+                InetAddress.getByName("127.0.0.1"),
+                udp.localPort
+            )
+            DatagramSocket().use { sender -> sender.send(packet) }
         } catch (_: Exception) {
         }
     }
