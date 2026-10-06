@@ -182,19 +182,29 @@ function filterBridgeTables(){
 function renderBridgeRegistrations(rows){
   $('#bridgeRegistrationsBody').innerHTML=rows.length?rows.map(x=>{
     const pending=x.approval_status==='pending',denied=x.approval_status==='denied';
-    const actions=pending?'<button class="btn green" onclick="bridgeApprove(\\''+encodeURIComponent(x.device_id)+'\\')">Approve</button> <button class="btn" onclick="bridgeDeny(\\''+encodeURIComponent(x.device_id)+'\\')">Deny</button>':(denied?'<span class="muted">Denied</span>':'<span class="badge">AUTHORIZED</span>');
-    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+' <button class="btn" onclick="bridgeResetPin(\\''+encodeURIComponent(x.device_id)+'\\')">Reset PIN</button></td></tr>';
+    const id=encodeURIComponent(x.device_id);
+    const actions=pending
+      ? '<button class="btn green" onclick="bridgeApprove(\''+id+'\')">Approve</button> <button class="btn" onclick="bridgeDeny(\''+id+'\')">Deny</button>'
+      : (denied?'<span class="muted">Denied</span>':'<span class="badge">AUTHORIZED</span>');
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+' <button class="btn" onclick="bridgeResetPin(\''+id+'\')">Reset PIN</button></td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">No matching Bridge registrations.</td></tr>';
 }
 function renderBridgeDevices(rows){
   $('#bridgeDevicesBody').innerHTML=rows.length?rows.map(x=>{
-    const quality=bridgeAgeStatus(x.last_seen); const online=quality.label==='ONLINE';
-    const action=x.status==='suspended'?'<button class="btn green" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'resume\\')">Resume</button>':x.status==='revoked'?'<button class="btn" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'resume\\')">Re-enable</button>':'<button class="btn" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'suspend\\')">Suspend</button> <button class="btn red" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'revoke\\')">Revoke</button>';
-    const rename='<button class="btn" onclick="bridgeRename(\\''+encodeURIComponent(x.device_id)+'\\',\\''+encodeURIComponent(x.device_name||'DGM Bridge')+'\\')">Rename</button>';
-    const copy='<button class="btn" onclick="copyBridgeText(\\''+encodeURIComponent(x.device_id)+'\\')">Copy ID</button>';
-    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'<br><span class="muted">'+esc(x.platform||'Android')+'</span></td><td><span class="dot '+(online?'':'bad')+'"></span>'+quality.label+'<br><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td><span class="badge">'+(x.paired?'PAIRED':'—')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+(x.last_error?'<br><span class="danger">'+esc(x.last_error)+'</span>':'')+'</td><td>'+copy+' '+rename+' <button class="btn" onclick="bridgeResetPin(\\''+encodeURIComponent(x.device_id)+'\\')">Reset PIN</button> '+action+'</td></tr>';
+    const quality=bridgeAgeStatus(x.last_seen);
+    const online=quality.label==='ONLINE';
+    const id=encodeURIComponent(x.device_id);
+    const action=x.status==='suspended'
+      ? '<button class="btn green" onclick="bridgeAction(\''+id+'\',\'resume\')">Resume</button>'
+      : x.status==='revoked'
+        ? '<button class="btn" onclick="bridgeAction(\''+id+'\',\'resume\')">Re-enable</button>'
+        : '<button class="btn" onclick="bridgeAction(\''+id+'\',\'suspend\')">Suspend</button> <button class="btn red" onclick="bridgeAction(\''+id+'\',\'revoke\')">Revoke</button>';
+    const rename='<button class="btn" onclick="bridgeRename(\''+id+'\',\''+encodeURIComponent(x.device_name||'DGM Bridge')+'\')">Rename</button>';
+    const copy='<button class="btn" onclick="copyBridgeText(\''+id+'\')">Copy ID</button>';
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'<br><span class="muted">'+esc(x.platform||'Android')+'</span></td><td><span class="dot '+(online?'':'bad')+'"></span>'+quality.label+'<br><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td><span class="badge">'+(x.paired?'PAIRED':'—')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+(x.last_error?'<br><span class="danger">'+esc(x.last_error)+'</span>':'')+'</td><td>'+copy+' '+rename+' <button class="btn" onclick="bridgeResetPin(\''+id+'\')">Reset PIN</button> '+action+'</td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">No matching Bridge devices.</td></tr>';
 }
+
 async function copyBridgeText(v){try{await navigator.clipboard.writeText(decodeURIComponent(v));alert('Device ID copied.')}catch{alert(decodeURIComponent(v))}}
 function startBridgeAutoRefresh(){
   clearInterval(bridgeAutoRefreshTimer);
