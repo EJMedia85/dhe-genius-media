@@ -26,6 +26,13 @@ class MainActivity : Activity() {
 
     private val api by lazy { BridgeApi() }
 
+    private val clientPin by lazy {
+        val prefs = getSharedPreferences("dgm_bridge", MODE_PRIVATE)
+        prefs.getString("client_pin", null) ?: (100000..999999).random().toString().also {
+            prefs.edit().putString("client_pin", it).apply()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -158,7 +165,7 @@ class MainActivity : Activity() {
         status.text = "● PAIRING CLIENT"
         io.execute {
             try {
-                api.register(deviceIdValue, BridgeVpnService.MODE_CLIENT, BridgeSecurity.publicKey(this))
+                api.register(deviceIdValue, BridgeVpnService.MODE_CLIENT, BridgeSecurity.publicKey(this), pin = clientPin)
                 runOnUiThread { status.text = "● WAITING FOR ADMIN APPROVAL" }
                 awaitAuthorization()
                 val result = api.claimPairing(code, secret)
