@@ -41,7 +41,7 @@ class MainActivity : Activity() {
         deviceId.text = "Device ID: $deviceIdValue\nFingerprint: ${BridgeSecurity.fingerprint(this)}"
 
         findViewById<Button>(R.id.hostButton).setOnClickListener { showAdminLogin() }
-        findViewById<Button>(R.id.clientButton).setOnClickListener { showPairingDialog() }
+        findViewById<Button>(R.id.clientButton).setOnClickListener { registerClient() }
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             stopService(Intent(this, BridgeVpnService::class.java))
             status.text = "● DISCONNECTED"
@@ -177,6 +177,42 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun registerClient() {
+        status.text = "● REGISTERING CLIENT"
+        io.execute {
+            try {
+                api.register(
+                    deviceIdValue,
+                    BridgeVpnService.MODE_CLIENT,
+                    BridgeSecurity.publicKey(this),
+                    pin = clientPin
+                )
+                runOnUiThread {
+                    status.text = "● WAITING FOR ADMIN APPROVAL"
+                    Toast.makeText(
+                        this,
+                        "Client registered. DGM Admin must authorize this device before pairing.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                awaitAuthorization()
+                runOnUiThread {
+                    status.text = "● CLIENT AUTHORIZED"
+                    showPairingDialog()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    status.text = "● REGISTRATION FAILED"
+                    Toast.makeText(
+                        this,
+                        e.message ?: "Client registration failed",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+    }
+
     private fun showPairingDialog() {
         val input = EditText(this).apply {
             hint = "Paste QR payload or enter code|secret"
@@ -211,9 +247,6 @@ class MainActivity : Activity() {
         status.text = "● PAIRING CLIENT"
         io.execute {
             try {
-                api.register(deviceIdValue, BridgeVpnService.MODE_CLIENT, BridgeSecurity.publicKey(this), pin = clientPin)
-                runOnUiThread { status.text = "● WAITING FOR ADMIN APPROVAL" }
-                awaitAuthorization()
                 val result = api.claimPairing(code, secret)
                 getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit()
                     .putString("session_id", result.getString("session_id"))
