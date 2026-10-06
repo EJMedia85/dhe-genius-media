@@ -13,11 +13,9 @@
 <body>
 <div class="wrap">
 <div class="brand">DHE GENIUS MEDIA</div>
-<div class="hero"><div class="muted">Stay Connected. Stay Genius.</div><h1>DGM Bridge</h1><div class="muted">DGM Bridge dashboard</div></div>
+<div class="hero"><div class="muted">Stay Connected. Stay Genius.</div><h1>DGM Bridge</h1><div class="muted">Choose Client or Admin-only Host access.</div></div>
 
-<div id="dashboardPanel" class="panel"><h2>DGM Bridge Dashboard</h2><p class="muted">Choose how this device will use DGM Bridge.</p><div class="role"><button type="button" id="dashboardHost">Host</button><button type="button" id="dashboardClient">Client</button></div><div id="dashboardStatus" class="status">No Bridge role selected.</div></div>
-
-<div id="registerPanel" class="panel hidden">
+<div id="registerPanel" class="panel">
 <h2>Register Bridge</h2>
 <p class="muted">Choose how this device will use DGM Bridge.</p>
 <label>Device name</label>
@@ -74,8 +72,6 @@ function el(id){return document.getElementById(id);}
 function show(id,on){el(id).classList.toggle("hidden",!on);}
 function setActive(r){
  role=r;
- show("dashboardPanel",true);
- show("registerPanel",true);
  el("hostRole").classList.toggle("active",r==="host");
  el("clientRole").classList.toggle("active",r==="client");
  show("hostPanel",r==="host");
@@ -92,7 +88,6 @@ function api(url,options){
 }
 function openHost(){
  show("registerPanel",false);show("connectPanel",false);show("authorizedPanel",true);
- show("dashboardPanel",true);
  el("readyTitle").textContent="Host Bridge";
  el("readyIntro").textContent="Host access granted by DGM Admin.";
  el("readyStatus").textContent="Host Bridge is ready.";
@@ -115,15 +110,12 @@ function checkApproval(){
  api("/api/bridge/registration-status?device_id="+encodeURIComponent(device.device_id)).then(function(data){
   if(data.approval_status==="approved"){
    show("registerPanel",false);show("connectPanel",true);
-   show("dashboardPanel",true);
    el("connectStatus").innerHTML='<span class="ok">Approved. Enter your 6-digit PIN.</span>';
   }else{
    el("regStatus").textContent=data.message||"Waiting for DGM Admin approval.";
   }
  }).catch(function(){});
 }
-el("dashboardHost").onclick=function(){setActive("host");};
-el("dashboardClient").onclick=function(){setActive("client");};
 el("hostRole").onclick=function(){setActive("host");};
 el("clientRole").onclick=function(){setActive("client");};
 el("adminLogin").onclick=function(){
@@ -140,15 +132,13 @@ el("connectBtn").onclick=function(){
  var pin=el("loginPin").value.trim();
  if(!/^\d{6}$/.test(pin)){el("connectStatus").innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return;}
  api("/api/bridge/connect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_id:device.device_id,pin:pin})})
- .then(function(data){token=data.token||"";localStorage.setItem(KEY+".token",token);show("connectPanel",false);show("authorizedPanel",true);show("dashboardPanel",true);el("readyTitle").textContent="Client Connected";el("readyIntro").textContent="DGM Admin approved this device.";el("readyStatus").textContent="Bridge connection is active.";})
+ .then(function(data){token=data.token||"";localStorage.setItem(KEY+".token",token);show("connectPanel",false);show("authorizedPanel",true);el("readyTitle").textContent="Client Connected";el("readyIntro").textContent="DGM Admin approved this device.";el("readyStatus").textContent="Bridge connection is active.";})
  .catch(function(err){el("connectStatus").innerHTML='<span class="error">'+err.message+"</span>";});
 };
 el("lockBtn").onclick=function(){localStorage.removeItem(KEY+".token");localStorage.removeItem(KEY+".role");location.reload();};
 
-show("dashboardPanel",true);show("registerPanel",false);show("connectPanel",false);show("authorizedPanel",false);show("hostPanel",false);show("clientPanel",false);
-if(device&&device.role==="client"){
- el("dashboardStatus").innerHTML="<span class=\"ok\">Bridge device registered.</span><br>Select Client to continue.";
-}
+show("hostPanel",false);show("clientPanel",false);
+if(device&&device.role==="client")checkApproval();
 })();
 </script>
 </body>
