@@ -393,7 +393,7 @@ function installBridge(app) {
         "INSERT INTO dgm_bridge_pairings(code,secret_hash,host_device_id,expires_at,session_id) VALUES($1,$2,$3,NOW()+INTERVAL '5 minutes',$4)",
         [code,hmac("pair:"+secret),hostId,sessionId]
       );
-      const hostRelayToken=token({sid:sessionId,host:hostId,exp:Date.now()+12*60*60*1000});
+      const hostRelayToken=token({sid:sessionId,relay_sid:sessionId,host:hostId,exp:Date.now()+12*60*60*1000});
       res.json({
         success:true,
         expires_in:300,
@@ -422,7 +422,7 @@ function installBridge(app) {
         "INSERT INTO dgm_bridge_pairings(code,secret_hash,host_device_id,expires_at,session_id) VALUES($1,$2,$3,NOW()+INTERVAL '5 minutes',$4)",
         [code,hmac("pair:"+secret),auth.sub,sessionId]
       );
-      const hostRelayToken=token({sid:sessionId,host:auth.sub,exp:Date.now()+12*60*60*1000});
+      const hostRelayToken=token({sid:auth.sid,relay_sid:sessionId,host:auth.sub,device:auth.sub,exp:Date.now()+12*60*60*1000});
       res.json({
         success:true,
         expires_in:300,
@@ -481,7 +481,7 @@ function installBridge(app) {
       if (row.claimed_by) return res.status(409).json({success:false,message:"Pairing code has already been used."});
       if (!crypto.timingSafeEqual(Buffer.from(row.secret_hash),Buffer.from(hmac("pair:"+secret)))) return res.status(403).json({success:false,message:"Pairing secret is invalid."});
       await pool.query("UPDATE dgm_bridge_pairings SET claimed_by=$1,claimed_at=NOW() WHERE code=$2",[auth.sub,code]);
-      const sessionToken=token({sid:row.session_id,host:row.host_device_id,client:auth.sub,exp:Date.now()+12*60*60*1000});
+      const sessionToken=token({sid:auth.sid,relay_sid:row.session_id,host:row.host_device_id,client:auth.sub,device:auth.sub,exp:Date.now()+12*60*60*1000});
       res.json({success:true,session_id:row.session_id,session_token:sessionToken,host_device_id:row.host_device_id});
     } catch(e) {
       console.error("Bridge pair claim:",e.message);
@@ -511,30 +511,55 @@ function installBridge(app) {
     const server=originalListen.apply(this,args);
     const wss=new WebSocketServer({server,path:"/api/bridge/relay",maxPayload:2*1024*1024});
     const sessions=new Map();
-    wss.on("connection",(ws,req)=>{
+    const relaySessions=new Map();
+    const relayValidationMs=10000;
+    async function validateRelayPeer(peer,role){
+      const deviceId=role==="host"?peer.host:peer.client;
+      const deviceSid=peer.sid;
+      if(!deviceId || !deviceSid || !pool) return false;
+      const row=(await pool.query(
+        "SELECT approval_status,status,active_session_id FROM dgm_bridge_devices WHERE device_id=$1 AND role=$2",
+        [deviceId,role]
+      )).rows[0];
+      return Boolean(row && row.approval_status==="approved" && !["revoked","suspended"].includes(row.status) && row.active_session_id===deviceSid);
+    }
+    wss.on("connection",async (ws,req)=>{
       try {
         const url=new URL(req.url,"http://bridge.local");
         const relayToken=verifyToken(url.searchParams.get("token"));
         const role=url.searchParams.get("role");
-        if(!relayToken || !relayToken.sid || !["host","client"].includes(role)) return ws.close(1008,"unauthorized");
-        if ((role==="host" && relayToken.host===undefined) || (role==="client" && relayToken.client===undefined)) return ws.close(1008,"unauthorized");
-        const sid=relayToken.sid;
-        let state=sessions.get(sid);
-        if(!state){state={};sessions.set(sid,state);}
+        if(!relayToken || !relayToken.relay_sid || !["host","client"].includes(role)) return ws.close(1008,"unauthorized");
+        if ((role==="host" && !relayToken.host) || (role==="client" && !relayToken.client)) return ws.close(1008,"unauthorized");
+        const relaySid=relayToken.relay_sid;
+        const deviceId=role==="host"?relayToken.host:relayToken.client;
+        const peer={ws,role,host:relayToken.host,client:relayToken.client,sid:relayToken.sid,device:deviceId};
+        if(!await validateRelayPeer(peer,role)) return ws.close(1008,"device not authorized");
+        let state=relaySessions.get(relaySid);
+        if(!state){state={};relaySessions.set(relaySid,state);}
         if(state[role]) return ws.close(1008,"duplicate role");
-        state[role]=ws;
+        state[role]=peer;
+        const validateTimer=setInterval(async()=>{
+          try{
+            if(ws.readyState!==1){clearInterval(validateTimer);return;}
+            if(!await validateRelayPeer(peer,role)){clearInterval(validateTimer);try{ws.close(1008,"device authorization revoked");}catch{}}
+          }catch{clearInterval(validateTimer);try{ws.close(1011,"relay validation error");}catch{}}
+        },relayValidationMs);
         ws.on("message",(data,isBinary)=>{
-          const peer=state[role==="host"?"client":"host"];
-          if(peer && peer.readyState===1) peer.send(data,{binary:isBinary});
+          const other=state[role==="host"?"client":"host"];
+          if(other && other.ws.readyState===1) other.ws.send(data,{binary:isBinary});
         });
-        ws.on("close",()=>{ if(state[role]===ws) delete state[role]; if(!state.host&&!state.client)sessions.delete(sid); });
-        ws.send(JSON.stringify({type:"ready",role,session_id:sid}));
-        const peer=state[role==="host"?"client":"host"];
-        if(peer && peer.readyState===1){
-          peer.send(JSON.stringify({type:"peer_ready",session_id:sid}));
-          ws.send(JSON.stringify({type:"peer_ready",session_id:sid}));
+        ws.on("close",()=>{
+          clearInterval(validateTimer);
+          if(state[role]===peer) delete state[role];
+          if(!state.host&&!state.client) relaySessions.delete(relaySid);
+        });
+        ws.send(JSON.stringify({type:"ready",role,session_id:relaySid}));
+        const other=state[role==="host"?"client":"host"];
+        if(other && other.ws.readyState===1){
+          other.ws.send(JSON.stringify({type:"peer_ready",session_id:relaySid}));
+          ws.send(JSON.stringify({type:"peer_ready",session_id:relaySid}));
         }
-      } catch { ws.close(1011,"relay error"); }
+      } catch { try{ws.close(1011,"relay error");}catch{} }
     });
     return server;
   };
