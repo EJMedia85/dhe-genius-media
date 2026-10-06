@@ -2,106 +2,39 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07130d"><title>DGM Bridge</title>
 <style>
 :root{--bg:#06100c;--panel:#0b1711;--line:#20372b;--text:#f4faf7;--muted:#91a49a;--green:#25d366;--danger:#ef5350;--amber:#f6c453}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#10251a,#06100c 55%);color:var(--text);font-family:Inter,Arial,sans-serif;min-height:100vh}.wrap{width:min(520px,100%);margin:auto;padding:24px 18px}.brand{color:var(--green);font-weight:950;letter-spacing:1.3px;font-size:14px}.hero{text-align:center;padding:38px 0 22px}.hero h1{font-size:36px;margin:9px 0}.muted{color:var(--muted);line-height:1.5}.panel{background:rgba(11,23,17,.97);border:1px solid var(--line);border-radius:22px;padding:22px;margin-top:15px;box-shadow:0 18px 50px #0006}.input{width:100%;background:#07110d;color:#fff;border:1px solid #294236;border-radius:13px;padding:14px;text-align:center;font-size:24px;letter-spacing:8px}.btn{width:100%;border:1px solid #294236;background:#17251e;color:#fff;border-radius:13px;padding:14px;font-weight:900;cursor:pointer}.btn.green{background:var(--green);color:#041008;border-color:var(--green)}.btn:disabled{opacity:.55}.status{margin-top:14px;padding:14px;border-radius:13px;background:#07110d;border:1px solid var(--line)}.badge{display:inline-flex;padding:5px 10px;border-radius:20px;background:#163021;color:var(--green);font-weight:900;font-size:11px}.badge.pending{color:var(--amber);background:#352d12}.badge.denied{color:#ff9b97;background:#351615}.error{color:#ff9b97}.ok{color:var(--green)}.hidden{display:none!important}.role{display:grid;grid-template-columns:1fr 1fr;gap:9px}.role button{background:#102018;color:#dce9e2;border:1px solid var(--line);padding:12px;border-radius:12px;font-weight:900}.role button.active{background:var(--green);color:#041008;border-color:var(--green)}.pin-title{text-align:center}.device-id{font-size:11px;color:var(--muted);word-break:break-all;margin-top:10px}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#10251a,#06100c 55%);color:var(--text);font-family:Inter,Arial,sans-serif;min-height:100vh}.wrap{width:min(520px,100%);margin:auto;padding:24px 18px}.brand{color:var(--green);font-weight:950;letter-spacing:1.3px;font-size:14px}.hero{text-align:center;padding:38px 0 22px}.hero h1{font-size:36px;margin:9px 0}.muted{color:var(--muted);line-height:1.5}.panel{background:rgba(11,23,17,.97);border:1px solid var(--line);border-radius:22px;padding:22px;margin-top:15px;box-shadow:0 18px 50px #0006}.input{width:100%;background:#07110d;color:#fff;border:1px solid #294236;border-radius:13px;padding:14px;text-align:center;font-size:24px;letter-spacing:8px}.btn{width:100%;border:1px solid #294236;background:#17251e;color:#fff;border-radius:13px;padding:14px;font-weight:900;cursor:pointer}.btn.green{background:var(--green);color:#041008;border-color:var(--green)}.btn:disabled{opacity:.55}.status{margin-top:14px;padding:14px;border-radius:13px;background:#07110d;border:1px solid var(--line)}.badge{display:inline-flex;padding:5px 10px;border-radius:20px;background:#163021;color:var(--green);font-weight:900;font-size:11px}.badge.pending{color:var(--amber);background:#352d12}.badge.denied{color:#ff9b97;background:#351615}.error{color:#ff9b97}.ok{color:var(--green)}.hidden{display:none!important}.role{display:grid;grid-template-columns:1fr 1fr;gap:9px}.role button{background:#102018;color:#dce9e2;border:1px solid var(--line);padding:12px;border-radius:12px;font-weight:900;cursor:pointer}.role button.active{background:var(--green);color:#041008;border-color:var(--green)}.pin-title{text-align:center}.device-id{font-size:11px;color:var(--muted);word-break:break-all;margin-top:10px}
 </style></head><body><div class="wrap">
 <div class="brand">DHE GENIUS MEDIA</div>
 <div class="hero"><div class="muted">Stay Connected. Stay Genius.</div><h1>DGM Bridge</h1><div class="muted">Choose Client or Admin-only Host access.</div></div>
-
 <div id="registerPanel" class="panel">
 <h2 id="registerTitle">Register Bridge</h2><p id="registerIntro" class="muted">Register this device once. DGM Admin will authorize it before Bridge access is enabled.</p>
 <label>Device name</label><input id="deviceName" class="input" style="font-size:16px;letter-spacing:0;text-align:left" value="DGM Bridge">
 <label style="display:block;margin:14px 0 6px">Device type</label>
-<div class="role"><button type="button" id="hostRole" class="active">Host</button><button type="button" id="clientRole">Client</button></div>
-
-<div id="hostAdminPanel" class="status" style="margin-top:14px">
-  <b>🔐 Host is Admin-only</b>
-  <p class="muted" style="margin:8px 0 12px">Selecting Host requires DGM Admin login. Normal Bridge users should select Client.</p>
-  <div id="adminLoginForm">
-    <input id="adminEmail" class="input" style="font-size:16px;letter-spacing:0;text-align:left;margin-bottom:9px" type="email" autocomplete="username" placeholder="Admin email">
-    <input id="adminPassword" class="input" style="font-size:16px;letter-spacing:0;text-align:left" type="password" autocomplete="current-password" placeholder="Admin password">
-    <button id="adminLoginBtn" class="btn green" style="margin-top:10px">Admin Login</button>
-  </div>
-  <div id="adminLoginStatus" class="muted" style="margin-top:10px"></div>
-</div>
-
-<div id="clientPinPanel"><label style="display:block;margin:14px 0 6px">Create 6-digit Bridge PIN</label>
-<input id="regPin" class="input" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••">
-<button id="registerBtn" class="btn green" style="margin-top:14px">Register Device</button></div>
-<div id="regStatus" class="status">This device is not registered.</div>
-</div>
-
-<div id="connectPanel" class="panel hidden">
-<div class="pin-title"><h2>Enter Bridge PIN</h2><p class="muted">Use your 6-digit PIN to unlock this authorized device.</p></div>
-<input id="loginPin" class="input" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="••••••">
-<button id="connectBtn" class="btn green" style="margin-top:14px">Connect</button>
-<div id="connectStatus" class="status"></div>
-</div>
-
-<div id="authorizedPanel" class="panel hidden">
-<div class="pin-title"><span class="badge">CONNECTED</span><h2 id="readyTitle">Bridge Ready</h2><p id="readyIntro" class="muted">This device is authorized by DGM Admin.</p></div>
-<div id="deviceInfo" class="device-id"></div>
-<div class="status"><b id="readyStatus">Bridge access enabled.</b></div>
-<button id="logoutBtn" class="btn" style="margin-top:12px">Lock Bridge</button>
-</div>
+<div class="role"><button type="button" id="hostRole">Host</button><button type="button" id="clientRole" class="active">Client</button></div>
+<div id="hostAdminPanel" class="status hidden" style="margin-top:14px">
+<b>🔐 Host is Admin-only</b><p class="muted" style="margin:8px 0 12px">Selecting Host requires DGM Admin login. Normal Bridge users should select Client.</p>
+<div id="adminLoginForm"><input id="adminEmail" class="input" style="font-size:16px;letter-spacing:0;text-align:left;margin-bottom:9px" type="email" autocomplete="username" placeholder="Admin email"><input id="adminPassword" class="input" style="font-size:16px;letter-spacing:0;text-align:left" type="password" autocomplete="current-password" placeholder="Admin password"><button id="adminLoginBtn" class="btn green" style="margin-top:10px">Admin Login</button></div>
+<div id="adminLoginStatus" class="muted" style="margin-top:10px"></div></div>
+<div id="clientPinPanel"><label style="display:block;margin:14px 0 6px">Create 6-digit Bridge PIN</label><input id="regPin" class="input" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••"><button id="registerBtn" class="btn green" style="margin-top:14px">Register Device</button></div>
+<div id="regStatus" class="status">This device is not registered.</div></div>
+<div id="connectPanel" class="panel hidden"><div class="pin-title"><h2>Enter Bridge PIN</h2><p class="muted">Use your 6-digit PIN to unlock this authorized device.</p></div><input id="loginPin" class="input" inputmode="numeric" maxlength="6" autocomplete="current-password" placeholder="••••••"><button id="connectBtn" class="btn green" style="margin-top:14px">Connect</button><div id="connectStatus" class="status"></div></div>
+<div id="authorizedPanel" class="panel hidden"><div class="pin-title"><span class="badge">CONNECTED</span><h2 id="readyTitle">Bridge Ready</h2><p id="readyIntro" class="muted">This device is authorized by DGM Admin.</p></div><div id="deviceInfo" class="device-id"></div><div class="status"><b id="readyStatus">Bridge access enabled.</b></div><button id="logoutBtn" class="btn" style="margin-top:12px">Lock Bridge</button></div>
 </div>
 <script>
-const $=id=>document.getElementById(id), key='dgm.bridge.device';
-let role=localStorage.getItem(key+'.role')||'client', device=JSON.parse(localStorage.getItem(key)||'null'), token=localStorage.getItem(key+'.token')||'', adminLoggedIn=false;
-function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+const $=id=>document.getElementById(id),key='dgm.bridge.device';let role=localStorage.getItem(key+'.role')||'client',device=JSON.parse(localStorage.getItem(key)||'null'),token=localStorage.getItem(key+'.token')||'',adminLoggedIn=false;
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])}
 async function checkAdminSession(){try{const d=await api('/api/admin/me');adminLoggedIn=!!d.success;updateHostPanel();if(role==='host'&&adminLoggedIn)openHost()}catch{adminLoggedIn=false;updateHostPanel()}}
-function updateHostPanel(){
-  const host=role==='host';
-  $('hostAdminPanel').classList.toggle('hidden',!host);
-  $('clientPinPanel').classList.toggle('hidden',host);
-  $('regPin').disabled=host;
-  $('registerBtn').disabled=host;
-  if(host){
-    $('adminLoginForm').classList.toggle('hidden',adminLoggedIn);
-    $('adminLoginStatus').innerHTML=adminLoggedIn?'<span class="ok">Admin authenticated. Host registration is unlocked.</span>':'Admin login is required before a Host can be registered.';
-  }
-}
-function setRole(r){
-  role=r;
-  localStorage.setItem(key+'.role',r);
-  $('hostRole').classList.toggle('active',r==='host');
-  $('clientRole').classList.toggle('active',r==='client');
-  if(r==='host') checkAdminSession();
-  else { $('hostAdminPanel').classList.add('hidden'); $('clientPinPanel').classList.remove('hidden'); $('regStatus').innerHTML='This device is not registered.'; }
-  updateHostPanel();
-}
+function updateHostPanel(){const host=role==='host';$('hostAdminPanel').classList.toggle('hidden',!host);$('clientPinPanel').classList.toggle('hidden',host);$('regPin').disabled=host;$('registerBtn').disabled=host;if(host){$('adminLoginForm').classList.toggle('hidden',adminLoggedIn);$('adminLoginStatus').innerHTML=adminLoggedIn?'<span class="ok">Admin authenticated. Host registration is unlocked.</span>':'Admin login is required before a Host can be registered.'}}
+function setRole(r){role=r;localStorage.setItem(key+'.role',r);$('hostRole').classList.toggle('active',r==='host');$('clientRole').classList.toggle('active',r==='client');if(r==='host')checkAdminSession();else{adminLoggedIn=false;$('hostAdminPanel').classList.add('hidden');$('clientPinPanel').classList.remove('hidden');$('regStatus').innerHTML='This device is not registered.'}updateHostPanel()}
 async function api(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(!r.ok||d.success===false)throw Error(d.message||('HTTP '+r.status));return d}
-function showRegistration(msg,cls='pending'){ $('regStatus').innerHTML='<span class="badge '+cls+'">'+(cls==='pending'?'PENDING':'REGISTERED')+'</span><p class="muted">'+esc(msg)+'</p>'+(device?.device_id?'<div class="device-id">Device ID: '+esc(device.device_id)+'</div>':'');}
-function showConnect(){ $('registerPanel').classList.add('hidden');$('connectPanel').classList.remove('hidden');$('authorizedPanel').classList.add('hidden');}
-async function check(){if(role==='host')return;if(!device?.device_id)return;try{const d=await api('/api/bridge/registration-status?device_id='+encodeURIComponent(device.device_id));if(d.approval_status==='approved'){showConnect();$('connectStatus').innerHTML='<span class="badge">AUTHORIZED</span><p class="muted">Admin approved this device. Enter your PIN to connect.</p>'}else{showRegistration(d.message||'Waiting for DGM Admin authorization.',d.approval_status==='denied'?'denied':'pending')}}catch(e){showRegistration(e.message,'denied')}}
-async function adminLogin(){
-  const email=$('adminEmail').value.trim(), password=$('adminPassword').value;
-  if(!email||!password){$('adminLoginStatus').innerHTML='<span class="error">Enter the DGM Admin email and password.</span>';return}
-  $('adminLoginBtn').disabled=true;$('adminLoginBtn').textContent='Signing in...';
-  try{
-    const d=await api('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
-    adminLoggedIn=!!d.success;
-    $('adminPassword').value='';
-    $('adminLoginStatus').innerHTML='<span class="ok">Admin authenticated. Opening Host Bridge…</span>';
-    updateHostPanel();
-    openHost();
-  }catch(e){$('adminLoginStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>'}
-  finally{$('adminLoginBtn').disabled=false;$('adminLoginBtn').textContent='Admin Login'}
-}
-async function register(){if(role==='host'&&!adminLoggedIn){$('regStatus').innerHTML='<span class="error">DGM Admin login is required for Host.</span>';return}const pin=$('regPin').value.trim();if(role==='host'){openHost();return}if(!/^\d{6}$/.test(pin)){showRegistration('Please enter exactly 6 digits for your Bridge PIN.','denied');return}try{const deviceId=device?.device_id||crypto.randomUUID();const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);const publicKey=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');device={device_id:deviceId,role,public_key:publicKey};localStorage.setItem(key,JSON.stringify(device));const d=await api('/api/bridge/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:deviceId,role,public_key:publicKey,country:'Ghana',device_name:$('deviceName').value.trim()||'DGM Bridge',app_version:'web-2.0.0',platform:'Web',pin})});showRegistration(d.message||'Registration received. Waiting for DGM Admin authorization.');}catch(e){showRegistration(e.message,'denied')}}
-async function connect(){const pin=$('loginPin').value.trim();if(!/^\d{6}$/.test(pin)){ $('connectStatus').innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return}try{const d=await api('/api/bridge/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:device.device_id,pin})});token=d.token;localStorage.setItem(key+'.token',token);$('connectPanel').classList.add('hidden');$('authorizedPanel').classList.remove('hidden');$('readyTitle').textContent='Client Connected';$('readyIntro').textContent='DGM Admin approved this device.';$('readyStatus').textContent='Bridge connection is active.';$('deviceInfo').textContent='Device ID: '+device.device_id;}catch(e){$('connectStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
-function openHost(){
-  $('registerPanel').classList.add('hidden');
-  $('connectPanel').classList.add('hidden');
-  $('authorizedPanel').classList.remove('hidden');
-  $('readyTitle').textContent='Host Bridge';
-  $('readyIntro').textContent='Host access granted by DGM Admin.';
-  $('readyStatus').textContent='Host Bridge is ready.';
-  $('deviceInfo').textContent='DGM Host';
-}
-function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPanel').classList.add('hidden');$('registerPanel').classList.remove('hidden');setRole('host')}
+function showRegistration(msg,cls='pending'){$('regStatus').innerHTML='<span class="badge '+cls+'">'+(cls==='pending'?'PENDING':'REGISTERED')+'</span><p class="muted">'+esc(msg)+'</p>'+(device?.device_id?'<div class="device-id">Device ID: '+esc(device.device_id)+'</div>':'')}
+function showConnect(){$('registerPanel').classList.add('hidden');$('connectPanel').classList.remove('hidden');$('authorizedPanel').classList.add('hidden')}
+async function check(){if(role==='host')return;if(!device?.device_id)return;try{const d=await api('/api/bridge/registration-status?device_id='+encodeURIComponent(device.device_id));if(d.approval_status==='approved'){showConnect();$('connectStatus').innerHTML='<span class="badge">AUTHORIZED</span><p class="muted">Admin approved this device. Enter your PIN to connect.</p>'}else showRegistration(d.message||'Waiting for DGM Admin authorization.',d.approval_status==='denied'?'denied':'pending')}catch(e){showRegistration(e.message,'denied')}}
+async function adminLogin(){const email=$('adminEmail').value.trim(),password=$('adminPassword').value;if(!email||!password){$('adminLoginStatus').innerHTML='<span class="error">Enter the DGM Admin email and password.</span>';return}$('adminLoginBtn').disabled=true;$('adminLoginBtn').textContent='Signing in...';try{const d=await api('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});adminLoggedIn=!!d.success;$('adminPassword').value='';$('adminLoginStatus').innerHTML='<span class="ok">Admin authenticated. Opening Host Bridge…</span>';updateHostPanel();openHost()}catch(e){$('adminLoginStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>}finally{$('adminLoginBtn').disabled=false;$('adminLoginBtn').textContent='Admin Login'}}
+async function register(){if(role==='host'&&!adminLoggedIn){$('regStatus').innerHTML='<span class="error">DGM Admin login is required for Host.</span>';return}const pin=$('regPin').value.trim();if(role==='host'){openHost();return}if(!/^\d{6}$/.test(pin)){showRegistration('Please enter exactly 6 digits for your Bridge PIN.','denied');return}try{const deviceId=device?.device_id||crypto.randomUUID();const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);const publicKey=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');device={device_id:deviceId,role,public_key:publicKey};localStorage.setItem(key,JSON.stringify(device));const d=await api('/api/bridge/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:deviceId,role,public_key:publicKey,country:'Ghana',device_name:$('deviceName').value.trim()||'DGM Bridge',app_version:'web-2.0.0',platform:'Web',pin})});showRegistration(d.message||'Registration received. Waiting for DGM Admin authorization.')}catch(e){showRegistration(e.message,'denied')}}
+async function connect(){const pin=$('loginPin').value.trim();if(!/^\d{6}$/.test(pin)){$('connectStatus').innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return}try{const d=await api('/api/bridge/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:device.device_id,pin})});token=d.token;localStorage.setItem(key+'.token',token);$('connectPanel').classList.add('hidden');$('authorizedPanel').classList.remove('hidden');$('readyTitle').textContent='Client Connected';$('readyIntro').textContent='DGM Admin approved this device.';$('readyStatus').textContent='Bridge connection is active.';$('deviceInfo').textContent='Device ID: '+device.device_id}catch(e){$('connectStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
+function openHost(){$('registerPanel').classList.add('hidden');$('connectPanel').classList.add('hidden');$('authorizedPanel').classList.remove('hidden');$('readyTitle').textContent='Host Bridge';$('readyIntro').textContent='Host access granted by DGM Admin.';$('readyStatus').textContent='Host Bridge is ready.';$('deviceInfo').textContent='DGM Host'}
+function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPanel').classList.add('hidden');$('connectPanel').classList.add('hidden');$('registerPanel').classList.remove('hidden');setRole('client')}
 $('hostRole').addEventListener('click',()=>setRole('host'));$('clientRole').addEventListener('click',()=>setRole('client'));$('adminLoginBtn').onclick=adminLogin;$('registerBtn').onclick=register;$('connectBtn').onclick=connect;$('logoutBtn').onclick=lock;
-updateHostPanel();
-if(role==='host')checkAdminSession();
-if(device&&role!=='host')check();
-setInterval(()=>{if(device&&!token)check()},30000);
+updateHostPanel();if(role==='host')checkAdminSession();if(device&&role!=='host')check();setInterval(()=>{if(device&&!token)check()},30000);
 </script></body></html>
