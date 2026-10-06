@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.net.VpnService
 import android.os.Bundle
+import android.os.Build
 import android.widget.EditText
 import android.widget.Toast
 import android.widget.Button
@@ -25,6 +26,8 @@ class MainActivity : Activity() {
     }
 
     private val api by lazy { BridgeApi() }
+    private val appVersion: String by lazy { try { packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown" } catch (_: Exception) { "unknown" } }
+    private val deviceName: String by lazy { "${Build.MANUFACTURER} ${Build.MODEL}".trim().ifBlank { "DGM Bridge Android" } }
 
     private val clientPin by lazy {
         val prefs = getSharedPreferences("dgm_bridge", MODE_PRIVATE)
@@ -38,7 +41,10 @@ class MainActivity : Activity() {
         setContentView(R.layout.activity_main)
         status = findViewById(R.id.status)
         deviceId = findViewById(R.id.deviceId)
-        deviceId.text = "Device ID: $deviceIdValue\nFingerprint: ${BridgeSecurity.fingerprint(this)}"
+        deviceId.text = "Device ID: $deviceIdValue\nDevice: $deviceName\nVersion: $appVersion\nFingerprint: ${BridgeSecurity.fingerprint(this)}"
+
+        findViewById<Button>(R.id.copyIdentityButton).setOnClickListener { showIdentityDialog() }
+        findViewById<Button>(R.id.refreshButton).setOnClickListener { refreshAuthorization() }
 
         findViewById<Button>(R.id.hostButton).setOnClickListener { showAdminLogin() }
         findViewById<Button>(R.id.clientButton).setOnClickListener { registerClient() }
@@ -87,9 +93,10 @@ class MainActivity : Activity() {
 
     private fun prepareHost() {
         status.text = "● REGISTERING HOST"
+        getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit().putString("current_mode", BridgeVpnService.MODE_HOST).apply()
         io.execute {
             try {
-                api.register(deviceIdValue, BridgeVpnService.MODE_HOST, BridgeSecurity.publicKey(this))
+                api.register(deviceIdValue, BridgeVpnService.MODE_HOST, BridgeSecurity.publicKey(this), deviceName = deviceName, appVersion = appVersion)
                 runOnUiThread { status.text = "● WAITING FOR ADMIN APPROVAL" }
                 awaitAuthorization()
                 val pair = api.createPairing()
@@ -169,7 +176,7 @@ class MainActivity : Activity() {
 
     private fun awaitAuthorization() {
         while (true) {
-            val result = api.registrationStatus(deviceIdValue)
+            val result = api.registrationStatus(deviceIdValue, if (currentMode() == BridgeVpnService.MODE_CLIENT) clientPin else null)
             val state = result.optString("approval_status", "pending")
             if (state == "approved") return
             if (state == "denied") throw IllegalStateException("Registration denied by DGM Admin.")
@@ -177,15 +184,45 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun currentMode(): String = getSharedPreferences("dgm_bridge", MODE_PRIVATE).getString("current_mode", "") ?: ""
+
+    private fun showIdentityDialog() {
+        val identity = "Device ID: $deviceIdValue\nBridge PIN: $clientPin\nFingerprint: ${BridgeSecurity.fingerprint(this)}"
+        AlertDialog.Builder(this).setTitle("DGM Bridge Identity").setMessage(identity)
+            .setPositiveButton("COPY ID + PIN") { _, _ ->
+                val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                clipboard.setPrimaryClip(android.content.ClipData.newPlainText("DGM Bridge Identity", identity))
+                Toast.makeText(this, "Identity copied", Toast.LENGTH_SHORT).show()
+            }.setNegativeButton("Close", null).show()
+    }
+
+    private fun refreshAuthorization() {
+        status.text = "● CHECKING AUTHORIZATION"
+        io.execute {
+            try {
+                val mode = currentMode()
+                if (mode.isBlank()) { runOnUiThread { status.text = "● NOT REGISTERED" }; return@execute }
+                val result = api.registrationStatus(deviceIdValue, if (mode == BridgeVpnService.MODE_CLIENT) clientPin else null)
+                val state = result.optString("approval_status", "pending")
+                runOnUiThread { status.text = when (state) { "approved" -> "● AUTHORIZED"; "denied" -> "● REGISTRATION DENIED"; else -> "● PENDING ADMIN APPROVAL" } }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "● AUTHORIZATION CHECK FAILED"; Toast.makeText(this, e.message ?: "Could not check authorization", Toast.LENGTH_LONG).show() }
+            }
+        }
+    }
+
     private fun registerClient() {
         status.text = "● REGISTERING CLIENT"
+        getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit().putString("current_mode", BridgeVpnService.MODE_CLIENT).apply()
         io.execute {
             try {
                 api.register(
                     deviceIdValue,
                     BridgeVpnService.MODE_CLIENT,
                     BridgeSecurity.publicKey(this),
-                    pin = clientPin
+                    pin = clientPin,
+                    deviceName = deviceName,
+                    appVersion = appVersion
                 )
                 runOnUiThread {
                     status.text = "● WAITING FOR ADMIN APPROVAL"
