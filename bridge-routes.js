@@ -352,6 +352,29 @@ function installBridge(app) {
     } catch(e){res.status(500).json({success:false,message:"Diagnostic update failed."});}
   });
 
+  app.post("/api/admin/bridge/pair/create", async (req,res) => {
+    if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+    try {
+      if (!pool || BRIDGE_SECRET.length < 32) return res.status(503).json({success:false,message:"DGM Bridge control plane is not configured."});
+      await pool.query("DELETE FROM dgm_bridge_pairings WHERE expires_at<NOW()");
+      const code=randomCode(), secret=randomSecret(), sessionId=crypto.randomUUID();
+      const hostId="admin-host:"+String(req.session.id||sessionId);
+      await pool.query(
+        "INSERT INTO dgm_bridge_pairings(code,secret_hash,host_device_id,expires_at,session_id) VALUES($1,$2,$3,NOW()+INTERVAL '5 minutes',$4)",
+        [code,hmac("pair:"+secret),hostId,sessionId]
+      );
+      const hostRelayToken=token({sid:sessionId,host:hostId,exp:Date.now()+12*60*60*1000});
+      res.json({
+        success:true,
+        expires_in:300,
+        pairing:{code,secret,session_id:sessionId,host_device_id:hostId,host_relay_token:hostRelayToken,qr_payload:`DGM-BRIDGE|1|${code}|${secret}`}
+      });
+    } catch(e) {
+      console.error("Admin Bridge pair create:",e.message);
+      res.status(500).json({success:false,message:"Could not create Host connection."});
+    }
+  });
+
   app.post("/api/bridge/pair/create", async (req,res) => {
     try {
       const rawToken=req.get("authorization")?.replace(/^Bearer\s+/i,"");
