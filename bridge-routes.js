@@ -204,8 +204,8 @@ function installBridge(app) {
       await pool.query(`UPDATE dgm_bridge_devices SET status='online',last_seen=NOW() WHERE device_id=$1`,[deviceId]);
       res.json({success:true,device_id:deviceId,role,approval_status:"approved",status:"authorized",token:issued});
     } catch(e) {
-      console.error("Bridge register:",e.message);
-      res.status(500).json({success:false,message:"Could not register bridge device."});
+      console.error("Bridge register:",e);
+      res.status(500).json({success:false,message:"Could not register bridge device: "+String(e.message||"server error").slice(0,180)});
     }
   });
 
