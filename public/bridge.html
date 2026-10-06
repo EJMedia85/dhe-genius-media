@@ -58,7 +58,7 @@
 <div id="hostConnection" class="hidden">
 <h3 style="margin-top:20px">Connect a Client</h3>
 <p class="muted">Create a temporary Host connection. Copy the QR payload and secret and send them to the Client device.</p>
-<label class="small">QR Payload</label>
+<label class="small">Pairing Code</label><div id="pairCode" class="status mono"></div><button type="button" id="copyCode" class="btn copybtn" style="margin-top:9px">Copy Pairing Code</button><label class="small" style="display:block;margin-top:12px">QR Payload</label>
 <div id="qrPayload" class="status mono"></div>
 <div class="copyrow"><button type="button" id="copyQr" class="btn copybtn">Copy QR Payload</button><button type="button" id="copySecret" class="btn copybtn">Copy Secret</button></div>
 <label class="small" style="display:block;margin-top:12px">Secret</label>
@@ -110,9 +110,11 @@ function createHostConnection(){
  api("/api/admin/bridge/pair/create",{method:"POST"})
  .then(function(data){
    var p=data.pairing||{};
+   el("pairCode").textContent=p.code||"";
    el("qrPayload").textContent=p.qr_payload||"";
    el("pairSecret").textContent=p.secret||"";
    el("pairStatus").textContent="Connection code expires in 5 minutes.";
+   el("copyCode").onclick=function(){copyText(p.code||"");};
    el("copyQr").onclick=function(){copyText(p.qr_payload||"");};
    el("copySecret").onclick=function(){copyText(p.secret||"");};
  })
