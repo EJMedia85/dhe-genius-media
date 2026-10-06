@@ -10,6 +10,9 @@ import android.widget.EditText
 import android.widget.Toast
 import android.widget.Button
 import android.widget.TextView
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.nio.charset.StandardCharsets
 import java.util.UUID
 import java.util.concurrent.Executors
 
@@ -52,6 +55,7 @@ class MainActivity : Activity() {
 
         findViewById<Button>(R.id.hostButton).setOnClickListener { showAdminLogin() }
         findViewById<Button>(R.id.clientButton).setOnClickListener { registerClient() }
+        findViewById<Button>(R.id.testButton).setOnClickListener { testHostInternetPath() }
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             stopService(Intent(this, BridgeVpnService::class.java))
             status.text = "● DISCONNECTED"
@@ -345,6 +349,60 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun testHostInternetPath() {
+        status.text = "● TESTING HOST INTERNET PATH"
+        io.execute {
+            try {
+                Socket().use { s ->
+                    s.connect(InetSocketAddress("127.0.0.1", 10808), 3000)
+                    s.soTimeout = 8000
+                    val input = s.getInputStream()
+                    val output = s.getOutputStream()
+                    output.write(byteArrayOf(5, 1, 0))
+                    output.flush()
+                    val greeting = ByteArray(2)
+                    readFully(input, greeting)
+                    if (greeting[0].toInt() != 5 || greeting[1].toInt() != 0) throw IllegalStateException("SOCKS5 greeting failed")
+                    val host = "example.com".toByteArray(StandardCharsets.UTF_8)
+                    val request = ByteArray(7 + host.size)
+                    var i = 0
+                    request[i++] = 5; request[i++] = 1; request[i++] = 0; request[i++] = 3; request[i++] = host.size.toByte()
+                    System.arraycopy(host, 0, request, i, host.size); i += host.size
+                    request[i++] = 0; request[i] = 80
+                    output.write(request); output.flush()
+                    val reply = ByteArray(10)
+                    readFully(input, reply)
+                    if (reply[0].toInt() != 5 || reply[1].toInt() != 0) throw IllegalStateException("Host CONNECT failed: reply="+(reply[1].toInt() and 255))
+                    output.write("GET / HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n".toByteArray(StandardCharsets.US_ASCII))
+                    output.flush()
+                    val first = ByteArray(64)
+                    val n = input.read(first)
+                    if (n <= 0) throw IllegalStateException("No response from Host Internet")
+                    val response = String(first, 0, n, StandardCharsets.ISO_8859_1)
+                    if (!response.startsWith("HTTP/")) throw IllegalStateException("Unexpected Internet response")
+                    runOnUiThread {
+                        status.text = "● HOST INTERNET TEST PASSED"
+                        Toast.makeText(this, "Host Internet path is working: "+(response.lineSequence().firstOrNull() ?: "HTTP response"), Toast.LENGTH_LONG).show()
+                    }
+                    return@execute
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    status.text = "● HOST INTERNET TEST FAILED"
+                    Toast.makeText(this, "Bridge path test failed: "+(e.message ?: "unknown error"), Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private fun readFully(input: java.io.InputStream, bytes: ByteArray) {
+        var offset = 0
+        while (offset < bytes.size) {
+            val n = input.read(bytes, offset, bytes.size - offset)
+            if (n < 0) throw java.io.EOFException("Connection closed")
+            offset += n
+        }
+    }
     private fun requestVpn(mode: String) {
         val intent = VpnService.prepare(this)
         if (intent != null) {
