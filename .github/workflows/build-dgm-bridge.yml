@@ -7,29 +7,36 @@ on:
       - "dgm-bridge/**"
       - ".github/workflows/build-dgm-bridge.yml"
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: dgm-bridge
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager --list_installed
 
-      - name: Set up Gradle
+      - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
@@ -37,18 +44,26 @@ jobs:
       - name: Generate Gradle wrapper
         run: gradle wrapper --gradle-version 8.7
 
-      - name: Download hev-socks5-tunnel Android AAR
+      - name: Download hev-socks5-tunnel AAR
         run: |
+          set -euxo pipefail
           mkdir -p app/libs
-          gh release download 2.18.0 --repo heiher/hev-socks5-tunnel --pattern "hev-socks5-tunnel.aar" --dir app/libs
+          gh release download 2.18.0 \
+            --repo heiher/hev-socks5-tunnel \
+            --pattern "hev-socks5-tunnel.aar" \
+            --dir app/libs
+          test -s app/libs/hev-socks5-tunnel.aar
+          ls -lh app/libs/hev-socks5-tunnel.aar
         env:
           GH_TOKEN: ${{ github.token }}
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Verify APK
-        run: test -f app/build/outputs/apk/debug/app-debug.apk
+        run: |
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          ls -lh app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
