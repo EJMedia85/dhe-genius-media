@@ -7,8 +7,6 @@ import android.provider.Settings;
 import android.content.*;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.service.notification.NotificationListenerService;
-import android.service.notification.StatusBarNotification;
 import android.app.NotificationManager;
 import android.view.*;
 import android.widget.*;
@@ -28,15 +26,20 @@ public class MainActivity extends Activity {
         TextView help=new TextView(this); help.setText("Enroll this phone using the one-time token generated in your DGM Admin Dashboard."); help.setTextColor(Color.WHITE); help.setTextSize(15); help.setPadding(0,0,0,24); root.addView(help);
         deviceName=new EditText(this); deviceName.setHint("Device name"); deviceName.setText("My Android"); deviceName.setTextColor(Color.WHITE); deviceName.setHintTextColor(Color.GRAY); root.addView(deviceName,new LinearLayout.LayoutParams(-1,60));
         tokenInput=new EditText(this); tokenInput.setHint("Enrollment token"); tokenInput.setTextColor(Color.WHITE); tokenInput.setHintTextColor(Color.GRAY); tokenInput.setSingleLine(true); tokenInput.setInputType(2|0x80000); root.addView(tokenInput,new LinearLayout.LayoutParams(-1,60));
+
         Button enroll=new Button(this); enroll.setText("ENROLL DEVICE"); root.addView(enroll,new LinearLayout.LayoutParams(-1,60));
         Button sms=new Button(this); sms.setText("GRANT SMS ACCESS"); root.addView(sms,new LinearLayout.LayoutParams(-1,60));
+        Button calls=new Button(this); calls.setText("GRANT CALL LOG + CONTACT ACCESS"); root.addView(calls,new LinearLayout.LayoutParams(-1,60));
         Button wa=new Button(this); wa.setText("ENABLE WHATSAPP NOTIFICATION ACCESS"); root.addView(wa,new LinearLayout.LayoutParams(-1,60));
+
         status=new TextView(this); status.setTextColor(Color.LTGRAY); status.setPadding(0,24,0,0); root.addView(status);
         setContentView(root);
+
         String saved=TokenStore.get(this);
         if(saved!=null)status.setText("Device enrolled. Grant the requested permissions, then leave Companion installed.");
         enroll.setOnClickListener(v->enroll());
         sms.setOnClickListener(v->requestSms());
+        calls.setOnClickListener(v->requestCallAccess());
         wa.setOnClickListener(v->openNotificationAccess());
     }
 
@@ -46,12 +49,20 @@ public class MainActivity extends Activity {
         status.setText("Enrolling…");
         executor.execute(()->{
             try{
-                JSONObject p=new JSONObject(); p.put("enrollment_token",t); p.put("device_name",deviceName.getText().toString().trim()); p.put("platform","Android"); p.put("app_version","1.1");
+                JSONObject p=new JSONObject();
+                p.put("enrollment_token",t);
+                p.put("device_name",deviceName.getText().toString().trim());
+                p.put("platform","Android");
+                p.put("app_version","1.1.1");
                 JSONObject r=DgmApi.post(this,"/api/companion/enroll",p,null);
                 String serverToken=r.optString("token","");
                 if(serverToken.isEmpty())throw new Exception("Server did not return a device token.");
                 TokenStore.save(this,serverToken);
-                runOnUiThread(()->{status.setText("ENROLLED ✓\nDevice authorized. Now grant SMS and WhatsApp notification access."); tokenInput.setText(""); requestSms();});
+                runOnUiThread(()->{
+                    status.setText("ENROLLED ✓\nDevice authorized. Grant SMS, call-log/contact and WhatsApp access.");
+                    tokenInput.setText("");
+                    requestSms();
+                });
             }catch(Exception e){runOnUiThread(()->status.setText("Enrollment failed: "+e.getMessage()));}
         });
     }
@@ -59,6 +70,17 @@ public class MainActivity extends Activity {
     private void requestSms(){
         if(android.os.Build.VERSION.SDK_INT>=23){
             requestPermissions(new String[]{Manifest.permission.RECEIVE_SMS,Manifest.permission.READ_SMS},40);
+        }else{
+            syncAndShowStatus();
+        }
+    }
+
+    private void requestCallAccess(){
+        if(android.os.Build.VERSION.SDK_INT>=23){
+            requestPermissions(new String[]{
+                Manifest.permission.READ_CALL_LOG,
+                Manifest.permission.READ_CONTACTS
+            },50);
         }else{
             syncAndShowStatus();
         }
@@ -78,6 +100,16 @@ public class MainActivity extends Activity {
              checkSelfPermission(Manifest.permission.RECEIVE_SMS)==PackageManager.PERMISSION_GRANTED);
     }
 
+    private boolean callLogGranted(){
+        return android.os.Build.VERSION.SDK_INT<23 ||
+            checkSelfPermission(Manifest.permission.READ_CALL_LOG)==PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean contactsGranted(){
+        return android.os.Build.VERSION.SDK_INT<23 ||
+            checkSelfPermission(Manifest.permission.READ_CONTACTS)==PackageManager.PERMISSION_GRANTED;
+    }
+
     private boolean whatsappAccessGranted(){
         if(android.os.Build.VERSION.SDK_INT<18)return false;
         NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
@@ -88,10 +120,13 @@ public class MainActivity extends Activity {
     private void syncAndShowStatus(){
         executor.execute(()->{
             if(smsGranted()) SmsSync.syncRecent(this);
+            if(callLogGranted()) CallLogSync.syncRecent(this);
             boolean connected=DgmApi.heartbeat(this);
             runOnUiThread(()->status.setText(
                 (connected?"CONNECTED ✓":"ENROLLED ✓")+
                 "\nSMS access: "+(smsGranted()?"ON":"OFF")+
+                "\nCall logs: "+(callLogGranted()?"ON":"OFF")+
+                "\nContact names: "+(contactsGranted()?"ON":"OFF")+
                 "\nWhatsApp notification access: "+(whatsappAccessGranted()?"ON":"OFF")+
                 (connected?"\nDGM server: reachable":"\nDGM server: unavailable")));
         });
@@ -99,7 +134,7 @@ public class MainActivity extends Activity {
 
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
-        if(requestCode==40) syncAndShowStatus();
+        if(requestCode==40 || requestCode==50) syncAndShowStatus();
     }
 
     @Override protected void onResume(){
