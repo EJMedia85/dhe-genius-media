@@ -34,6 +34,20 @@ function randomCode() {
 function randomSecret() {
   return crypto.randomBytes(32).toString("base64url");
 }
+function bridgePin() {
+  return crypto.randomInt(100000, 1000000).toString();
+}
+function pinKey() {
+  return crypto.createHash("sha256").update(BRIDGE_SECRET || "development-only-bridge-secret").digest();
+}
+function encryptPin(pin) {
+  const iv=crypto.randomBytes(12), cipher=crypto.createCipheriv("aes-256-gcm",pinKey(),iv);
+  const enc=Buffer.concat([cipher.update(String(pin),"utf8"),cipher.final()]);
+  return Buffer.concat([iv,cipher.getAuthTag(),enc]).toString("base64url");
+}
+function decryptPin(value) {
+  try { const b=Buffer.from(String(value),"base64url"); const iv=b.subarray(0,12), tag=b.subarray(12,28), data=b.subarray(28); const decipher=crypto.createDecipheriv("aes-256-gcm",pinKey(),iv); decipher.setAuthTag(tag); return Buffer.concat([decipher.update(data),decipher.final()]).toString("utf8"); } catch { return ""; }
+}
 
 async function initBridgeDatabase() {
   if (!pool) return;
@@ -65,6 +79,7 @@ async function initBridgeDatabase() {
     ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS app_version TEXT;
     ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT 'Android';
     ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS last_error TEXT;
+    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS pin_ciphertext TEXT;
     CREATE INDEX IF NOT EXISTS dgm_bridge_devices_status_idx ON dgm_bridge_devices(approval_status,status);
     CREATE TABLE IF NOT EXISTS dgm_bridge_config (
       key TEXT PRIMARY KEY,
@@ -132,7 +147,7 @@ function installBridge(app) {
   app.get("/api/admin/bridge/registrations", async (req,res) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
-      const rows=(await pool.query(`SELECT device_id,role,country,device_name,app_version,platform,status,approval_status,approved_at,approved_by,last_seen,last_error,created_at FROM dgm_bridge_devices ORDER BY CASE approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,created_at DESC`)).rows;
+      const rows=(await pool.query(`SELECT device_id,role,country,device_name,app_version,platform,status,approval_status,approved_at,approved_by,last_seen,last_error,created_at,pin_ciphertext FROM dgm_bridge_devices ORDER BY CASE approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,created_at DESC`)).rows;
       return res.json({success:true,registrations:rows});
     } catch(e){ return res.status(500).json({success:false,message:"Could not load registrations."}); }
   });
@@ -169,13 +184,15 @@ function installBridge(app) {
       const deviceName=String(req.body?.device_name||"DGM Bridge").trim().slice(0,120);
       const appVersion=String(req.body?.app_version||"").trim().slice(0,40);
       const platform=String(req.body?.platform||"Android").trim().slice(0,40);
+      const pin=String(req.body?.pin||"").trim();
       if (!deviceId || !publicKey || !["host","client"].includes(role)) return res.status(400).json({success:false,message:"device_id, role and public_key are required."});
+      if (!/^\\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"A 6-digit Bridge PIN is required."});
       await pool.query(
-        `INSERT INTO dgm_bridge_devices(device_id,role,public_key,country,device_name,app_version,platform,status,approval_status,last_seen)
-         VALUES($1,$2,$3,$4,$5,$6,$7,'pending','pending',NOW())
-         ON CONFLICT(device_id) DO UPDATE SET role=EXCLUDED.role,public_key=EXCLUDED.public_key,country=EXCLUDED.country,device_name=EXCLUDED.device_name,app_version=EXCLUDED.app_version,platform=EXCLUDED.platform,last_seen=NOW()
+        `INSERT INTO dgm_bridge_devices(device_id,role,public_key,country,device_name,app_version,platform,pin_ciphertext,status,approval_status,last_seen)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending','pending',NOW())
+         ON CONFLICT(device_id) DO UPDATE SET role=EXCLUDED.role,public_key=EXCLUDED.public_key,country=EXCLUDED.country,device_name=EXCLUDED.device_name,app_version=EXCLUDED.app_version,platform=EXCLUDED.platform,pin_ciphertext=EXCLUDED.pin_ciphertext,last_seen=NOW()
          WHERE dgm_bridge_devices.status <> 'revoked'`,
-        [deviceId,role,publicKey,country,deviceName,appVersion,platform]
+        [deviceId,role,publicKey,country,deviceName,appVersion,platform,encryptPin(pin)]
       );
       const row=(await pool.query(`SELECT device_id,role,approval_status,status FROM dgm_bridge_devices WHERE device_id=$1`,[deviceId])).rows[0];
       if(row.approval_status!=="approved") {
@@ -188,6 +205,33 @@ function installBridge(app) {
       console.error("Bridge register:",e.message);
       res.status(500).json({success:false,message:"Could not register bridge device."});
     }
+  });
+
+  app.post("/api/bridge/connect", async (req,res) => {
+    try {
+      if (!pool) return res.status(503).json({success:false,message:"Database unavailable."});
+      const deviceId=String(req.body?.device_id||"").trim(), pin=String(req.body?.pin||"").trim();
+      if (!deviceId || !/^\\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"Device ID and 6-digit PIN are required."});
+      const row=(await pool.query("SELECT device_id,role,approval_status,status,pin_ciphertext FROM dgm_bridge_devices WHERE device_id=$1",[deviceId])).rows[0];
+      if(!row) return res.status(404).json({success:false,message:"Bridge device is not registered."});
+      if(row.approval_status!=="approved" || ["revoked","suspended"].includes(row.status)) return res.status(403).json({success:false,message:"Bridge is not authorized by DGM Admin."});
+      const stored=decryptPin(row.pin_ciphertext);
+      if(!stored || !crypto.timingSafeEqual(Buffer.from(stored),Buffer.from(pin))) return res.status(401).json({success:false,message:"Incorrect Bridge PIN."});
+      const issued=token({sub:row.device_id,role:row.role,exp:Date.now()+24*60*60*1000});
+      await pool.query("UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL WHERE device_id=$1",[deviceId]);
+      res.json({success:true,device_id:row.device_id,role:row.role,status:"authorized",token:issued});
+    } catch(e){ console.error("Bridge connect:",e.message); res.status(500).json({success:false,message:"Could not connect Bridge."}); }
+  });
+
+  app.post("/api/admin/bridge/devices/:deviceId/reset-pin", async (req,res) => {
+    if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
+    try {
+      const id=String(req.params.deviceId||"").trim(), supplied=String(req.body?.pin||"").trim(), pin=/^\\d{6}$/.test(supplied)?supplied:bridgePin();
+      const row=(await pool.query("UPDATE dgm_bridge_devices SET pin_ciphertext=$2 WHERE device_id=$1 RETURNING device_id,device_name",[id,encryptPin(pin)])).rows[0];
+      if(!row)return res.status(404).json({success:false,message:"Device not found."});
+      await bridgeAudit(req.session.adminEmail,"bridge.reset_pin",id,{device_name:row.device_name});
+      res.json({success:true,device_id:id,pin});
+    } catch(e){ console.error("Bridge reset PIN:",e.message); res.status(500).json({success:false,message:"Could not reset Bridge PIN."}); }
   });
 
   app.get("/api/bridge/update-policy", async (req,res) => {
@@ -327,7 +371,7 @@ function installBridge(app) {
          FROM dgm_bridge_pairings p
          ORDER BY p.created_at DESC LIMIT 100`
       );
-      return res.json({success:true,devices:devices.rows,pairings:pairings.rows});
+      return res.json({success:true,devices:devices.rows.map(x=>({...x,pin:x.pin_ciphertext?decryptPin(x.pin_ciphertext):""})),pairings:pairings.rows});
     } catch(e) {
       console.error("Admin Bridge devices error:",e.message);
       return res.status(500).json({success:false,message:"Could not load DGM Bridge devices."});
