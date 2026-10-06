@@ -49,13 +49,18 @@ class BridgeApi(private val baseUrl: String = "https://dhe-genius-media.onrender
         role: String,
         publicKey: String,
         country: String = "unknown",
-        pin: String? = null
+        pin: String? = null,
+        deviceName: String = "DGM Bridge",
+        appVersion: String = ""
     ): JSONObject {
         val body = JSONObject()
             .put("device_id", deviceId)
             .put("role", role)
             .put("public_key", publicKey)
             .put("country", country)
+            .put("device_name", deviceName)
+            .put("app_version", appVersion)
+            .put("platform", "Android")
         if (!pin.isNullOrBlank()) body.put("pin", pin)
 
         val result = post("/api/bridge/register", body)
@@ -63,9 +68,11 @@ class BridgeApi(private val baseUrl: String = "https://dhe-genius-media.onrender
         return result
     }
 
-    fun registrationStatus(deviceId: String): JSONObject {
+    fun registrationStatus(deviceId: String, pin: String? = null): JSONObject {
         val encoded = URLEncoder.encode(deviceId, "UTF-8")
-        val result = get("/api/bridge/registration-status?device_id=$encoded")
+        val encodedPin = URLEncoder.encode(pin.orEmpty(), "UTF-8")
+        val suffix = if (pin.isNullOrBlank()) "" else "&pin=$encodedPin"
+        val result = get("/api/bridge/registration-status?device_id=$encoded$suffix")
         result.optString("token")
             .takeIf { it.isNotBlank() }
             ?.let { authToken = it }
