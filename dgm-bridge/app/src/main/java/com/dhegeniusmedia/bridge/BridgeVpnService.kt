@@ -30,8 +30,23 @@ class BridgeVpnService : VpnService() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_CLIENT
-        if (!running.getAndSet(true)) startForegroundServiceNotification(mode)
-        establish(mode)
+        if (running.getAndSet(true)) {
+            Log.d(TAG, "Bridge service already running; ignoring duplicate start")
+            return START_STICKY
+        }
+
+        startForegroundServiceNotification(mode)
+        try {
+            establish(mode)
+        } catch (e: Exception) {
+            Log.e(TAG, "Bridge data plane startup failed", e)
+            if (mode == MODE_CLIENT && socks != null) {
+                Log.w(TAG, "Local SOCKS remains available for diagnostics")
+            } else {
+                running.set(false)
+                stopSelf(startId)
+            }
+        }
         return START_STICKY
     }
 
@@ -60,25 +75,30 @@ class BridgeVpnService : VpnService() {
                     else prefs.getString("session_token", null)
         val secret = prefs.getString("pair_secret", null)
         if (token == null || secret == null) {
-            Log.w(TAG, "Bridge session is not paired")
-            stopSelf()
-            return
+            throw IllegalStateException("Bridge session is not paired")
         }
 
-        relay = BridgeRelayClient(token, mode, secret,
+        val currentRelay = BridgeRelayClient(
+            token, mode, secret,
             onPacket = { frame -> socks?.onFrame(frame) },
-            onState = { state -> Log.d(TAG, state); if (state == "RELAY RECONNECTING") socks?.stopStreams() }
-        ).also { it.connect() }
+            onState = { state ->
+                Log.d(TAG, state)
+                if (state == "RELAY RECONNECTING") socks?.stopStreams()
+            }
+        )
+        relay = currentRelay
+
+        if (mode == MODE_CLIENT) {
+            socks = BridgeSocks(currentRelay, hostMode = false).also { it.start() }
+        }
+
+        currentRelay.connect()
         startHeartbeat(token)
 
         if (mode == MODE_HOST) {
-            // Host uses its normal mobile/Wi-Fi network directly. It does not
-            // create a VPN for itself; doing so would capture its own traffic.
-            socks = BridgeSocks(relay!!, hostMode = true).also { it.start() }
+            socks = BridgeSocks(currentRelay, hostMode = true).also { it.start() }
             return
         }
-
-        socks = BridgeSocks(relay!!, hostMode = false).also { it.start() }
 
         vpnInterface = Builder()
             .setSession("DGM Bridge client")
@@ -116,7 +136,8 @@ class BridgeVpnService : VpnService() {
         if (!TProxyService.TProxyStartService(config.absolutePath, tun.fd)) {
             throw IllegalStateException("TUN-to-SOCKS engine could not start")
         }
-        Log.d(TAG, "DGM Bridge client data plane started; HEV running=" + try { TProxyService.TProxyIsRunning() } catch (_: Throwable) { false })
+        Log.d(TAG, "DGM Bridge client data plane started; HEV running=" +
+            try { TProxyService.TProxyIsRunning() } catch (_: Throwable) { false })
     }
 
     private fun startHeartbeat(token: String) {
@@ -126,14 +147,14 @@ class BridgeVpnService : VpnService() {
                 try {
                     val request = okhttp3.Request.Builder()
                         .url("https://dhe-genius-media.onrender.com/api/bridge/heartbeat")
-                        .header("Authorization", "Bearer $token")
+                        .header("Authorization", "Bearer " + token)
                         .post(okhttp3.RequestBody.create(null, ByteArray(0)))
                         .build()
                     client.newCall(request).execute().use { response ->
-                        if (!response.isSuccessful) Log.w(TAG, "Bridge heartbeat failed: HTTP ${response.code}")
+                        if (!response.isSuccessful) Log.w(TAG, "Bridge heartbeat failed: HTTP " + response.code)
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Bridge heartbeat error: ${e.message}")
+                    Log.w(TAG, "Bridge heartbeat error: " + e.message)
                 }
                 try { Thread.sleep(20000) } catch (_: InterruptedException) { return@Thread }
             }
