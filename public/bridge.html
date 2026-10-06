@@ -48,7 +48,7 @@
 const $=id=>document.getElementById(id), key='dgm.bridge.device';
 let role=localStorage.getItem(key+'.role')||'client', device=JSON.parse(localStorage.getItem(key)||'null'), token=localStorage.getItem(key+'.token')||'', adminLoggedIn=false;
 function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-async function checkAdminSession(){try{const d=await api('/api/admin/me');adminLoggedIn=!!d.success;updateHostPanel()}catch{adminLoggedIn=false;updateHostPanel()}}
+async function checkAdminSession(){try{const d=await api('/api/admin/me');adminLoggedIn=!!d.success;updateHostPanel();if(role==='host'&&adminLoggedIn)openHost()}catch{adminLoggedIn=false;updateHostPanel()}}
 function updateHostPanel(){
   const host=role==='host';
   $('hostAdminPanel').classList.toggle('hidden',!host);
@@ -71,7 +71,7 @@ function setRole(r){
 async function api(url,opt={}){const r=await fetch(url,{credentials:'same-origin',...opt});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(!r.ok||d.success===false)throw Error(d.message||('HTTP '+r.status));return d}
 function showRegistration(msg,cls='pending'){ $('regStatus').innerHTML='<span class="badge '+cls+'">'+(cls==='pending'?'PENDING':'REGISTERED')+'</span><p class="muted">'+esc(msg)+'</p>'+(device?.device_id?'<div class="device-id">Device ID: '+esc(device.device_id)+'</div>':'');}
 function showConnect(){ $('registerPanel').classList.add('hidden');$('connectPanel').classList.remove('hidden');$('authorizedPanel').classList.add('hidden');}
-async function check(){if(!device?.device_id)return;try{const d=await api('/api/bridge/registration-status?device_id='+encodeURIComponent(device.device_id));if(d.approval_status==='approved'){showConnect();$('connectStatus').innerHTML='<span class="badge">AUTHORIZED</span><p class="muted">Admin approved this device. Enter your PIN to connect.</p>'}else{showRegistration(d.message||'Waiting for DGM Admin authorization.',d.approval_status==='denied'?'denied':'pending')}}catch(e){showRegistration(e.message,'denied')}}
+async function check(){if(role==='host')return;if(!device?.device_id)return;try{const d=await api('/api/bridge/registration-status?device_id='+encodeURIComponent(device.device_id));if(d.approval_status==='approved'){showConnect();$('connectStatus').innerHTML='<span class="badge">AUTHORIZED</span><p class="muted">Admin approved this device. Enter your PIN to connect.</p>'}else{showRegistration(d.message||'Waiting for DGM Admin authorization.',d.approval_status==='denied'?'denied':'pending')}}catch(e){showRegistration(e.message,'denied')}}
 async function adminLogin(){
   const email=$('adminEmail').value.trim(), password=$('adminPassword').value;
   if(!email||!password){$('adminLoginStatus').innerHTML='<span class="error">Enter the DGM Admin email and password.</span>';return}
@@ -98,6 +98,6 @@ function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPane
 $('hostRole').onclick=()=>setRole('host');$('clientRole').onclick=()=>setRole('client');$('adminLoginBtn').onclick=adminLogin;$('registerBtn').onclick=register;$('connectBtn').onclick=connect;$('logoutBtn').onclick=lock;
 updateHostPanel();
 if(role==='host')checkAdminSession();
-if(device)check();
+if(device&&role!=='host')check();
 setInterval(()=>{if(device&&!token)check()},30000);
 </script></body></html>
