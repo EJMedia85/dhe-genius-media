@@ -2838,7 +2838,7 @@ app.get("/api/companion/heartbeat",requireCompanion,async(req,res)=>res.json({su
 
 app.post("/api/companion/messages",requireCompanion,async(req,res)=>{
   try{
-    const channel=["sms","whatsapp"].includes(String(req.body?.channel||"").toLowerCase())?String(req.body.channel).toLowerCase():null;
+    const channel=["sms","whatsapp","call_log"].includes(String(req.body?.channel||"").toLowerCase())?String(req.body.channel).toLowerCase():null;
     const sender=String(req.body?.sender||"").trim().slice(0,200);
     const body=String(req.body?.body||"").trim().slice(0,10000);
     const clientId=String(req.body?.client_id||"").trim().slice(0,120)||null;
