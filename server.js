@@ -2802,7 +2802,7 @@ app.get("/api/admin/companion/devices", requireAdmin, async (req,res)=>{
   try {
     const r=await pool.query(
       `SELECT d.id,d.device_name,d.phone,d.active,d.last_seen,d.created_at,d.enrolled_at,d.enrollment_expires_at,d.expires_at,
-              d.platform,d.app_version,c.name AS customer_name,c.email AS customer_email
+              d.platform,d.app_version,d.authorization_status,d.approved_at,d.approved_by,d.rejected_at,d.rejected_by,c.name AS customer_name,c.email AS customer_email
        FROM companion_devices d LEFT JOIN customers c ON c.id=d.customer_id
        ORDER BY d.created_at DESC LIMIT 100`);
     return res.json({success:true,devices:r.rows});
@@ -2824,7 +2824,7 @@ app.post("/api/admin/companion/devices/:id/reject", requireAdmin, async (req,res
   const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return sendError(res,400,"Invalid device.");
   const admin=req.session.adminEmail||ADMIN_EMAIL||"admin";
   const r=await pool.query(
-    `UPDATE companion_devices SET authorization_status='denied',rejected_at=NOW(),rejected_by=$1,token_hash=$1
+    `UPDATE companion_devices SET authorization_status='denied',rejected_at=NOW(),rejected_by=$1,token_hash=NULL
      WHERE id=$2 RETURNING id,device_name,authorization_status`,[admin,id]);
   if(!r.rows.length)return sendError(res,404,"Device not found.");
   await pool.query(`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_rejected','companion_device',$2,'{}')`,[admin,id]);
@@ -2942,8 +2942,8 @@ app.get("/api/admin/companion/messages",requireAdmin,async(req,res)=>{
   const result=await pool.query(
     `SELECT m.id,m.channel,m.sender,m.body,m.direction,m.status,m.created_at,m.metadata,
             d.id AS device_id,d.device_name,d.phone,d.last_seen
-     FROM companion_messages m JOIN companion_devices d ON d.id=m.device_id \${where}
-     ORDER BY m.created_at DESC LIMIT $\${params.length}`,params);
+     FROM companion_messages m JOIN companion_devices d ON d.id=m.device_id ${where}
+     ORDER BY m.created_at DESC LIMIT ${params.length}`,params);
   return res.json({success:true,messages:result.rows});
 });
 app.post("/api/admin/companion/reply",requireAdmin,async(req,res)=>{
