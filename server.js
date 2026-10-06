@@ -2778,7 +2778,7 @@ app.post("/api/admin/companion/devices/enroll", requireAdmin, async (req,res)=>{
     const phone=String(req.body?.phone||"").trim().replace(/[^0-9+]/g,"").slice(0,30);
     const deviceName=String(req.body?.device_name||"My Android").trim().slice(0,80)||"My Android";
     if(phone.length<7) return sendError(res,400,"Enter a valid phone number.");
-    const enrollmentToken=crypto.randomBytes(6).toString("hex").toUpperCase();
+    const enrollmentToken=String(crypto.randomInt(10000000,100000000));
     const expiresAt=new Date(Date.now()+15*60*1000);
     const customer=await pool.query("SELECT id,name,email,phone FROM customers WHERE phone=$1 LIMIT 1",[phone]);
     await pool.query("UPDATE companion_devices SET active=FALSE WHERE phone=$1",[phone]);
