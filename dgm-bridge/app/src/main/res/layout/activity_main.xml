@@ -31,6 +31,18 @@
             android:textColor="#FFFFFF"
             android:textSize="14sp" />
         <Button
+            android:id="@+id/copyIdentityButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:text="Registration &amp; Bridge PIN" />
+        <Button
+            android:id="@+id/refreshButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Refresh Authorization" />
+        <Button
             android:id="@+id/hostButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
