@@ -188,7 +188,7 @@ function installBridge(app) {
       const pin=String(req.body?.pin||"").trim();
       if (!deviceId || !publicKey || !["host","client"].includes(role)) return res.status(400).json({success:false,message:"device_id, role and public_key are required."});
       if (role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge is restricted to DGM Admin. Please sign in as Admin first."});
-      if (!/^\\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"A 6-digit Bridge PIN is required."});
+      if (!/^\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"A 6-digit Bridge PIN is required."});
       await pool.query(
         `INSERT INTO dgm_bridge_devices(device_id,role,public_key,country,device_name,app_version,platform,pin_ciphertext,status,approval_status,last_seen)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending','pending',NOW())
@@ -213,7 +213,7 @@ function installBridge(app) {
     try {
       if (!pool) return res.status(503).json({success:false,message:"Database unavailable."});
       const deviceId=String(req.body?.device_id||"").trim(), pin=String(req.body?.pin||"").trim();
-      if (!deviceId || !/^\\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"Device ID and 6-digit PIN are required."});
+      if (!deviceId || !/^\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"Device ID and 6-digit PIN are required."});
       const row=(await pool.query("SELECT device_id,role,approval_status,status,pin_ciphertext FROM dgm_bridge_devices WHERE device_id=$1",[deviceId])).rows[0];
       if(!row) return res.status(404).json({success:false,message:"Bridge device is not registered."});
       if(row.role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge access is restricted to DGM Admin."});
@@ -229,7 +229,7 @@ function installBridge(app) {
   app.post("/api/admin/bridge/devices/:deviceId/reset-pin", async (req,res) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
-      const id=String(req.params.deviceId||"").trim(), supplied=String(req.body?.pin||"").trim(), pin=/^\\d{6}$/.test(supplied)?supplied:bridgePin();
+      const id=String(req.params.deviceId||"").trim(), supplied=String(req.body?.pin||"").trim(), pin=/^\d{6}$/.test(supplied)?supplied:bridgePin();
       const row=(await pool.query("UPDATE dgm_bridge_devices SET pin_ciphertext=$2 WHERE device_id=$1 RETURNING device_id,device_name",[id,encryptPin(pin)])).rows[0];
       if(!row)return res.status(404).json({success:false,message:"Device not found."});
       await bridgeAudit(req.session.adminEmail,"bridge.reset_pin",id,{device_name:row.device_name});
