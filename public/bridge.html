@@ -38,9 +38,9 @@
 </div>
 
 <div id="authorizedPanel" class="panel hidden">
-<div class="pin-title"><span class="badge">CONNECTED</span><h2>Bridge Ready</h2><p class="muted">This device is authorized by DGM Admin.</p></div>
+<div class="pin-title"><span class="badge">CONNECTED</span><h2 id="readyTitle">Bridge Ready</h2><p id="readyIntro" class="muted">This device is authorized by DGM Admin.</p></div>
 <div id="deviceInfo" class="device-id"></div>
-<div class="status"><b>Bridge access enabled.</b><br><span class="muted">Host/client relay features can now use the secure Bridge session.</span></div>
+<div class="status"><b id="readyStatus">Bridge access enabled.</b></div>
 <button id="logoutBtn" class="btn" style="margin-top:12px">Lock Bridge</button>
 </div>
 </div>
@@ -87,12 +87,15 @@ async function adminLogin(){
   finally{$('adminLoginBtn').disabled=false;$('adminLoginBtn').textContent='Admin Login'}
 }
 async function register(){if(role==='host'&&!adminLoggedIn){$('regStatus').innerHTML='<span class="error">DGM Admin login is required for Host.</span>';return}const pin=$('regPin').value.trim();if(role==='host'){openHost();return}if(!/^\d{6}$/.test(pin)){showRegistration('Please enter exactly 6 digits for your Bridge PIN.','denied');return}try{const deviceId=device?.device_id||crypto.randomUUID();const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);const publicKey=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');device={device_id:deviceId,role,public_key:publicKey};localStorage.setItem(key,JSON.stringify(device));const d=await api('/api/bridge/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:deviceId,role,public_key:publicKey,country:'Ghana',device_name:$('deviceName').value.trim()||'DGM Bridge',app_version:'web-2.0.0',platform:'Web',pin})});showRegistration(d.message||'Registration received. Waiting for DGM Admin authorization.');}catch(e){showRegistration(e.message,'denied')}}
-async function connect(){const pin=$('loginPin').value.trim();if(!/^\d{6}$/.test(pin)){ $('connectStatus').innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return}try{const d=await api('/api/bridge/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:device.device_id,pin})});token=d.token;localStorage.setItem(key+'.token',token);$('connectPanel').classList.add('hidden');$('authorizedPanel').classList.remove('hidden');$('deviceInfo').textContent='Device ID: '+device.device_id;}catch(e){$('connectStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
+async function connect(){const pin=$('loginPin').value.trim();if(!/^\d{6}$/.test(pin)){ $('connectStatus').innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return}try{const d=await api('/api/bridge/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:device.device_id,pin})});token=d.token;localStorage.setItem(key+'.token',token);$('connectPanel').classList.add('hidden');$('authorizedPanel').classList.remove('hidden');$('readyTitle').textContent='Client Connected';$('readyIntro').textContent='DGM Admin approved this device.';$('readyStatus').textContent='Bridge connection is active.';$('deviceInfo').textContent='Device ID: '+device.device_id;}catch(e){$('connectStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
 function openHost(){
   $('registerPanel').classList.add('hidden');
   $('connectPanel').classList.add('hidden');
   $('authorizedPanel').classList.remove('hidden');
-  $('readyTitle').textContent='Host Bridge';\n  $('readyIntro').textContent='Host access granted by DGM Admin.';\n  $('readyStatus').textContent='Host Bridge is ready.';\n  $('deviceInfo').textContent='DGM Host';
+  $('readyTitle').textContent='Host Bridge';
+  $('readyIntro').textContent='Host access granted by DGM Admin.';
+  $('readyStatus').textContent='Host Bridge is ready.';
+  $('deviceInfo').textContent='DGM Host';
 }
 function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPanel').classList.add('hidden');$('registerPanel').classList.remove('hidden');setRole('host')}
 $('hostRole').onclick=()=>setRole('host');$('clientRole').onclick=()=>setRole('client');$('adminLoginBtn').onclick=adminLogin;$('registerBtn').onclick=register;$('connectBtn').onclick=connect;$('logoutBtn').onclick=lock;
