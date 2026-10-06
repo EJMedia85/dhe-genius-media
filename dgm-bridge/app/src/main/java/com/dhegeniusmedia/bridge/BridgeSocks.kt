@@ -72,6 +72,7 @@ class BridgeSocks(private val relay: BridgeRelayClient, private val hostMode: Bo
     private fun sendClientReply(socket:Socket,code:Int){try{val o=BufferedOutputStream(socket.getOutputStream());o.write(byteArrayOf(5,code.toByte(),0,1,0,0,0,0,0,0));o.flush()}catch(_:Exception){close(socket)}}
     private fun write(out:BufferedOutputStream,bytes:ByteArray){try{synchronized(out){out.write(bytes);out.flush()}}catch(_:Exception){}}
     private fun close(s:Socket){try{s.close()}catch(_:Exception){}}
-    fun stop(){try{server?.close()}catch(_:Exception){};streams.values.forEach{close(it.socket)};streams.clear();executor.shutdownNow()}
+    fun stopStreams(){streams.values.forEach{close(it.socket)};streams.clear()}
+    fun stop(){try{server?.close()}catch(_:Exception){};stopStreams();executor.shutdownNow()}
 }
 private fun InputStream.readFully(bytes:ByteArray){var o=0;while(o<bytes.size){val n=read(bytes,o,bytes.size-o);if(n<0)throw EOFException();o+=n}}
