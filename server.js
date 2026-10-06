@@ -1452,6 +1452,12 @@ async function initDatabase() {
   await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS enrolled_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS platform TEXT`);
   await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS app_version TEXT`);
+  await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS authorization_status TEXT NOT NULL DEFAULT 'approved'`);
+  await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS approved_by TEXT`);
+  await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS rejected_by TEXT`);
+  await pool.query(`UPDATE companion_devices SET authorization_status='approved' WHERE authorization_status IS NULL`);
   await pool.query(`ALTER TABLE companion_messages ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS companion_devices_enrollment_hash_idx ON companion_devices(enrollment_token_hash) WHERE enrollment_token_hash IS NOT NULL`);
   await pool.query(`CREATE INDEX IF NOT EXISTS companion_devices_phone_idx ON companion_devices(phone)`);
@@ -2780,7 +2786,7 @@ app.post("/api/admin/companion/devices/enroll", requireAdmin, async (req,res)=>{
       `INSERT INTO companion_devices
         (customer_id,device_name,phone,token_hash,enrollment_token_hash,enrollment_expires_at,expires_at,active)
        VALUES($1,$2,$3,$4,$5,$6,NOW()+INTERVAL '365 days',TRUE)
-       RETURNING id,device_name,phone,active,enrollment_expires_at,expires_at`,
+       RETURNING id,device_name,phone,active,authorization_status,enrollment_expires_at,expires_at`,
       [customer.rows[0]?.id||null,deviceName,phone,hashCompanionToken(crypto.randomBytes(32).toString("hex")),hashCompanionToken(enrollmentToken),expiresAt]
     );
     await pool.query(
@@ -2801,6 +2807,42 @@ app.get("/api/admin/companion/devices", requireAdmin, async (req,res)=>{
        ORDER BY d.created_at DESC LIMIT 100`);
     return res.json({success:true,devices:r.rows});
   } catch(error){console.error(error);return sendError(res,500,"Could not load Companion devices.");}
+});
+
+app.post("/api/admin/companion/devices/:id/approve", requireAdmin, async (req,res)=>{
+  const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return sendError(res,400,"Invalid device.");
+  const admin=req.session.adminEmail||ADMIN_EMAIL||"admin";
+  const r=await pool.query(
+    `UPDATE companion_devices SET authorization_status='approved',approved_at=NOW(),approved_by=$1,rejected_at=NULL,rejected_by=NULL
+     WHERE id=$2 AND active=TRUE RETURNING id,device_name,authorization_status`,[admin,id]);
+  if(!r.rows.length)return sendError(res,404,"Active Companion device not found.");
+  await pool.query(`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_approved','companion_device',$2,'{}')`,[admin,id]);
+  return res.json({success:true,message:"Companion device authorized.",device:r.rows[0]});
+});
+
+app.post("/api/admin/companion/devices/:id/reject", requireAdmin, async (req,res)=>{
+  const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return sendError(res,400,"Invalid device.");
+  const admin=req.session.adminEmail||ADMIN_EMAIL||"admin";
+  const r=await pool.query(
+    `UPDATE companion_devices SET authorization_status='denied',rejected_at=NOW(),rejected_by=$1,token_hash=$1
+     WHERE id=$2 RETURNING id,device_name,authorization_status`,[admin,id]);
+  if(!r.rows.length)return sendError(res,404,"Device not found.");
+  await pool.query(`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_rejected','companion_device',$2,'{}')`,[admin,id]);
+  return res.json({success:true,message:"Companion registration denied."});
+});
+
+app.post("/api/admin/companion/devices/:id/reauthorize", requireAdmin, async (req,res)=>{
+  const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return sendError(res,400,"Invalid device.");
+  const admin=req.session.adminEmail||ADMIN_EMAIL||"admin";
+  const token=crypto.randomBytes(6).toString("hex").toUpperCase();
+  const expiresAt=new Date(Date.now()+15*60*1000);
+  const r=await pool.query(
+    `UPDATE companion_devices SET active=TRUE,authorization_status='pending',enrollment_token_hash=$1,enrollment_expires_at=$2,rejected_at=NULL,rejected_by=NULL
+     WHERE id=$3 RETURNING id,device_name,phone,enrollment_expires_at`,[hashCompanionToken(token),expiresAt,id]);
+  if(!r.rows.length)return sendError(res,404,"Device not found.");
+  await pool.query(`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_reauthorized','companion_device',$2,$3)`,
+    [admin,id,JSON.stringify({expires_at:expiresAt.toISOString()})]);
+  return res.json({success:true,enrollment_token:token,expires_at:expiresAt.toISOString(),device:r.rows[0]});
 });
 
 app.post("/api/admin/companion/devices/:id/revoke", requireAdmin, async (req,res)=>{
@@ -2824,14 +2866,41 @@ app.post("/api/companion/enroll", async (req,res)=>{
        AND enrollment_expires_at>NOW() LIMIT 1`,[hashCompanionToken(enrollmentToken)]);
     if(!r.rows.length)return sendError(res,401,"Enrollment token is invalid or expired.");
     const device=r.rows[0];
+    if(device.authorization_status==="denied")return sendError(res,403,"This Companion registration was denied by DGM Admin.");
+    await pool.query(
+      `UPDATE companion_devices SET device_name=$1,platform=$2,app_version=$3,
+       enrolled_at=COALESCE(enrolled_at,NOW()),last_seen=NOW(),authorization_status='pending'
+       WHERE id=$4`,
+      [deviceName,platform,appVersion,device.id]);
+    return res.json({success:true,pending_approval:true,message:"Registration received. DGM Admin must authorize this device before it can connect.",device:{
+      id:device.id,device_name:deviceName,phone:device.phone,authorization_status:"pending"
+    }});
+  } catch(error){console.error("Companion enrollment error:",error);return sendError(res,500,"Unable to register this device.");}
+});
+
+app.post("/api/companion/enroll/status", async (req,res)=>{
+  try {
+    const enrollmentToken=String(req.body?.enrollment_token||"").trim().toUpperCase();
+    if(!enrollmentToken)return sendError(res,400,"Enrollment token is required.");
+    const r=await pool.query(
+      `SELECT id,device_name,phone,active,authorization_status,enrollment_expires_at
+       FROM companion_devices WHERE enrollment_token_hash=$1 LIMIT 1`,
+      [hashCompanionToken(enrollmentToken)]);
+    if(!r.rows.length)return sendError(res,401,"Registration token is invalid or expired.");
+    const device=r.rows[0];
+    if(!device.active)return sendError(res,403,"This Companion device has been revoked.");
+    if(device.authorization_status==="denied")return sendError(res,403,"DGM Admin denied this Companion registration.");
+    if(device.authorization_status!=="approved"){
+      return res.json({success:true,pending_approval:true,authorized:false,message:"Awaiting DGM Admin authorization.",device});
+    }
     const authToken=crypto.randomBytes(32).toString("hex");
     const updated=await pool.query(
-      `UPDATE companion_devices SET token_hash=$1,device_name=$2,platform=$3,app_version=$4,
-       enrolled_at=NOW(),last_seen=NOW(),enrollment_token_hash=NULL,enrollment_expires_at=NULL
-       WHERE id=$5 RETURNING id,device_name,phone,active,enrolled_at,expires_at`,
-      [hashCompanionToken(authToken),deviceName,platform,appVersion,device.id]);
-    return res.json({success:true,token:authToken,device:updated.rows[0]});
-  } catch(error){console.error("Companion enrollment error:",error);return sendError(res,500,"Unable to enroll this device.");}
+      `UPDATE companion_devices SET token_hash=$1,last_seen=NOW(),enrollment_token_hash=NULL,enrollment_expires_at=NULL,
+       approved_at=COALESCE(approved_at,NOW())
+       WHERE id=$2 RETURNING id,device_name,phone,active,enrolled_at,expires_at,authorization_status`,
+      [hashCompanionToken(authToken),device.id]);
+    return res.json({success:true,pending_approval:false,authorized:true,token:authToken,device:updated.rows[0]});
+  } catch(error){console.error("Companion enrollment status error:",error);return sendError(res,500,"Unable to check Companion authorization.");}
 });
 
 app.get("/api/companion/heartbeat",requireCompanion,async(req,res)=>res.json({success:true,connected:true,device:{id:req.companionDevice.id,name:req.companionDevice.device_name,last_seen:new Date().toISOString(),phone:req.companionDevice.phone}}));
@@ -2866,7 +2935,7 @@ app.post("/api/companion/outbox/:id/ack",requireCompanion,async(req,res)=>{
 
 app.get("/api/admin/companion/messages",requireAdmin,async(req,res)=>{
   const limit=Math.min(Math.max(Number(req.query.limit)||200,1),500);
-  const channel=["sms","whatsapp"].includes(String(req.query.channel||"").toLowerCase())?String(req.query.channel).toLowerCase():null;
+  const channel=["sms","whatsapp","call_log"].includes(String(req.query.channel||"").toLowerCase())?String(req.query.channel).toLowerCase():null;
   const params=[]; let where="";
   if(channel){params.push(channel);where="WHERE m.channel=$1";}
   params.push(limit);
