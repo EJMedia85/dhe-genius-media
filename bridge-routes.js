@@ -320,7 +320,7 @@ function installBridge(app) {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     const id=String(req.params.deviceId||"").trim();
     const action=String(req.body?.action||"").trim();
-    const map={suspend:["suspended","approved"],resume:["offline","approved"],revoke:["revoked","denied"],offline:["offline","approved"]};
+    const map={suspend:["suspended","approved"],resume:["offline","approved"],revoke:["revoked","pending"],offline:["offline","approved"]};
     if(!map[action]) return res.status(400).json({success:false,message:"Unsupported device action."});
     try {
       const row=(await pool.query(`UPDATE dgm_bridge_devices SET status=$2,approval_status=$3,active_session_id=NULL,active_token_hash=NULL WHERE device_id=$1 RETURNING device_id,status,approval_status`,[id,map[action][0],map[action][1]])).rows[0];
