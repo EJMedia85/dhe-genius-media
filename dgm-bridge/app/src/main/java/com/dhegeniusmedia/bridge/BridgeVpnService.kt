@@ -133,11 +133,19 @@ class BridgeVpnService : VpnService() {
 
             """.trimIndent()
         )
-        if (!TProxyService.TProxyStartService(config.absolutePath, tun.fd)) {
-            throw IllegalStateException("TUN-to-SOCKS engine could not start")
+        try {
+            val started = TProxyService.TProxyStartService(config.absolutePath, tun.fd)
+            Log.d(TAG, "HEV start returned: $started")
+            val runningNow = try { TProxyService.TProxyIsRunning() } catch (t: Throwable) {
+                Log.e(TAG, "HEV running-state check failed", t)
+                false
+            }
+            Log.d(TAG, "DGM Bridge client data plane: HEV running=$runningNow")
+            if (!started || !runningNow) throw IllegalStateException("TUN-to-SOCKS engine did not start")
+        } catch (t: Throwable) {
+            Log.e(TAG, "HEV/TUN startup failed", t)
+            throw IllegalStateException("Client tunnel engine failed", t)
         }
-        Log.d(TAG, "DGM Bridge client data plane started; HEV running=" +
-            try { TProxyService.TProxyIsRunning() } catch (_: Throwable) { false })
     }
 
     private fun startHeartbeat(token: String) {
