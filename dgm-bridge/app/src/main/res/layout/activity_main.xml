@@ -55,6 +55,12 @@
             android:layout_marginTop="12dp"
             android:text="Connect as Client" />
         <Button
+            android:id="@+id/testButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="Test Host Internet Path" />
+        <Button
             android:id="@+id/stopButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
