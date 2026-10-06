@@ -48,13 +48,15 @@ class BridgeApi(private val baseUrl: String = "https://dhe-genius-media.onrender
         deviceId: String,
         role: String,
         publicKey: String,
-        country: String = "unknown"
+        country: String = "unknown",
+        pin: String? = null
     ): JSONObject {
         val body = JSONObject()
             .put("device_id", deviceId)
             .put("role", role)
             .put("public_key", publicKey)
             .put("country", country)
+        if (!pin.isNullOrBlank()) body.put("pin", pin)
 
         val result = post("/api/bridge/register", body)
         authToken = result.optString("token").ifBlank { authToken }
