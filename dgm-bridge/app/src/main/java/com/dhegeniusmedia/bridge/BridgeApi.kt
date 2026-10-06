@@ -5,7 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeUnit\nimport okhttp3.Cookie\nimport okhttp3.CookieJar\nimport okhttp3.HttpUrl
 
 class BridgeApi(private val baseUrl: String = "https://dhe-genius-media.onrender.com") {
     private val client = OkHttpClient.Builder()
@@ -16,6 +16,10 @@ class BridgeApi(private val baseUrl: String = "https://dhe-genius-media.onrender
 
     var authToken: String? = null
         private set
+
+    fun adminLogin(email: String, password: String): JSONObject {
+        return post("/api/admin/login", JSONObject().put("email", email).put("password", password))
+    }
 
     fun register(deviceId: String, role: String, publicKey: String, country: String = "unknown"): JSONObject {
         val body = JSONObject()
