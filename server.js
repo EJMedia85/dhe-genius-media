@@ -2943,7 +2943,7 @@ app.get("/api/admin/companion/messages",requireAdmin,async(req,res)=>{
     `SELECT m.id,m.channel,m.sender,m.body,m.direction,m.status,m.created_at,m.metadata,
             d.id AS device_id,d.device_name,d.phone,d.last_seen
      FROM companion_messages m JOIN companion_devices d ON d.id=m.device_id ${where}
-     ORDER BY m.created_at DESC LIMIT ${params.length}`,params);
+     ORDER BY m.created_at DESC LIMIT $${params.length}`,params);
   return res.json({success:true,messages:result.rows});
 });
 app.post("/api/admin/companion/reply",requireAdmin,async(req,res)=>{
