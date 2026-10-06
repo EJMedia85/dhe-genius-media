@@ -83,8 +83,9 @@ class BridgeVpnService : VpnService() {
         vpnInterface = Builder()
             .setSession("DGM Bridge client")
             .setMtu(1500)
-            .addAddress("10.77.0.2", 32)
+            .addAddress("198.18.0.1", 15)
             .addRoute("0.0.0.0", 0)
+            .addRoute("198.18.0.0", 15)
             .addDnsServer("1.1.1.1")
             .apply {
                 try { addDisallowedApplication(packageName) } catch (_: Exception) {}
@@ -98,19 +99,24 @@ class BridgeVpnService : VpnService() {
             tunnel:
               name: tun0
               mtu: 1500
-              ipv4: 10.77.0.2
+              ipv4: 198.18.0.1
             socks5:
               address: 127.0.0.1
               port: 10808
               udp: udp
             misc:
-              icmp: off
+              connect-timeout: 30000
+              tcp-read-write-timeout: 300000
+              udp-read-write-timeout: 60000
+              log-file: stdout
+              log-level: debug
+
             """.trimIndent()
         )
         if (!TProxyService.TProxyStartService(config.absolutePath, tun.fd)) {
             throw IllegalStateException("TUN-to-SOCKS engine could not start")
         }
-        Log.d(TAG, "DGM Bridge client data plane started")
+        Log.d(TAG, "DGM Bridge client data plane started; HEV running=" + try { TProxyService.TProxyIsRunning() } catch (_: Throwable) { false })
     }
 
     private fun startHeartbeat(token: String) {
