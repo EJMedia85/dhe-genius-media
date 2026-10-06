@@ -10,6 +10,8 @@ import android.graphics.Color;
 import android.app.NotificationManager;
 import android.view.*;
 import android.widget.*;
+import android.text.InputFilter;
+import android.text.method.DigitsKeyListener;
 import org.json.JSONObject;
 import java.util.concurrent.Executors;
 
@@ -25,7 +27,7 @@ public class MainActivity extends Activity {
         TextView title=new TextView(this); title.setText("DHE GENIUS MEDIA\nCOMPANION"); title.setTextColor(Color.rgb(37,211,102)); title.setTextSize(24); title.setGravity(Gravity.CENTER); root.addView(title,new LinearLayout.LayoutParams(-1,110));
         TextView help=new TextView(this); help.setText("Enroll this phone using the one-time token generated in your DGM Admin Dashboard."); help.setTextColor(Color.WHITE); help.setTextSize(15); help.setPadding(0,0,0,24); root.addView(help);
         deviceName=new EditText(this); deviceName.setHint("Device name"); deviceName.setText("My Android"); deviceName.setTextColor(Color.WHITE); deviceName.setHintTextColor(Color.GRAY); root.addView(deviceName,new LinearLayout.LayoutParams(-1,60));
-        tokenInput=new EditText(this); tokenInput.setHint("Enrollment token"); tokenInput.setTextColor(Color.WHITE); tokenInput.setHintTextColor(Color.GRAY); tokenInput.setSingleLine(true); tokenInput.setInputType(2|0x80000); root.addView(tokenInput,new LinearLayout.LayoutParams(-1,60));
+        tokenInput=new EditText(this); tokenInput.setHint("Enrollment token"); tokenInput.setTextColor(Color.WHITE); tokenInput.setHintTextColor(Color.GRAY); tokenInput.setSingleLine(true); tokenInput.setInputType(android.text.InputType.TYPE_CLASS_NUMBER); tokenInput.setKeyListener(DigitsKeyListener.getInstance("0123456789")); tokenInput.setFilters(new InputFilter[]{new InputFilter.LengthFilter(8)}); root.addView(tokenInput,new LinearLayout.LayoutParams(-1,60));
 
         Button enroll=new Button(this); enroll.setText("ENROLL DEVICE"); root.addView(enroll,new LinearLayout.LayoutParams(-1,60));
         Button sms=new Button(this); sms.setText("GRANT SMS ACCESS"); root.addView(sms,new LinearLayout.LayoutParams(-1,60));
