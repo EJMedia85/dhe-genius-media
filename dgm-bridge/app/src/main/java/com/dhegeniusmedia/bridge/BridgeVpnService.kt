@@ -32,7 +32,7 @@ class BridgeVpnService : VpnService() {
         val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_CLIENT
         if (running.getAndSet(true)) {
             Log.d(TAG, "Bridge service already running; ignoring duplicate start")
-            return START_STICKY
+            return START_NOT_STICKY
         }
 
         startForegroundServiceNotification(mode)
