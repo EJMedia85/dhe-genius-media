@@ -53,6 +53,7 @@ function decryptPin(value) {
 
 async function initBridgeDatabase() {
   if (!pool) return;
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS dgm_bridge_devices (
       device_id TEXT PRIMARY KEY,
@@ -62,7 +63,10 @@ async function initBridgeDatabase() {
       status TEXT NOT NULL DEFAULT 'pending',
       last_seen TIMESTAMPTZ,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS dgm_bridge_pairings (
       code TEXT PRIMARY KEY,
       secret_hash TEXT NOT NULL,
@@ -72,29 +76,42 @@ async function initBridgeDatabase() {
       claimed_at TIMESTAMPTZ,
       session_id TEXT UNIQUE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    CREATE INDEX IF NOT EXISTS dgm_bridge_pairings_expiry_idx ON dgm_bridge_pairings(expires_at);
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS approval_status TEXT NOT NULL DEFAULT 'pending';
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS approved_by TEXT;
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS device_name TEXT;
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS app_version TEXT;
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS platform TEXT DEFAULT 'Android';
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS last_error TEXT;
-    ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS pin_ciphertext TEXT;
-    CREATE INDEX IF NOT EXISTS dgm_bridge_devices_status_idx ON dgm_bridge_devices(approval_status,status);
+    )
+  `);
+
+  const columns = [
+    ["approval_status", "TEXT NOT NULL DEFAULT 'pending'"],
+    ["approved_at", "TIMESTAMPTZ"],
+    ["approved_by", "TEXT"],
+    ["device_name", "TEXT"],
+    ["app_version", "TEXT"],
+    ["platform", "TEXT DEFAULT 'Android'"],
+    ["last_error", "TEXT"],
+    ["pin_ciphertext", "TEXT"]
+  ];
+  for (const [name, definition] of columns) {
+    await pool.query('ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS ' + name + ' ' + definition);
+  }
+
+  await pool.query('CREATE INDEX IF NOT EXISTS dgm_bridge_pairings_expiry_idx ON dgm_bridge_pairings(expires_at)');
+  await pool.query('CREATE INDEX IF NOT EXISTS dgm_bridge_devices_status_idx ON dgm_bridge_devices(approval_status,status)');
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS dgm_bridge_config (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-    );
-    INSERT INTO dgm_bridge_config(key,value) VALUES
-      ('latest_version', $1), ('minimum_version', $2), ('update_url', $3)
-    ON CONFLICT(key) DO NOTHING;
-  `, [String(process.env.DGM_BRIDGE_LATEST_VERSION || "1.1.2").trim(),
-      String(process.env.DGM_BRIDGE_MIN_VERSION || "1.1.0").trim(),
-      String(process.env.DGM_BRIDGE_UPDATE_URL || "").trim()]);
+    )
+  `);
 
+  await pool.query(
+    'INSERT INTO dgm_bridge_config(key,value) VALUES($1,$2),($3,$4),($5,$6) ON CONFLICT(key) DO NOTHING',
+    [
+      'latest_version', String(process.env.DGM_BRIDGE_LATEST_VERSION || '1.1.2').trim(),
+      'minimum_version', String(process.env.DGM_BRIDGE_MIN_VERSION || '1.1.0').trim(),
+      'update_url', String(process.env.DGM_BRIDGE_UPDATE_URL || '').trim()
+    ]
+  );
 }
 
 async function bridgeAudit(adminEmail, action, targetId, details = {}) {
