@@ -6,6 +6,7 @@ object BridgeMux {
     const val OPEN_FAIL: Byte = 3
     const val DATA: Byte = 4
     const val CLOSE: Byte = 5
+    const val UDP: Byte = 6
     fun frame(type: Byte, id: Int, payload: ByteArray = ByteArray(0)): ByteArray {
         val out = ByteBuffer.allocate(10 + payload.size)
         out.put(1).put(type).putInt(id).putInt(payload.size).put(payload)
