@@ -24,9 +24,9 @@
   <div id="adminLoginStatus" class="muted" style="margin-top:10px"></div>
 </div>
 
-<label style="display:block;margin:14px 0 6px">Create 6-digit Bridge PIN</label>
+<div id="clientPinPanel"><label style="display:block;margin:14px 0 6px">Create 6-digit Bridge PIN</label>
 <input id="regPin" class="input" inputmode="numeric" maxlength="6" autocomplete="new-password" placeholder="••••••">
-<button id="registerBtn" class="btn green" style="margin-top:14px">Register Device</button>
+<button id="registerBtn" class="btn green" style="margin-top:14px">Register Device</button></div>
 <div id="regStatus" class="status">This device is not registered.</div>
 </div>
 
@@ -52,8 +52,9 @@ async function checkAdminSession(){try{const d=await api('/api/admin/me');adminL
 function updateHostPanel(){
   const host=role==='host';
   $('hostAdminPanel').classList.toggle('hidden',!host);
-  $('regPin').disabled=host&&!adminLoggedIn;
-  $('registerBtn').disabled=host&&!adminLoggedIn;
+  $('clientPinPanel').classList.toggle('hidden',host);
+  $('regPin').disabled=host;
+  $('registerBtn').disabled=host;
   if(host){
     $('adminLoginForm').classList.toggle('hidden',adminLoggedIn);
     $('adminLoginStatus').innerHTML=adminLoggedIn?'<span class="ok">Admin authenticated. Host registration is unlocked.</span>':'Admin login is required before a Host can be registered.';
@@ -79,14 +80,21 @@ async function adminLogin(){
     const d=await api('/api/admin/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
     adminLoggedIn=!!d.success;
     $('adminPassword').value='';
-    $('adminLoginStatus').innerHTML='<span class="ok">Admin authenticated. Host registration is unlocked.</span>';
+    $('adminLoginStatus').innerHTML='<span class="ok">Admin authenticated. Opening Host Bridge…</span>';
     updateHostPanel();
+    openHost();
   }catch(e){$('adminLoginStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>'}
   finally{$('adminLoginBtn').disabled=false;$('adminLoginBtn').textContent='Admin Login'}
 }
-async function register(){if(role==='host'&&!adminLoggedIn){$('regStatus').innerHTML='<span class="error">DGM Admin login is required for Host.</span>';return}const pin=$('regPin').value.trim();if(!/^\d{6}$/.test(pin)){showRegistration('Please enter exactly 6 digits for your Bridge PIN.','denied');return}try{const deviceId=device?.device_id||crypto.randomUUID();const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);const publicKey=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');device={device_id:deviceId,role,public_key:publicKey};localStorage.setItem(key,JSON.stringify(device));const d=await api('/api/bridge/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:deviceId,role,public_key:publicKey,country:'Ghana',device_name:$('deviceName').value.trim()||'DGM Bridge',app_version:'web-2.0.0',platform:'Web',pin})});showRegistration(d.message||'Registration received. Waiting for DGM Admin authorization.');}catch(e){showRegistration(e.message,'denied')}}
+async function register(){if(role==='host'&&!adminLoggedIn){$('regStatus').innerHTML='<span class="error">DGM Admin login is required for Host.</span>';return}const pin=$('regPin').value.trim();if(role==='host'){openHost();return}if(!/^\d{6}$/.test(pin)){showRegistration('Please enter exactly 6 digits for your Bridge PIN.','denied');return}try{const deviceId=device?.device_id||crypto.randomUUID();const bytes=new Uint8Array(32);crypto.getRandomValues(bytes);const publicKey=btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');device={device_id:deviceId,role,public_key:publicKey};localStorage.setItem(key,JSON.stringify(device));const d=await api('/api/bridge/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:deviceId,role,public_key:publicKey,country:'Ghana',device_name:$('deviceName').value.trim()||'DGM Bridge',app_version:'web-2.0.0',platform:'Web',pin})});showRegistration(d.message||'Registration received. Waiting for DGM Admin authorization.');}catch(e){showRegistration(e.message,'denied')}}
 async function connect(){const pin=$('loginPin').value.trim();if(!/^\d{6}$/.test(pin)){ $('connectStatus').innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return}try{const d=await api('/api/bridge/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_id:device.device_id,pin})});token=d.token;localStorage.setItem(key+'.token',token);$('connectPanel').classList.add('hidden');$('authorizedPanel').classList.remove('hidden');$('deviceInfo').textContent='Device ID: '+device.device_id;}catch(e){$('connectStatus').innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
-function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPanel').classList.add('hidden');$('connectPanel').classList.remove('hidden');$('loginPin').value=''}
+function openHost(){
+  $('registerPanel').classList.add('hidden');
+  $('connectPanel').classList.add('hidden');
+  $('authorizedPanel').classList.remove('hidden');
+  $('deviceInfo').textContent='Host access granted by DGM Admin.';
+}
+function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPanel').classList.add('hidden');$('registerPanel').classList.remove('hidden');setRole('host')}
 $('hostRole').onclick=()=>setRole('host');$('clientRole').onclick=()=>setRole('client');$('adminLoginBtn').onclick=adminLogin;$('registerBtn').onclick=register;$('connectBtn').onclick=connect;$('logoutBtn').onclick=lock;
 updateHostPanel();
 if(role==='host')checkAdminSession();
