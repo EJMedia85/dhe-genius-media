@@ -87,7 +87,9 @@ async function initBridgeDatabase() {
     ["app_version", "TEXT"],
     ["platform", "TEXT DEFAULT 'Android'"],
     ["last_error", "TEXT"],
-    ["pin_ciphertext", "TEXT"]
+    ["pin_ciphertext", "TEXT"],
+    ["active_session_id", "TEXT"],
+    ["active_token_hash", "TEXT"]
   ];
   for (const [name, definition] of columns) {
     await pool.query('ALTER TABLE dgm_bridge_devices ADD COLUMN IF NOT EXISTS ' + name + ' ' + definition);
@@ -160,10 +162,8 @@ function installBridge(app) {
       if(!row) return res.status(404).json({success:false,message:"Device registration not found."});
       if(row.role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge status is restricted to DGM Admin."});
       if(row.approval_status==="approved" && !["revoked","suspended"].includes(row.status)){
-        const issued=token({sub:row.device_id,role:row.role,exp:Date.now()+24*60*60*1000});
         const minimum=await bridgeConfig("minimum_version",String(process.env.DGM_BRIDGE_MIN_VERSION || "1.1.0"));
-        await pool.query(`UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL WHERE device_id=$1`,[deviceId]);
-        return res.json({success:true,device_id:row.device_id,role:row.role,approval_status:"approved",status:"authorized",token:issued,update_required:bridgeVersionNeedsUpdate(row.app_version,minimum)});
+        return res.json({success:true,device_id:row.device_id,role:row.role,approval_status:"approved",status:"authorized",update_required:bridgeVersionNeedsUpdate(row.app_version,minimum)});
       }
       return res.json({success:true,device_id:row.device_id,role:row.role,approval_status:row.approval_status,status:row.status,approved_at:row.approved_at||null,message:row.approval_status==="denied"?"Registration denied by DGM Admin.":"Waiting for DGM Admin authorization."});
     } catch(e){ console.error("Bridge registration status:",e.message); return res.status(500).json({success:false,message:"Could not check registration status: "+String(e.message||"server error").slice(0,180)}); }
@@ -244,8 +244,9 @@ function installBridge(app) {
       if(row.approval_status!=="approved" || ["revoked","suspended"].includes(row.status)) return res.status(403).json({success:false,message:"Bridge is not authorized by DGM Admin."});
       const stored=decryptPin(row.pin_ciphertext);
       if(!stored || !crypto.timingSafeEqual(Buffer.from(stored),Buffer.from(pin))) return res.status(401).json({success:false,message:"Incorrect Bridge PIN."});
-      const issued=token({sub:row.device_id,role:row.role,exp:Date.now()+24*60*60*1000});
-      await pool.query("UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL WHERE device_id=$1",[deviceId]);
+      const issued=token({sub:row.device_id,role:row.role,sid:crypto.randomUUID(),exp:Date.now()+24*60*60*1000});
+      const sid=JSON.parse(Buffer.from(issued.split(".")[0],"base64url").toString("utf8")).sid;
+      await pool.query("UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL,active_session_id=$2,active_token_hash=$3 WHERE device_id=$1",[deviceId,sid,hmac("session:"+issued)]);
       res.json({success:true,device_id:row.device_id,role:row.role,status:"authorized",token:issued});
     } catch(e){ console.error("Bridge connect:",e.message); res.status(500).json({success:false,message:"Could not connect Bridge."}); }
   });
@@ -340,8 +341,11 @@ function installBridge(app) {
 
   app.post("/api/bridge/diagnostic", async (req,res) => {
     try {
-      const auth=verifyToken(req.get("authorization")?.replace(/^Bearer\s+/i,""));
+      const rawToken=req.get("authorization")?.replace(/^Bearer\s+/i,"");
+      const auth=verifyToken(rawToken);
       if(!auth||!pool)return res.status(401).json({success:false,message:"Authentication required."});
+      const session=(await pool.query("SELECT active_session_id,active_token_hash FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0];
+      if(!session || !auth.sid || session.active_session_id!==auth.sid || session.active_token_hash!==hmac("session:"+rawToken)) return res.status(401).json({success:false,message:"Bridge session is no longer active on this device."});
       const error=String(req.body?.error||"").trim().slice(0,500);
       await pool.query("UPDATE dgm_bridge_devices SET last_error=$2,last_seen=NOW() WHERE device_id=$1",[auth.sub,error||null]);
       res.json({success:true});
@@ -350,9 +354,11 @@ function installBridge(app) {
 
   app.post("/api/bridge/pair/create", async (req,res) => {
     try {
-      const auth=verifyToken(req.get("authorization")?.replace(/^Bearer\s+/i,""));
+      const rawToken=req.get("authorization")?.replace(/^Bearer\s+/i,"");
+      const auth=verifyToken(rawToken);
       if (!auth || auth.role!=="host") return res.status(401).json({success:false,message:"Host authentication required."});
-      const approved=(await pool.query("SELECT approval_status,status FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0];
+      const approved=(await pool.query("SELECT approval_status,status,active_session_id,active_token_hash FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0];
+      if(!approved || approved.active_session_id!==auth.sid || approved.active_token_hash!==hmac("session:"+rawToken)) return res.status(401).json({success:false,message:"Bridge session is no longer active on this device."});
       if(!approved || approved.approval_status!=="approved" || ["revoked","suspended"].includes(approved.status)) return res.status(403).json({success:false,message:"Host device is not authorized by DGM Admin."});
       if (!pool) return res.status(503).json({success:false,message:"Database unavailable."});
       const device=(await pool.query("SELECT device_id FROM dgm_bridge_devices WHERE device_id=$1 AND role='host'",[auth.sub])).rows[0];
@@ -407,9 +413,11 @@ function installBridge(app) {
 
   app.post("/api/bridge/pair/claim", async (req,res) => {
     try {
-      const auth=verifyToken(req.get("authorization")?.replace(/^Bearer\s+/i,""));
+      const rawToken=req.get("authorization")?.replace(/^Bearer\s+/i,"");
+      const auth=verifyToken(rawToken);
       if (!auth || auth.role!=="client") return res.status(401).json({success:false,message:"Client authentication required."});
-      const approved=(await pool.query("SELECT approval_status,status FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0];
+      const approved=(await pool.query("SELECT approval_status,status,active_session_id,active_token_hash FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0];
+      if(!approved || approved.active_session_id!==auth.sid || approved.active_token_hash!==hmac("session:"+rawToken)) return res.status(401).json({success:false,message:"Bridge session is no longer active on this device."});
       if(!approved || approved.approval_status!=="approved" || ["revoked","suspended"].includes(approved.status)) return res.status(403).json({success:false,message:"Client device is not authorized by DGM Admin."});
       if (!pool) return res.status(503).json({success:false,message:"Database unavailable."});
       const code=String(req.body?.code||"").trim();
@@ -430,9 +438,11 @@ function installBridge(app) {
 
   app.post("/api/bridge/heartbeat", async (req,res) => {
     try {
-      const auth=verifyToken(req.get("authorization")?.replace(/^Bearer\s+/i,""));
+      const rawToken=req.get("authorization")?.replace(/^Bearer\s+/i,"");
+      const auth=verifyToken(rawToken);
       if (!auth) return res.status(401).json({success:false,message:"Authentication required."});
-      const row=pool ? (await pool.query("SELECT approval_status,status FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0] : null;
+      const row=pool ? (await pool.query("SELECT approval_status,status,active_session_id,active_token_hash FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0] : null;
+      if(!row || row.active_session_id!==auth.sid || row.active_token_hash!==hmac("session:"+rawToken)) return res.status(401).json({success:false,message:"Bridge session is no longer active on this device."});
       if(!row || row.approval_status!=="approved" || ["revoked","suspended"].includes(row.status)) return res.status(403).json({success:false,message:"Device is not authorized."});
       if (pool) await pool.query("UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL WHERE device_id=$1",[auth.sub]);
       res.json({success:true,online:true,timestamp:new Date().toISOString()});
