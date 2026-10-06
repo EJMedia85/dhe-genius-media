@@ -8121,6 +8121,27 @@ app.get("/api/admin/system", requireAdmin, async (req,res) => {
   return res.json({success:true,checked_at:new Date().toISOString(),checks});
 });
 
+app.get("/api/admin/movies/playback", requireAdmin, async (req,res) => {
+  try {
+    const result = await pool.query("SELECT id, tmdb_id, title, playback_url, playback_type, active, expires_at, created_at, updated_at FROM movie_playback ORDER BY updated_at DESC");
+    return res.json({success:true,movies:result.rows});
+  } catch(error) { console.error("Admin movie playback load error:",error); return sendError(res,500,"Could not load movie playback sources."); }
+});
+app.post("/api/admin/movies/playback", requireAdmin, async (req,res) => {
+  const tmdbId=Number(req.body?.tmdb_id), title=String(req.body?.title||"").trim().slice(0,250), playbackType=String(req.body?.playback_type||"hls").toLowerCase(), playbackUrl=String(req.body?.playback_url||"").trim();
+  if(!Number.isInteger(tmdbId)||tmdbId<=0) return sendError(res,400,"A valid TMDB movie ID is required.");
+  if(!["hls","mp4"].includes(playbackType)) return sendError(res,400,"Playback type must be HLS or MP4.");
+  let parsed; try { parsed=new URL(playbackUrl); } catch { return sendError(res,400,"Enter a valid playback URL."); }
+  if(parsed.protocol!=="https:") return sendError(res,400,"Playback URL must use HTTPS.");
+  try {
+    const result=await pool.query(`INSERT INTO movie_playback (tmdb_id,title,playback_url,playback_type,active,updated_at)
+      VALUES ($1,$2,$3,$4,TRUE,NOW()) ON CONFLICT (tmdb_id) DO UPDATE SET title=EXCLUDED.title,playback_url=EXCLUDED.playback_url,playback_type=EXCLUDED.playback_type,active=TRUE,updated_at=NOW()
+      RETURNING id,tmdb_id,title,playback_url,playback_type,active,expires_at,created_at,updated_at`,[tmdbId,title||null,playbackUrl,playbackType]);
+    await writeAdminAudit(req,"Movie playback source saved","movie",tmdbId,{title,playback_type:playbackType});
+    return res.json({success:true,message:"Playback source saved.",movie:result.rows[0]});
+  } catch(error) { console.error("Admin movie playback save error:",error); return sendError(res,500,"Could not save movie playback source."); }
+});
+
 app.get("/api/admin/audit", requireAdmin, async (req,res) => {
   try {
     const result = await pool.query(
