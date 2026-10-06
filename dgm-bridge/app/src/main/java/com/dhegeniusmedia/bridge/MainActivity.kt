@@ -20,7 +20,11 @@ class MainActivity : Activity() {
 
     private val deviceIdValue by lazy {
         val prefs = getSharedPreferences("dgm_bridge", MODE_PRIVATE)
-        prefs.getString("device_id", null) ?: UUID.randomUUID().toString().also {
+        val stableId = android.provider.Settings.Secure.getString(
+            contentResolver,
+            android.provider.Settings.Secure.ANDROID_ID
+        ).orEmpty().trim().ifBlank { UUID.randomUUID().toString() }
+        prefs.getString("device_id", null)?.takeIf { it == stableId } ?: stableId.also {
             prefs.edit().putString("device_id", it).apply()
         }
     }
