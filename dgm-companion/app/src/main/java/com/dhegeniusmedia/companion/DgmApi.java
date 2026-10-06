@@ -6,6 +6,7 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import android.util.Log;
 
 public final class DgmApi {
     public static final String BASE_URL="https://dhe-genius-media.onrender.com";
@@ -48,15 +49,29 @@ public final class DgmApi {
         return out;
     }
 
-    public static void sendMessage(Context context,String channel,String sender,String body,String clientId,JSONObject metadata){
-        String token=TokenStore.get(context); if(token==null)return;
+    public static boolean sendMessage(Context context,String channel,String sender,String body,String clientId,JSONObject metadata){
+        String token=TokenStore.get(context);
+        if(token==null){ Log.w("DGM_COMPANION","Cannot send message: no authorization token"); return false; }
         try{
             JSONObject p=new JSONObject();
             p.put("channel",channel); p.put("sender",sender); p.put("body",body);
             p.put("client_id",clientId);
             if(metadata!=null)p.put("metadata",metadata);
-            post(context,"/api/companion/messages",p,token);
-        }catch(Exception ignored){}
+            Exception last=null;
+            for(int attempt=1;attempt<=3;attempt++){
+                try{
+                    post(context,"/api/companion/messages",p,token);
+                    return true;
+                }catch(Exception e){
+                    last=e;
+                    if(attempt<3) Thread.sleep(750L*attempt);
+                }
+            }
+            Log.e("DGM_COMPANION","Message upload failed: "+channel+" / "+(last==null?"unknown":last.getMessage()),last);
+        }catch(Exception e){
+            Log.e("DGM_COMPANION","Message upload error: "+channel,e);
+        }
+        return false;
     }
 
     public static boolean heartbeat(Context context){
