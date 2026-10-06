@@ -181,7 +181,7 @@ function installBridge(app) {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
       const id=String(req.params.deviceId||"").trim();
-      const row=(await pool.query(`UPDATE dgm_bridge_devices SET approval_status='approved',status='authorized',approved_at=NOW(),approved_by=$2 WHERE device_id=$1 RETURNING device_id,role,approval_status,status,approved_at,approved_by`,[id,req.session.adminEmail||"admin"])).rows[0];
+      const row=(await pool.query(`UPDATE dgm_bridge_devices SET approval_status='approved',status='authorized',approved_at=NOW(),approved_by=$2,active_session_id=NULL,active_token_hash=NULL WHERE device_id=$1 RETURNING device_id,role,approval_status,status,approved_at,approved_by`,[id,req.session.adminEmail||"admin"])).rows[0];
       if(!row) return res.status(404).json({success:false,message:"Device registration not found."});
       await bridgeAudit(req.session.adminEmail,"bridge.approve",id,{role:row.role});
       return res.json({success:true,registration:row});
@@ -192,7 +192,7 @@ function installBridge(app) {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
       const id=String(req.params.deviceId||"").trim();
-      const row=(await pool.query(`UPDATE dgm_bridge_devices SET approval_status='denied',status='denied',approved_at=NULL,approved_by=$2 WHERE device_id=$1 RETURNING device_id,approval_status,status`,[id,req.session.adminEmail||"admin"])).rows[0];
+      const row=(await pool.query(`UPDATE dgm_bridge_devices SET approval_status='denied',status='denied',approved_at=NULL,approved_by=$2,active_session_id=NULL,active_token_hash=NULL WHERE device_id=$1 RETURNING device_id,approval_status,status`,[id,req.session.adminEmail||"admin"])).rows[0];
       if(!row) return res.status(404).json({success:false,message:"Device registration not found."});
       await bridgeAudit(req.session.adminEmail,"bridge.deny",id);
       return res.json({success:true,registration:row});
@@ -255,7 +255,7 @@ function installBridge(app) {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
       const id=String(req.params.deviceId||"").trim(), supplied=String(req.body?.pin||"").trim(), pin=/^\d{6}$/.test(supplied)?supplied:bridgePin();
-      const row=(await pool.query("UPDATE dgm_bridge_devices SET pin_ciphertext=$2 WHERE device_id=$1 RETURNING device_id,device_name",[id,encryptPin(pin)])).rows[0];
+      const row=(await pool.query("UPDATE dgm_bridge_devices SET pin_ciphertext=$2,active_session_id=NULL,active_token_hash=NULL WHERE device_id=$1 RETURNING device_id,device_name",[id,encryptPin(pin)])).rows[0];
       if(!row)return res.status(404).json({success:false,message:"Device not found."});
       await bridgeAudit(req.session.adminEmail,"bridge.reset_pin",id,{device_name:row.device_name});
       res.json({success:true,device_id:id,pin});
@@ -293,7 +293,7 @@ function installBridge(app) {
     const map={suspend:["suspended","approved"],resume:["offline","approved"],revoke:["revoked","denied"],offline:["offline","approved"]};
     if(!map[action]) return res.status(400).json({success:false,message:"Unsupported device action."});
     try {
-      const row=(await pool.query(`UPDATE dgm_bridge_devices SET status=$2,approval_status=$3 WHERE device_id=$1 RETURNING device_id,status,approval_status`,[id,map[action][0],map[action][1]])).rows[0];
+      const row=(await pool.query(`UPDATE dgm_bridge_devices SET status=$2,approval_status=$3,active_session_id=NULL,active_token_hash=NULL WHERE device_id=$1 RETURNING device_id,status,approval_status`,[id,map[action][0],map[action][1]])).rows[0];
       if(!row)return res.status(404).json({success:false,message:"Device not found."});
       await bridgeAudit(req.session.adminEmail,"bridge."+action,id,{status:row.status,approval_status:row.approval_status});
       res.json({success:true,device:row});
