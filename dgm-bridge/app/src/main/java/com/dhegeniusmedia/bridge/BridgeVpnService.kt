@@ -47,7 +47,7 @@ class BridgeVpnService : VpnService() {
                 stopSelf(startId)
             }
         }
-        return START_STICKY
+        return START_NOT_STICKY
     }
 
     private fun startForegroundServiceNotification(mode: String) {
@@ -136,12 +136,16 @@ class BridgeVpnService : VpnService() {
         try {
             val started = TProxyService.TProxyStartService(config.absolutePath, tun.fd)
             Log.d(TAG, "HEV start returned: $started")
-            val runningNow = try { TProxyService.TProxyIsRunning() } catch (t: Throwable) {
-                Log.e(TAG, "HEV running-state check failed", t)
-                false
-            }
-            Log.d(TAG, "DGM Bridge client data plane: HEV running=$runningNow")
-            if (!started || !runningNow) throw IllegalStateException("TUN-to-SOCKS engine did not start")
+            Log.d(TAG, "DGM Bridge client data plane: HEV start requested")
+            if (!started) throw IllegalStateException("TUN-to-SOCKS engine rejected startup")
+            Thread {
+                try {
+                    Thread.sleep(1000)
+                    Log.d(TAG, "DGM Bridge client data plane: HEV running=" + TProxyService.TProxyIsRunning())
+                } catch (t: Throwable) {
+                    Log.w(TAG, "HEV delayed running-state check failed", t)
+                }
+            }.start()
         } catch (t: Throwable) {
             Log.e(TAG, "HEV/TUN startup failed", t)
             throw IllegalStateException("Client tunnel engine failed", t)
