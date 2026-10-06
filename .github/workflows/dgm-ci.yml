@@ -13,9 +13,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - run: npm install
       - run: node --check server.js
+      - run: node --check bridge-routes.js
       - run: |
           test -f public/movies.html
           test -f public/data.html
