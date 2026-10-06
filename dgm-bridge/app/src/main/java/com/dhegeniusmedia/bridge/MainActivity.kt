@@ -33,12 +33,49 @@ class MainActivity : Activity() {
         deviceId = findViewById(R.id.deviceId)
         deviceId.text = "Device ID: $deviceIdValue\nFingerprint: ${BridgeSecurity.fingerprint(this)}"
 
-        findViewById<Button>(R.id.hostButton).setOnClickListener { prepareHost() }
+        findViewById<Button>(R.id.hostButton).setOnClickListener { showAdminLogin() }
         findViewById<Button>(R.id.clientButton).setOnClickListener { showPairingDialog() }
         findViewById<Button>(R.id.stopButton).setOnClickListener {
             stopService(Intent(this, BridgeVpnService::class.java))
             status.text = "● DISCONNECTED"
         }
+    }
+
+    private fun showAdminLogin() {
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(32, 8, 32, 0)
+        }
+        val email = EditText(this).apply {
+            hint = "Admin email"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        }
+        val password = EditText(this).apply {
+            hint = "Admin password"
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        container.addView(email)
+        container.addView(password)
+        AlertDialog.Builder(this)
+            .setTitle("DGM Admin Login")
+            .setMessage("Host access requires the DGM Admin account.")
+            .setView(container)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Login") { _, _ ->
+                status.text = "● ADMIN LOGIN"
+                io.execute {
+                    try {
+                        api.adminLogin(email.text.toString().trim(), password.text.toString())
+                        runOnUiThread { prepareHost() }
+                    } catch (e: Exception) {
+                        runOnUiThread {
+                            status.text = "● LOGIN FAILED"
+                            Toast.makeText(this, e.message ?: "Admin login failed", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+            .show()
     }
 
     private fun prepareHost() {
