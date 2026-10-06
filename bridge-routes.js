@@ -163,10 +163,17 @@ function installBridge(app) {
     try {
       if (!pool) return res.status(503).json({success:false,message:"Database unavailable."});
       const deviceId=String(req.query.device_id||"").trim();
+      const suppliedPin=String(req.query.pin||"").trim();
       if(!deviceId) return res.status(400).json({success:false,message:"device_id is required."});
-      const row=(await pool.query(`SELECT device_id,role,approval_status,status,approved_at,app_version FROM dgm_bridge_devices WHERE device_id=$1`,[deviceId])).rows[0];
+      const row=(await pool.query(`SELECT device_id,role,approval_status,status,approved_at,app_version,pin_ciphertext FROM dgm_bridge_devices WHERE device_id=$1`,[deviceId])).rows[0];
       if(!row) return res.status(404).json({success:false,message:"Device registration not found."});
       if(row.role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge status is restricted to DGM Admin."});
+      if(row.role === "client") {
+        const storedPin=decryptPin(row.pin_ciphertext);
+        if(!/^\d{6}$/.test(suppliedPin) || !storedPin || suppliedPin !== storedPin) {
+          return res.status(401).json({success:false,message:"Bridge PIN is required to check authorization."});
+        }
+      }
       if(row.approval_status==="approved" && !["revoked","suspended"].includes(row.status)){
         const minimum=await bridgeConfig("minimum_version",String(process.env.DGM_BRIDGE_MIN_VERSION || "1.1.0"));
         const session = issueBridgeSession(row.device_id, row.role);
@@ -192,7 +199,7 @@ function installBridge(app) {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
       const rows=(await pool.query(`SELECT device_id,role,country,device_name,app_version,platform,status,approval_status,approved_at,approved_by,last_seen,last_error,created_at,pin_ciphertext FROM dgm_bridge_devices ORDER BY CASE approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,created_at DESC`)).rows;
-      return res.json({success:true,registrations:rows});
+      return res.json({success:true,registrations:rows.map(x=>({...x,pin:x.pin_ciphertext?decryptPin(x.pin_ciphertext):"",pin_ciphertext:undefined}))});
     } catch(e){ return res.status(500).json({success:false,message:"Could not load registrations."}); }
   });
 
