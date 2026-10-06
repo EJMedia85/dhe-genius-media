@@ -8,7 +8,7 @@
 <div class="hero"><div class="muted">Stay Connected. Stay Genius.</div><h1>DGM Bridge</h1><div class="muted">Choose Client or Admin-only Host access.</div></div>
 
 <div id="registerPanel" class="panel">
-<h2>Register Bridge</h2><p class="muted">Register this device once. DGM Admin will authorize it before Bridge access is enabled.</p>
+<h2 id="registerTitle">Register Bridge</h2><p id="registerIntro" class="muted">Register this device once. DGM Admin will authorize it before Bridge access is enabled.</p>
 <label>Device name</label><input id="deviceName" class="input" style="font-size:16px;letter-spacing:0;text-align:left" value="DGM Bridge">
 <label style="display:block;margin:14px 0 6px">Device type</label>
 <div class="role"><button id="hostRole" class="active">Host</button><button id="clientRole">Client</button></div>
@@ -92,7 +92,7 @@ function openHost(){
   $('registerPanel').classList.add('hidden');
   $('connectPanel').classList.add('hidden');
   $('authorizedPanel').classList.remove('hidden');
-  $('deviceInfo').textContent='Host access granted by DGM Admin.';
+  $('readyTitle').textContent='Host Bridge';\n  $('readyIntro').textContent='Host access granted by DGM Admin.';\n  $('readyStatus').textContent='Host Bridge is ready.';\n  $('deviceInfo').textContent='DGM Host';
 }
 function lock(){token='';localStorage.removeItem(key+'.token');$('authorizedPanel').classList.add('hidden');$('registerPanel').classList.remove('hidden');setRole('host')}
 $('hostRole').onclick=()=>setRole('host');$('clientRole').onclick=()=>setRole('client');$('adminLoginBtn').onclick=adminLogin;$('registerBtn').onclick=register;$('connectBtn').onclick=connect;$('logoutBtn').onclick=lock;
