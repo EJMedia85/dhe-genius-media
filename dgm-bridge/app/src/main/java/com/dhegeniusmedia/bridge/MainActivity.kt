@@ -283,34 +283,48 @@ class MainActivity : Activity() {
     private fun claim(rawInput: String) {
         val raw = rawInput.trim()
         if (raw.isBlank()) {
+            status.text = "● QR PAYLOAD EMPTY"
             Toast.makeText(this, "Paste the Host QR payload first.", Toast.LENGTH_LONG).show()
             return
         }
 
-        try {
-            val parsed = parsePairingPayload(raw)
-            status.text = "● PAIRING CLIENT"
-            io.execute {
-                try {
-                    val result = api.claimPairing(parsed.first, parsed.second)
-                    getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit()
-                        .putString("session_id", result.getString("session_id"))
-                        .putString("session_token", result.getString("session_token"))
-                        .putString("pair_secret", parsed.second)
-                        .apply()
-                    runOnUiThread {
-                        status.text = "● PAIRED"
+        val parsed = try {
+            parsePairingPayload(raw)
+        } catch (t: Throwable) {
+            status.text = "● INVALID QR PAYLOAD"
+            Toast.makeText(this, t.message ?: "Invalid Host QR payload", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        status.text = "● PAIRING CLIENT"
+        io.execute {
+            try {
+                val result = api.claimPairing(parsed.first, parsed.second)
+                val sessionId = result.optString("session_id").trim()
+                val sessionToken = result.optString("session_token").trim()
+                if (sessionId.isBlank() || sessionToken.isBlank()) {
+                    throw IllegalStateException("Host pairing did not return a valid client session.")
+                }
+                getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit()
+                    .putString("session_id", sessionId)
+                    .putString("session_token", sessionToken)
+                    .putString("pair_secret", parsed.second)
+                    .apply()
+                runOnUiThread {
+                    try {
+                        status.text = "● PAIRED — STARTING CLIENT"
                         requestVpn(BridgeVpnService.MODE_CLIENT)
-                    }
-                } catch (e: Exception) {
-                    runOnUiThread {
-                        status.text = "● PAIRING FAILED"
-                        Toast.makeText(this, e.message ?: "Pairing failed", Toast.LENGTH_LONG).show()
+                    } catch (t: Throwable) {
+                        status.text = "● PAIRED — VPN START FAILED"
+                        Toast.makeText(this, t.message ?: "VPN start failed", Toast.LENGTH_LONG).show()
                     }
                 }
+            } catch (t: Throwable) {
+                runOnUiThread {
+                    status.text = "● PAIRING FAILED"
+                    Toast.makeText(this, t.message ?: "Pairing failed", Toast.LENGTH_LONG).show()
+                }
             }
-        } catch (e: Exception) {
-            Toast.makeText(this, e.message ?: "Invalid Host QR payload", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -404,16 +418,36 @@ class MainActivity : Activity() {
         }
     }
     private fun requestVpn(mode: String) {
-        val intent = VpnService.prepare(this)
-        if (intent != null) {
-            startActivityForResult(intent, 1001)
-            getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit().putString("pending_mode", mode).apply()
-        } else startVpn(mode)
+        try {
+            val intent = VpnService.prepare(this)
+            if (intent != null) {
+                getSharedPreferences("dgm_bridge", MODE_PRIVATE).edit()
+                    .putString("pending_mode", mode)
+                    .apply()
+                startActivityForResult(intent, 1001)
+            } else {
+                startVpn(mode)
+            }
+        } catch (t: Throwable) {
+            status.text = "● VPN PERMISSION FAILED"
+            Toast.makeText(this, t.message ?: "Unable to request VPN permission", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun startVpn(mode: String) {
-        startService(Intent(this, BridgeVpnService::class.java).putExtra(BridgeVpnService.EXTRA_MODE, mode))
-        status.text = if (mode == BridgeVpnService.MODE_HOST) "● HOST STARTING" else "● CLIENT STARTING"
+        try {
+            val intent = Intent(this, BridgeVpnService::class.java)
+                .putExtra(BridgeVpnService.EXTRA_MODE, mode)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+            status.text = if (mode == BridgeVpnService.MODE_HOST) "● HOST STARTING" else "● CLIENT STARTING"
+        } catch (t: Throwable) {
+            status.text = "● BRIDGE START FAILED"
+            Toast.makeText(this, t.message ?: "Unable to start DGM Bridge", Toast.LENGTH_LONG).show()
+        }
     }
 
     @Deprecated("Android callback API retained for compatibility")
