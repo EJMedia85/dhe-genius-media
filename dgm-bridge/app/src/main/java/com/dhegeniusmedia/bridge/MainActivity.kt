@@ -100,16 +100,11 @@ class MainActivity : Activity() {
                     .putString("pair_secret", p.getString("secret"))
                     .apply()
                 runOnUiThread {
-                    AlertDialog.Builder(this)
-                        .setTitle("DGM Bridge Pairing")
-                        .setMessage(
-                            "Give this pairing data to the client phone. It expires in 5 minutes.\n\n" +
-                                "Code: ${p.getString("code")}\n\n" +
-                                "Secret: ${p.getString("secret")}\n\n" +
-                                "QR payload:\n${p.getString("qr_payload")}"
-                        )
-                        .setPositiveButton("Start Host VPN") { _, _ -> requestVpn(BridgeVpnService.MODE_HOST) }
-                        .show()
+                    showCopyablePairingDialog(
+                        p.getString("code"),
+                        p.getString("secret"),
+                        p.getString("qr_payload")
+                    )
                     status.text = "● PAIRING READY"
                 }
             } catch (e: Exception) {
@@ -119,6 +114,57 @@ class MainActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun showCopyablePairingDialog(code: String, secret: String, qrPayload: String) {
+        val container = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(32, 8, 32, 0)
+        }
+
+        fun addCopyRow(label: String, value: String) {
+            val title = TextView(this).apply {
+                text = label
+                textSize = 14f
+                setPadding(0, 12, 0, 4)
+            }
+            val valueView = EditText(this).apply {
+                setText(value)
+                isFocusable = true
+                isFocusableInTouchMode = true
+                isLongClickable = true
+                setSingleLine(false)
+                maxLines = 4
+                setTextIsSelectable(true)
+            }
+            val copy = Button(this).apply {
+                text = "COPY $label"
+                setOnClickListener {
+                    val clipboard = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    clipboard.setPrimaryClip(
+                        android.content.ClipData.newPlainText(label, value)
+                    )
+                    Toast.makeText(this@MainActivity, "$label copied", Toast.LENGTH_SHORT).show()
+                }
+            }
+            container.addView(title)
+            container.addView(valueView)
+            container.addView(copy)
+        }
+
+        addCopyRow("CODE", code)
+        addCopyRow("SECRET", secret)
+        addCopyRow("QR PAYLOAD", qrPayload)
+
+        AlertDialog.Builder(this)
+            .setTitle("DGM Bridge Pairing")
+            .setMessage("Copy any value below and send it to the Client device. This pairing expires in 5 minutes.")
+            .setView(container)
+            .setNegativeButton("Close", null)
+            .setPositiveButton("START HOST VPN") { _, _ ->
+                requestVpn(BridgeVpnService.MODE_HOST)
+            }
+            .show()
     }
 
     private fun awaitAuthorization() {
