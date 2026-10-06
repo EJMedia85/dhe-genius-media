@@ -135,6 +135,13 @@ function renderOrders(rows,target='#ordersBody',compact=false){$(target).innerHT
 async function loadOrders(){const d=await api('/api/admin/orders');orders=d.orders;filterOrders()}
 function filterOrders(){const q=String($('#orderSearch')?.value||'').toLowerCase(),st=String($('#orderStatus')?.value||'').toLowerCase();const rows=orders.filter(o=>(!q||JSON.stringify(o).toLowerCase().includes(q))&&(!st||String(o.status).toLowerCase()===st));renderOrders(rows)}
 
+function bridgeAgeStatus(lastSeen){
+  if(!lastSeen) return {label:'OFFLINE',cls:'bad'};
+  const age=Date.now()-new Date(lastSeen).getTime();
+  if(age<=30000) return {label:'ONLINE',cls:''};
+  if(age<=120000) return {label:'UNSTABLE',cls:'warn'};
+  return {label:'OFFLINE',cls:'bad'};
+}
 async function loadBridge(){
   const [d,r,s,cfg]=await Promise.all([api('/api/admin/bridge/devices'),api('/api/admin/bridge/registrations'),api('/api/admin/bridge/stats'),api('/api/admin/bridge/config')]);
   const st=s.stats||{};
@@ -146,13 +153,21 @@ async function loadBridge(){
     return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+' <button class="btn" onclick="bridgeResetPin(\''+encodeURIComponent(x.device_id)+'\')">Reset PIN</button></td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">No Bridge registration requests.</td></tr>';
   $('#bridgeDevicesBody').innerHTML=d.devices.length?d.devices.map(x=>{
-    const online=String(x.status||'').toLowerCase()==='online';
+    const quality=bridgeAgeStatus(x.last_seen); const online=quality.label==='ONLINE';
     const action=x.status==='suspended'?'<button class="btn green" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'resume\')">Resume</button>':x.status==='revoked'?'<button class="btn" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'resume\')">Re-enable</button>':'<button class="btn" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'suspend\')">Suspend</button> <button class="btn red" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'revoke\')">Revoke</button>';
     const rename='<button class="btn" onclick="bridgeRename(\''+encodeURIComponent(x.device_id)+'\',\''+encodeURIComponent(x.device_name||'DGM Bridge')+'\')">Rename</button>';
     return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'<br><span class="muted">'+esc(x.platform||'Android')+'</span></td><td><span class="dot '+(online?'':'bad')+'"></span>'+esc(x.status||'offline')+'<br><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td><span class="badge">'+(x.paired?'PAIRED':'—')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+(x.last_error?'<br><span class="danger">'+esc(x.last_error)+'</span>':'')+'</td><td>'+rename+' <button class="btn" onclick="bridgeResetPin(\''+encodeURIComponent(x.device_id)+'\')">Reset PIN</button> '+action+'</td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">No DGM Bridge devices registered.</td></tr>';
   $('#bridgePairingsBody').innerHTML=d.pairings.length?d.pairings.map(x=>'<tr><td><b>'+esc(x.code)+'</b></td><td>'+esc(x.host_device_id)+'</td><td><span class="badge">'+esc(x.state)+'</span></td><td>'+new Date(x.expires_at).toLocaleString()+'</td><td>'+esc(x.claimed_by||'—')+'</td><td>'+(x.claimed_at?new Date(x.claimed_at).toLocaleString():'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No pairing activity.</td></tr>';
   $('#bridgeDiagnostics').textContent=d.devices.length?'Diagnostics loaded. '+d.devices.filter(x=>x.last_error).length+' device(s) reporting an error.':'No Bridge devices registered.';
+}
+let bridgeAutoRefreshTimer=null;
+function startBridgeAutoRefresh(){
+  clearInterval(bridgeAutoRefreshTimer);
+  bridgeAutoRefreshTimer=setInterval(()=>{
+    const sec=document.getElementById('bridge');
+    if(sec?.classList.contains('active')) loadBridge().catch(()=>{});
+  },15000);
 }
 async function bridgeApprove(id){if(!confirm('Authorize this DGM Bridge device?'))return;await api('/api/admin/bridge/registrations/'+id+'/approve',{method:'POST'});await loadBridge();}
 async function bridgeDeny(id){if(!confirm('Deny this DGM Bridge registration?'))return;await api('/api/admin/bridge/registrations/'+id+'/deny',{method:'POST'});await loadBridge();}
@@ -272,5 +287,5 @@ async function loadSupport(){const d=await api('/api/admin/support/tickets');$('
 async function replySupport(id){const box=$('#reply'+id);if(!box?.value.trim())return;const d=await api('/api/admin/support/tickets/'+id+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reply:box.value})});$('#supportMsg').textContent=d.message;await loadSupport()}
 async function loadAudit(){const d=await api('/api/admin/audit');$('#auditBody').innerHTML=d.audit.length?d.audit.map(a=>'<tr><td>'+new Date(a.created_at).toLocaleString()+'</td><td>'+esc(a.admin_email)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.target_type||'')+' '+esc(a.target_id||'')+'</td><td><pre style="white-space:pre-wrap;margin:0">'+esc(JSON.stringify(a.details||{}))+'</pre></td></tr>').join(''):'<tr><td colspan="5" class="empty">No admin audit events yet.</td></tr>'}
 $('#movieForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/admin/movies/playback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tmdb_id:Number($('#tmdb').value),title:$('#movieTitle').value,playback_type:$('#movieType').value,playback_url:$('#movieUrl').value})});$('#movieMsg').textContent=d.message||'Playback source saved.';e.target.reset()}catch(err){$('#movieMsg').textContent=err.message}}
-(async()=>{try{await loadBase();const initial=(location.hash||'').replace(/^#/,'');if(initial&&document.getElementById(initial)&&document.getElementById(initial).classList.contains('section')){show(initial)}else{await loadOverview()}}catch(e){$('#who').textContent=e.message}})();
+(async()=>{try{await loadBase();startBridgeAutoRefresh();const initial=(location.hash||'').replace(/^#/,'');if(initial&&document.getElementById(initial)&&document.getElementById(initial).classList.contains('section')){show(initial)}else{await loadOverview()}}catch(e){$('#who').textContent=e.message}})();
 </script></body></html>
