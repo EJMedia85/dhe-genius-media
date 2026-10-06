@@ -26,7 +26,17 @@
 
 <section id="bridge" class="section">
 <div class="cards" id="bridgeStats"></div>
-<div class="panel"><div class="kpi"><div><h2>Bridge Registration Requests</h2><div class="muted">Every newly installed DGM Bridge must register, then receive explicit DGM Admin authorization before access.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
+<div class="panel">
+<div class="kpi"><div><h2>Bridge Command Center</h2><div class="muted">Live registration, authorization, connectivity and pairing control.</div></div><div class="toolbar" style="margin:0"><span class="badge" id="bridgeLiveClock">Live</span><button class="btn" onclick="loadBridge()">Refresh Now</button></div></div>
+<div class="toolbar" style="margin-top:12px">
+<input class="input search" id="bridgeSearch" placeholder="Search device ID, name or version" oninput="filterBridgeTables()">
+<select class="select" id="bridgeRoleFilter" style="max-width:150px" onchange="filterBridgeTables()"><option value="">All roles</option><option value="host">Host</option><option value="client">Client</option></select>
+<select class="select" id="bridgeStatusFilter" style="max-width:170px" onchange="filterBridgeTables()"><option value="">All connection states</option><option value="online">Online</option><option value="unstable">Unstable</option><option value="offline">Offline</option></select>
+</div>
+<div id="bridgeLiveSummary" class="notice">Loading live Bridge state…</div>
+<div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>PIN</th><th>Version</th><th>Registration</th><th>Status</th><th>Registered</th><th>Action</th></tr></thead><tbody id="bridgeRegistrationsBody"></tbody></table></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Bridge Devices</h2><div class="muted">Authorized devices are rechecked continuously. Revoked/suspended sessions are terminated by the relay.</div></div><span class="muted" id="bridgeLastRefresh">Not refreshed</span></div>
+<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>PIN</th><th>Version</th><th>Status</th><th>Paired</th><th>Last Seen</th><th>Action</th></tr></thead><tbody id="bridgeDevicesBody"></tbody></table></div></div><div class="muted">Every newly installed DGM Bridge must register, then receive explicit DGM Admin authorization before access.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
 <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>PIN</th><th>Version</th><th>Registration</th><th>Status</th><th>Registered</th><th>Action</th></tr></thead><tbody id="bridgeRegistrationsBody"></tbody></table></div></div>
 <div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Bridge Devices</h2><div class="muted">Monitor authorization, connection state, version, diagnostics and pairing status.</div></div><button class="btn" onclick="loadBridge()">Refresh</button></div>
 <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>PIN</th><th>Version</th><th>Status</th><th>Paired</th><th>Last Seen</th><th>Action</th></tr></thead><tbody id="bridgeDevicesBody"></tbody></table></div></div>
@@ -147,27 +157,52 @@ async function loadBridge(){
   const st=s.stats||{};
   $('#bridgeStats').innerHTML=[['Total Devices',st.total||0],['Pending Approval',st.pending||0],['Authorized',st.approved||0],['Online',st.online||0],['Offline',st.offline||0],['Suspended / Revoked',(st.suspended||0)+' / '+(st.revoked||0)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
   $('#bridgeLatestVersion').value=cfg.config.latest_version||''; $('#bridgeMinimumVersion').value=cfg.config.minimum_version||''; $('#bridgeUpdateUrl').value=cfg.config.update_url||'';
-  $('#bridgeRegistrationsBody').innerHTML=r.registrations.length?r.registrations.map(x=>{
-    const pending=x.approval_status==='pending',denied=x.approval_status==='denied';
-    const actions=pending?'<button class="btn green" onclick="bridgeApprove(\''+encodeURIComponent(x.device_id)+'\')">Approve</button> <button class="btn" onclick="bridgeDeny(\''+encodeURIComponent(x.device_id)+'\')">Deny</button>':(denied?'<span class="muted">Denied</span>':'<span class="badge">AUTHORIZED</span>');
-    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+' <button class="btn" onclick="bridgeResetPin(\''+encodeURIComponent(x.device_id)+'\')">Reset PIN</button></td></tr>';
-  }).join(''):'<tr><td colspan="8" class="empty">No Bridge registration requests.</td></tr>';
-  $('#bridgeDevicesBody').innerHTML=d.devices.length?d.devices.map(x=>{
-    const quality=bridgeAgeStatus(x.last_seen); const online=quality.label==='ONLINE';
-    const action=x.status==='suspended'?'<button class="btn green" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'resume\')">Resume</button>':x.status==='revoked'?'<button class="btn" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'resume\')">Re-enable</button>':'<button class="btn" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'suspend\')">Suspend</button> <button class="btn red" onclick="bridgeAction(\''+encodeURIComponent(x.device_id)+'\',\'revoke\')">Revoke</button>';
-    const rename='<button class="btn" onclick="bridgeRename(\''+encodeURIComponent(x.device_id)+'\',\''+encodeURIComponent(x.device_name||'DGM Bridge')+'\')">Rename</button>';
-    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'<br><span class="muted">'+esc(x.platform||'Android')+'</span></td><td><span class="dot '+(online?'':'bad')+'"></span>'+esc(x.status||'offline')+'<br><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td><span class="badge">'+(x.paired?'PAIRED':'—')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+(x.last_error?'<br><span class="danger">'+esc(x.last_error)+'</span>':'')+'</td><td>'+rename+' <button class="btn" onclick="bridgeResetPin(\''+encodeURIComponent(x.device_id)+'\')">Reset PIN</button> '+action+'</td></tr>';
-  }).join(''):'<tr><td colspan="8" class="empty">No DGM Bridge devices registered.</td></tr>';
+  bridgeRows.registrations=r.registrations||[]; bridgeRows.devices=d.devices||[];
+  $('#bridgeLiveSummary').textContent='Live: '+(st.online||0)+' online • '+(st.pending||0)+' awaiting approval • '+(st.offline||0)+' offline • last refresh '+new Date().toLocaleTimeString();
+  $('#bridgeLastRefresh').textContent='Updated '+new Date().toLocaleTimeString();
+  renderBridgeRegistrations(bridgeRows.registrations); renderBridgeDevices(bridgeRows.devices);
   $('#bridgePairingsBody').innerHTML=d.pairings.length?d.pairings.map(x=>'<tr><td><b>'+esc(x.code)+'</b></td><td>'+esc(x.host_device_id)+'</td><td><span class="badge">'+esc(x.state)+'</span></td><td>'+new Date(x.expires_at).toLocaleString()+'</td><td>'+esc(x.claimed_by||'—')+'</td><td>'+(x.claimed_at?new Date(x.claimed_at).toLocaleString():'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No pairing activity.</td></tr>';
   $('#bridgeDiagnostics').textContent=d.devices.length?'Diagnostics loaded. '+d.devices.filter(x=>x.last_error).length+' device(s) reporting an error.':'No Bridge devices registered.';
 }
 let bridgeAutoRefreshTimer=null;
+let bridgeRows={registrations:[],devices:[]};
+function bridgeMatches(x){
+  const q=String($('#bridgeSearch')?.value||'').toLowerCase().trim();
+  const role=String($('#bridgeRoleFilter')?.value||'').toLowerCase();
+  const state=String($('#bridgeStatusFilter')?.value||'').toLowerCase();
+  const quality=bridgeAgeStatus(x.last_seen).label.toLowerCase();
+  return (!q||[x.device_id,x.device_name,x.app_version,x.platform].some(v=>String(v||'').toLowerCase().includes(q))) &&
+    (!role||String(x.role||'').toLowerCase()===role) && (!state||quality===state);
+}
+function filterBridgeTables(){
+  const regs=bridgeRows.registrations.filter(bridgeMatches);
+  const devs=bridgeRows.devices.filter(bridgeMatches);
+  renderBridgeRegistrations(regs); renderBridgeDevices(devs);
+}
+function renderBridgeRegistrations(rows){
+  $('#bridgeRegistrationsBody').innerHTML=rows.length?rows.map(x=>{
+    const pending=x.approval_status==='pending',denied=x.approval_status==='denied';
+    const actions=pending?'<button class="btn green" onclick="bridgeApprove(\\''+encodeURIComponent(x.device_id)+'\\')">Approve</button> <button class="btn" onclick="bridgeDeny(\\''+encodeURIComponent(x.device_id)+'\\')">Deny</button>':(denied?'<span class="muted">Denied</span>':'<span class="badge">AUTHORIZED</span>');
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+' <button class="btn" onclick="bridgeResetPin(\\''+encodeURIComponent(x.device_id)+'\\')">Reset PIN</button></td></tr>';
+  }).join(''):'<tr><td colspan="8" class="empty">No matching Bridge registrations.</td></tr>';
+}
+function renderBridgeDevices(rows){
+  $('#bridgeDevicesBody').innerHTML=rows.length?rows.map(x=>{
+    const quality=bridgeAgeStatus(x.last_seen); const online=quality.label==='ONLINE';
+    const action=x.status==='suspended'?'<button class="btn green" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'resume\\')">Resume</button>':x.status==='revoked'?'<button class="btn" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'resume\\')">Re-enable</button>':'<button class="btn" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'suspend\\')">Suspend</button> <button class="btn red" onclick="bridgeAction(\\''+encodeURIComponent(x.device_id)+'\\',\\'revoke\\')">Revoke</button>';
+    const rename='<button class="btn" onclick="bridgeRename(\\''+encodeURIComponent(x.device_id)+'\\',\\''+encodeURIComponent(x.device_name||'DGM Bridge')+'\\')">Rename</button>';
+    const copy='<button class="btn" onclick="copyBridgeText(\\''+encodeURIComponent(x.device_id)+'\\')">Copy ID</button>';
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'<br><span class="muted">'+esc(x.platform||'Android')+'</span></td><td><span class="dot '+(online?'':'bad')+'"></span>'+quality.label+'<br><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td><span class="badge">'+(x.paired?'PAIRED':'—')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+(x.last_error?'<br><span class="danger">'+esc(x.last_error)+'</span>':'')+'</td><td>'+copy+' '+rename+' <button class="btn" onclick="bridgeResetPin(\\''+encodeURIComponent(x.device_id)+'\\')">Reset PIN</button> '+action+'</td></tr>';
+  }).join(''):'<tr><td colspan="8" class="empty">No matching Bridge devices.</td></tr>';
+}
+async function copyBridgeText(v){try{await navigator.clipboard.writeText(decodeURIComponent(v));alert('Device ID copied.')}catch{alert(decodeURIComponent(v))}}
 function startBridgeAutoRefresh(){
   clearInterval(bridgeAutoRefreshTimer);
   bridgeAutoRefreshTimer=setInterval(()=>{
     const sec=document.getElementById('bridge');
     if(sec?.classList.contains('active')) loadBridge().catch(()=>{});
-  },15000);
+  },10000);
+  setInterval(()=>{if(document.getElementById('bridge')?.classList.contains('active')) $('#bridgeLiveClock').textContent='Live • '+new Date().toLocaleTimeString()},1000);
 }
 async function bridgeApprove(id){if(!confirm('Authorize this DGM Bridge device?'))return;await api('/api/admin/bridge/registrations/'+id+'/approve',{method:'POST'});await loadBridge();}
 async function bridgeDeny(id){if(!confirm('Deny this DGM Bridge registration?'))return;await api('/api/admin/bridge/registrations/'+id+'/deny',{method:'POST'});await loadBridge();}
