@@ -7,6 +7,8 @@ const pool = process.env.DATABASE_URL
   ? new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false })
   : null;
 
+let bridgeDbReady = null;
+
 const BRIDGE_SECRET = String(process.env.DGM_BRIDGE_SECRET || process.env.SESSION_SECRET || "").trim();
 if (process.env.NODE_ENV === "production" && BRIDGE_SECRET.length < 32) {
   console.warn("DGM Bridge: DGM_BRIDGE_SECRET is missing/short; using SESSION_SECRET fallback. Set DGM_BRIDGE_SECRET to a dedicated 32+ character secret for production.");
@@ -121,6 +123,11 @@ function bridgeVersionNeedsUpdate(current, minimum) {
 }
 
 function installBridge(app) {
+  if (!bridgeDbReady) bridgeDbReady = initBridgeDatabase();
+  app.use(async (req,res,next) => {
+    try { await bridgeDbReady; next(); }
+    catch (e) { console.error("DGM Bridge database initialization:", e.message); res.status(503).json({success:false,message:"DGM Bridge database is still initializing. Please try again in a few seconds."}); }
+  });
   app.use(express.json({ limit: "32kb" }));
 
   app.get("/api/bridge/status", async (req, res) => {
@@ -420,7 +427,7 @@ function installBridge(app) {
   app.__dgmBridgeListenPatched=true;
   app.listen = function(...args) {
     installBridge(this);
-    initBridgeDatabase().catch((e)=>console.error("DGM Bridge database init:",e.message));
+    bridgeDbReady.catch((e)=>console.error("DGM Bridge database init:",e.message));
     const server=originalListen.apply(this,args);
     const wss=new WebSocketServer({server,path:"/api/bridge/relay",maxPayload:2*1024*1024});
     const sessions=new Map();
