@@ -30,6 +30,12 @@ function verifyToken(raw) {
     return p;
   } catch { return null; }
 }
+function issueBridgeSession(deviceId, role) {
+  const sid = crypto.randomUUID();
+  const issued = token({sub:deviceId,role,sid,exp:Date.now()+24*60*60*1000});
+  return { issued, sid, tokenHash: hmac("session:"+issued) };
+}
+
 function randomCode() {
   return crypto.randomInt(100000, 1000000).toString();
 }
@@ -163,7 +169,20 @@ function installBridge(app) {
       if(row.role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge status is restricted to DGM Admin."});
       if(row.approval_status==="approved" && !["revoked","suspended"].includes(row.status)){
         const minimum=await bridgeConfig("minimum_version",String(process.env.DGM_BRIDGE_MIN_VERSION || "1.1.0"));
-        return res.json({success:true,device_id:row.device_id,role:row.role,approval_status:"approved",status:"authorized",update_required:bridgeVersionNeedsUpdate(row.app_version,minimum)});
+        const session = issueBridgeSession(row.device_id, row.role);
+        await pool.query(
+          "UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL,active_session_id=$2,active_token_hash=$3 WHERE device_id=$1",
+          [row.device_id, session.sid, session.tokenHash]
+        );
+        return res.json({
+          success:true,
+          device_id:row.device_id,
+          role:row.role,
+          approval_status:"approved",
+          status:"authorized",
+          token:session.issued,
+          update_required:bridgeVersionNeedsUpdate(row.app_version,minimum)
+        });
       }
       return res.json({success:true,device_id:row.device_id,role:row.role,approval_status:row.approval_status,status:row.status,approved_at:row.approved_at||null,message:row.approval_status==="denied"?"Registration denied by DGM Admin.":"Waiting for DGM Admin authorization."});
     } catch(e){ console.error("Bridge registration status:",e.message); return res.status(500).json({success:false,message:"Could not check registration status: "+String(e.message||"server error").slice(0,180)}); }
@@ -225,9 +244,12 @@ function installBridge(app) {
       if(row.approval_status!=="approved") {
         return res.json({success:true,device_id:deviceId,role:row.role,approval_status:row.approval_status,status:"pending",message:"Registration received. Waiting for DGM Admin authorization."});
       }
-      const issued=token({sub:deviceId,role,exp:Date.now()+24*60*60*1000});
-      await pool.query(`UPDATE dgm_bridge_devices SET status='online',last_seen=NOW() WHERE device_id=$1`,[deviceId]);
-      res.json({success:true,device_id:deviceId,role,approval_status:"approved",status:"authorized",token:issued});
+      const session = issueBridgeSession(deviceId, role);
+      await pool.query(
+        "UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL,active_session_id=$2,active_token_hash=$3 WHERE device_id=$1",
+        [deviceId, session.sid, session.tokenHash]
+      );
+      res.json({success:true,device_id:deviceId,role,approval_status:"approved",status:"authorized",token:session.issued});
     } catch(e) {
       console.error("Bridge register:",e);
       res.status(500).json({success:false,message:"Could not register bridge device: "+String(e.message||"server error").slice(0,180)});
