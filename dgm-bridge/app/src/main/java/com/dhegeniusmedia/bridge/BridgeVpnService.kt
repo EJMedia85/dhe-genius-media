@@ -67,8 +67,9 @@ class BridgeVpnService : VpnService() {
 
         relay = BridgeRelayClient(token, mode, secret,
             onPacket = { frame -> socks?.onFrame(frame) },
-            onState = { state -> Log.d(TAG, state) }
+            onState = { state -> Log.d(TAG, state); if (state == "RELAY RECONNECTING") socks?.stopStreams() }
         ).also { it.connect() }
+        startHeartbeat(token)
 
         if (mode == MODE_HOST) {
             // Host uses its normal mobile/Wi-Fi network directly. It does not
@@ -110,6 +111,29 @@ class BridgeVpnService : VpnService() {
             throw IllegalStateException("TUN-to-SOCKS engine could not start")
         }
         Log.d(TAG, "DGM Bridge client data plane started")
+    }
+
+    private fun startHeartbeat(token: String) {
+        Thread {
+            val client = okhttp3.OkHttpClient()
+            while (running.get()) {
+                try {
+                    val request = okhttp3.Request.Builder()
+                        .url("https://dhe-genius-media.onrender.com/api/bridge/heartbeat")
+                        .header("Authorization", "Bearer $token")
+                        .post(okhttp3.RequestBody.create(null, ByteArray(0)))
+                        .build()
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) Log.w(TAG, "Bridge heartbeat failed: HTTP ${response.code}")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Bridge heartbeat error: ${e.message}")
+                }
+                try { Thread.sleep(20000) } catch (_: InterruptedException) { return@Thread }
+            }
+            client.dispatcher.executorService.shutdown()
+            client.connectionPool.evictAll()
+        }.start()
     }
 
     override fun onDestroy() {
