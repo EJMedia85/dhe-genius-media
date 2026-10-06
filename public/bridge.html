@@ -87,7 +87,7 @@ function api(url,options){
  });
 }
 function openHost(){
- show("registerPanel",false);show("connectPanel",false);show("authorizedPanel",true);
+ show("registerPanel",false);show("connectPanel",false);show("authorizedPanel",true);\n show("dashboardPanel",true);
  el("readyTitle").textContent="Host Bridge";
  el("readyIntro").textContent="Host access granted by DGM Admin.";
  el("readyStatus").textContent="Host Bridge is ready.";
@@ -109,7 +109,7 @@ function checkApproval(){
  if(!device||!device.device_id)return;
  api("/api/bridge/registration-status?device_id="+encodeURIComponent(device.device_id)).then(function(data){
   if(data.approval_status==="approved"){
-   show("registerPanel",false);show("connectPanel",true);
+   show("registerPanel",false);show("connectPanel",true);\n   show("dashboardPanel",true);
    el("connectStatus").innerHTML='<span class="ok">Approved. Enter your 6-digit PIN.</span>';
   }else{
    el("regStatus").textContent=data.message||"Waiting for DGM Admin approval.";
@@ -132,7 +132,7 @@ el("connectBtn").onclick=function(){
  var pin=el("loginPin").value.trim();
  if(!/^\d{6}$/.test(pin)){el("connectStatus").innerHTML='<span class="error">Enter your 6-digit PIN.</span>';return;}
  api("/api/bridge/connect",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_id:device.device_id,pin:pin})})
- .then(function(data){token=data.token||"";localStorage.setItem(KEY+".token",token);show("connectPanel",false);show("authorizedPanel",true);el("readyTitle").textContent="Client Connected";el("readyIntro").textContent="DGM Admin approved this device.";el("readyStatus").textContent="Bridge connection is active.";})
+ .then(function(data){token=data.token||"";localStorage.setItem(KEY+".token",token);show("connectPanel",false);show("authorizedPanel",true);show("dashboardPanel",true);el("readyTitle").textContent="Client Connected";el("readyIntro").textContent="DGM Admin approved this device.";el("readyStatus").textContent="Bridge connection is active.";})
  .catch(function(err){el("connectStatus").innerHTML='<span class="error">'+err.message+"</span>";});
 };
 el("lockBtn").onclick=function(){localStorage.removeItem(KEY+".token");localStorage.removeItem(KEY+".role");location.reload();};
