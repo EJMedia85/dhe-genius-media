@@ -212,13 +212,14 @@ function installBridge(app) {
       const pin=String(req.body?.pin||"").trim();
       if (!deviceId || !publicKey || !["host","client"].includes(role)) return res.status(400).json({success:false,message:"device_id, role and public_key are required."});
       if (role === "host" && !req.session?.adminAuthenticated) return res.status(403).json({success:false,message:"Host Bridge is restricted to DGM Admin. Please sign in as Admin first."});
-      if (!/^\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"A 6-digit Bridge PIN is required."});
+      if (role === "client" && !/^\d{6}$/.test(pin)) return res.status(400).json({success:false,message:"A 6-digit Bridge PIN is required."});
+      const registrationPin = role === "host" ? bridgePin() : pin;
       await pool.query(
         `INSERT INTO dgm_bridge_devices(device_id,role,public_key,country,device_name,app_version,platform,pin_ciphertext,status,approval_status,last_seen)
          VALUES($1,$2,$3,$4,$5,$6,$7,$8,'pending','pending',NOW())
          ON CONFLICT(device_id) DO UPDATE SET role=EXCLUDED.role,public_key=EXCLUDED.public_key,country=EXCLUDED.country,device_name=EXCLUDED.device_name,app_version=EXCLUDED.app_version,platform=EXCLUDED.platform,pin_ciphertext=EXCLUDED.pin_ciphertext,last_seen=NOW()
          WHERE dgm_bridge_devices.status <> 'revoked'`,
-        [deviceId,role,publicKey,country,deviceName,appVersion,platform,encryptPin(pin)]
+        [deviceId,role,publicKey,country,deviceName,appVersion,platform,encryptPin(registrationPin)]
       );
       const row=(await pool.query(`SELECT device_id,role,approval_status,status FROM dgm_bridge_devices WHERE device_id=$1`,[deviceId])).rows[0];
       if(row.approval_status!=="approved") {
