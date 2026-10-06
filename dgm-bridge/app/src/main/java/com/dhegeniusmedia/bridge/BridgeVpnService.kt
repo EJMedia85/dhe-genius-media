@@ -102,7 +102,7 @@ class BridgeVpnService : VpnService() {
             socks5:
               address: 127.0.0.1
               port: 10808
-              udp: tcp
+              udp: udp
             misc:
               icmp: off
             """.trimIndent()
