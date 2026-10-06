@@ -53,8 +53,13 @@ public class MainActivity extends Activity {
                 p.put("enrollment_token",t);
                 p.put("device_name",deviceName.getText().toString().trim());
                 p.put("platform","Android");
-                p.put("app_version","1.1.1");
+                p.put("app_version","1.2.0");
                 JSONObject r=DgmApi.post(this,"/api/companion/enroll",p,null);
+                if(r.optBoolean("pending_approval",false)){
+                    runOnUiThread(()->status.setText("REGISTRATION RECEIVED ✓\nAwaiting DGM Admin authorization…"));
+                    waitForApproval(t);
+                    return;
+                }
                 String serverToken=r.optString("token","");
                 if(serverToken.isEmpty())throw new Exception("Server did not return a device token.");
                 TokenStore.save(this,serverToken);
@@ -64,6 +69,35 @@ public class MainActivity extends Activity {
                     requestSms();
                 });
             }catch(Exception e){runOnUiThread(()->status.setText("Enrollment failed: "+e.getMessage()));}
+        });
+    }
+
+    private void waitForApproval(String enrollmentToken){
+        executor.execute(()->{
+            for(int i=0;i<90;i++){
+                try{
+                    Thread.sleep(10000);
+                    JSONObject p=new JSONObject();
+                    p.put("enrollment_token",enrollmentToken);
+                    JSONObject r=DgmApi.post(this,"/api/companion/enroll/status",p,null);
+                    if(r.optBoolean("authorized",false)){
+                        String serverToken=r.optString("token","");
+                        if(serverToken.isEmpty())throw new Exception("Authorization token missing.");
+                        TokenStore.save(this,serverToken);
+                        runOnUiThread(()->{
+                            status.setText("AUTHORIZED ✓\nDGM Admin approved this device.");
+                            tokenInput.setText("");
+                            requestSms();
+                        });
+                        return;
+                    }
+                    runOnUiThread(()->status.setText("REGISTRATION RECEIVED ✓\nAwaiting DGM Admin authorization…"));
+                }catch(Exception e){
+                    if(i>=89){
+                        runOnUiThread(()->status.setText("Authorization check stopped: "+e.getMessage()));
+                    }
+                }
+            }
         });
     }
 
