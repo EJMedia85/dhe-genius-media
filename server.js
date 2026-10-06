@@ -2823,12 +2823,29 @@ app.post("/api/admin/companion/devices/:id/approve", requireAdmin, async (req,re
 app.post("/api/admin/companion/devices/:id/reject", requireAdmin, async (req,res)=>{
   const id=Number(req.params.id); if(!Number.isInteger(id)||id<1)return sendError(res,400,"Invalid device.");
   const admin=req.session.adminEmail||ADMIN_EMAIL||"admin";
-  const r=await pool.query(
-    `UPDATE companion_devices SET authorization_status='denied',rejected_at=NOW(),rejected_by=$1,token_hash=NULL
-     WHERE id=$2 RETURNING id,device_name,authorization_status`,[admin,id]);
-  if(!r.rows.length)return sendError(res,404,"Device not found.");
-  await pool.query(`INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,'companion_device_rejected','companion_device',$2,'{}')`,[admin,id]);
-  return res.json({success:true,message:"Companion registration denied."});
+  const client=await pool.connect();
+  try{
+    await client.query("BEGIN");
+    const r=await client.query(
+      `DELETE FROM companion_devices
+       WHERE id=$1
+       RETURNING id,device_name,phone,authorization_status`,[id]);
+    if(!r.rows.length){
+      await client.query("ROLLBACK");
+      return sendError(res,404,"Device not found.");
+    }
+    await client.query(
+      `INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details)
+       VALUES($1,'companion_device_rejected_and_deleted','companion_device',$2,$3)`,
+      [admin,id,JSON.stringify({device_name:r.rows[0].device_name,phone:r.rows[0].phone,reason:"Admin rejected registration"})]
+    );
+    await client.query("COMMIT");
+    return res.json({success:true,message:"Companion registration rejected and device deleted."});
+  }catch(error){
+    await client.query("ROLLBACK").catch(()=>{});
+    console.error("Admin Companion rejection error:",error);
+    return sendError(res,500,"Could not reject and delete the Companion device.");
+  }finally{client.release();}
 });
 
 app.post("/api/admin/companion/devices/:id/reauthorize", requireAdmin, async (req,res)=>{
