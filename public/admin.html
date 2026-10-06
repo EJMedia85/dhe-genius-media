@@ -170,6 +170,46 @@ async function loadAnalyticsPage(){
   $('#topServicesBody').innerHTML=(d.top_services||[]).map(x=>'<tr><td>'+esc(x.service||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No service data.</td></tr>';
   $('#topNetworksBody').innerHTML=(d.top_networks||[]).map(x=>'<tr><td>'+esc(x.network||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No network data.</td></tr>';
 }
+async function loadCompanion(){
+  const d=await api('/api/admin/companion/devices');
+  $('#companionDevicesBody').innerHTML=d.devices.length?d.devices.map(x=>{
+    const status=x.active?(x.last_seen?'Online / Active':'Awaiting enrollment'):'Revoked';
+    const seen=x.last_seen?new Date(x.last_seen).toLocaleString():'Never';
+    const action=x.active?'<button class="btn red" onclick="revokeCompanion('+Number(x.id)+')">Revoke</button>':'<span class="muted">Revoked</span>';
+    return '<tr><td><b>'+esc(x.device_name||'Android Device')+'</b><br><span class="muted">'+esc(x.customer_name||'')+'</span></td><td>'+esc(x.phone||'')+'</td><td><span class="badge">'+esc(status)+'</span></td><td>'+esc(seen)+'</td><td>'+esc(x.platform||'Android')+' '+esc(x.app_version||'')+'</td><td>'+action+'</td></tr>';
+  }).join(''):'<tr><td colspan="6" class="empty">No Companion devices yet.</td></tr>';
+  await loadCompanionMessages();
+}
+async function loadCompanionMessages(){
+  const channel=String($('#companionChannel')?.value||'');
+  const d=await api('/api/admin/companion/messages?limit=200'+(channel?'&channel='+encodeURIComponent(channel):''));
+  $('#companionMessagesBody').innerHTML=d.messages.length?d.messages.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td><span class="badge">'+esc(x.channel)+'</span></td><td>'+esc(x.device_name||'')+'<br><span class="muted">'+esc(x.phone||'')+'</span></td><td>'+esc(x.sender||'')+'</td><td style="max-width:420px;white-space:pre-wrap">'+esc(x.body||'')+'</td><td>'+esc(x.status||'')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No Companion messages received.</td></tr>';
+}
+async function revokeCompanion(id){
+  if(!confirm('Revoke this Companion device?')) return;
+  await api('/api/admin/companion/devices/'+encodeURIComponent(id)+'/revoke',{method:'POST'});
+  await loadCompanion();
+}
+$('#companionEnrollForm').onsubmit=async e=>{
+  e.preventDefault();
+  const msg=$('#companionEnrollMsg'), box=$('#companionTokenBox');
+  msg.textContent='Generating secure enrollment token…';
+  box.hidden=true;
+  try{
+    const d=await api('/api/admin/companion/devices/enroll',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:$('#companionPhone').value.trim(),device_name:$('#companionName').value.trim()})
+    });
+    box.hidden=false;
+    box.innerHTML='<b>Enrollment token</b><div style="font-size:28px;font-weight:950;letter-spacing:3px;margin:10px 0;user-select:text">'+esc(d.enrollment_token)+'</div><div class="muted">Expires: '+new Date(d.expires_at).toLocaleString()+'</div><button type="button" class="btn" style="margin-top:10px" onclick="navigator.clipboard?.writeText('+JSON.stringify(d.enrollment_token)+')">Copy token</button>';
+    msg.textContent='Token generated. Enter it in DGM Companion within 15 minutes.';
+    await loadCompanion();
+  }catch(err){
+    msg.textContent=err.message||'Could not generate token.';
+  }
+};
+
 $('#broadcastForm').onsubmit=async e=>{
   e.preventDefault();
   const msg=$('#broadcastMsg'); msg.textContent='Sending…';
