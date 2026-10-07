@@ -308,7 +308,7 @@ function installMarket(app) {
         if(!p) throw new Error("One of the products is no longer available.");
         if(Number(p.stock)<qty) throw new Error(p.name+" is out of stock.");
         const unit=effectivePrice(p); subtotal+=unit*qty; deliveryFee=Math.max(deliveryFee,Number(p.delivery_fee||0));
-        normalized.push({p,qty,unit});
+        normalized.push({p,qty,unit,variant:item.variant&&typeof item.variant==="object"?item.variant:{}});
       }
       const total=subtotal+deliveryFee;
       const cust=await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[req.session.customerId]);
@@ -319,7 +319,7 @@ function installMarket(app) {
       const o=await client.query(`INSERT INTO market_orders(order_ref,customer_id,subtotal,delivery_fee,total,payment_method,payment_status,status,delivery_name,delivery_phone,delivery_address,notes) VALUES($1,$2,$3,$4,$5,'Wallet','Paid','Pending',$6,$7,$8,$9) RETURNING id,order_ref,total,status,created_at`,[ref,req.session.customerId,subtotal,deliveryFee,total,String(delivery.name).trim(),String(delivery.phone).trim(),String(delivery.address).trim(),String(delivery.notes||"").trim()]);
       for(const x of normalized){
         await client.query("UPDATE market_products SET stock=stock-$1,updated_at=NOW() WHERE id=$2",[x.qty,x.p.id]);
-        await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant) VALUES($1,$2,$3,$4,$5,$6,$7)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify({})]);
+        await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant) VALUES($1,$2,$3,$4,$5,$6,$7)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify(x.variant||{})]);
       }
       await client.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[total,req.session.customerId]);
       await client.query("INSERT INTO market_wallet_transactions(market_order_id,customer_id,amount,balance_before,balance_after,transaction_ref) VALUES($1,$2,$3,$4,$5,$6)",[o.rows[0].id,req.session.customerId,total,before,after,txref]);
