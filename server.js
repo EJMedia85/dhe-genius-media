@@ -3257,6 +3257,11 @@ const DGM_PRICES = {
 // DataMart public prices are the source of truth for the DGM customer catalogue.
 // The last successful values remain in memory if DataMart is temporarily unavailable.
 const DATAMART_PUBLIC_PRICE_URL = "https://www.datamartgh.shop/";
+const DATAMART_CATALOGUE_URLS = {
+  MTN: "https://www.datamartgh.shop/mtnup2u",
+  AirtelTigo: "https://www.datamartgh.shop/ishare",
+  Telecel: "https://www.datamartgh.shop/telecel"
+};
 const DATAMART_AGENT_PRICE_URL = String(process.env.DATAMART_AGENT_PRICE_URL || "").trim();
 let dataMartPriceCache = { checked_at: 0, customer: {}, agent: {} };
 let dataMartAvailabilityCache = { checked_at: 0, networks: {} };
@@ -3269,7 +3274,7 @@ function normalizePublicStoreText(html) {
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
     .replace(/&#8373;/gi, "₵")
-    .replace(/\\s+/g, " ")
+    .replace(/\s+/g, " ")
     .trim();
 }
 
@@ -3316,45 +3321,62 @@ function parseDataMartCatalogue(text, referencePrices = DGM_PRICES) {
   return result;
 }
 
+async function fetchDataMartCataloguePage(url) {
+  const response = await fetch(url, {
+    headers: { Accept: "text/html,application/xhtml+xml" },
+    signal: AbortSignal.timeout(10000)
+  });
+  if (!response.ok) throw new Error("DataMart catalogue HTTP " + response.status);
+  return await response.text();
+}
+
 async function refreshDataMartPrices(force = false) {
   const now = Date.now();
   if (!force && now - Number(dataMartPriceCache.checked_at || 0) < 60000) return dataMartPriceCache;
 
   try {
-    const response = await fetch(DATAMART_PUBLIC_PRICE_URL, {
-      headers: { Accept: "text/html,application/xhtml+xml" },
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!response.ok) throw new Error("DataMart public catalogue HTTP " + response.status);
-    const parsed = parseDataMartCatalogue(await response.text());
     const customer = {};
     for (const [network, fallback] of Object.entries(DGM_PRICES)) {
-      customer[network] = {};
-      for (const gb of Object.keys(fallback)) {
-        customer[network][gb] = Number(parsed?.[network]?.[gb]) > 0
-          ? Number(parsed[network][gb])
-          : Number(fallback[gb]);
-      }
-    }
-
-    let agent = {};
-    if (DATAMART_AGENT_PRICE_URL) {
-      const ar = await fetch(DATAMART_AGENT_PRICE_URL, {
-        headers: { Accept: "text/html,application/json" },
-        signal: AbortSignal.timeout(10000)
-      });
-      if (ar.ok) {
-        const raw = await ar.text();
-        try {
-          const json = JSON.parse(raw);
-          agent = json.prices || json.networks || json.catalogue || {};
-        } catch {
-          agent = parseDataMartCatalogue(raw, customer);
+      try {
+        const html = await fetchDataMartCataloguePage(DATAMART_CATALOGUE_URLS[network] || DATAMART_PUBLIC_PRICE_URL);
+        const parsed = parseDataMartCatalogue(html, fallback);
+        customer[network] = {};
+        for (const gb of Object.keys(fallback)) {
+          customer[network][gb] = Number(parsed?.[network]?.[gb]) > 0
+            ? Number(parsed[network][gb])
+            : Number(fallback[gb]);
         }
+      } catch (networkError) {
+        console.error("DataMart " + network + " price sync failed:", networkError.message);
+        customer[network] = { ...fallback };
       }
     }
 
-    dataMartPriceCache = { checked_at: now, customer, agent: Object.keys(agent).length ? agent : customer };
+    // DataMart's authenticated agent dashboard is not publicly readable.
+    // Until a legitimate agent catalogue endpoint is configured, agents use
+    // the same verified public catalogue as their DGM base catalogue.
+    let agent = customer;
+    if (DATAMART_AGENT_PRICE_URL) {
+      try {
+        const ar = await fetch(DATAMART_AGENT_PRICE_URL, {
+          headers: { Accept: "text/html,application/json" },
+          signal: AbortSignal.timeout(10000)
+        });
+        if (ar.ok) {
+          const raw = await ar.text();
+          try {
+            const json = JSON.parse(raw);
+            agent = json.prices || json.networks || json.catalogue || customer;
+          } catch {
+            agent = parseDataMartCatalogue(raw, customer);
+          }
+        }
+      } catch (agentError) {
+        console.error("DataMart agent price sync failed:", agentError.message);
+      }
+    }
+
+    dataMartPriceCache = { checked_at: now, customer, agent };
     for (const [network, prices] of Object.entries(customer)) {
       for (const [gb, price] of Object.entries(prices)) {
         if (Number(price) > 0) DGM_PRICES[network][gb] = Number(price);
