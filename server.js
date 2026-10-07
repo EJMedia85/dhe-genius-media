@@ -8764,7 +8764,7 @@ app.get("/admin.html", (req, res, next) => {
 });
 
 app.get("/staff.html", (req, res) => {
-  if (!req.session?.staffId) return res.redirect(302, "/admin-login.html");
+  if (!req.session?.staffId) return res.redirect(302, "/staff-login.html");
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
