@@ -8,6 +8,7 @@ const crypto = require("crypto");
 const { Pool } = require("pg");
 const { installBridge } = require("./bridge-routes");
 const { installMarket } = require("./market-routes");
+const { installBwmXmd } = require("./bwm-xmd-routes");
 
 const app = express();
 
@@ -2748,6 +2749,7 @@ function requireAdmin(req, res, next) {
 
 // DGM Market: customer storefront, wallet checkout, and admin catalog/order APIs.
 installMarket(app);
+installBwmXmd(app);
 
 
 const COMPANION_TOKEN_TTL_DAYS = 365;
