@@ -3249,160 +3249,176 @@ function isDataService(
 // =====================================================
 
 const DGM_PRICES = {
-  // Customer-facing prices: mirror DataMart's public catalogue.
-  // MTN values verified from DataMart's live public MTN UP2U page.
-  MTN: {
-    1: 4.20,
-    2: 8.80,
-    3: 12.80,
-    4: 17.80,
-    5: 22.30,
-    6: 25.00,
-    8: 33.00,
-    10: 41.00,
-    15: 59.50,
-    20: 79.00,
-    25: 99.00,
-    30: 121.00,
-    40: 158.00,
-    50: 200.00
-  },
-
-  // Keep the existing DGM catalogue for networks whose current public
-  // DataMart pages are not machine-readable here. These remain separate
-  // from agent pricing and can be updated without changing checkout logic.
-  AirtelTigo: {
-    1: 4.50,
-    2: 10.00,
-    3: 15.00,
-    4: 19.50,
-    5: 23.50,
-    6: 30.60,
-    8: 38.50,
-    10: 45.50,
-    12: 56.00,
-    15: 65.50,
-    25: 106.00,
-    30: 128.50,
-    40: 165.00,
-    50: 215.00
-  },
-
-  Telecel: {
-    10: 47.70,
-    15: 69.90,
-    20: 92.00,
-    25: 101.00,
-    30: 121.00,
-    35: 142.00,
-    40: 154.00,
-    45: 169.00,
-    50: 201.00,
-    100: 425.00
-  }
+  MTN: {1:4.20,2:8.80,3:12.80,4:17.80,5:22.30,6:25.00,8:33.00,10:41.00,15:59.50,20:79.00,25:99.00,30:121.00,40:158.00,50:200.00},
+  AirtelTigo: {1:4.50,2:10.00,3:15.00,4:19.50,5:23.50,6:30.60,8:38.50,10:45.50,12:56.00,15:65.50,25:106.00,30:128.50,40:165.00,50:215.00},
+  Telecel: {10:47.70,15:69.90,20:92.00,25:101.00,30:121.00,35:142.00,40:154.00,45:169.00,50:201.00,100:425.00}
 };
 
-// DataMart public catalogue availability sync.
-const DATAMART_PUBLIC_STORE_URL = "https://datamartgh.store/";
+// DataMart public prices are the source of truth for the DGM customer catalogue.
+// The last successful values remain in memory if DataMart is temporarily unavailable.
+const DATAMART_PUBLIC_PRICE_URL = "https://www.datamartgh.shop/";
+const DATAMART_AGENT_PRICE_URL = String(process.env.DATAMART_AGENT_PRICE_URL || "").trim();
+let dataMartPriceCache = { checked_at: 0, customer: {}, agent: {} };
 let dataMartAvailabilityCache = { checked_at: 0, networks: {} };
 
 function normalizePublicStoreText(html) {
   return String(html || "")
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\\s\\S]*?<\\/script>/gi, " ")
+    .replace(/<style[\\s\\S]*?<\\/style>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
     .replace(/&amp;/gi, "&")
-    .replace(/\s+/g, " ")
+    .replace(/&#8373;/gi, "₵")
+    .replace(/\\s+/g, " ")
     .trim();
 }
 
+function parseDataMartCatalogue(text, referencePrices = DGM_PRICES) {
+  const lower = String(text || "").toLowerCase();
+  const result = {};
+  const aliases = {
+    MTN: ["mtn up2u", "mtn data", "mtn"],
+    AirtelTigo: ["airteltigo", "airtel tigo", "airteligo", "ishare"],
+    Telecel: ["telecel"]
+  };
+
+  for (const [network, prices] of Object.entries(referencePrices)) {
+    result[network] = {};
+    const labels = aliases[network] || [network];
+    const positions = labels.map(x => lower.indexOf(x)).filter(x => x >= 0).sort((a,b) => a-b);
+    if (!positions.length) {
+      for (const gb of Object.keys(prices)) result[network][gb] = null;
+      continue;
+    }
+    const startPos = positions[0];
+    const nextNetworkPositions = Object.entries(aliases)
+      .filter(([n]) => n !== network)
+      .flatMap(([, ls]) => ls.map(x => lower.indexOf(x)).filter(x => x > startPos));
+    const endPos = nextNetworkPositions.length ? Math.min(...nextNetworkPositions) : lower.length;
+    const section = lower.slice(startPos, endPos);
+
+    for (const gb of Object.keys(prices)) {
+      const sizeRe = new RegExp("\\b" + String(gb).replace(".", "\\\\.") + "\\s*gb\\b", "i");
+      const match = sizeRe.exec(section);
+      if (!match) { result[network][gb] = null; continue; }
+      const card = section.slice(Math.max(0, match.index - 300), match.index + 700);
+      const currency = [...card.matchAll(/(?:gh\\s*)?₵\\s*([0-9]+(?:\\.[0-9]{1,2})?)/gi)]
+        .map(m => Number(m[1]))
+        .filter(Number.isFinite);
+      const numeric = [...card.matchAll(/\\b([0-9]+\\.[0-9]{2})\\b/g)]
+        .map(m => Number(m[1]))
+        .filter(Number.isFinite);
+      const candidates = [...currency, ...numeric];
+      const price = candidates.length ? candidates[0] : null;
+      result[network][gb] = Number.isFinite(price) && price > 0 ? Number(price.toFixed(2)) : null;
+    }
+  }
+  return result;
+}
+
+async function refreshDataMartPrices(force = false) {
+  const now = Date.now();
+  if (!force && now - Number(dataMartPriceCache.checked_at || 0) < 60000) return dataMartPriceCache;
+
+  try {
+    const response = await fetch(DATAMART_PUBLIC_PRICE_URL, {
+      headers: { Accept: "text/html,application/xhtml+xml" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error("DataMart public catalogue HTTP " + response.status);
+    const parsed = parseDataMartCatalogue(await response.text());
+    const customer = {};
+    for (const [network, fallback] of Object.entries(DGM_PRICES)) {
+      customer[network] = {};
+      for (const gb of Object.keys(fallback)) {
+        customer[network][gb] = Number(parsed?.[network]?.[gb]) > 0
+          ? Number(parsed[network][gb])
+          : Number(fallback[gb]);
+      }
+    }
+
+    let agent = {};
+    if (DATAMART_AGENT_PRICE_URL) {
+      const ar = await fetch(DATAMART_AGENT_PRICE_URL, {
+        headers: { Accept: "text/html,application/json" },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (ar.ok) {
+        const raw = await ar.text();
+        try {
+          const json = JSON.parse(raw);
+          agent = json.prices || json.networks || json.catalogue || {};
+        } catch {
+          agent = parseDataMartCatalogue(raw, customer);
+        }
+      }
+    }
+
+    dataMartPriceCache = { checked_at: now, customer, agent: Object.keys(agent).length ? agent : customer };
+    for (const [network, prices] of Object.entries(customer)) {
+      for (const [gb, price] of Object.entries(prices)) {
+        if (Number(price) > 0) DGM_PRICES[network][gb] = Number(price);
+      }
+    }
+  } catch (error) {
+    console.error("DataMart price sync failed:", error.message);
+  }
+
+  return dataMartPriceCache;
+}
+
 async function refreshDataMartBundleAvailability(force = false) {
+  const prices = await refreshDataMartPrices(force);
   const now = Date.now();
   if (!force && now - Number(dataMartAvailabilityCache.checked_at || 0) < 60000) {
     return dataMartAvailabilityCache.networks;
   }
 
   try {
-    const response = await fetch(DATAMART_PUBLIC_STORE_URL, {
-      headers: { "Accept": "text/html,application/xhtml+xml" },
+    const response = await fetch(DATAMART_PUBLIC_PRICE_URL, {
+      headers: { Accept: "text/html,application/xhtml+xml" },
       signal: AbortSignal.timeout(10000)
     });
     if (!response.ok) throw new Error("DataMart storefront HTTP " + response.status);
-
     const text = normalizePublicStoreText(await response.text());
     const lower = text.toLowerCase();
     const next = {};
 
-    // DataMart renders an explicit OUT OF STOCK state on its public catalogue.
-    // We only mark a DGM bundle unavailable when that state is actually found
-    // next to the matching bundle/price. Unknown parsing results remain null so
-    // a temporary storefront markup change cannot accidentally hide the entire catalogue.
-    for (const [network, prices] of Object.entries(DGM_PRICES)) {
+    for (const [network, priceMap] of Object.entries(DGM_PRICES)) {
       next[network] = {};
-      const networkAliases = {
-        MTN: ["mtn", "mtn data bundles", "mtn up2u"],
-        AirtelTigo: ["airteltigo", "airtel tigo", "airteligo", "ishare"],
-        Telecel: ["telecel", "telecel bundle"]
-      };
-      const aliases = networkAliases[network] || [network];
-      const networkPos = aliases
-        .map(label => lower.indexOf(label))
-        .filter(pos => pos >= 0)
-        .sort((a, b) => a - b)[0];
-
+      const aliases = {MTN:["mtn up2u","mtn data","mtn"],AirtelTigo:["airteltigo","airtel tigo","airteligo","ishare"],Telecel:["telecel"]}[network] || [network];
+      const networkPos = aliases.map(label=>lower.indexOf(label)).filter(pos=>pos>=0).sort((a,b)=>a-b)[0];
       if (networkPos === undefined) {
-        for (const gb of Object.keys(prices)) next[network][gb] = null;
+        for (const gb of Object.keys(priceMap)) next[network][gb] = null;
         continue;
       }
-
-      const otherPositions = Object.entries(networkAliases)
-        .filter(([name]) => name !== network)
-        .flatMap(([, labels]) => labels.map(label => lower.indexOf(label)).filter(pos => pos > networkPos));
-      const networkEnd = otherPositions.length ? Math.min(...otherPositions) : Math.min(lower.length, networkPos + 30000);
-      const section = lower.slice(networkPos, networkEnd);
-
-      for (const [gb, price] of Object.entries(prices)) {
-        const sizePattern = new RegExp("\\b" + String(gb).replace(".", "\\.") + "\\s*gb\\b", "i");
-        const sizeMatch = sizePattern.exec(section);
-        if (!sizeMatch) {
-          next[network][gb] = null;
-          continue;
-        }
-
-        const start = Math.max(0, sizeMatch.index - 250);
-        const card = section.slice(start, sizeMatch.index + 500);
-        const priceText = Number(price).toFixed(2);
-        const pricePattern = new RegExp("(?:₵|gh\\s*₵|ghc|g(?:h|h\\.)?\\s*)?" + priceText.replace(".", "\\."), "i");
-        const hasMatchingPrice = pricePattern.test(card);
-        const stockWindow = card.replace(/\s+/g, " ");
-        const explicitlyOut = /out\s*of\s*stock/i.test(stockWindow);
-        const explicitlyAvailable = /in\s*stock|available|buy now|order now/i.test(stockWindow);
-
-        if (explicitlyOut && (hasMatchingPrice || /out\s*of\s*stock/.test(stockWindow))) {
-          next[network][gb] = false;
-        } else if (hasMatchingPrice || explicitlyAvailable) {
-          next[network][gb] = true;
-        } else {
-          next[network][gb] = null;
-        }
+      const otherPositions = Object.entries({MTN:["mtn up2u","mtn data","mtn"],AirtelTigo:["airteltigo","airtel tigo","airteligo","ishare"],Telecel:["telecel"]})
+        .filter(([name])=>name!==network)
+        .flatMap(([,labels])=>labels.map(label=>lower.indexOf(label)).filter(pos=>pos>networkPos));
+      const section = lower.slice(networkPos, otherPositions.length ? Math.min(...otherPositions) : lower.length);
+      for (const gb of Object.keys(priceMap)) {
+        const sizeMatch = new RegExp("\\b"+String(gb).replace(".","\\.")+"\\s*gb\\b","i").exec(section);
+        if (!sizeMatch) { next[network][gb] = null; continue; }
+        const card = section.slice(Math.max(0,sizeMatch.index-250), sizeMatch.index+500).replace(/\\s+/g," ");
+        const explicitlyOut = /out\\s*of\\s*stock/i.test(card);
+        const explicitlyAvailable = /in\\s*stock|available|buy now|order now/i.test(card);
+        next[network][gb] = explicitlyOut ? false : (explicitlyAvailable ? true : null);
       }
     }
-
     dataMartAvailabilityCache = { checked_at: now, networks: next };
   } catch (error) {
     console.error("DataMart availability sync failed:", error.message);
   }
-
   return dataMartAvailabilityCache.networks;
 }
 
 app.get("/api/data-bundles", async (req, res) => {
+  const prices = await refreshDataMartPrices();
   const availability = await refreshDataMartBundleAvailability();
   const bundles = Object.fromEntries(
-    Object.entries(DGM_PRICES).map(([network, prices]) => [
+    Object.entries(prices.customer).map(([network, priceMap]) => [
       network,
-      Object.entries(prices).map(([gb, price]) => ({
+      Object.entries(priceMap).map(([gb, price]) => ({
         size: gb + "GB",
         price: Number(price),
         available: availability?.[network]?.[gb] !== false,
@@ -3414,10 +3430,10 @@ app.get("/api/data-bundles", async (req, res) => {
     success: true,
     currency: "GHS",
     validity_days: 90,
-    availability_source: DATAMART_PUBLIC_STORE_URL,
-    availability_checked_at: dataMartAvailabilityCache.checked_at
-      ? new Date(dataMartAvailabilityCache.checked_at).toISOString()
-      : null,
+    price_source: DATAMART_PUBLIC_PRICE_URL,
+    price_checked_at: prices.checked_at ? new Date(prices.checked_at).toISOString() : null,
+    availability_source: DATAMART_PUBLIC_PRICE_URL,
+    availability_checked_at: dataMartAvailabilityCache.checked_at ? new Date(dataMartAvailabilityCache.checked_at).toISOString() : null,
     networks: bundles
   });
 });
@@ -8737,7 +8753,8 @@ installAgent(app, {
   pool,
   requireCustomer: requireLogin,
   requireAdmin,
-  getRetailPrice: (network, capacity) => {
+  getRetailPrice: async (network, capacity) => {
+    try { await refreshDataMartPrices(); } catch {}
     const prices = DGM_PRICES[network];
     return prices ? Number(prices[capacity]) || 0 : 0;
   },
