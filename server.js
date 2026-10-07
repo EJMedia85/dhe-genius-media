@@ -5641,14 +5641,27 @@ app.post("/api/admin/login", loginRateLimit, async (req, res) => {
 app.get("/api/admin/me", requireAdmin, (req, res) => res.json({ success: true, admin: { email: req.session.adminEmail || ADMIN_EMAIL }, logged_in_at: req.session.adminLoginAt || null }));
 
 app.post("/api/admin/logout", (req, res) => {
-  const clear = () => {
-    res.clearCookie("dgm.sid", { httpOnly: true, secure: NODE_ENV === "production", sameSite: "lax", path: "/" });
-    return res.json({ success: true });
-  };
-  if (!req.session) return clear();
+  // Expire the browser session cookie immediately. This makes logout effective
+  // even if the database-backed session store is temporarily unavailable.
+  res.clearCookie("dgm.sid", {
+    httpOnly: true,
+    secure: NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: new Date(0)
+  });
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+
+  if (!req.session) return res.json({ success: true });
+
   req.session.destroy(error => {
-    if (error) { console.error("Admin logout error:", error); return res.status(500).json({ success: false, message: "Admin logout failed." }); }
-    return clear();
+    if (error) {
+      console.error("Admin logout session cleanup error:", error);
+      // The client cookie has already been expired, so the authenticated
+      // browser session is no longer reusable.
+    }
+    return res.json({ success: true });
   });
 });
 
