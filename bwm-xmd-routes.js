@@ -5,7 +5,38 @@ async function db(){if(!pool)throw Error("Database is not configured.");if(!read
 function login(req,res,next){if(!req.session?.customerId)return res.status(401).json({success:false,message:"Please login to continue."});next()}
 async function api(path,opt={}){if(!KEY){let e=Error("BWM XMD is not configured.");e.status=503;throw e}const c=new AbortController(),t=setTimeout(()=>c.abort(),15000);try{const r=await fetch(BASE+path,{...opt,headers:{Authorization:"Bearer "+KEY,"Accept":"application/json","Content-Type":"application/json"},signal:c.signal}),txt=await r.text();let d={};try{d=txt?JSON.parse(txt):{}}catch{}if(!r.ok){let e=Error(d.message||d.error||("BWM XMD HTTP "+r.status));e.status=r.status;throw e}return d}finally{clearTimeout(t)}}
 const retail=v=>Math.round(Number(v||0)*(1+MARGIN/100)*100)/100,ref=()=> "DGM-SB-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(3).toString("hex").toUpperCase();
-function installBwmXmd(app){
+const normStatus=v=>String(v||"").trim().toLowerCase().replace(/[_-]+/g," ");
+const terminalSuccess=s=>["completed","complete","success","successful","delivered"].includes(normStatus(s));
+const terminalFailure=s=>["failed","failure","cancelled","canceled","rejected","refunded","refund"].includes(normStatus(s));
+async function syncBwmOrder(o){
+  if(!o?.provider_order_id||terminalSuccess(o.status)||terminalFailure(o.status))return;
+  const p=await api("/services/order/"+encodeURIComponent(o.provider_order_id));
+  const st=String(p.status??p.data?.status??o.provider_status??o.status??"Processing");
+  const ps=normStatus(st);
+  const c=await pool.connect();
+  try{
+    await c.query("BEGIN");
+    const cur=(await c.query("SELECT * FROM bwm_xmd_orders WHERE id=$1 FOR UPDATE",[o.id])).rows[0];
+    if(!cur){await c.query("ROLLBACK");return}
+    if(terminalFailure(st)&&!terminalFailure(cur.status)){
+      const updated=(await c.query("UPDATE bwm_xmd_orders SET status='Refunded',provider_status=$1,error_message=$2,updated_at=NOW() WHERE id=$3 AND status NOT IN ('Refunded','Completed','Success','Successful') RETURNING *",[st,"Provider marked the social order as "+st,cur.id])).rows[0];
+      if(updated){
+        await c.query("UPDATE customers SET balance=balance+$1 WHERE id=$2",[Number(cur.customer_price),cur.customer_id]);
+        await c.query("INSERT INTO wallet_transactions(customer_id,type,amount,description,reference,status,created_at) VALUES($1,'credit',$2,$3,$4,'Completed',NOW())",[cur.customer_id,Number(cur.customer_price),"Social Boosting refund - "+cur.service_name,"BWM-REFUND-"+cur.id]);
+      }
+    }else{
+      await c.query("UPDATE bwm_xmd_orders SET status=$1,provider_status=$2,updated_at=NOW() WHERE id=$3",[st,st,cur.id]);
+    }
+    await c.query("COMMIT");
+  }catch(e){await c.query("ROLLBACK");throw e}finally{c.release()}
+}
+async function reconcileBwmOrders(){
+  if(!KEY||!pool)return;
+  try{await db();const rows=(await pool.query("SELECT * FROM bwm_xmd_orders WHERE provider_order_id IS NOT NULL AND status NOT IN ('Completed','Success','Successful','Refunded','Failed','Cancelled','Canceled') ORDER BY updated_at ASC LIMIT 50")).rows;
+    for(const o of rows){try{await syncBwmOrder(o)}catch(e){console.warn("[BWM] status sync failed",o.id,e.message)}}
+  }catch(e){console.warn("[BWM] reconciliation failed",e.message)}
+}
+function installBwmXmd(app){\nsetTimeout(()=>{reconcileBwmOrders();setInterval(reconcileBwmOrders,60000)},10000);
 app.get("/api/bwm/status",(q,r)=>r.json({success:true,configured:!!KEY,margin_percent:MARGIN}));
 app.get("/api/bwm/services",async(q,r)=>{try{const p=new URLSearchParams();["limit","offset","q","category"].forEach(k=>{if(q.query[k]!=null)p.set(k,String(q.query[k]))});const d=await api("/services"+(p.toString()?"?"+p:"")),a=Array.isArray(d.services)?d.services:Array.isArray(d.data)?d.data:[];r.json({success:true,services:a.map(s=>({id:String(s.id??s.service??s.service_id??""),name:String(s.name??s.title??""),category:String(s.category??s.type??"Social Media"),description:String(s.description??""),min:Number(s.min??s.minimum??0),max:Number(s.max??s.maximum??0),rate:Number(s.rate??s.price??s.cost??0),price:retail(s.rate??s.price??s.cost??0)})).filter(s=>s.id&&s.name)})}catch(e){r.status(e.status||500).json({success:false,message:e.message||"Could not load services."})}});
 app.get("/api/bwm/orders",login,async(q,r)=>{try{await db();r.json({success:true,orders:(await pool.query("SELECT * FROM bwm_xmd_orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100",[q.session.customerId])).rows})}catch(e){r.status(500).json({success:false,message:"Could not load social orders."})}});
