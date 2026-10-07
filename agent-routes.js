@@ -122,6 +122,7 @@ async function initAgentDatabase(pool) {
     commission_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     joined_at TIMESTAMPTZ
+  );
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS agent_subagents_parent_idx ON agent_subagents(parent_agent_id, created_at DESC)`);
   await pool.query(`INSERT INTO agent_wallets(agent_id,balance)
