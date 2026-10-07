@@ -167,6 +167,19 @@
     .sync-note { display:flex; align-items:center; gap:7px; margin-top:11px; color:var(--muted); font-size:10px; }
     .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(37,211,102,.45); }
 
+    .code-loader { margin: 0 0 20px; padding: 16px; border:1px solid rgba(37,211,102,.18); border-radius:18px; background:linear-gradient(145deg,rgba(37,211,102,.07),rgba(255,255,255,.02)); box-shadow:var(--shadow); }
+    .code-loader-title { font-size:13px; font-weight:850; }
+    .code-loader-sub { color:var(--muted); font-size:10px; margin-top:4px; line-height:1.5; }
+    .code-loader-row { display:flex; gap:8px; margin-top:12px; }
+    .code-loader-input { flex:1; min-width:0; border:1px solid var(--border); background:rgba(0,0,0,.22); color:var(--text); border-radius:12px; padding:11px 12px; outline:none; font:700 12px inherit; text-transform:uppercase; }
+    .code-loader-input:focus { border-color:rgba(37,211,102,.45); box-shadow:0 0 0 3px rgba(37,211,102,.07); }
+    .code-loader-btn { border:0; background:linear-gradient(135deg,var(--green),var(--green-dark)); color:#06100b; border-radius:12px; padding:0 15px; font-size:11px; font-weight:850; cursor:pointer; white-space:nowrap; }
+    .code-loader-btn:disabled { opacity:.6; cursor:wait; }
+    .code-result { margin-top:11px; padding:11px 12px; border-radius:12px; border:1px solid rgba(37,211,102,.16); background:rgba(37,211,102,.05); font-size:11px; line-height:1.5; }
+    .code-result.error { border-color:rgba(255,92,92,.18); background:rgba(255,92,92,.05); color:#ff9b9b; }
+    .code-result strong { color:var(--text); }
+    @media (max-width:699px){.code-loader-row{flex-direction:column}.code-loader-btn{height:42px}}
+
     /* =========================
        SUMMARY
     ========================= */
@@ -765,6 +778,17 @@
     </section>
 
 
+    <section class="code-loader" aria-label="DGM code loader">
+      <div class="code-loader-title">🔎 Load a DGM Code</div>
+      <div class="code-loader-sub">Enter a code such as DGM-MUL9487D-8C8331 to find the order instantly.</div>
+      <div class="code-loader-row">
+        <input id="dgmCodeInput" class="code-loader-input" placeholder="DGM-MUL9487D-8C8331" maxlength="40" autocomplete="off" spellcheck="false">
+        <button id="dgmCodeBtn" class="code-loader-btn" onclick="loadDgmCode()">Load Code</button>
+      </div>
+      <div id="dgmCodeResult" hidden></div>
+    </section>
+
+
     <!-- SUMMARY -->
 
     <section class="summary-grid">
@@ -925,6 +949,52 @@
     let loadingOrders = false;
     let socialLoading = false;
 
+
+    async function loadDgmCode() {
+      const input = document.getElementById("dgmCodeInput");
+      const button = document.getElementById("dgmCodeBtn");
+      const result = document.getElementById("dgmCodeResult");
+      const code = String(input.value || "").trim().toUpperCase();
+      result.hidden = true;
+      if (!code) return;
+      if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(code)) {
+        result.className = "code-result error";
+        result.textContent = "Enter a valid DGM code, for example DGM-MUL9487D-8C8331.";
+        result.hidden = false;
+        return;
+      }
+      button.disabled = true;
+      button.textContent = "Loading...";
+      try {
+        const response = await fetch("/api/order-code/" + encodeURIComponent(code), { credentials:"include", cache:"no-store" });
+        const data = await response.json();
+        if (response.status === 401) { window.location.href="/login.html"; return; }
+        if (!response.ok || !data.success || !data.order) throw new Error(data.message || "DGM code not found.");
+        const order = data.order;
+        const status = normalizeStatus(order.status);
+        result.className = "code-result";
+        result.innerHTML = "<strong>" + escapeHtml(order.service || "DGM Order") + "</strong> · " +
+          escapeHtml(capitalize(status)) + "<br>Reference: <strong>" + escapeHtml(order.order_ref) +
+          "</strong> · Amount: <strong>GH₵" + Number(order.amount || 0).toFixed(2) + "</strong><br>" +
+          (order.phone ? "Recipient: " + escapeHtml(order.phone) + "<br>" : "") +
+          "Date: " + escapeHtml(formatDate(order.created_at));
+        result.hidden = false;
+        const card = document.querySelector(".order-card");
+        if (card) card.scrollIntoView({behavior:"smooth", block:"center"});
+        await loadOrders(true);
+      } catch (error) {
+        result.className = "code-result error";
+        result.textContent = error.message || "DGM code not found.";
+        result.hidden = false;
+      } finally {
+        button.disabled = false;
+        button.textContent = "Load Code";
+      }
+    }
+
+    document.getElementById("dgmCodeInput")?.addEventListener("keydown", e => {
+      if (e.key === "Enter") loadDgmCode();
+    });
 
     /* =========================
        LOAD ORDERS
