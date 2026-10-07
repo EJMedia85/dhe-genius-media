@@ -218,7 +218,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       await client.query("UPDATE agent_wallets SET balance=$1,updated_at=NOW() WHERE agent_id=$2",[wa,a.id]);
       orderRef="DGM-AG-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(4).toString("hex").toUpperCase();
       const o=(await client.query(`INSERT INTO orders(order_ref,customer_id,service,network,phone,amount,status,capacity,payment_status,paid_at)
-        VALUES($1,$2,'Agent Data Sale',$3,$4,$5,'Processing',$6,'Paid',NOW()) RETURNING id`,[orderRef,a.customer_id,network,phone,base,capacity])).rows[0];
+        VALUES($1,$2,'Data',$3,$4,$5,'Processing',$6,'Paid',NOW()) RETURNING id`,[orderRef,a.customer_id,network,phone,base,capacity])).rows[0];
       orderId=o.id;
       const sale=(await client.query(`INSERT INTO agent_sales(agent_id,order_id,order_ref,service,network,phone,capacity,base_cost,sale_price,profit,status)
         VALUES($1,$2,$3,'Data',$4,$5,$6,$7,$8,$9,'Processing') RETURNING id`,[a.id,orderId,orderRef,network,phone,capacity,base,salePrice,money(salePrice-base)])).rows[0];
