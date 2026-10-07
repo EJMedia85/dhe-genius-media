@@ -108,9 +108,10 @@
 </section>
 
 <section id="notifications" class="section">
-<div class="grid2"><div class="panel"><h2>Send Customer Notification</h2><div class="notice">Send an announcement to every customer. This creates an in-app notification and is recorded in the admin audit log.</div>
+<div class="grid2"><div class="panel"><h2>Broadcast to Every Customer</h2><div class="notice">Send an announcement to every customer. This creates an in-app notification and is recorded in the admin audit log.</div>
 <form id="broadcastForm"><input class="input" id="broadcastTitle" placeholder="Notification title" maxlength="160" required><select class="select" id="broadcastType"><option value="info">Information</option><option value="promotion">Promotion</option><option value="maintenance">Maintenance</option><option value="alert">Alert</option></select><textarea class="textarea" id="broadcastMessage" rows="6" placeholder="Message" maxlength="2000" required></textarea><button class="btn green" style="margin-top:9px">Send to all customers</button></form><div id="broadcastMsg" class="muted" style="margin-top:10px"></div></div>
 <div class="panel"><h2>Notification Safety</h2><div class="notice">Broadcasts are sent only to registered DGM customer accounts. No SMS, WhatsApp, or external messaging is triggered by this panel.</div><div class="health"><div><span class="dot"></span><b>In-app delivery</b><br><span class="muted">Enabled</span></div><div><span class="dot"></span><b>Audit logging</b><br><span class="muted">Enabled</span></div></div></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Broadcast History</h2><div class="muted">Recent announcements sent to all registered customers.</div></div><button class="btn" onclick="loadBroadcastHistory()">Refresh</button></div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Type</th><th>Title</th><th>Message</th><th>Recipients</th><th>Sent</th></tr></thead><tbody id="broadcastHistoryBody"></tbody></table></div></div>
 </section>
 
 <section id="services" class="section">
@@ -399,6 +400,8 @@ $('#companionEnrollForm').onsubmit=async e=>{
   }
 };
 
+async function loadBroadcastHistory(){try{const d=await api('/api/admin/notifications/broadcasts');$('#broadcastHistoryBody').innerHTML=(d.broadcasts||[]).map(b=>'<tr><td>'+esc(b.type)+'</td><td>'+esc(b.title)+'</td><td style="max-width:420px">'+esc(b.message)+'</td><td>'+Number(b.recipients||0)+'</td><td>'+esc(b.sent_at?new Date(b.sent_at).toLocaleString():'')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">No broadcasts yet.</td></tr>'}catch(err){$('#broadcastHistoryBody').innerHTML='<tr><td colspan="5" class="empty">'+esc(err.message||'Could not load history.')+'</td></tr>'}}
+
 $('#broadcastForm').onsubmit=async e=>{
   e.preventDefault();
   const msg=$('#broadcastMsg'); msg.textContent='Sending…';
@@ -406,6 +409,7 @@ $('#broadcastForm').onsubmit=async e=>{
     const d=await api('/api/admin/notifications/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('#broadcastTitle').value,message:$('#broadcastMessage').value,type:$('#broadcastType').value})});
     msg.textContent=d.message+' '+d.sent+' customers notified.';
     e.target.reset();
+    await loadBroadcastHistory();
   }catch(err){msg.textContent=err.message;}
 };
 async function loadSupport(){const d=await api('/api/admin/support/tickets');$('#supportBody').innerHTML=d.tickets.map(t=>'<tr><td>'+esc(t.customer_name)+'<br><span class="muted">'+esc(t.customer_email)+'</span></td><td>'+esc(t.subject)+'</td><td style="max-width:320px">'+esc(t.message)+'</td><td>'+esc(t.status)+'</td><td>'+(t.status==='Open'?'<textarea class="textarea" id="reply'+t.id+'" rows="2" placeholder="Reply"></textarea><button class="btn green" onclick="replySupport('+t.id+')">Send</button>':'<span class="muted">'+esc(t.admin_reply||'Replied')+'</span>')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">No support requests.</td></tr>'}
