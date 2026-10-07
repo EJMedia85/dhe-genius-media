@@ -8752,6 +8752,26 @@ async function processAutomaticSavings() {
 }
 
 // =====================================================
+// STAFF / SUPER ADMIN DASHBOARD ROUTING
+// =====================================================
+// Keep the two portals separate at the URL level while sharing the
+// permission-aware dashboard implementation. Staff must never be able
+// to open the Super Admin portal directly; the server redirects them
+// to the staff portal before static-file handling.
+app.get("/admin.html", (req, res, next) => {
+  if (req.session?.staffId) return res.redirect(302, "/staff.html");
+  next();
+});
+
+app.get("/staff.html", (req, res) => {
+  if (!req.session?.staffId) return res.redirect(302, "/admin-login.html");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  return res.sendFile(path.join(__dirname, "public", "admin.html"));
+});
+
+// =====================================================
 // FRONTEND STATIC FILES + HEALTH CHECK
 // =====================================================
 // Prevent browsers/CDNs from serving stale HTML after dashboard deployments.
