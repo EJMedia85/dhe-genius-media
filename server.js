@@ -3298,14 +3298,14 @@ function parseDataMartCatalogue(text, referencePrices = DGM_PRICES) {
     const section = lower.slice(startPos, endPos);
 
     for (const gb of Object.keys(prices)) {
-      const sizeRe = new RegExp("\\b" + String(gb).replace(".", "\\\\.") + "\\s*gb\\b", "i");
+      const sizeRe = new RegExp("\\b" + String(gb).replace(".", "\\.") + "\\s*gb\\b", "i");
       const match = sizeRe.exec(section);
       if (!match) { result[network][gb] = null; continue; }
       const card = section.slice(Math.max(0, match.index - 300), match.index + 700);
-      const currency = [...card.matchAll(/(?:gh\\s*)?₵\\s*([0-9]+(?:\\.[0-9]{1,2})?)/gi)]
+      const currency = [...card.matchAll(/(?:gh\s*)?₵\s*([0-9]+(?:\.[0-9]{1,2})?)/gi)]
         .map(m => Number(m[1]))
         .filter(Number.isFinite);
-      const numeric = [...card.matchAll(/\\b([0-9]+\\.[0-9]{2})\\b/g)]
+      const numeric = [...card.matchAll(/\b([0-9]+\.[0-9]{2})\b/g)]
         .map(m => Number(m[1]))
         .filter(Number.isFinite);
       const candidates = [...currency, ...numeric];
@@ -3399,9 +3399,9 @@ async function refreshDataMartBundleAvailability(force = false) {
       for (const gb of Object.keys(priceMap)) {
         const sizeMatch = new RegExp("\\b"+String(gb).replace(".","\\.")+"\\s*gb\\b","i").exec(section);
         if (!sizeMatch) { next[network][gb] = null; continue; }
-        const card = section.slice(Math.max(0,sizeMatch.index-250), sizeMatch.index+500).replace(/\\s+/g," ");
-        const explicitlyOut = /out\\s*of\\s*stock/i.test(card);
-        const explicitlyAvailable = /in\\s*stock|available|buy now|order now/i.test(card);
+        const card = section.slice(Math.max(0,sizeMatch.index-250), sizeMatch.index+500).replace(/\s+/g," ");
+        const explicitlyOut = /out\s*of\s*stock/i.test(card);
+        const explicitlyAvailable = /in\s*stock|available|buy now|order now/i.test(card);
         next[network][gb] = explicitlyOut ? false : (explicitlyAvailable ? true : null);
       }
     }
