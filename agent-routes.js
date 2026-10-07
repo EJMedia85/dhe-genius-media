@@ -136,6 +136,29 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     } catch (e) { console.error("Agent notification error:", e.message); }
   }
 
+  app.get("/api/agent/data-catalogue", requireCustomer, async (req,res) => {
+    try {
+      const networks = {};
+      for (const network of ["MTN","AirtelTigo","Telecel"]) {
+        const rows = [];
+        const capacities = network === "MTN"
+          ? [1,2,3,4,5,6,8,10,15,20,25,30,40,50]
+          : network === "AirtelTigo"
+            ? [1,2,3,4,5,6,8,10,12,15,25,30,40,50]
+            : [10,15,20,25,30,35,40,45,50,100];
+        for (const capacity of capacities) {
+          const price = money(await getRetailPrice(network, capacity));
+          if (price > 0) rows.push({capacity, price});
+        }
+        networks[network] = rows;
+      }
+      return res.json({success:true,source:"DataMart public catalogue",checked_at:new Date().toISOString(),networks});
+    } catch (e) {
+      console.error("Agent catalogue:",e);
+      return res.status(500).json({success:false,message:"Could not load the live DataMart catalogue."});
+    }
+  });
+
   app.get("/api/agent/me", requireCustomer, async (req,res) => {
     try {
       const a = await getAgent(req.session.customerId);
