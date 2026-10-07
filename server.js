@@ -3377,7 +3377,7 @@ async function refreshDataMartBundleAvailability(force = false) {
         const hasMatchingPrice = pricePattern.test(card);
         const stockWindow = card.replace(/\s+/g, " ");
         const explicitlyOut = /out\s*of\s*stock/i.test(stockWindow);
-        const explicitlyAvailable = /in\\s*stock|available|buy now|order now/i.test(stockWindow);
+        const explicitlyAvailable = /in\s*stock|available|buy now|order now/i.test(stockWindow);
 
         if (explicitlyOut && (hasMatchingPrice || /out\s*of\s*stock/.test(stockWindow))) {
           next[network][gb] = false;
