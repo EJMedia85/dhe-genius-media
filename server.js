@@ -3249,24 +3249,28 @@ function isDataService(
 // =====================================================
 
 const DGM_PRICES = {
-
+  // Customer-facing prices: mirror DataMart's public catalogue.
+  // MTN values verified from DataMart's live public MTN UP2U page.
   MTN: {
-    1: 5,
-    2: 10,
-    3: 15,
-    4: 20,
-    5: 24,
-    6: 28,
-    8: 36,
-    10: 45,
-    15: 64,
-    20: 84,
-    25: 100,
-    30: 128,
-    40: 168,
-    50: 207
+    1: 4.20,
+    2: 8.80,
+    3: 12.80,
+    4: 17.80,
+    5: 22.30,
+    6: 25.00,
+    8: 33.00,
+    10: 41.00,
+    15: 59.50,
+    20: 79.00,
+    25: 99.00,
+    30: 121.00,
+    40: 158.00,
+    50: 200.00
   },
 
+  // Keep the existing DGM catalogue for networks whose current public
+  // DataMart pages are not machine-readable here. These remain separate
+  // from agent pricing and can be updated without changing checkout logic.
   AirtelTigo: {
     1: 5,
     2: 10,
