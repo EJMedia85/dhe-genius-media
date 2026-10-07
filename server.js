@@ -3322,38 +3322,70 @@ async function refreshDataMartBundleAvailability(force = false) {
   if (!force && now - Number(dataMartAvailabilityCache.checked_at || 0) < 60000) {
     return dataMartAvailabilityCache.networks;
   }
+
   try {
     const response = await fetch(DATAMART_PUBLIC_STORE_URL, {
       headers: { "Accept": "text/html,application/xhtml+xml" },
       signal: AbortSignal.timeout(10000)
     });
     if (!response.ok) throw new Error("DataMart storefront HTTP " + response.status);
+
     const text = normalizePublicStoreText(await response.text());
+    const lower = text.toLowerCase();
     const next = {};
 
+    // DataMart renders an explicit OUT OF STOCK state on its public catalogue.
+    // We only mark a DGM bundle unavailable when that state is actually found
+    // next to the matching bundle/price. Unknown parsing results remain null so
+    // a temporary storefront markup change cannot accidentally hide the entire catalogue.
     for (const [network, prices] of Object.entries(DGM_PRICES)) {
       next[network] = {};
-      const networkLabel = network === "AirtelTigo" ? "AirtelTigo" : network;
-      const lower = text.toLowerCase();
-      const networkPos = lower.indexOf(networkLabel.toLowerCase());
-      const nextLabel = network === "MTN" ? "telecel" : network === "Telecel" ? "airteltigo" : "data bundle";
-      const networkEnd = networkPos >= 0 ? lower.indexOf(nextLabel, networkPos + networkLabel.length) : -1;
-      const section = networkPos >= 0
-        ? text.slice(networkPos, networkEnd > networkPos ? networkEnd : networkPos + 20000)
-        : "";
+      const networkAliases = {
+        MTN: ["mtn", "mtn data bundles", "mtn up2u"],
+        AirtelTigo: ["airteltigo", "airtel tigo", "airteligo", "ishare"],
+        Telecel: ["telecel", "telecel bundle"]
+      };
+      const aliases = networkAliases[network] || [network];
+      const networkPos = aliases
+        .map(label => lower.indexOf(label))
+        .filter(pos => pos >= 0)
+        .sort((a, b) => a - b)[0];
+
+      if (networkPos === undefined) {
+        for (const gb of Object.keys(prices)) next[network][gb] = null;
+        continue;
+      }
+
+      const otherPositions = Object.entries(networkAliases)
+        .filter(([name]) => name !== network)
+        .flatMap(([, labels]) => labels.map(label => lower.indexOf(label)).filter(pos => pos > networkPos));
+      const networkEnd = otherPositions.length ? Math.min(...otherPositions) : Math.min(lower.length, networkPos + 30000);
+      const section = lower.slice(networkPos, networkEnd);
 
       for (const [gb, price] of Object.entries(prices)) {
-        const size = String(gb) + "GB";
-        const priceText = Number(price).toFixed(2);
-        const sizePos = section.toLowerCase().indexOf(size.toLowerCase());
-        if (sizePos < 0) {
+        const sizePattern = new RegExp("\\b" + String(gb).replace(".", "\\.") + "\\s*gb\\b", "i");
+        const sizeMatch = sizePattern.exec(section);
+        if (!sizeMatch) {
           next[network][gb] = null;
           continue;
         }
-        const card = section.slice(Math.max(0, sizePos - 120), sizePos + 450).toLowerCase();
-        const pricePos = card.indexOf(priceText);
-        const stockWindow = pricePos >= 0 ? card.slice(Math.max(0, pricePos - 220), pricePos + 180) : card;
-        next[network][gb] = !/out\\s*of\\s*stock/.test(stockWindow);
+
+        const start = Math.max(0, sizeMatch.index - 250);
+        const card = section.slice(start, sizeMatch.index + 500);
+        const priceText = Number(price).toFixed(2);
+        const pricePattern = new RegExp("(?:₵|gh\\s*₵|ghc|g(?:h|h\\.)?\\s*)?" + priceText.replace(".", "\\."), "i");
+        const hasMatchingPrice = pricePattern.test(card);
+        const stockWindow = card.replace(/\\s+/g, " ");
+        const explicitlyOut = /out\\s*of\\s*stock|out\\s*of\\s*stock/i.test(stockWindow);
+        const explicitlyAvailable = /in\\s*stock|available|buy now|order now/i.test(stockWindow);
+
+        if (explicitlyOut && (hasMatchingPrice || /out\\s*of\\s*stock/.test(stockWindow))) {
+          next[network][gb] = false;
+        } else if (hasMatchingPrice || explicitlyAvailable) {
+          next[network][gb] = true;
+        } else {
+          next[network][gb] = null;
+        }
       }
     }
 
@@ -3361,6 +3393,7 @@ async function refreshDataMartBundleAvailability(force = false) {
   } catch (error) {
     console.error("DataMart availability sync failed:", error.message);
   }
+
   return dataMartAvailabilityCache.networks;
 }
 
@@ -4137,6 +4170,17 @@ async function fulfillDataOrder(
 
     throw new Error(
       "Invalid DGM network."
+    );
+  }
+
+  const availability =
+    await refreshDataMartBundleAvailability();
+
+  if (
+    availability?.[order.network]?.[capacity] === false
+  ) {
+    throw new Error(
+      "This data bundle is currently unavailable."
     );
   }
 
@@ -7042,6 +7086,19 @@ app.post(
         );
       }
 
+      const availability =
+        await refreshDataMartBundleAvailability();
+
+      if (
+        availability?.[network]?.[capacity] === false
+      ) {
+        return sendError(
+          res,
+          409,
+          "This data bundle is currently unavailable."
+        );
+      }
+
       const amount =
         networkPrices[
           capacity
@@ -7276,6 +7333,17 @@ app.post(
 
         throw new Error(
           "Invalid order data capacity."
+        );
+      }
+
+      const availability =
+        await refreshDataMartBundleAvailability();
+
+      if (
+        availability?.[order.network]?.[capacity] === false
+      ) {
+        throw new Error(
+          "This data bundle is currently unavailable."
         );
       }
 
