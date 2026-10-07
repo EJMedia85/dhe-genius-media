@@ -93,8 +93,9 @@
 
 <section id="agents" class="section">
 <div class="cards" id="agentStats"></div>
-<div class="panel"><div class="kpi"><div><h2>🤝 DGM Agent Network</h2><div class="muted">Approve agents, monitor sales and manage commission withdrawals.</div></div><button class="btn green" onclick="loadAgents()">Refresh</button></div>
-<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Agent</th><th>Customer</th><th>Status</th><th>Agent Wallet</th><th>Commission</th><th>Sales</th><th>Profit</th><th>Action</th></tr></thead><tbody id="agentsBody"></tbody></table></div></div>
+<div class="panel"><div class="kpi"><div><h2>🤝 DGM Agent Network</h2><div class="muted">Approve agents, then manage their identity, store, pricing, sales, wallets and commission from one control center.</div></div><button class="btn green" onclick="loadAgents()">Refresh</button></div>
+<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Agent ID</th><th>Customer</th><th>Status</th><th>Store</th><th>Agent Wallet</th><th>Commission</th><th>Sales</th><th>Profit</th><th>Action</th></tr></thead><tbody id="agentsBody"></tbody></table></div></div>
+<div id="agentControlPanel" class="panel" style="margin-top:15px;display:none"></div>
 <div class="panel"><h2>Agent Commission Withdrawals</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Agent</th><th>Amount</th><th>MoMo</th><th>Status</th><th>Action</th></tr></thead><tbody id="agentWithdrawalsBody"></tbody></table></div></div>
 </section>
 
@@ -311,23 +312,50 @@ async function removeMarketProduct(id){if(!confirm('Remove this product from the
 async function updateMarketOrder(id,status){try{await api('/api/admin/market/orders/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await loadMarketOrders();}catch(e){alert(e.message);await loadMarketOrders();}}
 async function loadAgents(){
   try{
-    const d=await api('/api/admin/agents');
-    const a=d.agents||[];
-   const w=d.withdrawals||[];
-   $('#agentWithdrawalsBody').innerHTML=w.map(x=>'<tr><td>'+esc(x.reference)+'</td><td>'+esc(x.agent_code)+'<br>'+esc(x.name)+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.momo_network+' '+x.momo_phone)+'</td><td>'+esc(x.status)+'</td><td>'+(x.status==='Pending Approval'?'<button class="btn green" onclick="agentWithdrawal('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentWithdrawal('+x.id+',\'reject\')">Reject</button>':'<span class="badge">'+esc(x.status)+'</span>')+'</td></tr>').join('')||'<tr><td colspan="6" class="empty">No agent withdrawals yet.</td></tr>';
+    const d=await api('/api/admin/agents'), a=d.agents||[], w=d.withdrawals||[];
+    $('#agentWithdrawalsBody').innerHTML=w.map(x=>'<tr><td>'+esc(x.reference)+'</td><td><b>'+esc(x.agent_code||'Pending')+'</b><br>'+esc(x.name)+'</td><td>'+money(x.amount)+'</td><td>'+esc((x.momo_network||'')+' '+(x.momo_phone||''))+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+(x.status==='Pending Approval'?'<button class="btn green" onclick="agentWithdrawal('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentWithdrawal('+x.id+',\'reject\')">Reject</button>':'<span class="muted">—</span>')+'</td></tr>').join('')||'<tr><td colspan="6" class="empty">No agent withdrawals yet.</td></tr>';
     $('#agentStats').innerHTML=[['Total Agents',a.length],['Pending',a.filter(x=>x.status==='pending').length],['Approved',a.filter(x=>x.status==='approved').length],['Suspended',a.filter(x=>x.status==='suspended').length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
     $('#agentsBody').innerHTML=a.map(x=>{
- let action='';
- if(x.status==='pending') action='<button class="btn green" onclick="agentAction('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentAction('+x.id+',\'reject\')">Reject</button>';
- else if(x.status==='approved') action='<button class="btn red" onclick="agentAction('+x.id+',\'suspend\')">Suspend</button>';
- else if(x.status==='suspended') action='<button class="btn green" onclick="agentAction('+x.id+',\'reactivate\')">Reactivate</button>';
- return '<tr><td><b>'+esc(x.agent_code||'Pending')+'</b><br><span class="muted">'+esc(x.tier)+'</span></td><td>'+esc(x.name)+'<br>'+esc(x.phone)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+money(x.wallet)+'</td><td>'+money(x.commission_balance)+'</td><td>'+x.completed_sales+'</td><td>'+money(x.total_profit)+'</td><td>'+action+'</td></tr>';
-}).join('')||'<tr><td colspan="8" class="empty">No agent applications yet.</td></tr>';
-  }catch(e){$('#agentsBody').innerHTML='<tr><td colspan="7" class="empty danger">'+esc(e.message)+'</td></tr>'}
+      let action='';
+      if(x.status==='pending') action='<button class="btn green" onclick="agentAction('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentAction('+x.id+',\'reject\')">Reject</button>';
+      else if(x.status==='approved') action='<button class="btn green" onclick="openAgentControl('+x.id+')">Manage</button> <button class="btn red" onclick="agentAction('+x.id+',\'suspend\')">Suspend</button>';
+      else if(x.status==='suspended') action='<button class="btn green" onclick="agentAction('+x.id+',\'reactivate\')">Reactivate</button> <button class="btn" onclick="openAgentControl('+x.id+')">View</button>';
+      return '<tr><td><b>'+esc(x.agent_code||'Pending')+'</b><br><span class="muted">#'+esc(x.id)+' • '+esc(x.tier)+'</span></td><td>'+esc(x.name)+'<br>'+esc(x.phone)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+esc(x.store_name||'Not configured')+'</td><td>'+money(x.wallet)+'</td><td>'+money(x.commission_balance)+'</td><td>'+x.completed_sales+'</td><td>'+money(x.total_profit)+'</td><td>'+action+'</td></tr>';
+    }).join('')||'<tr><td colspan="9" class="empty">No agent applications yet.</td></tr>';
+  }catch(e){$('#agentsBody').innerHTML='<tr><td colspan="9" class="empty danger">'+esc(e.message)+'</td></tr>'}
+}
+async function openAgentControl(id){
+  const p=$('#agentControlPanel'); p.style.display='block'; p.innerHTML='<div class="notice">Loading agent control center…</div>';
+  try{
+    const d=await api('/api/admin/agents/'+encodeURIComponent(id)+'/details'), a=d.agent||{};
+    const pricing=d.pricing||[], sales=d.sales||[], wt=d.wallet_transactions||[], ct=d.commission_transactions||[];
+    const pricingRows=pricing.length?pricing.map(x=>'<tr><td>'+esc(x.service)+'</td><td>'+esc(x.network||'')+'</td><td>'+esc(x.capacity||'')+' GB</td><td>'+money(x.sale_price)+'</td></tr>').join(''):'<tr><td colspan="4" class="empty">No custom pricing configured.</td></tr>';
+    const salesRows=sales.length?sales.map(x=>'<tr><td>'+esc(x.order_ref)+'</td><td>'+esc(x.network||'')+'</td><td>'+esc(x.phone)+'</td><td>'+esc(x.capacity||'')+' GB</td><td>'+money(x.base_cost)+'</td><td>'+money(x.sale_price)+'</td><td>'+money(x.profit)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">No agent sales yet.</td></tr>';
+    const txRows=wt.length?wt.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.type)+'</td><td>'+money(x.amount)+'</td><td>'+money(x.balance_after)+'</td><td>'+esc(x.description||'')+'</td><td>'+esc(x.reference||'')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No wallet transactions.</td></tr>';
+    const comRows=ct.length?ct.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.type)+'</td><td>'+money(x.amount)+'</td><td>'+money(x.balance_after)+'</td><td>'+esc(x.description||'')+'</td><td>'+esc(x.reference||'')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No commission transactions.</td></tr>';
+    const storeUrl=a.store_slug?'/store.html?slug='+encodeURIComponent(a.store_slug):'';
+    p.innerHTML='<div class="kpi"><div><h2>Agent Control Center</h2><div class="muted">'+esc(a.name||'')+' • '+esc(a.phone||'')+'</div></div><div class="toolbar" style="margin:0">'+(storeUrl?'<button class="btn green" onclick="window.open('+JSON.stringify(storeUrl)+',\'_blank\')">View Store</button>':'')+'<button class="btn" onclick="closeAgentControl()">Close</button></div></div>'+
+      '<div class="detail"><div class="mini"><span class="label">Agent ID</span><br><b>'+esc(a.agent_code||'Pending')+'</b></div><div class="mini"><span class="label">Status / Tier</span><br><b>'+esc(a.status)+' • '+esc(a.tier)+'</b></div><div class="mini"><span class="label">Agent Wallet</span><br><b>'+money(a.wallet)+'</b></div><div class="mini"><span class="label">Commission</span><br><b>'+money(a.commission_balance)+'</b></div></div>'+
+      '<div class="grid2"><div class="panel"><h3>Store</h3><div><b>'+esc(a.store_name||'Not configured')+'</b></div><div class="muted">'+esc(a.store_slug||'')+'</div><p>'+esc(a.store_bio||'No store bio.')+'</p><div class="muted">WhatsApp: '+esc(a.whatsapp_phone||a.phone||'')+'</div></div><div class="panel"><h3>Wallet & Commission Controls</h3><div class="toolbar"><button class="btn green" onclick="agentBalanceAction('+a.id+',\'wallet\',\'credit\')">Credit Wallet</button><button class="btn red" onclick="agentBalanceAction('+a.id+',\'wallet\',\'debit\')">Debit Wallet</button><button class="btn green" onclick="agentBalanceAction('+a.id+',\'commission\',\'credit\')">Credit Commission</button><button class="btn red" onclick="agentBalanceAction('+a.id+',\'commission\',\'debit\')">Debit Commission</button></div><div class="notice">Admin adjustments are ledgered. Balances cannot go below GH₵0.00.</div></div></div>'+
+      '<div class="panel" style="margin-top:12px"><h3>Agent Pricing</h3><div class="tablebox"><table class="table"><thead><tr><th>Service</th><th>Network</th><th>Bundle</th><th>Agent Sale Price</th></tr></thead><tbody>'+pricingRows+'</tbody></table></div></div>'+
+      '<div class="panel" style="margin-top:12px"><h3>Sales & Profit</h3><div class="tablebox"><table class="table"><thead><tr><th>Order</th><th>Network</th><th>Phone</th><th>Bundle</th><th>Base</th><th>Sale</th><th>Profit</th><th>Status</th><th>Date</th></tr></thead><tbody>'+salesRows+'</tbody></table></div></div>'+
+      '<div class="grid2" style="margin-top:12px"><div class="panel"><h3>Agent Wallet Ledger</h3><div class="tablebox"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th><th>Description</th><th>Reference</th></tr></thead><tbody>'+txRows+'</tbody></table></div></div><div class="panel"><h3>Commission Ledger</h3><div class="tablebox"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th><th>Description</th><th>Reference</th></tr></thead><tbody>'+comRows+'</tbody></table></div></div></div>';
+    p.scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){p.innerHTML='<div class="notice danger">'+esc(e.message)+'</div>';}
+}
+function closeAgentControl(){const p=$('#agentControlPanel');p.style.display='none';p.innerHTML='';}
+async function agentBalanceAction(id,kind,action){
+  const label=kind==='wallet'?'Agent Wallet':'Commission';
+  const raw=prompt('Amount to '+action+' '+label+' (GH₵):','');
+  if(raw===null)return;
+  const amount=Number(raw); if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid positive amount.');return;}
+  const note=prompt('Admin note (optional):','')||'Admin '+action+' adjustment';
+  if(!confirm(action.toUpperCase()+' GH₵'+amount.toFixed(2)+' '+label+'?'))return;
+  try{await api('/api/admin/agents/'+id+'/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,action,note})});await openAgentControl(id);await loadAgents();}catch(e){alert(e.message);}
 }
 async function agentAction(id,action){
   if(!confirm(action+' this agent?'))return;
-  try{await api('/api/admin/agents/'+id+'/'+action,{method:'POST'});await loadAgents()}catch(e){alert(e.message)}
+  try{await api('/api/admin/agents/'+id+'/'+action,{method:'POST'});await loadAgents();if(action==='approve')await openAgentControl(id);}catch(e){alert(e.message)}
 }
 async function agentWithdrawal(id,action){
   if(!confirm(action+' this withdrawal?'))return;
