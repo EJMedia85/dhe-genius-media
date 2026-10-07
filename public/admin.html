@@ -197,7 +197,19 @@ async function refreshCurrent(){try{if(companionMessageTimer){clearInterval(comp
 window.__adminNav=function(page){try{if(!show(page))return false;history.replaceState(null,'','#'+page);return false;}catch(e){console.error('Admin navigation error',e);const el=$('#who');if(el)el.textContent='Navigation error: '+e.message;return false;}};window.addEventListener('hashchange',()=>{const page=(location.hash||'').replace(/^#/,'');if(page&&document.getElementById(page)?.classList.contains('section'))show(page);});
 document.addEventListener('click',function(e){const b=e.target.closest('.nav button[data-page]');if(!b)return;e.preventDefault();e.stopPropagation();window.__adminNav(b.dataset.page);},true);
 document.querySelectorAll('.nav button[data-page]').forEach(b=>b.setAttribute('type','button'));
-$('#logout').onclick=async()=>{try{await fetch(staffSession?'/api/admin/staff/logout':'/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
+$('#logout').onclick=async()=>{
+  const button=$('#logout');
+  if(button.dataset.busy==='1')return;
+  button.dataset.busy='1';
+  button.disabled=true;
+  button.textContent='Logging out…';
+  const endpoint=staffSession?'/api/admin/staff/logout':'/api/admin/logout';
+  try{
+    const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store'});
+    if(!response.ok) console.warn('Logout response:',response.status,await response.text().catch(()=>'')); 
+  }catch(e){ console.error('Logout request failed:',e); }
+  finally{ window.location.replace('/admin-login.html'); }
+};
 
 async function loadMarketing(){
  const d=await api('/api/admin/marketing/campaigns'),rows=Array.isArray(d.campaigns)?d.campaigns:[];
@@ -218,12 +230,23 @@ document.getElementById('campaignForm')?.addEventListener('submit',async e=>{
  }catch(err){msg.textContent=err.message||'Could not publish campaign.';}
 });
 async function loadBase(){
-  const me=await api('/api/admin/me');
+  // Staff sessions are intentionally not accepted by /api/admin/me.
+  // Detect the staff session first, then fall back to the Super Admin session.
   try{
-    const sr=await fetch('/api/admin/staff/me',{credentials:'same-origin'});
-    if(sr.ok){const sd=await sr.json();staffSession=true;staffPermissions=Array.isArray(sd.staff.permissions)?sd.staff.permissions:[];$('#who').textContent='Signed in as '+sd.staff.name+' • '+sd.staff.role_key+' staff session';}
-    else {staffSession=false;$('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';}
-  }catch(e){staffSession=false;$('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';}
+    const sr=await fetch('/api/admin/staff/me',{credentials:'same-origin',cache:'no-store'});
+    if(sr.ok){
+      const sd=await sr.json();
+      staffSession=true;
+      staffPermissions=Array.isArray(sd.staff?.permissions)?sd.staff.permissions:[];
+      $('#who').textContent='Signed in as '+(sd.staff?.name||'Staff')+' • '+(sd.staff?.role_key||'staff')+' staff session';
+      applyStaffNavigation();
+      return;
+    }
+  }catch(e){ console.warn('Staff session check failed:',e); }
+
+  const me=await api('/api/admin/me');
+  staffSession=false;
+  $('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';
   applyStaffNavigation();
 }
 const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
