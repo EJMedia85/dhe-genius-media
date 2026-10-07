@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07130d">
+<title>DGM Staff Login</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:linear-gradient(135deg,#04100a,#081711 55%,#05100b);color:#fff;font-family:Inter,Arial,sans-serif;display:grid;place-items:center;padding:20px}
+.card{width:min(440px,100%);background:#0d1914;border:1px solid #20362b;border-radius:22px;padding:28px;box-shadow:0 20px 60px #0008}
+.brand{font-size:13px;color:#25d366;font-weight:900;letter-spacing:2px}
+.logo{font-size:30px;font-weight:950;margin:8px 0 5px}
+.badge{display:inline-flex;padding:5px 9px;border-radius:20px;background:#163021;color:#25d366;font-size:11px;font-weight:900;margin:12px 0}
+.muted{color:#9eafa6;font-size:14px;line-height:1.5}
+label{display:block;margin:18px 0 7px;font-size:13px;color:#c9d4cf}
+input{width:100%;padding:14px;border-radius:12px;border:1px solid #294136;background:#08120e;color:#fff;outline:none}
+input:focus{border-color:#25d366}
+button.submit{width:100%;margin-top:22px;padding:14px;border:0;border-radius:12px;background:#25d366;color:#041008;font-weight:900;cursor:pointer}
+button.submit:disabled{opacity:.65;cursor:wait}
+.msg{margin-top:14px;min-height:20px;color:#ff8b8b;font-size:13px}
+.secure{margin-top:20px;padding:12px;border-radius:12px;background:#09140f;color:#93a59b;font-size:12px;line-height:1.5}
+.admin-link{display:block;margin-top:16px;text-align:center;color:#25d366;text-decoration:none;font-size:13px;font-weight:800}
+</style>
+</head>
+<body>
+<main class="card">
+<div class="brand">DHE GENIUS MEDIA</div>
+<div class="logo">Staff Workspace</div>
+<div class="badge">AUTHORIZED STAFF ONLY</div>
+<div class="muted">Sign in with your DGM staff account. Your dashboard and available tools are determined by your assigned role and permissions.</div>
+<form id="form">
+<label>Staff email</label>
+<input id="email" type="email" autocomplete="username" required>
+<label>Staff password</label>
+<input id="password" type="password" autocomplete="current-password" required>
+<button class="submit" id="btn" type="submit">Sign in to Staff Workspace</button>
+<div id="msg" class="msg"></div>
+</form>
+<div class="secure">Staff accounts cannot access the Super Admin dashboard. Permission checks are enforced on the server.</div>
+<a class="admin-link" href="/admin-login.html">Super Admin login</a>
+</main>
+<script>
+(async()=>{
+  try{
+    const r=await fetch('/api/admin/staff/me',{credentials:'same-origin'});
+    if(r.ok) location.replace('/staff.html');
+  }catch(e){}
+})();
+document.getElementById('form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const btn=document.getElementById('btn'),msg=document.getElementById('msg');
+  btn.disabled=true;btn.textContent='Signing in…';msg.textContent='';
+  try{
+    const r=await fetch('/api/admin/staff/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      credentials:'same-origin',
+      body:JSON.stringify({email:document.getElementById('email').value.trim(),password:document.getElementById('password').value})
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok||!d.success) throw new Error(d.message||'Staff login failed.');
+    location.replace('/staff.html');
+  }catch(err){
+    msg.textContent=err.message||'Staff login failed.';
+  }finally{
+    btn.disabled=false;btn.textContent='Sign in to Staff Workspace';
+  }
+});
+</script>
+</body>
+</html>
