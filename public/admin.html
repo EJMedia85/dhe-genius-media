@@ -177,7 +177,8 @@
 <div id="customerModal" class="modal" hidden><div class="modal-card"><div class="kpi"><div><div class="brand">CUSTOMER PROFILE</div><h2 id="detailTitle">Customer</h2><div id="detailSub" class="muted"></div></div><button class="btn" onclick="closeCustomer()">Close</button></div><div id="detailContent"></div></div></div>
 
 <script>
-const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s), $=s=>[...document.querySelectorAll(s)];
+const IS_STAFF_PORTAL=location.pathname==='/staff.html';
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const money=v=>'GH₵'+Number(v||0).toFixed(2);
 let customers=[],orders=[],withdrawals=[],currentPage='overview';
@@ -196,7 +197,7 @@ async function refreshCurrent(){try{if(companionMessageTimer){clearInterval(comp
 window.__adminNav=function(page){try{if(!show(page))return false;history.replaceState(null,'','#'+page);return false;}catch(e){console.error('Admin navigation error',e);const el=$('#who');if(el)el.textContent='Navigation error: '+e.message;return false;}};window.addEventListener('hashchange',()=>{const page=(location.hash||'').replace(/^#/,'');if(page&&document.getElementById(page)?.classList.contains('section'))show(page);});
 document.addEventListener('click',function(e){const b=e.target.closest('.nav button[data-page]');if(!b)return;e.preventDefault();e.stopPropagation();window.__adminNav(b.dataset.page);},true);
 document.querySelectorAll('.nav button[data-page]').forEach(b=>b.setAttribute('type','button'));
-$('#logout').onclick=async()=>{try{await fetch('/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
+$('#logout').onclick=async()=>{try{await fetch(staffSession?'/api/admin/staff/logout':'/api/admin/logout',{method:'POST',credentials:'same-origin'})}finally{location.replace('/admin-login.html')}};
 
 async function loadMarketing(){
  const d=await api('/api/admin/marketing/campaigns'),rows=Array.isArray(d.campaigns)?d.campaigns:[];
@@ -225,7 +226,7 @@ async function loadBase(){
   }catch(e){staffSession=false;$('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';}
   applyStaffNavigation();
 }
-const PAGE_PERMISSION={customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
+const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
 function applyStaffNavigation(){if(!staffSession)return;document.querySelectorAll('.nav button[data-page]').forEach(b=>{const p=b.dataset.page,perm=PAGE_PERMISSION[p];b.hidden=Boolean(perm&&!staffPermissions.includes(perm));});if(currentPage!=='overview'&&document.querySelector('.nav button[data-page="'+currentPage+'"]')?.hidden)show('overview');}
 
 async function loadOverview(){
