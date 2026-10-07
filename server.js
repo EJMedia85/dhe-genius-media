@@ -1595,6 +1595,29 @@ async function initDatabase() {
     );
   `);
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS marketing_campaigns (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      subtitle TEXT,
+      message TEXT,
+      cta_label TEXT NOT NULL DEFAULT 'Shop DGM',
+      cta_url TEXT NOT NULL DEFAULT '/data.html',
+      promo_code TEXT,
+      starts_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMPTZ,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      impressions INTEGER NOT NULL DEFAULT 0,
+      clicks INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS marketing_campaigns_active_idx
+    ON marketing_campaigns(active, starts_at, ends_at);
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS customer_promo_uses (
       id SERIAL PRIMARY KEY,
       promo_id INTEGER NOT NULL REFERENCES promo_codes(id) ON DELETE CASCADE,
@@ -8525,6 +8548,55 @@ app.post("/api/rewards/apply-referral", requireCustomer, async(req,res)=>{try{
 app.get("/api/saved-recipients",requireCustomer,async(req,res)=>{const r=await pool.query("SELECT id,label,phone,network,created_at FROM saved_recipients WHERE customer_id=$1 ORDER BY created_at DESC",[req.session.customerId]);res.json({success:true,recipients:r.rows});});
 app.post("/api/saved-recipients",requireCustomer,async(req,res)=>{try{const label=String(req.body?.label||"").trim().slice(0,80),phone=String(req.body?.phone||"").trim(),network=String(req.body?.network||"").trim();if(label.length<1||!validGhanaPhone(phone))return res.status(400).json({success:false,message:"Enter a valid label and Ghana phone number."});const r=await pool.query("INSERT INTO saved_recipients(customer_id,label,phone,network) VALUES($1,$2,$3,$4) ON CONFLICT(customer_id,label) DO UPDATE SET phone=EXCLUDED.phone,network=EXCLUDED.network RETURNING *",[req.session.customerId,label,phone,network||null]);res.status(201).json({success:true,recipient:r.rows[0]});}catch(e){res.status(500).json({success:false,message:"Could not save recipient."});}});
 app.delete("/api/saved-recipients/:id",requireCustomer,async(req,res)=>{await pool.query("DELETE FROM saved_recipients WHERE id=$1 AND customer_id=$2",[Number(req.params.id),req.session.customerId]);res.json({success:true});});
+app.get("/api/marketing/campaigns",async(req,res)=>{
+  try{
+    const r=await pool.query(`SELECT id,title,subtitle,message,cta_label,cta_url,promo_code,starts_at,ends_at,impressions,clicks
+      FROM marketing_campaigns
+      WHERE active=TRUE AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW())
+      ORDER BY starts_at DESC LIMIT 6`);
+    return res.json({success:true,campaigns:r.rows});
+  }catch(e){console.error("Marketing campaigns error",e);return res.status(500).json({success:false,message:"Could not load campaigns."});}
+});
+app.post("/api/marketing/campaigns/:id/impression",async(req,res)=>{
+  try{await pool.query("UPDATE marketing_campaigns SET impressions=impressions+1 WHERE id=$1 AND active=TRUE",[Number(req.params.id)]);return res.json({success:true});}
+  catch(e){return res.status(500).json({success:false});}
+});
+app.post("/api/marketing/campaigns/:id/click",async(req,res)=>{
+  try{await pool.query("UPDATE marketing_campaigns SET clicks=clicks+1 WHERE id=$1 AND active=TRUE",[Number(req.params.id)]);return res.json({success:true});}
+  catch(e){return res.status(500).json({success:false});}
+});
+app.post("/api/admin/marketing/campaigns",async(req,res)=>{
+  if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});
+  try{
+    const title=String(req.body?.title||"").trim().slice(0,120);
+    const subtitle=String(req.body?.subtitle||"").trim().slice(0,180);
+    const message=String(req.body?.message||"").trim().slice(0,500);
+    const ctaLabel=String(req.body?.cta_label||"Shop DGM").trim().slice(0,60);
+    const ctaUrl=String(req.body?.cta_url||"/data.html").trim().slice(0,300);
+    const promoCode=String(req.body?.promo_code||"").trim().toUpperCase().slice(0,50)||null;
+    const startsAt=req.body?.starts_at||new Date().toISOString();
+    const endsAt=req.body?.ends_at||null;
+    if(!title)return res.status(400).json({success:false,message:"Campaign title is required."});
+    const r=await pool.query("INSERT INTO marketing_campaigns(title,subtitle,message,cta_label,cta_url,promo_code,starts_at,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",[title,subtitle||null,message||null,ctaLabel,ctaUrl,promoCode,startsAt,endsAt]);
+    return res.status(201).json({success:true,campaign:r.rows[0]});
+  }catch(e){console.error("Create campaign error",e);return res.status(400).json({success:false,message:e.message});}
+});
+app.get("/api/admin/marketing/campaigns",async(req,res)=>{
+  if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});
+  try{const r=await pool.query("SELECT * FROM marketing_campaigns ORDER BY created_at DESC LIMIT 200");return res.json({success:true,campaigns:r.rows});}
+  catch(e){return res.status(500).json({success:false,message:"Could not load campaigns."});}
+});
+app.patch("/api/admin/marketing/campaigns/:id",async(req,res)=>{
+  if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});
+  try{const r=await pool.query("UPDATE marketing_campaigns SET active=COALESCE($1,active),updated_at=NOW() WHERE id=$2 RETURNING *",[req.body?.active===undefined?null:Boolean(req.body.active),Number(req.params.id)]);if(!r.rows.length)return res.status(404).json({success:false,message:"Campaign not found."});return res.json({success:true,campaign:r.rows[0]});}
+  catch(e){return res.status(400).json({success:false,message:e.message});}
+});
+app.delete("/api/admin/marketing/campaigns/:id",async(req,res)=>{
+  if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});
+  try{await pool.query("DELETE FROM marketing_campaigns WHERE id=$1",[Number(req.params.id)]);return res.json({success:true});}
+  catch(e){return res.status(400).json({success:false,message:e.message});}
+});
+
 app.post("/api/admin/promo-codes",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});try{const code=String(req.body?.code||"").trim().toUpperCase();const value=Number(req.body?.discount_value);if(!code||!Number.isFinite(value)||value<=0)return res.status(400).json({success:false,message:"Invalid promotion."});const r=await pool.query("INSERT INTO promo_codes(code,discount_type,discount_value,max_uses,min_amount,expires_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING *",[code,req.body?.discount_type||"percent",value,req.body?.max_uses?Number(req.body.max_uses):null,Number(req.body?.min_amount||0),req.body?.expires_at||null]);res.status(201).json({success:true,promo:r.rows[0]});}catch(e){res.status(400).json({success:false,message:e.message});}});
 app.get("/api/admin/promo-codes",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});const r=await pool.query("SELECT * FROM promo_codes ORDER BY created_at DESC LIMIT 200");res.json({success:true,promos:r.rows});});
 app.post("/api/admin/api-keys",async(req,res)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});try{const customerId=Number(req.body?.customer_id);const name=String(req.body?.name||"DGM API").slice(0,80);if(!Number.isInteger(customerId))return res.status(400).json({success:false,message:"Valid customer_id required."});const raw="dgm_live_"+crypto.randomBytes(24).toString("hex");const hash=crypto.createHash("sha256").update(raw).digest("hex");const r=await pool.query("INSERT INTO customer_api_keys(customer_id,name,key_hash,key_prefix) VALUES($1,$2,$3,$4) RETURNING id,name,key_prefix,created_at",[customerId,name,hash,raw.slice(0,16)]);res.status(201).json({success:true,key:raw,record:r.rows[0],warning:"Save this key now. It cannot be shown again."});}catch(e){res.status(400).json({success:false,message:e.message});}});
