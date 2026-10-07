@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07130d"><title>DGM Staff Workspace</title>
+<style>
+:root{--bg:#06100c;--panel:#0b1711;--panel2:#0e1d15;--line:#20372b;--text:#f4faf7;--muted:#91a49a;--green:#25d366;--danger:#ef5350;--amber:#f6c453}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#04100a,#081711 55%,#05100b);color:var(--text);font-family:Inter,Arial,sans-serif}.app{display:grid;grid-template-columns:235px 1fr;min-height:100vh}.side{border-right:1px solid var(--line);background:#07130d;padding:22px 14px;position:sticky;top:0;height:100vh}.brand{color:var(--green);font-weight:950;letter-spacing:1.4px}.side small{color:var(--muted);display:block;margin:7px 0 22px}.nav{display:grid;gap:12px;overflow:auto;max-height:calc(100vh - 155px);padding-right:3px}.nav-group{display:grid;gap:4px;padding-bottom:8px;border-bottom:1px solid rgba(32,55,43,.55)}.nav-group:last-child{border-bottom:0}.nav-label{font-size:10px;font-weight:950;letter-spacing:1.5px;color:#5f786b;padding:4px 10px 3px}.nav button{width:100%;text-align:left;background:transparent;color:#d9e8df;border:1px solid transparent;padding:11px 12px;border-radius:11px;font-weight:800}.nav button:hover,.nav button.active{background:#102219;border-color:#284536;color:var(--green)}.bottom{position:absolute;bottom:18px;left:14px;right:14px}.logout{width:100%;background:#17251e;color:#fff;border:1px solid #294236;padding:11px;border-radius:11px;font-weight:800}.main{padding:24px;max-width:1500px;width:100%}.head{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:22px}.head h1{margin:3px 0;font-size:28px}.muted{color:var(--muted);font-size:13px}.section{display:none}.section.active{display:block}.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.card{background:rgba(11,23,17,.96);border:1px solid var(--line);border-radius:16px;padding:17px;box-shadow:0 12px 35px #0002}.label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}.value{font-size:26px;font-weight:950;margin-top:8px}.grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:15px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:17px}.panel h2,.panel h3{margin:0 0 13px}.health{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.health div{padding:11px;border:1px solid var(--line);border-radius:11px;background:#08140e}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:7px}.bad{background:var(--danger)}.warn{background:var(--amber)}.tablebox{overflow:auto;border:1px solid var(--line);border-radius:13px}.table{width:100%;border-collapse:collapse;min-width:850px}.table th,.table td{padding:11px;border-bottom:1px solid #1a2b23;text-align:left;font-size:12px;vertical-align:top}.table th{color:var(--muted);background:#09150f;position:sticky;top:0}.btn{border:1px solid #294236;background:#17251e;color:#fff;border-radius:9px;padding:8px 10px;font-weight:800;cursor:pointer}.btn.green{background:var(--green);color:#041008;border-color:var(--green)}.btn.red{background:#461714;color:#fff;border-color:#73302b}.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:13px}.input,.select,.textarea{background:#07110d;color:#fff;border:1px solid #294236;border-radius:9px;padding:10px;width:100%}.search{max-width:420px}.kpi{display:flex;justify-content:space-between;gap:10px}.badge{display:inline-flex;padding:4px 8px;border-radius:20px;background:#163021;color:var(--green);font-weight:900;font-size:11px}.danger{color:#ff8b87}.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;padding:15px;z-index:20}.modal[hidden]{display:none}.modal-card{width:min(1100px,100%);max-height:92vh;overflow:auto;background:#09150f;border:1px solid #294236;border-radius:18px;padding:20px}.detail{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}.mini{background:#07110d;border:1px solid var(--line);border-radius:10px;padding:11px}.tabs2{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}.tabs2 button{background:#102018;color:#dce9e2;border:0;border-radius:8px;padding:8px 10px}.tabs2 button.active{background:var(--green);color:#041008}.notice{padding:12px;border:1px solid var(--line);border-radius:11px;background:#0a1710;color:#cfe0d7;margin-bottom:12px}.empty{padding:24px;color:var(--muted)}@media(max-width:1050px){.app{grid-template-columns:1fr}.side{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:14px}.nav{display:flex;overflow:auto}.nav button{min-width:max-content}.bottom{position:static;margin-top:10px}.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}@media(max-width:650px){.main{padding:14px}.cards{grid-template-columns:1fr}.detail{grid-template-columns:1fr 1fr}.head h1{font-size:22px}.health{grid-template-columns:1fr}}
+.nav button[data-page="staff"]{display:none}.staff-only-hidden{display:none!important}</style></head>
+<body>
+<div class="app">
+<aside class="side">
+<div class="brand">DHE GENIUS MEDIA</div><small>Staff Workspace</small>
+<nav class="nav">
+<div class="nav-group"><div class="nav-label">BUSINESS</div>
+<button class="active" data-page="overview" type="button" onclick="window.__adminNav('overview');return false;">▣ Overview</button>
+<button data-page="customers" type="button" onclick="window.__adminNav('customers');return false;">♙ Customers</button>
+<button data-page="orders" type="button" onclick="window.__adminNav('orders');return false;">▤ Orders</button>
+<button data-page="wallet" type="button" onclick="window.__adminNav('wallet');return false;">₵ Wallet & Withdrawals</button>
+<button data-page="agents" type="button" onclick="window.__adminNav('agents');return false;">🤝 Agents</button>
+<button data-page="analytics" type="button" onclick="window.__adminNav('analytics');return false;">📊 Analytics</button>
+</div>
+<div class="nav-group"><div class="nav-label">SERVICES</div>
+<button data-page="services" type="button" onclick="window.__adminNav('services');return false;">🛠️ Services & Providers</button>
+<button data-page="market" type="button" onclick="window.__adminNav('market');return false;">🛒 DGM Market</button>
+<button data-page="bwm" type="button" onclick="window.__adminNav('bwm');return false;">🚀 Social Boosting</button>
+<button data-page="savings" type="button" onclick="window.__adminNav('savings');return false;">◈ Savings / Susu</button>
+</div>
+<div class="nav-group"><div class="nav-label">DEVICES</div>
+<button data-page="companion" type="button" onclick="window.__adminNav('companion');return false;">📱 DGM Companion</button>
+<button data-page="bridge" type="button" onclick="window.__adminNav('bridge');return false;">🌉 DGM Bridge</button>
+<button data-page="devices" type="button" onclick="window.__adminNav('devices');return false;">▣ Device Management</button>
+</div>
+<div class="nav-group"><div class="nav-label">ENGAGEMENT</div>
+<button data-page="marketing" type="button" onclick="window.__adminNav('marketing');return false;">📣 Marketing</button>
+<button data-page="notifications" type="button" onclick="window.__adminNav('notifications');return false;">🔔 Notifications</button>
+<button data-page="support" type="button" onclick="window.__adminNav('support');return false;">✦ Support</button>
+</div>
+<div class="nav-group"><div class="nav-label">ADMIN</div>
+<button data-page="security" type="button" onclick="window.__adminNav('security');return false;">⌁ Security & Audit</button>
+
+<button data-page="system" type="button" onclick="window.__adminNav('system');return false;">⚙ System Health</button>
+</div>
+</nav><div class="bottom"><button class="logout" id="logout">Logout Admin</button></div>
+</aside>
+<main class="main">
+<header class="head"><div><div class="muted" id="who">Checking secure session…</div><h1 id="pageTitle">DGM Staff Workspace</h1><div class="muted" id="pageSubtitle">Your assigned DGM operations and customer services</div></div><div class="toolbar" style="margin:0;align-items:center"><span class="badge" id="adminAreaBadge">STAFF</span><button class="btn green" onclick="refreshCurrent()">Refresh</button></div></header>
+
+<section id="overview" class="section active">
+<div class="cards" id="overviewCards"></div>
+<div class="grid2"><div class="panel"><h2>30-Day Business Overview</h2><div class="cards" style="grid-template-columns:repeat(3,1fr)" id="analyticsCards"></div></div><div class="panel"><h2>System Health</h2><div class="health" id="healthMini"></div></div></div>
+<div class="panel" style="margin-top:15px"><h2>Recent Orders</h2><div class="tablebox"><table class="table"><tbody id="recentOrders"></tbody></table></div></div>
+</section>
+
+<section id="market" class="section">
+<div class="cards" id="marketStats"></div>
+<div class="panel">
+  <div class="kpi"><div><h2>DGM Market</h2><div class="muted">Manage products, inventory, customer orders and fulfillment.</div></div><button class="btn green" onclick="openMarketProduct()">＋ Add Product</button></div>
+  <div class="toolbar" style="margin-top:13px">
+    <input class="input search" id="marketSearch" placeholder="Search product, SKU or brand" oninput="filterMarketProducts()">
+    <select class="select" id="marketCategoryFilter" style="max-width:220px" onchange="filterMarketProducts()"><option value="">All categories</option></select>
+    <button class="btn" onclick="loadMarket()">Refresh</button>
+  </div>
+  <div class="tablebox"><table class="table"><thead><tr><th>Product</th><th>Category</th><th>Price</th><th>Sale</th><th>Stock</th><th>Featured</th><th>Status</th><th>Action</th></tr></thead><tbody id="marketProductsBody"></tbody></table></div>
+</div>
+<div class="panel" style="margin-top:15px">
+  <div class="kpi"><div><h2>Market Orders</h2><div class="muted">Update fulfillment status as orders move through delivery.</div></div><button class="btn" onclick="loadMarketOrders()">Refresh Orders</button></div>
+  <div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Order</th><th>Customer</th><th>Delivery</th><th>Total</th><th>Payment</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody id="marketOrdersBody"></tbody></table></div>
+</div>
+</section>\n<section id="bridge" class="section">
+<div class="cards" id="bridgeStats"></div>
+<div class="panel"><div class="kpi"><div><h2>Bridge Command Center</h2><div class="muted">Registration, authorization, live connectivity and pairing control.</div></div><div class="toolbar" style="margin:0"><span class="badge" id="bridgeLiveClock">Live</span><button class="btn" onclick="loadBridge()">Refresh Now</button></div></div>
+<div class="toolbar" style="margin-top:12px"><input class="input search" id="bridgeSearch" placeholder="Search device ID, name or version" oninput="filterBridgeTables()"><select class="select" id="bridgeRoleFilter" style="max-width:150px" onchange="filterBridgeTables()"><option value="">All roles</option><option value="host">Host</option><option value="client">Client</option></select><select class="select" id="bridgeStatusFilter" style="max-width:170px" onchange="filterBridgeTables()"><option value="">All connection states</option><option value="online">Online</option><option value="unstable">Unstable</option><option value="offline">Offline</option></select></div>
+<div id="bridgeLiveSummary" class="notice">Loading live Bridge state…</div><div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>PIN</th><th>Version</th><th>Registration</th><th>Status</th><th>Registered</th><th>Action</th></tr></thead><tbody id="bridgeRegistrationsBody"></tbody></table></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Authorized Bridge Devices</h2><div class="muted">Revoked and suspended sessions are blocked by the relay.</div></div><span class="muted" id="bridgeLastRefresh">Not refreshed</span></div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Device</th><th>Role</th><th>PIN</th><th>Version</th><th>Status</th><th>Paired</th><th>Last Seen</th><th>Action</th></tr></thead><tbody id="bridgeDevicesBody"></tbody></table></div></div>
+<div class="grid2" style="margin-top:15px"><div class="panel"><h2>Bridge Update Policy</h2><div class="notice">Control the version policy checked by authorized Bridge devices.</div><form id="bridgeConfigForm" class="toolbar"><input class="input" id="bridgeLatestVersion" placeholder="Latest version" required><input class="input" id="bridgeMinimumVersion" placeholder="Minimum version" required><input class="input" id="bridgeUpdateUrl" placeholder="APK/update URL (optional)"><button class="btn green">Save Update Policy</button></form><div id="bridgeConfigMsg" class="muted"></div></div><div class="panel"><h2>Security & Diagnostics</h2><div class="notice">Approve only devices you recognize. Revoke immediately if a device is lost or compromised.</div><div id="bridgeDiagnostics" class="muted">No diagnostics loaded.</div></div></div>
+<div class="panel" style="margin-top:15px"><h2>Pairing Activity</h2><div class="muted">Recent pairing codes and their state. Secret values are intentionally hidden.</div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Code</th><th>Host Device</th><th>State</th><th>Expires</th><th>Claimed By</th><th>Claimed At</th></tr></thead><tbody id="bridgePairingsBody"></tbody></table></div></div>
+</section><section id="companion" class="section">
+<div class="cards" id="companionStats"></div>
+<div class="grid2">
+<div class="panel"><h2>Registration & Authorization</h2><div class="notice">Every Companion installation must register here. The device stays pending until DGM Admin explicitly authorizes it.</div><div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Customer / Phone</th><th>App</th><th>Registration</th><th>Action</th></tr></thead><tbody id="companionRegistrationsBody"></tbody></table></div></div>
+<div class="panel"><h2>Device Health</h2><div id="companionHealth" class="health"></div><div class="notice" style="margin-top:10px">Online means the device has recently contacted DGM. Permissions are controlled by Android and must be granted on the phone.</div></div>
+</div>
+<div class="grid2" style="margin-top:15px">
+<div class="panel"><h2>Add Device</h2>
+<div class="notice">Generate a one-time enrollment token for your Android phone. The token expires after 15 minutes and is consumed when the Companion enrolls.</div>
+<form id="companionEnrollForm" class="toolbar">
+<input class="input" id="companionPhone" placeholder="Phone number" required>
+<input class="input" id="companionName" placeholder="Device name" value="My Android" required>
+<button class="btn green">Generate Token</button>
+</form>
+<div id="companionTokenBox" class="notice" hidden></div>
+<div id="companionEnrollMsg" class="muted"></div>
+</div>
+<div class="panel"><h2>How to connect</h2>
+<div class="notice">1. Generate the token here.<br>2. Open DGM Companion on your phone.<br>3. Enter the token.<br>4. Grant SMS permission and Notification Access when Android asks.<br>5. Return here and refresh to see the device online.</div>
+</div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Connected Devices</h2><div class="muted">Only admin can see these devices and their message data.</div></div><button class="btn" onclick="loadCompanion()">Refresh</button></div>
+<div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Phone</th><th>Status</th><th>Last Seen</th><th>Platform</th><th>Action</th></tr></thead><tbody id="companionDevicesBody"></tbody></table></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Messages</h2><div class="muted">SMS, WhatsApp notification events and Android call-log metadata received from authorized devices.</div></div><div class="toolbar" style="margin:0"><span class="badge" id="companionMessageCount">0 events</span><select class="select" id="companionChannel" onchange="loadCompanionMessages()"><option value="">All</option><option value="sms">SMS</option><option value="whatsapp">WhatsApp</option><option value="call_log">Call Logs</option></select></div></div>
+<div class="tablebox"><table class="table"><thead><tr><th>Time</th><th>Channel</th><th>Device</th><th>Sender / Number</th><th>Message / Call Details</th><th>Status</th></tr></thead><tbody id="companionMessagesBody"></tbody></table></div></div>
+</section>
+
+<section id="customers" class="section"><div class="panel"><h2>Customer Management</h2><div class="toolbar"><input class="input search" id="customerSearch" placeholder="Search name, email, phone or ID" oninput="filterCustomers()"></div><div class="tablebox"><table class="table"><thead><tr><th>ID</th><th>Customer</th><th>Phone</th><th>Wallet</th><th>Created</th><th>Actions</th></tr></thead><tbody id="customersBody"></tbody></table></div></div></section>
+
+<section id="orders" class="section"><div class="panel"><h2>Orders & Fulfillment</h2><div class="toolbar"><input class="input search" id="orderSearch" placeholder="Search reference, phone, customer or service" oninput="filterOrders()"><select class="select" style="max-width:190px" id="orderStatus" onchange="filterOrders()"><option value="">All statuses</option><option>Completed</option><option>Processing</option><option>Pending</option><option>Failed</option><option>Refunded</option></select></div><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Service</th><th>Network</th><th>Phone</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody id="ordersBody"></tbody></table></div></div></section>
+
+
+
+<section id="devices" class="section"><div class="panel"><h2>Device Management</h2><div class="notice">Admin-only device lifecycle. <b>Logout & Wipe</b> permanently removes the device registration, SMS messages, WhatsApp messages and media, invalidating its token. Customer wallet, orders and account remain untouched.</div><div class="tablebox"><table class="table"><thead><tr><th>Device</th><th>Customer</th><th>Phone</th><th>Status</th><th>SMS</th><th>WhatsApp</th><th>Last Seen</th><th>Action</th></tr></thead><tbody id="devicesBody"></tbody></table></div><div id="deviceMsg" class="muted" style="margin-top:10px"></div></div></section>
+
+<section id="wallet" class="section"><div class="cards" id="walletCards"></div><div class="panel" style="margin-top:15px"><h2>MoMo Withdrawals</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Customer</th><th>Amount</th><th>Network</th><th>MoMo</th><th>Status</th><th>Requested</th><th>Action</th></tr></thead><tbody id="withdrawalsBody"></tbody></table></div></div></section>
+
+
+
+<section id="savings" class="section">
+<div class="cards" id="savingsCards"></div>
+<div class="grid2"><div class="panel"><div class="kpi"><div><h2>Personal Savings</h2><div class="muted">Goals, balances and active accounts.</div></div><button class="btn" onclick="loadSavings()">Refresh</button></div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Customer</th><th>Goal</th><th>Target</th><th>Balance</th><th>Progress</th><th>Frequency</th><th>Status</th></tr></thead><tbody id="savingsAccountsBody"></tbody></table></div></div>
+<div class="panel"><h2>Group Susu</h2><div class="muted">Groups, members, contributions and payouts.</div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Group</th><th>Members</th><th>Contribution</th><th>Collected</th><th>Status</th><th>Created</th></tr></thead><tbody id="susuGroupsBody"></tbody></table></div></div></div>
+</section>
+
+<section id="agents" class="section">
+<div class="cards" id="agentStats"></div>
+<div class="panel"><div class="kpi"><div><h2>🤝 DGM Agent Network</h2><div class="muted">Approve agents, then manage their identity, store, pricing, sales, wallets and commission from one control center.</div></div><button class="btn green" onclick="loadAgents()">Refresh</button></div>
+<div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Agent ID</th><th>Customer</th><th>Status</th><th>Store</th><th>Agent Wallet</th><th>Commission</th><th>Sales</th><th>Profit</th><th>Action</th></tr></thead><tbody id="agentsBody"></tbody></table></div></div>
+<div id="agentControlPanel" class="panel" style="margin-top:15px;display:none"></div>
+<div class="panel"><h2>Agent Commission Withdrawals</h2><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Agent</th><th>Amount</th><th>MoMo</th><th>Status</th><th>Action</th></tr></thead><tbody id="agentWithdrawalsBody"></tbody></table></div></div>
+</section>
+
+<section id="bwm" class="section">
+<div class="cards" id="bwmStats"></div>
+<div class="panel">
+ <div class="kpi"><div><h2>🚀 BWM XMD Social Boosting</h2><div class="muted">Monitor customer boosts, provider orders, quantities, pricing, status and refunds.</div></div><button class="btn green" onclick="loadBwm()">Refresh</button></div>
+ <div class="toolbar" style="margin-top:13px">
+  <input class="input search" id="bwmSearch" placeholder="Search customer, service, link or order reference" oninput="filterBwm()">
+  <select class="select" id="bwmStatus" style="max-width:190px" onchange="filterBwm()"><option value="">All statuses</option><option>Pending</option><option>Processing</option><option>Completed</option><option>Success</option><option>Failed</option><option>Refunded</option><option>Cancelled</option></select>
+ </div>
+ <div class="tablebox"><table class="table"><thead><tr><th>Order</th><th>Customer</th><th>Service</th><th>Link</th><th>Qty</th><th>DGM Price</th><th>Provider</th><th>Status</th><th>Date</th><th>Action</th></tr></thead><tbody id="bwmOrdersBody"></tbody></table></div>
+</div>
+</section>
+<section id="analytics" class="section">
+<div class="cards" id="analyticsPageCards"></div>
+<div class="grid2"><div class="panel"><h2>Top Services — 30 Days</h2><div class="tablebox"><table class="table"><thead><tr><th>Service</th><th>Orders</th><th>Value</th></tr></thead><tbody id="topServicesBody"></tbody></table></div></div><div class="panel"><h2>Top Networks — 30 Days</h2><div class="tablebox"><table class="table"><thead><tr><th>Network</th><th>Orders</th><th>Value</th></tr></thead><tbody id="topNetworksBody"></tbody></table></div></div></div>
+</section>
+
+<section id="notifications" class="section">
+<div class="grid2"><div class="panel"><h2>Broadcast to Every Customer</h2><div class="notice">Send an announcement to every customer. This creates an in-app notification and is recorded in the admin audit log.</div>
+<form id="broadcastForm"><input class="input" id="broadcastTitle" placeholder="Notification title" maxlength="160" required><select class="select" id="broadcastType"><option value="info">Information</option><option value="promotion">Promotion</option><option value="maintenance">Maintenance</option><option value="alert">Alert</option></select><textarea class="textarea" id="broadcastMessage" rows="6" placeholder="Message" maxlength="2000" required></textarea><button class="btn green" style="margin-top:9px">Send to all customers</button></form><div id="broadcastMsg" class="muted" style="margin-top:10px"></div></div>
+<div class="panel"><h2>Notification Safety</h2><div class="notice">Broadcasts are sent only to registered DGM customer accounts. No SMS, WhatsApp, or external messaging is triggered by this panel.</div><div class="health"><div><span class="dot"></span><b>In-app delivery</b><br><span class="muted">Enabled</span></div><div><span class="dot"></span><b>Audit logging</b><br><span class="muted">Enabled</span></div></div></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Broadcast History</h2><div class="muted">Recent announcements sent to all registered customers.</div></div><button class="btn" onclick="loadBroadcastHistory()">Refresh</button></div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Type</th><th>Title</th><th>Message</th><th>Recipients</th><th>Sent</th></tr></thead><tbody id="broadcastHistoryBody"></tbody></table></div></div>
+</section>
+
+<section id="marketing" class="section"><div class="grid2"><div class="panel"><h2>Launch a DGM Campaign</h2><div class="notice">Create a customer-facing promotion with a start/end window. The campaign appears on the customer dashboard while active.</div><form id="campaignForm" class="toolbar"><input class="input" id="campaignTitle" placeholder="Campaign title e.g. Weekend Data Deal" maxlength="120" required><input class="input" id="campaignSubtitle" placeholder="Short headline" maxlength="180"><textarea class="textarea" id="campaignMessage" rows="4" placeholder="Offer message" maxlength="500"></textarea><input class="input" id="campaignCta" placeholder="Button text" value="Shop DGM" maxlength="60"><input class="input" id="campaignUrl" placeholder="Button URL" value="/data.html" maxlength="300"><input class="input" id="campaignPromo" placeholder="Promo code (optional)" maxlength="50"><select class="select" id="campaignNetwork"><option value="">All networks</option><option value="MTN">MTN</option><option value="AirtelTigo">AirtelTigo</option><option value="Telecel">Telecel</option></select><input class="input" id="campaignCapacity" placeholder="Bundle size e.g. 5 (blank = all)" maxlength="20"><select class="select" id="campaignDiscountType"><option value="none">No discount</option><option value="percent">Percentage discount</option><option value="fixed">Fixed GH₵ discount</option></select><input class="input" id="campaignDiscountValue" type="number" min="0" step="0.01" placeholder="Discount value"><input class="input" id="campaignMaxUses" type="number" min="1" step="1" placeholder="Max uses (optional)"><input class="input" id="campaignStart" type="datetime-local"><input class="input" id="campaignEnd" type="datetime-local"><button class="btn green" style="width:100%">Publish Campaign</button></form><div id="campaignMsg" class="muted"></div></div><div class="panel"><h2>Campaign Performance</h2><div class="health"><div><span class="dot"></span><b>Dashboard impressions</b><br><span class="muted">Tracked when an active campaign is shown.</span></div><div><span class="dot"></span><b>CTA clicks</b><br><span class="muted">Tracked when customers open the campaign CTA.</span></div></div><div class="notice" style="margin-top:12px">Promo codes are stored with campaigns for marketing attribution. Existing checkout discount enforcement remains unchanged.</div></div></div><div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Campaigns</h2><div class="muted">Active, scheduled and completed DGM promotions.</div></div><button class="btn" onclick="loadMarketing()">Refresh</button></div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>Campaign</th><th>Window</th><th>Promo</th><th>Impressions</th><th>Clicks</th><th>Status</th><th>Action</th></tr></thead><tbody id="campaignsBody"></tbody></table></div></div></section>
+
+<section id="services" class="section">
+<div class="panel"><div class="kpi"><div><h2>Services & Providers</h2><div class="muted">Live configuration and infrastructure status. Secret API keys are never displayed.</div></div><button class="btn" onclick="loadServices()">Refresh</button></div><div class="health" id="servicesHealth" style="margin-top:14px"></div><div id="servicesChecked" class="muted" style="margin-top:12px"></div></div>
+<div class="grid2"><div class="panel"><h2>Operational checklist</h2><div class="notice">Keep Paystack and DataMart configured before processing paid orders. Database and session must remain healthy.</div><div class="health"><div><span class="dot"></span><b>Payments</b><br><span class="muted">Paystack</span></div><div><span class="dot"></span><b>Data fulfillment</b><br><span class="muted">DataMart</span></div><div><span class="dot"></span><b>Database</b><br><span class="muted">PostgreSQL</span></div><div><span class="dot"></span><b>Sessions</b><br><span class="muted">Secure admin/customer sessions</span></div></div></div><div class="panel"><h2>Security rule</h2><div class="notice">Provider credentials, session secrets and payment secrets remain server-side. This dashboard only exposes configuration state.</div></div></div>
+</section>
+
+<section id="support" class="section"><div class="panel"><h2>Customer Support</h2><div class="tablebox"><table class="table"><thead><tr><th>Customer</th><th>Subject</th><th>Message</th><th>Status</th><th>Reply</th></tr></thead><tbody id="supportBody"></tbody></table></div><div id="supportMsg" class="muted"></div></div></section>
+
+<section id="entertainment" class="section"><div class="panel"><h2>Authorized Movie Playback</h2><div class="notice">Only DGM-controlled or properly licensed playback sources may be saved. Playback URLs must use HTTPS.</div><form id="movieForm" class="toolbar"><input class="input" id="tmdb" type="number" placeholder="TMDB movie ID" required><input class="input" id="movieTitle" placeholder="Movie title"><select class="select" id="movieType"><option value="hls">HLS (.m3u8)</option><option value="mp4">MP4</option></select><input class="input" id="movieUrl" type="url" placeholder="Authorized HTTPS playback URL" required><button class="btn green">Save</button></form><div id="movieMsg" class="muted"></div></div><div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Saved Sources</h2><div class="muted">DGM-controlled playback entries currently stored.</div></div><button class="btn" onclick="loadMovies()">Refresh</button></div><div class="tablebox" style="margin-top:12px"><table class="table"><thead><tr><th>TMDB</th><th>Title</th><th>Type</th><th>Active</th><th>Updated</th></tr></thead><tbody id="moviesBody"></tbody></table></div></div></section>
+
+<section id="staff" class="section">
+<div class="grid2"><div class="panel"><h2>Add DGM Staff Member</h2><div class="notice">Create a separate staff account with a least-privilege role. The Super Admin account remains the only account that can manage staff.</div>
+<form id="staffForm" class="toolbar"><input class="input" id="staffName" placeholder="Full name" required><input class="input" id="staffEmail" type="email" placeholder="Staff email" required><input class="input" id="staffPassword" type="password" minlength="8" placeholder="Temporary password (8+ characters)" required><select class="select" id="staffRole" required></select><button class="btn green">Create Staff</button></form><div id="staffMsg" class="muted"></div></div>
+<div class="panel"><h2>Permission Model</h2><div class="notice">Roles provide the baseline permissions. Super Admin can then replace a staff member's permission set with a custom least-privilege set. Deactivating a staff member terminates their stored sessions.</div><div id="staffRolesSummary" class="health"></div></div></div>
+<div class="panel" style="margin-top:15px"><div class="kpi"><div><h2>Staff Directory</h2><div class="muted">Separate credentials, role assignment, active status and last sign-in.</div></div><button class="btn" onclick="loadStaff()">Refresh</button></div><div class="tablebox"><table class="table"><thead><tr><th>Staff</th><th>Role</th><th>Status</th><th>Last Login</th><th>Created</th><th>Actions</th></tr></thead><tbody id="staffBody"></tbody></table></div></div>
+<div id="staffPermissionsPanel" class="panel" style="margin-top:15px;display:none"><div class="kpi"><div><h2 id="staffPermTitle">Permissions</h2><div class="muted">Choose the exact capabilities this staff member can use.</div></div><button class="btn green" onclick="saveStaffPermissions()">Save Permissions</button></div><div id="staffPermissionsGrid" class="health" style="grid-template-columns:repeat(3,1fr)"></div><div id="staffPermMsg" class="muted" style="margin-top:10px"></div></div>
+</section>
+
+<section id="security" class="section"><div class="panel"><h2>Security & Audit</h2><div class="notice">Sensitive admin actions are recorded here. Device wipe, wallet adjustments and customer deletion are tracked with timestamp and target.</div><div class="tablebox"><table class="table"><thead><tr><th>Time</th><th>Admin</th><th>Action</th><th>Target</th><th>Details</th></tr></thead><tbody id="auditBody"></tbody></table></div></div></section>
+
+<section id="system" class="section"><div class="panel"><h2>System Health</h2><div class="health" id="systemHealth"></div><div class="muted" id="systemChecked" style="margin-top:12px"></div></div></section>
+</main></div>
+
+<div id="customerModal" class="modal" hidden><div class="modal-card"><div class="kpi"><div><div class="brand">CUSTOMER PROFILE</div><h2 id="detailTitle">Customer</h2><div id="detailSub" class="muted"></div></div><button class="btn" onclick="closeCustomer()">Close</button></div><div id="detailContent"></div></div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const IS_STAFF_PORTAL=location.pathname==='/staff.html';
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+const money=v=>'GH₵'+Number(v||0).toFixed(2);
+let customers=[],orders=[],withdrawals=[],currentPage='overview';
+let staffSession=false,staffPermissions=[],staffRoles=[],staffPermissionCatalog={},selectedStaffId=null,staffDirectory=[];
+let bwmOrders=[];
+async function loadBwm(){const d=await api('/api/admin/bwm/orders');bwmOrders=d.orders||[];const total=bwmOrders.length,processing=bwmOrders.filter(x=>['processing','pending'].includes(String(x.status||'').toLowerCase())).length,completed=bwmOrders.filter(x=>['completed','success','successful','delivered'].includes(String(x.status||'').toLowerCase())).length,refunded=bwmOrders.filter(x=>String(x.status||'').toLowerCase()==='refunded').length,value=bwmOrders.reduce((n,x)=>n+Number(x.customer_price||0),0);$('#bwmStats').innerHTML=[['Boost Orders',total],['Processing',processing],['Completed',completed],['Refunded',refunded],['DGM Sales',money(value)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');filterBwm()}
+function filterBwm(){const q=String($('#bwmSearch')?.value||'').toLowerCase().trim(),st=String($('#bwmStatus')?.value||'').toLowerCase();const rows=bwmOrders.filter(x=>(!q||[x.order_ref,x.customer_name,x.customer_email,x.service_name,x.link,x.provider_order_id].some(v=>String(v||'').toLowerCase().includes(q)))&&(!st||String(x.status||'').toLowerCase()===st));$('#bwmOrdersBody').innerHTML=rows.length?rows.map(x=>'<tr><td><b>'+esc(x.order_ref)+'</b><br><span class="muted">#'+esc(x.id)+' / '+esc(x.provider_order_id||'No provider ID')+'</span></td><td><b>'+esc(x.customer_name||'Unknown')+'</b><br><span class="muted">'+esc(x.customer_phone||x.customer_email||'')+'</span></td><td>'+esc(x.service_name)+'</td><td style="max-width:240px;word-break:break-all">'+esc(x.link)+'</td><td>'+esc(x.quantity)+'</td><td><b>'+money(x.customer_price)+'</b><br><span class="muted">Cost '+money(x.provider_price)+'</span></td><td>'+esc(x.provider_status||'—')+'</td><td><span class="badge">'+esc(x.status)+'</span>'+(x.error_message?'<br><span class="danger">'+esc(x.error_message)+'</span>':'')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td><button class="btn" onclick="refreshBwm('+Number(x.id)+')">Refresh</button></td></tr>').join(''):'<tr><td colspan="10" class="empty">No Social Boosting orders found.</td></tr>'}
+async function refreshBwm(id){try{await api('/api/admin/bwm/orders/'+id+'/refresh',{method:'POST'});await loadBwm()}catch(e){alert(e.message)}}
+
+
+async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(r.status===401){location.replace('/admin-login.html');throw Error('Admin session expired.')}if(!r.ok||d.success===false)throw Error(d.message||'Request failed');return d}
+let companionMessageTimer=null;
+const ADMIN_PAGE_META={overview:['Business Control Center','DGM operations, customers, revenue, services and infrastructure','EXECUTIVE'],customers:['Customers','Customer accounts, wallet balances and account actions','BUSINESS'],orders:['Orders & Fulfillment','Track sales, delivery status and customer orders','BUSINESS'],wallet:['Wallet & Withdrawals','Control wallet activity, funding and withdrawal approvals','BUSINESS'],agents:['Agent Network','Manage agents, pricing, commissions and withdrawals','BUSINESS'],analytics:['Business Analytics','Revenue, sales, customers and service performance','BUSINESS'],services:['Services & Providers','Control DGM service availability and provider integrations','SERVICES'],market:['DGM Market','Manage products, inventory, orders and fulfillment','SERVICES'],bwm:['Social Boosting','Manage social boosting services and delivery','SERVICES'],savings:['Savings / Susu','Monitor savings accounts, groups and contributions','SERVICES'],companion:['DGM Companion','Authorize devices and monitor Companion activity','DEVICES'],bridge:['DGM Bridge','Authorize devices, pairing and relay connectivity','DEVICES'],devices:['Device Management','Manage registered devices and lifecycle actions','DEVICES'],marketing:['Marketing','Campaigns, offers and promotional controls','ENGAGEMENT'],notifications:['Notifications','Broadcasts and customer notification history','ENGAGEMENT'],support:['Support','Customer support tickets and responses','ENGAGEMENT'],security:['Security & Audit','Review administrative actions and security events','ADMIN'],staff:['Staff & Permissions','Manage DGM staff roles, permissions and access lifecycle','ADMIN'],system:['System Health','Monitor application, database and provider health','ADMIN']};
+function show(page){const section=document.getElementById(page);if(!section||!section.classList.contains('section'))return false;const needed=PAGE_PERMISSION[page];if(staffSession&&needed&&!staffPermissions.includes(needed)){alert('Your staff role does not include access to this area.');return false;}currentPage=page;document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x===section));document.querySelectorAll('.nav button[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const meta=ADMIN_PAGE_META[page]||[page,'DGM Business Control Center','ADMIN'];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];$('#adminAreaBadge').textContent=meta[2];Promise.resolve(refreshCurrent()).catch(e=>console.error('Admin page refresh error',e));return true}
+async function refreshCurrent(){try{if(companionMessageTimer){clearInterval(companionMessageTimer);companionMessageTimer=null;}if(currentPage==='overview')await loadOverview();else if(currentPage==='bridge')await loadBridge();else if(currentPage==='companion'){await loadCompanion();companionMessageTimer=setInterval(()=>{if(currentPage==='companion')loadCompanionMessages();},5000);}else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='savings')await loadSavings();else if(currentPage==='agents')await loadAgents();else if(currentPage==='analytics')await loadAnalyticsPage();else if(currentPage==='notifications'){}else if(currentPage==='marketing')await loadMarketing();else if(currentPage==='services')await loadServices();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='staff')await loadStaff();else if(currentPage==='system')await loadSystem();else if(currentPage==='devices')await loadDevices();else if(currentPage==='entertainment')await loadMovies();else if(currentPage==='market')await loadMarket();else if(currentPage==='bwm')await loadBwm();}catch(e){console.error(e);}}
+window.__adminNav=function(page){try{if(!show(page))return false;history.replaceState(null,'','#'+page);return false;}catch(e){console.error('Admin navigation error',e);const el=$('#who');if(el)el.textContent='Navigation error: '+e.message;return false;}};window.addEventListener('hashchange',()=>{const page=(location.hash||'').replace(/^#/,'');if(page&&document.getElementById(page)?.classList.contains('section'))show(page);});
+document.addEventListener('click',function(e){const b=e.target.closest('.nav button[data-page]');if(!b)return;e.preventDefault();e.stopPropagation();window.__adminNav(b.dataset.page);},true);
+document.querySelectorAll('.nav button[data-page]').forEach(b=>b.setAttribute('type','button'));
+$('#logout').onclick=async()=>{
+  const button=$('#logout');
+  if(button.dataset.busy==='1')return;
+  button.dataset.busy='1';
+  button.disabled=true;
+  button.textContent='Logging out…';
+  const endpoint=staffSession?'/api/admin/staff/logout':'/api/admin/logout';
+  try{
+    const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store'});
+    if(!response.ok) console.warn('Logout response:',response.status,await response.text().catch(()=>'')); 
+  }catch(e){ console.error('Logout request failed:',e); }
+  finally{ window.location.replace('/admin-login.html'); }
+};
+
+async function loadMarketing(){
+ const d=await api('/api/admin/marketing/campaigns'),rows=Array.isArray(d.campaigns)?d.campaigns:[];
+ $('#campaignsBody').innerHTML=rows.length?rows.map(c=>{
+   const now=Date.now(),start=new Date(c.starts_at).getTime(),end=c.ends_at?new Date(c.ends_at).getTime():Infinity;
+   const status=!c.active?'Paused':now<start?'Scheduled':now>end?'Ended':'Live';
+   return '<tr><td><b>'+esc(c.title)+'</b><br><span class="muted">'+esc(c.subtitle||'')+'</span><br><span class="muted">'+esc(c.message||'')+'</span></td><td>'+new Date(c.starts_at).toLocaleString()+'<br>→ '+(c.ends_at?new Date(c.ends_at).toLocaleString():'No end')+'</td><td>'+esc(c.promo_code||'—')+'</td><td>'+Number(c.impressions||0)+'</td><td>'+Number(c.clicks||0)+'</td><td><span class="badge">'+esc(status)+'</span></td><td><button class="btn" onclick="toggleCampaign('+Number(c.id)+','+(!c.active)+')">'+(c.active?'Pause':'Activate')+'</button> <button class="btn red" onclick="deleteCampaign('+Number(c.id)+')">Delete</button></td></tr>';
+ }).join(''):'<tr><td colspan="7" class="empty">No campaigns yet.</td></tr>';
+}
+async function toggleCampaign(id,active){await api('/api/admin/marketing/campaigns/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})});loadMarketing();}
+async function deleteCampaign(id){if(!confirm('Delete this campaign?'))return;await api('/api/admin/marketing/campaigns/'+id,{method:'DELETE'});loadMarketing();}
+document.getElementById('campaignForm')?.addEventListener('submit',async e=>{
+ e.preventDefault();const msg=$('#campaignMsg');msg.textContent='Publishing…';
+ try{
+  const local=v=>v?new Date(v).toISOString():null;
+  await api('/api/admin/marketing/campaigns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('#campaignTitle').value,subtitle:$('#campaignSubtitle').value,message:$('#campaignMessage').value,cta_label:$('#campaignCta').value,cta_url:$('#campaignUrl').value,promo_code:$('#campaignPromo').value,network:$('#campaignNetwork').value,capacity:$('#campaignCapacity').value,discount_type:$('#campaignDiscountType').value,discount_value:$('#campaignDiscountValue').value,max_uses:$('#campaignMaxUses').value,starts_at:local($('#campaignStart').value),ends_at:local($('#campaignEnd').value)})});
+  msg.textContent='Campaign published.';e.target.reset();$('#campaignCta').value='Shop DGM';$('#campaignUrl').value='/data.html';loadMarketing();
+ }catch(err){msg.textContent=err.message||'Could not publish campaign.';}
+});
+async function loadBase(){
+  // Staff sessions are intentionally not accepted by /api/admin/me.
+  // Detect the staff session first, then fall back to the Super Admin session.
+  try{
+    const sr=await fetch('/api/admin/staff/me',{credentials:'same-origin',cache:'no-store'});
+    if(sr.ok){
+      const sd=await sr.json();
+      staffSession=true;
+      staffPermissions=Array.isArray(sd.staff?.permissions)?sd.staff.permissions:[];
+      $('#who').textContent='Signed in as '+(sd.staff?.name||'Staff')+' • '+(sd.staff?.role_key||'staff')+' staff session';
+      applyStaffNavigation();
+      return;
+    }
+  }catch(e){ console.warn('Staff session check failed:',e); }
+
+  const me=await api('/api/admin/me');
+  staffSession=false;
+  $('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';
+  applyStaffNavigation();
+}
+const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
+function applyStaffNavigation(){if(!staffSession)return;document.querySelectorAll('.nav button[data-page]').forEach(b=>{const p=b.dataset.page,perm=PAGE_PERMISSION[p];b.hidden=Boolean(perm&&!staffPermissions.includes(perm));});if(currentPage!=='overview'&&document.querySelector('.nav button[data-page="'+currentPage+'"]')?.hidden)show('overview');}
+
+async function loadOverview(){
+ const [st,an,od,sys]=await Promise.all([api('/api/admin/stats'),api('/api/admin/analytics'),api('/api/admin/orders'),api('/api/admin/system')]);
+ const s=st.stats,a=an.sales,w=an.wallet,wd=an.withdrawals,cu=an.customers;
+ $('#overviewCards').innerHTML=[['Customers',s.customers],['Orders',s.orders],['Completed',s.completed],['Pending / Processing',s.pending],['Completed Value',money(s.completed_value)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
+ $('#analyticsCards').innerHTML=[['30-Day Sales',money(a.completed_sales)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',cu.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+ renderHealth(sys.checks,'#healthMini');
+ renderOrders(od.orders.slice(0,12),'#recentOrders',true);
+}
+function renderHealth(checks,target){$(target).innerHTML=Object.entries(checks).map(([k,v])=>{const ok=['online','configured'].includes(v.status);return '<div><span class="dot '+(ok?'':'bad')+'"></span><b>'+esc(k)+'</b><br><span class="muted">'+esc(v.status)+'</span></div>'}).join('')}
+async function loadSystem(){const d=await api('/api/admin/system');renderHealth(d.checks,'#systemHealth');$('#systemChecked').textContent='Checked '+new Date(d.checked_at).toLocaleString()}
+function renderOrders(rows,target='#ordersBody',compact=false){$(target).innerHTML=rows.length?rows.map(o=>'<tr><td><b>'+esc(o.order_ref)+'</b></td><td>'+esc(o.customer_name||'')+'<br><span class="muted">'+esc(o.customer_email||'')+'</span></td><td>'+esc(o.service)+'</td><td>'+esc(o.network||'')+'</td><td>'+esc(o.phone||'')+'</td><td>'+money(o.amount)+'</td><td><span class="badge">'+esc(o.status)+'</span></td><td>'+new Date(o.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">No orders found.</td></tr>'}
+async function loadOrders(){const d=await api('/api/admin/orders');orders=d.orders;filterOrders()}
+function filterOrders(){const q=String($('#orderSearch')?.value||'').toLowerCase(),st=String($('#orderStatus')?.value||'').toLowerCase();const rows=orders.filter(o=>(!q||JSON.stringify(o).toLowerCase().includes(q))&&(!st||String(o.status).toLowerCase()===st));renderOrders(rows)}
+
+async function loadCustomers(){
+  const d=await api('/api/admin/customers'); customers=Array.isArray(d.customers)?d.customers:[]; filterCustomers();
+}
+function filterCustomers(){
+  const q=String($('#customerSearch')?.value||'').toLowerCase().trim();
+  const rows=customers.filter(x=>!q||[x.id,x.name,x.email,x.phone].some(v=>String(v??'').toLowerCase().includes(q)));
+  $('#customersBody').innerHTML=rows.length?rows.map(x=>'<tr><td>'+esc(x.id)+'</td><td><b>'+esc(x.name||'Unnamed')+'</b><br><span class="muted">'+esc(x.email||'')+'</span></td><td>'+esc(x.phone||'')+'</td><td>'+money(x.balance)+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td><button class="btn" onclick="viewCustomer('+Number(x.id)+')">View</button> <button class="btn" onclick="adjustCustomerBalance('+Number(x.id)+','+JSON.stringify(Number(x.balance||0))+')">Balance</button> <button class="btn red" onclick="deleteCustomer('+Number(x.id)+')">Delete</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">No customers found.</td></tr>';
+}
+async function viewCustomer(id){
+  try{const d=await api('/api/admin/customers/'+encodeURIComponent(id)+'/details');const c=d.customer||{};$('#detailTitle').textContent=c.name||'Customer';$('#detailSub').textContent=(c.phone||'')+' • '+(c.email||'');const orders=d.orders||[],tx=d.wallet_transactions||[],support=d.support||[];$('#detailContent').innerHTML='<div class="detail"><div class="mini"><span class="label">Wallet</span><br><b>'+money(c.balance)+'</b></div><div class="mini"><span class="label">Orders</span><br><b>'+orders.length+'</b></div><div class="mini"><span class="label">Wallet Transactions</span><br><b>'+tx.length+'</b></div><div class="mini"><span class="label">Support Tickets</span><br><b>'+support.length+'</b></div></div><div class="panel"><h3>Recent Orders</h3><div class="tablebox"><table class="table"><thead><tr><th>Reference</th><th>Service</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead><tbody>'+(orders.length?orders.slice(0,30).map(o=>'<tr><td>'+esc(o.order_ref)+'</td><td>'+esc(o.service||'')+'</td><td>'+money(o.amount)+'</td><td>'+esc(o.status||'')+'</td><td>'+new Date(o.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No orders.</td></tr>')+'</tbody></table></div></div><div class="panel" style="margin-top:12px"><h3>Wallet History</h3><div class="tablebox"><table class="table"><thead><tr><th>Type</th><th>Amount</th><th>Before</th><th>After</th><th>Status</th><th>Date</th></tr></thead><tbody>'+(tx.length?tx.slice(0,30).map(t=>'<tr><td>'+esc(t.type||'')+'</td><td>'+money(t.amount)+'</td><td>'+money(t.balance_before)+'</td><td>'+money(t.balance_after)+'</td><td>'+esc(t.status||'')+'</td><td>'+new Date(t.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No wallet transactions.</td></tr>')+'</tbody></table></div></div>';$('#customerModal').hidden=false;}catch(e){alert(e.message);}
+}
+function closeCustomer(){$('#customerModal').hidden=true;}
+async function adjustCustomerBalance(id,current){const raw=prompt("Enter the customer's new wallet balance in GH₵. Current: "+Number(current||0).toFixed(2),Number(current||0).toFixed(2));if(raw===null)return;const value=Number(raw);if(!Number.isFinite(value)||value<0||value>1000000){alert('Enter a valid balance between GH₵0 and GH₵1,000,000.');return;}try{await api('/api/admin/customers/'+encodeURIComponent(id)+'/balance',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target_balance:value,description:'Admin dashboard wallet balance adjustment'})});await loadCustomers();}catch(e){alert(e.message);}}
+async function deleteCustomer(id){if(!confirm('Permanently delete this customer and customer-owned records? This cannot be undone.'))return;try{await api('/api/admin/customers/'+encodeURIComponent(id),{method:'DELETE'});await loadCustomers();}catch(e){alert(e.message);}}
+async function loadWallet(){
+  const d=await api('/api/admin/withdrawals');withdrawals=Array.isArray(d.withdrawals)?d.withdrawals:[];const pending=withdrawals.filter(x=>String(x.status||'').toLowerCase()==='pending approval').length;const approved=withdrawals.filter(x=>String(x.status||'').toLowerCase()==='approved').length;const paid=withdrawals.filter(x=>String(x.status||'').toLowerCase()==='paid').length;
+  $('#walletCards').innerHTML=[['Requests',withdrawals.length],['Pending',pending],['Approved',approved],['Paid',paid],['Pending Value',money(withdrawals.filter(x=>String(x.status||'').toLowerCase()==='pending approval').reduce((a,x)=>a+Number(x.amount||0),0))]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+  $('#withdrawalsBody').innerHTML=withdrawals.length?withdrawals.map(x=>{const st=String(x.status||''),id=Number(x.id);let action='';if(st==='Pending Approval')action='<button class="btn green" onclick="withdrawalAction('+id+',\'approve\')">Approve</button> <button class="btn red" onclick="withdrawalAction('+id+',\'reject\')">Reject</button>';else if(st==='Approved')action='<button class="btn green" onclick="withdrawalAction('+id+',\'paid\')">Mark Paid</button>';else action='<span class="muted">—</span>';return '<tr><td>'+esc(x.reference||x.id)+'</td><td><b>'+esc(x.customer_name||'')+'</b><br><span class="muted">'+esc(x.customer_phone||x.phone||'')+'</span></td><td>'+money(x.amount)+'</td><td>'+esc(x.network||x.provider||'')+'</td><td>'+esc(x.momo_number||x.phone_number||x.customer_phone||'')+'</td><td><span class="badge">'+esc(st)+'</span></td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+action+'</td></tr>';}).join(''):'<tr><td colspan="8" class="empty">No withdrawal requests.</td></tr>';
+}
+async function withdrawalAction(id,action){const labels={approve:'Approve this withdrawal?',reject:'Reject this withdrawal and refund the held wallet amount?',paid:'Mark this withdrawal as paid to the customer?'};if(!confirm(labels[action]||'Continue?'))return;try{await api('/api/admin/withdrawals/'+id+'/'+action,{method:'POST'});await loadWallet();}catch(e){alert(e.message);}}
+async function loadServices(){const d=await api('/api/admin/system');const checks=d.checks||{};$('#servicesHealth').innerHTML=Object.entries(checks).map(([k,v])=>'<div><span class="dot '+(['online','configured'].includes(v.status)?'':'bad')+'"></span><b>'+esc(k)+'</b><br><span class="muted">'+esc(v.status||'unknown')+'</span></div>').join('');$('#servicesChecked').textContent='Checked '+new Date(d.checked_at||Date.now()).toLocaleString();}
+async function loadDevices(){const d=await api('/api/admin/companion/devices');const rows=d.devices||[];$('#devicesBody').innerHTML=rows.length?rows.map(x=>{const online=x.active&&x.last_seen&&(Date.now()-new Date(x.last_seen).getTime()<5*60*1000);return '<tr><td><b>'+esc(x.device_name||'Android Device')+'</b><br><span class="muted">ID '+esc(x.id)+'</span></td><td>'+esc(x.customer_name||'Unmatched customer')+'</td><td>'+esc(x.phone||'')+'</td><td><span class="badge">'+esc(!x.active?'Revoked':(x.authorization_status==='pending'?'Pending':(online?'Online':'Offline')))+'</span></td><td>—</td><td>—</td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+'</td><td>'+(x.active?'<button class="btn red" onclick="revokeCompanion('+Number(x.id)+')">Revoke</button>':'<span class="muted">Revoked</span>')+'</td></tr>';}).join(''):'<tr><td colspan="8" class="empty">No devices registered.</td></tr>';}
+function bridgeAgeStatus(lastSeen){
+  if(!lastSeen) return {label:'OFFLINE',cls:'bad'};
+  const age=Date.now()-new Date(lastSeen).getTime();
+  if(age<=30000) return {label:'ONLINE',cls:''};
+  if(age<=120000) return {label:'UNSTABLE',cls:'warn'};
+  return {label:'OFFLINE',cls:'bad'};
+}
+async function loadBridge(){
+  const [d,r,s,cfg]=await Promise.all([api('/api/admin/bridge/devices'),api('/api/admin/bridge/registrations'),api('/api/admin/bridge/stats'),api('/api/admin/bridge/config')]);
+  const st=s.stats||{};
+  $('#bridgeStats').innerHTML=[['Total Devices',st.total||0],['Pending Approval',st.pending||0],['Authorized',st.approved||0],['Online',st.online||0],['Offline',st.offline||0],['Suspended / Revoked',(st.suspended||0)+' / '+(st.revoked||0)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+  $('#bridgeLatestVersion').value=cfg.config.latest_version||''; $('#bridgeMinimumVersion').value=cfg.config.minimum_version||''; $('#bridgeUpdateUrl').value=cfg.config.update_url||'';
+  bridgeRows.registrations=r.registrations||[]; bridgeRows.devices=d.devices||[];
+  $('#bridgeLiveSummary').textContent='Live: '+(st.online||0)+' online • '+(st.pending||0)+' awaiting approval • '+(st.offline||0)+' offline • last refresh '+new Date().toLocaleTimeString();
+  $('#bridgeLastRefresh').textContent='Updated '+new Date().toLocaleTimeString();
+  renderBridgeRegistrations(bridgeRows.registrations); renderBridgeDevices(bridgeRows.devices);
+  $('#bridgePairingsBody').innerHTML=(d.pairings||[]).length?d.pairings.map(x=>'<tr><td><b>'+esc(x.code)+'</b></td><td>'+esc(x.host_device_id)+'</td><td><span class="badge">'+esc(x.state)+'</span></td><td>'+new Date(x.expires_at).toLocaleString()+'</td><td>'+esc(x.claimed_by||'—')+'</td><td>'+(x.claimed_at?new Date(x.claimed_at).toLocaleString():'—')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No pairing activity.</td></tr>';
+  $('#bridgeDiagnostics').textContent=d.devices.length?'Diagnostics loaded. '+d.devices.filter(x=>x.last_error).length+' device(s) reporting an error.':'No Bridge devices registered.';
+}
+let bridgeAutoRefreshTimer=null,bridgeClockTimer=null;
+let bridgeRows={registrations:[],devices:[]};
+function bridgeMatches(x){
+  const q=String($('#bridgeSearch')?.value||'').toLowerCase().trim();
+  const role=String($('#bridgeRoleFilter')?.value||'').toLowerCase();
+  const state=String($('#bridgeStatusFilter')?.value||'').toLowerCase();
+  const quality=bridgeAgeStatus(x.last_seen).label.toLowerCase();
+  return (!q||[x.device_id,x.device_name,x.app_version,x.platform].some(v=>String(v||'').toLowerCase().includes(q))) &&
+    (!role||String(x.role||'').toLowerCase()===role) && (!state||quality===state);
+}
+function filterBridgeTables(){
+  const regs=bridgeRows.registrations.filter(bridgeMatches);
+  const devs=bridgeRows.devices.filter(bridgeMatches);
+  renderBridgeRegistrations(regs); renderBridgeDevices(devs);
+}
+function renderBridgeRegistrations(rows){
+  $('#bridgeRegistrationsBody').innerHTML=rows.length?rows.map(x=>{
+    const pending=x.approval_status==='pending',denied=x.approval_status==='denied';
+    const id=encodeURIComponent(x.device_id);
+    const actions=pending
+      ? '<button class="btn green" onclick="bridgeApprove(\''+id+'\')">Approve</button> <button class="btn" onclick="bridgeDeny(\''+id+'\')">Deny</button>'
+      : (denied?'<span class="muted">Denied</span>':'<span class="badge">AUTHORIZED</span>');
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'</td><td><span class="badge">'+esc(x.approval_status)+'</span></td><td>'+esc(x.status||'pending')+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+actions+' <button class="btn" onclick="bridgeResetPin(\''+id+'\')">Reset PIN</button></td></tr>';
+  }).join(''):'<tr><td colspan="8" class="empty">No matching Bridge registrations.</td></tr>';
+}
+function renderBridgeDevices(rows){
+  $('#bridgeDevicesBody').innerHTML=rows.length?rows.map(x=>{
+    const quality=bridgeAgeStatus(x.last_seen);
+    const online=quality.label==='ONLINE';
+    const id=encodeURIComponent(x.device_id);
+    const action=x.status==='suspended'
+      ? '<button class="btn green" onclick="bridgeAction(\''+id+'\',\'resume\')">Resume</button>'
+      : x.status==='revoked'
+        ? '<button class="btn" onclick="bridgeAction(\''+id+'\',\'resume\')">Re-enable</button>'
+        : '<button class="btn" onclick="bridgeAction(\''+id+'\',\'suspend\')">Suspend</button> <button class="btn red" onclick="bridgeAction(\''+id+'\',\'revoke\')">Revoke</button>';
+    const rename='<button class="btn" onclick="bridgeRename(\''+id+'\',\''+encodeURIComponent(x.device_name||'DGM Bridge')+'\')">Rename</button>';
+    const copy='<button class="btn" onclick="copyBridgeText(\''+id+'\')">Copy ID</button>';
+    return '<tr><td><b>'+esc(x.device_name||x.device_id)+'</b><br><span class="muted">'+esc(x.device_id)+'</span></td><td><span class="badge">'+esc(x.role)+'</span></td><td><b>'+esc(x.pin||'Not set')+'</b></td><td>'+esc(x.app_version||'—')+'<br><span class="muted">'+esc(x.platform||'Android')+'</span></td><td><span class="dot '+(online?'':'bad')+'"></span>'+quality.label+'<br><span class="badge">'+esc(x.approval_status||'pending')+'</span></td><td><span class="badge">'+(x.paired?'PAIRED':'—')+'</span></td><td>'+esc(x.last_seen?new Date(x.last_seen).toLocaleString():'Never')+(x.last_error?'<br><span class="danger">'+esc(x.last_error)+'</span>':'')+'</td><td>'+copy+' '+rename+' <button class="btn" onclick="bridgeResetPin(\''+id+'\')">Reset PIN</button> '+action+'</td></tr>';
+  }).join(''):'<tr><td colspan="8" class="empty">No matching Bridge devices.</td></tr>';
+}
+
+async function copyBridgeText(v){try{await navigator.clipboard.writeText(decodeURIComponent(v));alert('Device ID copied.')}catch{alert(decodeURIComponent(v))}}
+function startBridgeAutoRefresh(){
+  clearInterval(bridgeAutoRefreshTimer); clearInterval(bridgeClockTimer);
+  bridgeAutoRefreshTimer=setInterval(()=>{if(document.getElementById('bridge')?.classList.contains('active')) loadBridge().catch(e=>console.error(e));},10000);
+  bridgeClockTimer=setInterval(()=>{if(document.getElementById('bridge')?.classList.contains('active')) $('#bridgeLiveClock').textContent='Live • '+new Date().toLocaleTimeString();},1000);
+}
+async function bridgeApprove(id){if(!confirm('Authorize this DGM Bridge device?'))return;await api('/api/admin/bridge/registrations/'+id+'/approve',{method:'POST'});await loadBridge();}
+async function bridgeDeny(id){if(!confirm('Deny this DGM Bridge registration?'))return;await api('/api/admin/bridge/registrations/'+id+'/deny',{method:'POST'});await loadBridge();}
+async function bridgeAction(id,action){if(!confirm('Are you sure you want to '+action+' this Bridge device?'))return;await api('/api/admin/bridge/devices/'+id+'/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action})});await loadBridge();}
+async function bridgeRename(id,current){const name=prompt('Device name:',decodeURIComponent(current));if(!name||!name.trim())return;await api('/api/admin/bridge/devices/'+id+'/rename',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_name:name.trim()})});await loadBridge();}
+async function bridgeResetPin(id){const supplied=prompt('Enter a new 6-digit PIN, or leave blank to generate one:','');if(supplied!==null&&!/^\d{6}$/.test(supplied)&&supplied.trim()!==''){alert('PIN must be exactly 6 digits.');return}const d=await api('/api/admin/bridge/devices/'+id+'/reset-pin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin:(supplied||'').trim()})});alert('New DGM Bridge PIN: '+d.pin);await loadBridge();}
+$('#bridgeConfigForm').onsubmit=async e=>{e.preventDefault();const msg=$('#bridgeConfigMsg');msg.textContent='Saving…';try{await api('/api/admin/bridge/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({latest_version:$('#bridgeLatestVersion').value.trim(),minimum_version:$('#bridgeMinimumVersion').value.trim(),update_url:$('#bridgeUpdateUrl').value.trim()})});msg.textContent='Bridge update policy saved.';}catch(err){msg.textContent=err.message;}};
+
+let marketProducts=[],marketCategories=[],marketOrders=[];
+function marketMoney(n){return money(n);}
+async function loadMarket(){
+  const [p,c,s]=await Promise.all([api('/api/admin/market/products'),api('/api/admin/market/categories'),api('/api/admin/market/summary')]);
+  marketProducts=p.products||[]; marketCategories=c.categories||[];
+  $('#marketStats').innerHTML=[['Active Products',s.products],['Market Orders',s.orders],['Total Sales',marketMoney(s.sales)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:21px">'+x[1]+'</div></div>').join('');
+  $('#marketCategoryFilter').innerHTML='<option value="">All categories</option>'+marketCategories.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.icon||'🛍️')+' '+esc(x.name)+'</option>').join('');
+  filterMarketProducts(); await loadMarketOrders();
+}
+function filterMarketProducts(){
+  const q=String($('#marketSearch')?.value||'').toLowerCase().trim(),cat=String($('#marketCategoryFilter')?.value||'');
+  const rows=marketProducts.filter(x=>(!q||[x.name,x.sku,x.brand,x.slug].some(v=>String(v||'').toLowerCase().includes(q)))&&(!cat||String(x.category_id)===cat));
+  $('#marketProductsBody').innerHTML=rows.length?rows.map(x=>{
+    const sale=x.sale_price==null?'—':marketMoney(x.sale_price), price=marketMoney(x.price);
+    return '<tr><td><b>'+esc(x.name)+'</b><br><span class="muted">'+esc(x.sku||x.slug)+'</span></td><td>'+esc(x.category||'—')+'</td><td>'+price+'</td><td>'+sale+'</td><td>'+esc(x.stock)+'</td><td><span class="badge">'+(x.featured?'YES':'NO')+'</span></td><td><span class="badge">'+(x.active?'ACTIVE':'INACTIVE')+'</span></td><td><button class="btn" onclick="openMarketProduct('+Number(x.id)+')">Edit</button> <button class="btn red" onclick="removeMarketProduct('+Number(x.id)+')">Remove</button></td></tr>';
+  }).join(''):'<tr><td colspan="8" class="empty">No market products found.</td></tr>';
+}
+async function loadMarketOrders(){
+  const d=await api('/api/admin/market/orders'); marketOrders=d.orders||[];
+  $('#marketOrdersBody').innerHTML=marketOrders.length?marketOrders.map(x=>{
+    const opts=['Pending','Confirmed','Processing','Shipped','Out for Delivery','Delivered','Cancelled','Refunded'].map(st=>'<option '+(st===x.status?'selected':'')+'>'+esc(st)+'</option>').join('');
+    return '<tr><td><b>'+esc(x.order_ref)+'</b><br><span class="muted">#'+esc(x.id)+'</span></td><td><b>'+esc(x.customer_name||'')+'</b><br>'+esc(x.customer_phone||'')+'</td><td>'+esc(x.delivery_name)+'<br>'+esc(x.delivery_phone)+'<br><span class="muted">'+esc(x.delivery_address)+'</span></td><td><b>'+marketMoney(x.total)+'</b><br><span class="muted">'+esc(x.payment_method)+' / '+esc(x.payment_status)+'</span></td><td><span class="badge">'+esc(x.payment_status)+'</span></td><td><select class="select" style="min-width:145px" onchange="updateMarketOrder('+Number(x.id)+',this.value)">'+opts+'</select></td><td>'+new Date(x.created_at).toLocaleString()+'</td><td><button class="btn" onclick="alert('+JSON.stringify('Delivery: ')+(JSON.stringify(String(x.delivery_address||'')))+')">Address</button></td></tr>';
+  }).join(''):'<tr><td colspan="8" class="empty">No market orders yet.</td></tr>';
+}
+function openMarketProduct(id){
+  const p=id?marketProducts.find(x=>x.id===id):null;
+  const cats=marketCategories.map(x=>'<option value="'+esc(x.id)+'" '+(p&&Number(p.category_id)===Number(x.id)?'selected':'')+'>'+esc(x.name)+'</option>').join('');
+  const modal=document.getElementById('marketProductModal');
+  $('#marketProductTitle').textContent=p?'Edit Product':'Add Product';
+  $('#marketProductForm').dataset.id=p?p.id:'';
+  $('#mpName').value=p?.name||''; $('#mpSlug').value=p?.slug||''; $('#mpBrand').value=p?.brand||''; $('#mpSku').value=p?.sku||'';
+  $('#mpCategory').innerHTML=cats; $('#mpDescription').value=p?.description||''; $('#mpPrice').value=p?.price??''; $('#mpSale').value=p?.sale_price??'';
+  $('#mpStock').value=p?.stock??0; $('#mpImage').value=p?.image_url||''; $('#mpDelivery').value=p?.delivery_fee??0; $('#mpGallery').value=(p?.gallery||[]).join('\n'); $('#mpVariants').value=JSON.stringify(p?.variants||[],null,2);
+  $('#mpFeatured').checked=Boolean(p?.featured); $('#mpActive').checked=p?Boolean(p.active):true; modal.hidden=false;
+}
+function closeMarketProduct(){document.getElementById('marketProductModal').hidden=true;}
+$('#marketProductForm').onsubmit=async e=>{
+  e.preventDefault(); const id=e.currentTarget.dataset.id, body={name:$('#mpName').value,slug:$('#mpSlug').value,brand:$('#mpBrand').value,sku:$('#mpSku').value,category_id:Number($('#mpCategory').value)||null,description:$('#mpDescription').value,price:Number($('#mpPrice').value),sale_price:$('#mpSale').value===''?null:Number($('#mpSale').value),stock:Number($('#mpStock').value),image_url:$('#mpImage').value,gallery:$('#mpGallery').value.split(/\n/).map(x=>x.trim()).filter(Boolean),variants:JSON.parse($('#mpVariants').value||'[]'),delivery_fee:Number($('#mpDelivery').value)||0,featured:$('#mpFeatured').checked,active:$('#mpActive').checked};
+  try{await api(id?'/api/admin/market/products/'+id:'/api/admin/market/products',{method:id?'PATCH':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});closeMarketProduct();await loadMarket();}catch(err){$('#marketProductMsg').textContent=err.message;}
+};
+async function removeMarketProduct(id){if(!confirm('Remove this product from the DGM Market? Existing orders will remain.'))return;try{await api('/api/admin/market/products/'+id,{method:'DELETE'});await loadMarket();}catch(e){alert(e.message)}}
+async function updateMarketOrder(id,status){try{await api('/api/admin/market/orders/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await loadMarketOrders();}catch(e){alert(e.message);await loadMarketOrders();}}
+async function loadAgents(){
+  try{
+    const d=await api('/api/admin/agents'), a=d.agents||[], w=d.withdrawals||[];
+    $('#agentWithdrawalsBody').innerHTML=w.map(x=>{let action='<span class="muted">—</span>';if(x.status==='Pending Approval')action='<button class="btn green" onclick="agentWithdrawal('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentWithdrawal('+x.id+',\'reject\')">Reject</button>';else if(x.status==='Approved')action='<button class="btn green" onclick="agentWithdrawal('+x.id+',\'paid\')">Mark Paid</button>';return '<tr><td>'+esc(x.reference)+'</td><td><b>'+esc(x.agent_code||'Pending')+'</b><br>'+esc(x.name)+'</td><td>'+money(x.amount)+'</td><td>'+esc((x.momo_network||'')+' '+(x.momo_phone||''))+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+action+'</td></tr>';}).join('')||'<tr><td colspan="6" class="empty">No agent withdrawals yet.</td></tr>';
+    $('#agentStats').innerHTML=[['Total Agents',a.length],['Pending',a.filter(x=>x.status==='pending').length],['Approved',a.filter(x=>x.status==='approved').length],['Suspended',a.filter(x=>x.status==='suspended').length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
+    $('#agentsBody').innerHTML=a.map(x=>{
+      let action='';
+      if(x.status==='pending') action='<button class="btn green" onclick="agentAction('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentAction('+x.id+',\'reject\')">Reject</button>';
+      else if(x.status==='approved') action='<button class="btn green" onclick="openAgentControl('+x.id+')">Manage</button> <button class="btn red" onclick="agentAction('+x.id+',\'suspend\')">Suspend</button>';
+      else if(x.status==='suspended') action='<button class="btn green" onclick="agentAction('+x.id+',\'reactivate\')">Reactivate</button> <button class="btn" onclick="openAgentControl('+x.id+')">View</button>';
+      return '<tr><td><b>'+esc(x.agent_code||'Pending')+'</b><br><span class="muted">#'+esc(x.id)+' • '+esc(x.tier)+'</span></td><td>'+esc(x.name)+'<br>'+esc(x.phone)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+esc(x.store_name||'Not configured')+'</td><td>'+money(x.wallet)+'</td><td>'+money(x.commission_balance)+'</td><td>'+x.completed_sales+'</td><td>'+money(x.total_profit)+'</td><td>'+action+'</td></tr>';
+    }).join('')||'<tr><td colspan="9" class="empty">No agent applications yet.</td></tr>';
+  }catch(e){$('#agentsBody').innerHTML='<tr><td colspan="9" class="empty danger">'+esc(e.message)+'</td></tr>'}
+}
+async function openAgentControl(id){
+  const p=$('#agentControlPanel'); p.style.display='block'; p.innerHTML='<div class="notice">Loading agent control center…</div>';
+  try{
+    const d=await api('/api/admin/agents/'+encodeURIComponent(id)+'/details'), a=d.agent||{};
+    const pricing=d.pricing||[], sales=d.sales||[], wt=d.wallet_transactions||[], ct=d.commission_transactions||[];
+    const pricingRows=pricing.length?pricing.map(x=>'<tr><td>'+esc(x.service)+'</td><td>'+esc(x.network||'')+'</td><td>'+esc(x.capacity||'')+' GB</td><td>'+money(x.sale_price)+'</td></tr>').join(''):'<tr><td colspan="4" class="empty">No custom pricing configured.</td></tr>';
+    const salesRows=sales.length?sales.map(x=>'<tr><td>'+esc(x.order_ref)+'</td><td>'+esc(x.network||'')+'</td><td>'+esc(x.phone)+'</td><td>'+esc(x.capacity||'')+' GB</td><td>'+money(x.base_cost)+'</td><td>'+money(x.sale_price)+'</td><td>'+money(x.profit)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="9" class="empty">No agent sales yet.</td></tr>';
+    const txRows=wt.length?wt.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.type)+'</td><td>'+money(x.amount)+'</td><td>'+money(x.balance_after)+'</td><td>'+esc(x.description||'')+'</td><td>'+esc(x.reference||'')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No wallet transactions.</td></tr>';
+    const comRows=ct.length?ct.map(x=>'<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td>'+esc(x.type)+'</td><td>'+money(x.amount)+'</td><td>'+money(x.balance_after)+'</td><td>'+esc(x.description||'')+'</td><td>'+esc(x.reference||'')+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No commission transactions.</td></tr>';
+    const storeUrl=a.store_slug?'/store.html?slug='+encodeURIComponent(a.store_slug):'';
+    p.innerHTML='<div class="kpi"><div><h2>Agent Control Center</h2><div class="muted">'+esc(a.name||'')+' • '+esc(a.phone||'')+'</div></div><div class="toolbar" style="margin:0">'+(storeUrl?'<button class="btn green" onclick="window.open('+JSON.stringify(storeUrl)+',\'_blank\')">View Store</button>':'')+'<button class="btn" onclick="closeAgentControl()">Close</button></div></div>'+
+      '<div class="detail"><div class="mini"><span class="label">Agent ID</span><br><b>'+esc(a.agent_code||'Pending')+'</b></div><div class="mini"><span class="label">Status / Tier</span><br><b>'+esc(a.status)+' • '+esc(a.tier)+'</b></div><div class="mini"><span class="label">Agent Wallet</span><br><b>'+money(a.wallet)+'</b></div><div class="mini"><span class="label">Commission</span><br><b>'+money(a.commission_balance)+'</b></div></div>'+
+      '<div class="grid2"><div class="panel"><h3>Store</h3><div><b>'+esc(a.store_name||'Not configured')+'</b></div><div class="muted">'+esc(a.store_slug||'')+'</div><p>'+esc(a.store_bio||'No store bio.')+'</p><div class="muted">WhatsApp: '+esc(a.whatsapp_phone||a.phone||'')+'</div></div><div class="panel"><h3>Wallet & Commission Controls</h3><div class="toolbar"><button class="btn green" onclick="agentBalanceAction('+a.id+',\'wallet\',\'credit\')">Credit Wallet</button><button class="btn red" onclick="agentBalanceAction('+a.id+',\'wallet\',\'debit\')">Debit Wallet</button><button class="btn green" onclick="agentBalanceAction('+a.id+',\'commission\',\'credit\')">Credit Commission</button><button class="btn red" onclick="agentBalanceAction('+a.id+',\'commission\',\'debit\')">Debit Commission</button></div><div class="notice">Admin adjustments are ledgered. Balances cannot go below GH₵0.00.</div></div></div>'+
+      '<div class="panel" style="margin-top:12px"><h3>Agent Pricing</h3><div class="tablebox"><table class="table"><thead><tr><th>Service</th><th>Network</th><th>Bundle</th><th>Agent Sale Price</th></tr></thead><tbody>'+pricingRows+'</tbody></table></div></div>'+
+      '<div class="panel" style="margin-top:12px"><h3>Sales & Profit</h3><div class="tablebox"><table class="table"><thead><tr><th>Order</th><th>Network</th><th>Phone</th><th>Bundle</th><th>Base</th><th>Sale</th><th>Profit</th><th>Status</th><th>Date</th></tr></thead><tbody>'+salesRows+'</tbody></table></div></div>'+
+      '<div class="grid2" style="margin-top:12px"><div class="panel"><h3>Agent Wallet Ledger</h3><div class="tablebox"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th><th>Description</th><th>Reference</th></tr></thead><tbody>'+txRows+'</tbody></table></div></div><div class="panel"><h3>Commission Ledger</h3><div class="tablebox"><table class="table"><thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Balance</th><th>Description</th><th>Reference</th></tr></thead><tbody>'+comRows+'</tbody></table></div></div></div>';
+    p.scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){p.innerHTML='<div class="notice danger">'+esc(e.message)+'</div>';}
+}
+function closeAgentControl(){const p=$('#agentControlPanel');p.style.display='none';p.innerHTML='';}
+async function agentBalanceAction(id,kind,action){
+  const label=kind==='wallet'?'Agent Wallet':'Commission';
+  const raw=prompt('Amount to '+action+' '+label+' (GH₵):','');
+  if(raw===null)return;
+  const amount=Number(raw); if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid positive amount.');return;}
+  const note=prompt('Admin note (optional):','')||'Admin '+action+' adjustment';
+  if(!confirm(action.toUpperCase()+' GH₵'+amount.toFixed(2)+' '+label+'?'))return;
+  try{await api('/api/admin/agents/'+id+'/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount,action,note})});await openAgentControl(id);await loadAgents();}catch(e){alert(e.message);}
+}
+async function agentAction(id,action){
+  if(!confirm(action+' this agent?'))return;
+  try{await api('/api/admin/agents/'+id+'/'+action,{method:'POST'});await loadAgents();if(action==='approve')await openAgentControl(id);}catch(e){alert(e.message)}
+}
+async function agentWithdrawal(id,action){
+  if(!confirm(action+' this withdrawal?'))return;
+  try{await api('/api/admin/agent-withdrawals/'+id+'/'+action,{method:'POST'});await loadAgents()}catch(e){alert(e.message)}
+}
+async function loadSavings(){
+  const d=await api('/api/admin/savings');
+  const s=d.summary;
+  $('#savingsCards').innerHTML=[['Personal Accounts',s.personal_accounts],['Personal Saved',money(s.personal_balance)],['Susu Groups',s.groups],['Susu Collected',money(s.group_contributions)],['Pending Payouts',money(s.pending_payouts)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:21px">'+x[1]+'</div></div>').join('');
+  $('#savingsAccountsBody').innerHTML=d.accounts.length?d.accounts.map(x=>{
+    const pct=Number(x.target_amount)>0?Math.min(100,Number(x.balance)/Number(x.target_amount)*100):0;
+    return '<tr><td><b>'+esc(x.customer_name||'')+'</b><br><span class="muted">'+esc(x.email||'')+'</span></td><td>'+esc(x.goal_name)+'</td><td>'+money(x.target_amount)+'</td><td>'+money(x.balance)+'</td><td>'+pct.toFixed(1)+'%</td><td>'+esc(x.frequency)+'</td><td><span class="badge">'+esc(x.status)+'</span></td></tr>';
+  }).join(''):'<tr><td colspan="7" class="empty">No Personal Savings accounts.</td></tr>';
+  $('#susuGroupsBody').innerHTML=d.groups.length?d.groups.map(x=>'<tr><td><b>'+esc((x.icon||'👥')+' '+x.name)+'</b></td><td>'+x.members+' / '+x.member_limit+'</td><td>'+money(x.contribution_amount)+'</td><td>'+money(x.collected)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+new Date(x.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="6" class="empty">No Group Susu groups.</td></tr>';
+}
+async function loadAnalyticsPage(){
+  const d=await api('/api/admin/analytics');
+  const a=d.sales,w=d.wallet,wd=d.withdrawals,c=d.customers;
+  $('#analyticsPageCards').innerHTML=[['30-Day Completed Sales',money(a.completed_sales)],['30-Day Order Value',money(a.total_order_value)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',c.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+  $('#topServicesBody').innerHTML=(d.top_services||[]).map(x=>'<tr><td>'+esc(x.service||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No service data.</td></tr>';
+  $('#topNetworksBody').innerHTML=(d.top_networks||[]).map(x=>'<tr><td>'+esc(x.network||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No network data.</td></tr>';
+}
+async function loadCompanion(){
+  const d=await api('/api/admin/companion/devices');
+  const devices=d.devices||[];
+  const pending=devices.filter(x=>x.authorization_status==='pending').length;
+  const approved=devices.filter(x=>x.authorization_status==='approved').length;
+  const denied=devices.filter(x=>x.authorization_status==='denied').length;
+  const online=devices.filter(x=>x.active&&x.last_seen&&(Date.now()-new Date(x.last_seen).getTime()<5*60*1000)).length;
+  const offline=devices.filter(x=>x.active&&!devices.some(y=>y.id===x.id&&y.last_seen&&(Date.now()-new Date(y.last_seen).getTime()<5*60*1000))).length;
+  $('#companionStats').innerHTML=[['Total Devices',devices.length],['Pending Approval',pending],['Authorized',approved],['Online',online],['Offline',Math.max(0,offline)],['Denied / Revoked',denied+devices.filter(x=>!x.active).length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+  $('#companionHealth').innerHTML=[
+    ['Online now',online,''],
+    ['Pending authorization',pending,pending?'warn':''],
+    ['Authorized',approved,''],
+    ['Denied / revoked',denied+devices.filter(x=>!x.active).length,(denied||devices.filter(x=>!x.active).length)?'bad':'']
+  ].map(x=>'<div><span class="dot '+x[2]+'"></span><b>'+x[0]+'</b><br><span class="muted">'+x[1]+'</span></div>').join('');
+  $('#companionRegistrationsBody').innerHTML=devices.length?devices.map(x=>{
+    const status=x.authorization_status||'approved';
+    let action='';
+    if(status==='pending') action='<button class="btn green" onclick="approveCompanion('+Number(x.id)+')">Authorize</button> <button class="btn red" onclick="rejectCompanion('+Number(x.id)+')">Reject</button>';
+    else if(status==='approved') action='<span class="badge">AUTHORIZED</span> <button class="btn" onclick="reauthorizeCompanion('+Number(x.id)+')">New Token</button>';
+    else action='<span class="danger">DENIED</span> <button class="btn" onclick="reauthorizeCompanion('+Number(x.id)+')">Re-authorize</button>';
+    return '<tr><td><b>'+esc(x.device_name||'Android Device')+'</b><br><span class="muted">ID '+esc(x.id)+'</span></td><td>'+esc(x.customer_name||'Unmatched customer')+'<br>'+esc(x.phone||'')+'</td><td>'+esc(x.platform||'Android')+' '+esc(x.app_version||'')+'</td><td><span class="badge">'+esc(status)+'</span><br><span class="muted">'+esc(x.enrolled_at?new Date(x.enrolled_at).toLocaleString():'Not registered yet')+'</span></td><td>'+action+'</td></tr>';
+  }).join(''):'<tr><td colspan="5" class="empty">No Companion registrations yet.</td></tr>';
+  $('#companionDevicesBody').innerHTML=devices.length?devices.map(x=>{
+    const online=x.active&&x.last_seen&&(Date.now()-new Date(x.last_seen).getTime()<5*60*1000);
+    const status=!x.active?'Revoked':(x.authorization_status==='pending'?'Awaiting Admin Approval':(online?'Online / Active':'Offline'));
+    const seen=x.last_seen?new Date(x.last_seen).toLocaleString():'Never';
+    const action=x.active?'<button class="btn red" onclick="revokeCompanion('+Number(x.id)+')">Revoke</button>':'<span class="muted">Revoked</span>';
+    return '<tr><td><b>'+esc(x.device_name||'Android Device')+'</b><br><span class="muted">'+esc(x.customer_name||'')+'</span></td><td>'+esc(x.phone||'')+'</td><td><span class="badge">'+esc(status)+'</span></td><td>'+esc(seen)+'</td><td>'+esc(x.platform||'Android')+' '+esc(x.app_version||'')+'</td><td>'+action+'</td></tr>';
+  }).join(''):'<tr><td colspan="6" class="empty">No Companion devices yet.</td></tr>';
+  await loadCompanionMessages();
+}
+async function loadCompanionMessages(){
+  const channel=String($('#companionChannel')?.value||'');
+  try{
+    const d=await api('/api/admin/companion/messages?limit=200'+(channel?'&channel='+encodeURIComponent(channel):''));
+    const messages=Array.isArray(d.messages)?d.messages:[];
+    $('#companionMessageCount').textContent=messages.length+' events';
+    $('#companionMessagesBody').innerHTML=messages.length?messages.map(x=>{
+    let body=String(x.body||'');
+    let sender=String(x.sender||'');
+    if(x.channel==='call_log'){
+      let m={};try{m=typeof x.metadata==='string'?JSON.parse(x.metadata):(x.metadata||{});}catch{}
+      sender=m.phone_number||sender||'Unknown number';
+      body='<b>'+esc(m.call_type||'Call')+'</b> • '+esc(m.contact_name||'Unknown contact')+'<br>Duration: '+esc(m.duration_seconds||0)+' sec<br>Time: '+esc(m.timestamp?new Date(m.timestamp).toLocaleString():new Date(x.created_at).toLocaleString());
+    }
+    return '<tr><td>'+new Date(x.created_at).toLocaleString()+'</td><td><span class="badge">'+esc(x.channel)+'</span></td><td>'+esc(x.device_name||'')+'<br><span class="muted">'+esc(x.phone||'')+'</span></td><td>'+esc(sender)+'</td><td style="max-width:420px;white-space:pre-wrap">'+(x.channel==='call_log'?body:esc(body))+'</td><td>'+esc(x.status||'')+'</td></tr>';
+  }).join(''):'<tr><td colspan="6" class="empty">No Companion events received.</td></tr>';
+  }catch(err){
+    $('#companionMessageCount').textContent='Error';
+    $('#companionMessagesBody').innerHTML='<tr><td colspan="6" class="empty danger">'+esc(err.message||'Could not load Companion events.')+'</td></tr>';
+  }
+}
+async function approveCompanion(id){if(!confirm('Authorize this Companion device?'))return;await api('/api/admin/companion/devices/'+id+'/approve',{method:'POST'});await loadCompanion();}
+async function rejectCompanion(id){if(!confirm('Reject this Companion registration?'))return;await api('/api/admin/companion/devices/'+id+'/reject',{method:'POST'});await loadCompanion();}
+async function reauthorizeCompanion(id){if(!confirm('Generate a new one-time enrollment token for this device?'))return;const d=await api('/api/admin/companion/devices/'+id+'/reauthorize',{method:'POST'});const box=$('#companionTokenBox');box.hidden=false;box.innerHTML='<b>New enrollment token</b><div style="font-size:28px;font-weight:950;letter-spacing:3px;margin:10px 0;user-select:text">'+esc(d.enrollment_token)+'</div><div class="muted">Expires: '+new Date(d.expires_at).toLocaleString()+'</div><button type="button" class="btn" style="margin-top:10px" onclick="navigator.clipboard?.writeText('+JSON.stringify(d.enrollment_token)+')">Copy token</button>';}
+async function revokeCompanion(id){
+  if(!confirm('Revoke this Companion device?')) return;
+  await api('/api/admin/companion/devices/'+encodeURIComponent(id)+'/revoke',{method:'POST'});
+  await loadCompanion();
+}
+$('#companionEnrollForm').onsubmit=async e=>{
+  e.preventDefault();
+  const msg=$('#companionEnrollMsg'), box=$('#companionTokenBox');
+  msg.textContent='Generating secure enrollment token…';
+  box.hidden=true;
+  try{
+    const d=await api('/api/admin/companion/devices/enroll',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({phone:$('#companionPhone').value.trim(),device_name:$('#companionName').value.trim()})
+    });
+    box.hidden=false;
+    box.innerHTML='<b>Enrollment token</b><div style="font-size:28px;font-weight:950;letter-spacing:3px;margin:10px 0;user-select:text">'+esc(d.enrollment_token)+'</div><div class="muted">Expires: '+new Date(d.expires_at).toLocaleString()+'</div><button type="button" class="btn" style="margin-top:10px" onclick="navigator.clipboard?.writeText('+JSON.stringify(d.enrollment_token)+')">Copy token</button>';
+    msg.textContent='Token generated. Enter it in DGM Companion within 15 minutes.';
+    await loadCompanion();
+  }catch(err){
+    msg.textContent=err.message||'Could not generate token.';
+  }
+};
+
+async function loadBroadcastHistory(){try{const d=await api('/api/admin/notifications/broadcasts');$('#broadcastHistoryBody').innerHTML=(d.broadcasts||[]).map(b=>'<tr><td>'+esc(b.type)+'</td><td>'+esc(b.title)+'</td><td style="max-width:420px">'+esc(b.message)+'</td><td>'+Number(b.recipients||0)+'</td><td>'+esc(b.sent_at?new Date(b.sent_at).toLocaleString():'')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">No broadcasts yet.</td></tr>'}catch(err){$('#broadcastHistoryBody').innerHTML='<tr><td colspan="5" class="empty">'+esc(err.message||'Could not load history.')+'</td></tr>'}}
+
+$('#broadcastForm').onsubmit=async e=>{
+  e.preventDefault();
+  const msg=$('#broadcastMsg'); msg.textContent='Sending…';
+  try{
+    const d=await api('/api/admin/notifications/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('#broadcastTitle').value,message:$('#broadcastMessage').value,type:$('#broadcastType').value})});
+    msg.textContent=d.message+' '+d.sent+' customers notified.';
+    e.target.reset();
+    await loadBroadcastHistory();
+  }catch(err){msg.textContent=err.message;}
+};
+async function loadSupport(){const d=await api('/api/admin/support/tickets');$('#supportBody').innerHTML=d.tickets.map(t=>'<tr><td>'+esc(t.customer_name)+'<br><span class="muted">'+esc(t.customer_email)+'</span></td><td>'+esc(t.subject)+'</td><td style="max-width:320px">'+esc(t.message)+'</td><td>'+esc(t.status)+'</td><td>'+(t.status==='Open'?'<textarea class="textarea" id="reply'+t.id+'" rows="2" placeholder="Reply"></textarea><button class="btn green" onclick="replySupport('+t.id+')">Send</button>':'<span class="muted">'+esc(t.admin_reply||'Replied')+'</span>')+'</td></tr>').join('')||'<tr><td colspan="5" class="empty">No support requests.</td></tr>'}
+async function replySupport(id){const box=$('#reply'+id);if(!box?.value.trim())return;const d=await api('/api/admin/support/tickets/'+id+'/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reply:box.value})});$('#supportMsg').textContent=d.message;await loadSupport()}
+async function loadAudit(){const d=await api('/api/admin/audit');$('#auditBody').innerHTML=d.audit.length?d.audit.map(a=>'<tr><td>'+new Date(a.created_at).toLocaleString()+'</td><td>'+esc(a.admin_email)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.target_type||'')+' '+esc(a.target_id||'')+'</td><td><pre style="white-space:pre-wrap;margin:0">'+esc(JSON.stringify(a.details||{}))+'</pre></td></tr>').join(''):'<tr><td colspan="5" class="empty">No admin audit events yet.</td></tr>'}
+async function loadMovies(){try{const d=await api('/api/admin/movies/playback');const rows=d.movies||[];$('#moviesBody').innerHTML=rows.length?rows.map(x=>'<tr><td>'+esc(x.tmdb_id)+'</td><td>'+esc(x.title||'Untitled')+'</td><td>'+esc(x.playback_type||'')+'</td><td><span class="badge">'+(x.active?'ACTIVE':'INACTIVE')+'</span></td><td>'+new Date(x.updated_at||x.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No playback sources saved.</td></tr>';}catch(e){$('#moviesBody').innerHTML='<tr><td colspan="5" class="empty danger">'+esc(e.message)+'</td></tr>';}}
+$('#movieForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/admin/movies/playback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tmdb_id:Number($('#tmdb').value),title:$('#movieTitle').value,playback_type:$('#movieType').value,playback_url:$('#movieUrl').value})});$('#movieMsg').textContent=d.message||'Playback source saved.';e.target.reset()}catch(err){$('#movieMsg').textContent=err.message}}
+(async()=>{try{await loadBase();startBridgeAutoRefresh();const initial=(location.hash||'').replace(/^#/,'');if(initial&&document.getElementById(initial)&&document.getElementById(initial).classList.contains('section')){show(initial)}else{await loadOverview()}}catch(e){$('#who').textContent=e.message}})();
+async function loadStaff(){
+  if(staffSession){$('#staffBody').innerHTML='<tr><td colspan="6" class="empty">Only the Super Admin can manage staff accounts.</td></tr>';return;}
+  const d=await api('/api/admin/staff');staffDirectory=d.staff||[];staffPermissionCatalog=d.permission_catalog||{};
+  $('#staffRole').innerHTML=(d.roles||[]).map(r=>'<option value="'+esc(r.key)+'">'+esc(r.name)+'</option>').join('');
+  $('#staffRolesSummary').innerHTML=(d.roles||[]).map(r=>'<div><span class="dot"></span><b>'+esc(r.name)+'</b><br><span class="muted">'+esc(r.permissions.length)+' permissions</span></div>').join('');
+  $('#staffBody').innerHTML=staffDirectory.length?staffDirectory.map(s=>'<tr><td><b>'+esc(s.name)+'</b><br><span class="muted">'+esc(s.email)+'</span></td><td><span class="badge">'+esc(s.role_key)+'</span></td><td><span class="badge">'+(s.active?'ACTIVE':'DISABLED')+'</span></td><td>'+esc(s.last_login_at?new Date(s.last_login_at).toLocaleString():'Never')+'</td><td>'+new Date(s.created_at).toLocaleString()+'</td><td><button class="btn" onclick="editStaffPermissions('+Number(s.id)+')">Permissions</button> <button class="btn" onclick="toggleStaff('+Number(s.id)+','+(!s.active)+')">'+(s.active?'Disable':'Enable')+'</button> <button class="btn" onclick="changeStaffRole('+Number(s.id)+')">Role</button> <button class="btn red" onclick="deleteStaff('+Number(s.id)+')">Delete</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">No staff members created yet.</td></tr>';
+}
+$('#staffForm')?.addEventListener('submit',async e=>{e.preventDefault();const msg=$('#staffMsg');msg.textContent='Creating staff account…';try{await api('/api/admin/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:$('#staffName').value,email:$('#staffEmail').value,password:$('#staffPassword').value,role:$('#staffRole').value})});msg.textContent='Staff account created. Give the staff member their credentials securely.';e.target.reset();await loadStaff();}catch(err){msg.textContent=err.message;}});
+function editStaffPermissions(id){const s=staffDirectory.find(x=>Number(x.id)===Number(id));if(!s)return;selectedStaffId=id;$('#staffPermTitle').textContent='Permissions • '+s.name;$('#staffPermissionsGrid').innerHTML=Object.entries(staffPermissionCatalog).map(([k,label])=>'<label class="mini" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" data-staff-perm="'+esc(k)+'" '+(Array.isArray(s.permissions)&&s.permissions.includes(k)?'checked':'')+'> <span><b>'+esc(label)+'</b><br><span class="muted">'+esc(k)+'</span></span></label>').join('');$('#staffPermMsg').textContent='';$('#staffPermissionsPanel').style.display='block';}
+async function saveStaffPermissions(){if(!selectedStaffId)return;const permissions=[...document.querySelectorAll('[data-staff-perm]:checked')].map(x=>x.dataset.staffPerm);try{const d=await api('/api/admin/staff/'+selectedStaffId+'/permissions',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({permissions})});$('#staffPermMsg').textContent=d.message;await loadStaff();}catch(e){$('#staffPermMsg').textContent=e.message;}}
+async function toggleStaff(id,active){if(!confirm((active?'Enable':'Disable')+' this staff account?'))return;try{await api('/api/admin/staff/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})});await loadStaff();}catch(e){alert(e.message);}}
+async function changeStaffRole(id){const s=staffDirectory.find(x=>Number(x.id)===Number(id));if(!s)return;const role=prompt('Enter role: support, finance, operations, manager',s.role_key);if(!role||!['support','finance','operations','manager'].includes(role.toLowerCase()))return;try{await api('/api/admin/staff/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role.toLowerCase()})});await loadStaff();}catch(e){alert(e.message);}}
+async function deleteStaff(id){if(!confirm('Permanently delete this staff account?'))return;try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}catch(e){alert(e.message);}}
+</script</script><div id="marketProductModal" class="modal" hidden><div class="modal-card" style="max-width:760px"><div class="kpi"><div><h2 id="marketProductTitle">Add Product</h2><div class="muted">Catalog details, pricing and inventory</div></div><button class="btn" onclick="closeMarketProduct()">Close</button></div><form id="marketProductForm"><div class="detail"><div><label class="label">Name</label><input class="input" id="mpName" required></div><div><label class="label">Slug</label><input class="input" id="mpSlug"></div><div><label class="label">Brand</label><input class="input" id="mpBrand"></div><div><label class="label">SKU</label><input class="input" id="mpSku"></div><div><label class="label">Category</label><select class="select" id="mpCategory"></select></div><div><label class="label">Price</label><input class="input" id="mpPrice" type="number" min="0" step="0.01" required></div><div><label class="label">Sale price</label><input class="input" id="mpSale" type="number" min="0" step="0.01"></div><div><label class="label">Stock</label><input class="input" id="mpStock" type="number" min="0" step="1" required></div><div><label class="label">Delivery fee</label><input class="input" id="mpDelivery" type="number" min="0" step="0.01"></div><div><label class="label">Image URL</label><input class="input" id="mpImage" placeholder="https://..."></div></div><div class="detail"><div><label class="label">Gallery URLs</label><textarea class="textarea" id="mpGallery" rows="4" placeholder="One image URL per line"></textarea></div><div><label class="label">Variants JSON</label><textarea class="textarea" id="mpVariants" rows="4" placeholder='[{"name":"Color","options":["Black","Blue"]}]'></textarea></div></div><label class="label">Description</label><textarea class="textarea" id="mpDescription" rows="5"></textarea><div class="toolbar" style="margin-top:12px"><label><input type="checkbox" id="mpFeatured"> Featured</label><label><input type="checkbox" id="mpActive" checked> Active</label></div><div id="marketProductMsg" class="danger" style="margin:8px 0"></div><button class="btn green" style="width:100%">Save Product</button></form></div></div></body></html>
