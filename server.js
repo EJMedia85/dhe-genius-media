@@ -1633,6 +1633,10 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS saved_recipients_customer_idx ON saved_recipients(customer_id,created_at DESC);
   `);
 
+  // Broadcast flag distinguishes admin-wide announcements from ordinary notifications.
+  await pool.query(`ALTER TABLE customer_notifications ADD COLUMN IF NOT EXISTS is_broadcast BOOLEAN NOT NULL DEFAULT FALSE;`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS customer_notifications_broadcast_idx ON customer_notifications(is_broadcast, created_at DESC);`);
+
   // ---------------------------------------------------
   // CUSTOMER NOTIFICATIONS
   // ---------------------------------------------------
@@ -8054,7 +8058,7 @@ function requireCustomer(req, res, next) {
 app.get("/api/notifications", requireCustomer, async (req,res) => {
   try {
     const result = await pool.query(
-      `SELECT id,title,message,type,read_at,created_at
+      `SELECT id,title,message,type,is_broadcast,read_at,created_at
        FROM customer_notifications
        WHERE customer_id=$1
        ORDER BY created_at DESC
@@ -8281,13 +8285,27 @@ app.post("/api/admin/notifications/broadcast", requireAdmin, async (req,res) => 
     const message=String(req.body?.message||"").trim().slice(0,2000);
     const type=String(req.body?.type||"info").trim().slice(0,40);
     if(title.length<2||message.length<2) return sendError(res,400,"Enter a title and message.");
-    const result=await pool.query(`INSERT INTO customer_notifications(customer_id,title,message,type)
-      SELECT id,$1,$2,$3 FROM customers RETURNING id`,[title,message,type]);
+    const result=await pool.query(`INSERT INTO customer_notifications(customer_id,title,message,type,is_broadcast)
+      SELECT id,$1,$2,$3,TRUE FROM customers RETURNING id`,[title,message,type]);
     await writeAdminAudit(req,"notification_broadcast","customers","all",{title,type,sent:result.rowCount});
     return res.json({success:true,sent:result.rowCount,message:"Notification sent to"});
   } catch(error) {
     console.error("Admin notification broadcast error:",error);
     return sendError(res,500,"Could not send notification.");
+  }
+});
+
+app.get("/api/admin/notifications/broadcasts", requireAdmin, async (req,res) => {
+  try {
+    const result=await pool.query(`SELECT title,message,type,COUNT(*)::int AS recipients,
+      MIN(created_at) AS sent_at
+      FROM customer_notifications WHERE is_broadcast=TRUE
+      GROUP BY title,message,type,DATE_TRUNC('second',created_at)
+      ORDER BY sent_at DESC LIMIT 50`);
+    return res.json({success:true,broadcasts:result.rows});
+  } catch(error) {
+    console.error("Admin broadcast history error:",error);
+    return sendError(res,500,"Could not load broadcast history.");
   }
 });
 
