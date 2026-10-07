@@ -7,6 +7,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const { Pool } = require("pg");
 const { installBridge } = require("./bridge-routes");
+const { installMarket } = require("./market-routes");
 
 const app = express();
 
@@ -2744,6 +2745,9 @@ function requireAdmin(req, res, next) {
   if (!req.session || !req.session.adminAuthenticated) return sendError(res, 401, "Admin authentication required.");
   next();
 }
+
+// DGM Market: customer storefront, wallet checkout, and admin catalog/order APIs.
+installMarket(app);
 
 
 const COMPANION_TOKEN_TTL_DAYS = 365;
