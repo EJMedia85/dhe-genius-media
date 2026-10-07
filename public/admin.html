@@ -551,7 +551,7 @@ $('#movieForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/ap
 async function loadStaff(){
   if(staffSession){$('#staffBody').innerHTML='<tr><td colspan="6" class="empty">Only the Super Admin can manage staff accounts.</td></tr>';return;}
   const d=await api('/api/admin/staff');staffDirectory=d.staff||[];staffPermissionCatalog=d.permission_catalog||{};
-  $('#staffRole').innerHTML=Object.entries(R).map(([k,v])=>'<option value="'+esc(k)+'">'+esc(v.name||v[0])+'</option>').join('');
+  $('#staffRole').innerHTML=(d.roles||[]).map(r=>'<option value="'+esc(r.key)+'">'+esc(r.name)+'</option>').join('');
   $('#staffRolesSummary').innerHTML=(d.roles||[]).map(r=>'<div><span class="dot"></span><b>'+esc(r.name)+'</b><br><span class="muted">'+esc(r.permissions.length)+' permissions</span></div>').join('');
   $('#staffBody').innerHTML=staffDirectory.length?staffDirectory.map(s=>'<tr><td><b>'+esc(s.name)+'</b><br><span class="muted">'+esc(s.email)+'</span></td><td><span class="badge">'+esc(s.role_key)+'</span></td><td><span class="badge">'+(s.active?'ACTIVE':'DISABLED')+'</span></td><td>'+esc(s.last_login_at?new Date(s.last_login_at).toLocaleString():'Never')+'</td><td>'+new Date(s.created_at).toLocaleString()+'</td><td><button class="btn" onclick="editStaffPermissions('+Number(s.id)+')">Permissions</button> <button class="btn" onclick="toggleStaff('+Number(s.id)+','+(!s.active)+')">'+(s.active?'Disable':'Enable')+'</button> <button class="btn" onclick="changeStaffRole('+Number(s.id)+')">Role</button> <button class="btn red" onclick="deleteStaff('+Number(s.id)+')">Delete</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">No staff members created yet.</td></tr>';
 }
