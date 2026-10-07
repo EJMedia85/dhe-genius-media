@@ -226,7 +226,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       await client.query(`INSERT INTO agent_wallet_transactions(agent_id,type,amount,balance_before,balance_after,description,reference)
         VALUES($1,'Debit',$2,$3,$4,'Data sale funding',$5)`,[a.id,base,wb,wa,orderRef]);
       await client.query("COMMIT");
-      const result=await fulfillDataOrder({id:orderId,order_ref:orderRef,customer_id:a.customer_id,service:"Agent Data Sale",network,phone,amount:base,status:"Processing",payment_status:"Paid",capacity});
+      const result=await fulfillDataOrder({id:orderId,order_ref:orderRef,customer_id:a.customer_id,service:"Data",network,phone,amount:base,status:"Processing",payment_status:"Paid",capacity});
       if(!result?.success && result?.status==="Failed") {
         await refundAgentSale(a.id,saleId,base,orderRef,"Provider rejected the data sale.");
         return res.status(502).json({success:false,message:"The data provider rejected the sale. Agent Wallet has been refunded."});
