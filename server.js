@@ -12,6 +12,12 @@ const app = express();
 
 const PORT = Number(process.env.PORT || 10000);
 
+// Startup state is intentionally independent from the HTTP listener.
+// Render must be able to reach the health endpoint during cold starts
+// while PostgreSQL/Susu migrations are still initializing.
+let databaseReady = false;
+let startupError = null;
+
 // =====================================================
 // ENVIRONMENT
 // =====================================================
@@ -8394,6 +8400,27 @@ app.use(express.static(path.join(__dirname, "public"), {
 }));
 
 app.get("/api/health", async (req, res) => {
+  if (!databaseReady && !startupError) {
+    return res.status(200).json({
+      success: true,
+      status: "starting",
+      database: "starting",
+      paystack: Boolean(PAYSTACK_SECRET_KEY),
+      datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
+      airtime: Boolean(KINGFLEXY_API_KEY),
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  if (startupError) {
+    return res.status(503).json({
+      success: false,
+      status: "offline",
+      database: databaseReady ? "online" : "offline",
+      message: "Server initialization failed."
+    });
+  }
+
   try {
     await pool.query("SELECT 1");
     return res.status(200).json({
@@ -8406,12 +8433,15 @@ app.get("/api/health", async (req, res) => {
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error("Health check failed:", error.message);
-    return res.status(503).json({
-      success: false,
-      status: "offline",
+    console.error("Health check database probe failed:", error.message);
+    return res.status(200).json({
+      success: true,
+      status: "degraded",
       database: "offline",
-      message: "Database unavailable."
+      paystack: Boolean(PAYSTACK_SECRET_KEY),
+      datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
+      airtime: Boolean(KINGFLEXY_API_KEY),
+      timestamp: new Date().toISOString()
     });
   }
 });
@@ -8475,15 +8505,23 @@ app.post("/api/susu/v2/invitations/:id/respond", requireLogin, async (req,res)=>
 // =====================================================
 
 async function startServer() {
+  const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`DHE GENIUS MEDIA HTTP listener active on port ${PORT}`);
+    console.log(`Environment: ${NODE_ENV}`);
+    console.log(`Database: ${DATABASE_URL ? "configured" : "MISSING"}`);
+    console.log(`Paystack: ${PAYSTACK_SECRET_KEY ? "configured" : "MISSING"}`);
+    console.log(`DataMart: ${DATAMART_API_KEY && DATAMART_API_SECRET && DATAMART_REF_PREFIX ? "configured" : "INCOMPLETE"}`);
+    console.log(`DataMart reference prefix: ${DATAMART_REF_PREFIX || "MISSING"}`);
+    console.log(`DataMart second secret: ${DATAMART_API_SECRET ? "configured" : "MISSING"}`);
+  });
 
   try {
     await initDatabase();
+    databaseReady = true;
     await initSusuDatabase();
     await installSusuEnhancements(app);
     await initializeAdminCredentials();
 
-    // Register terminal 404 handlers only after all dynamic routes
-    // (including Group Susu V2) have been installed.
     app.use("/api", (req, res) => {
       return res.status(404).json({
         success: false,
@@ -8503,114 +8541,21 @@ async function startServer() {
       return res.redirect("/");
     });
 
-    app.listen(
-      PORT,
-      () => {
+    startupError = null;
 
-        console.log(
-          `DHE GENIUS MEDIA running on port ${PORT}`
-        );
+    setTimeout(() => {
+      syncPendingDataMartOrders();
+      setInterval(syncPendingDataMartOrders, 15000);
+      processAutomaticSavings();
+      setInterval(processAutomaticSavings, 60000);
+      syncKingflexyAirtimeOrders();
+      setInterval(syncKingflexyAirtimeOrders, 20000);
+    }, 5000);
 
-        console.log(
-          `Environment: ${NODE_ENV}`
-        );
-
-        console.log(
-          `Database: ${
-            DATABASE_URL
-              ? "configured"
-              : "MISSING"
-          }`
-        );
-
-        console.log(
-          `Paystack: ${
-            PAYSTACK_SECRET_KEY
-              ? "configured"
-              : "MISSING"
-          }`
-        );
-
-        console.log(
-          `DataMart: ${
-            DATAMART_API_KEY &&
-            DATAMART_API_SECRET &&
-            DATAMART_REF_PREFIX
-              ? "configured"
-              : "INCOMPLETE"
-          }`
-        );
-
-        console.log(
-          `DataMart reference prefix: ${
-            DATAMART_REF_PREFIX || "MISSING"
-          }`
-        );
-
-        console.log(
-          `DataMart second secret: ${
-            DATAMART_API_SECRET
-              ? "configured"
-              : "MISSING"
-          }`
-        );
-
-        setTimeout(
-          () => {
-
-            // Start DataMart reconciliation immediately, then every 15 seconds.
-            // This updates existing paid orders from Processing to Completed
-            // when DataMart reports delivery completion.
-            syncPendingDataMartOrders();
-
-            setInterval(
-              syncPendingDataMartOrders,
-              15000
-            );
-
-            processAutomaticSavings();
-            setInterval(processAutomaticSavings, 60000);
-
-            syncKingflexyAirtimeOrders();
-
-            setInterval(
-              syncKingflexyAirtimeOrders,
-              20000
-            );
-
-          },
-          5000
-        );
-
-        // Session cleanup timer removed: cleanupExpiredSessions is not
-        // defined in the current PostgreSQL/session implementation.
-        // Express-session handles active session expiry through the
-        // configured store; the missing legacy cleanup job must not
-        // terminate the production server.
-
-        const smtpReady =
-          SMTP_HOST &&
-          SMTP_USER &&
-          SMTP_PASSWORD &&
-          SMTP_FROM_EMAIL;
-
-        console.log(
-          "Password reset email: " +
-          (RESEND_API_KEY || smtpReady ? "configured" : "MISSING") +
-          " | provider=" +
-          RESET_EMAIL_PROVIDER
-        );
-      }
-    );
-
+    console.log("DHE GENIUS MEDIA application initialization complete.");
   } catch (error) {
-
-    console.error(
-      "SERVER STARTUP FAILED:",
-      error
-    );
-
-    process.exit(1);
+    startupError = error;
+    console.error("SERVER STARTUP FAILED:", error);
   }
 }
 
