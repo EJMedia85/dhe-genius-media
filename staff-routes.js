@@ -21,7 +21,21 @@ const m=MAP.find(x=>x[0].test(p));if(!m){await audit(pool,req,"authorization_den
 const s=await perms(pool,req.session.staffId);if(!s.has(m[1])){await audit(pool,req,"authorization_denied","permission",m[1],{route:p});return res.status(403).json({success:false,message:"You do not have permission for this function."});}next();
 });
 app.post("/api/admin/staff/login",async(req,res)=>{try{const key=String(req.ip||req.socket?.remoteAddress||"unknown");const now=Date.now(),a=staffLoginAttempts.get(key)||{count:0,resetAt:now+15*60*1000};if(now>a.resetAt){a.count=0;a.resetAt=now+15*60*1000;}if(a.count>=10)return res.status(429).json({success:false,message:"Too many staff login attempts. Please wait 15 minutes."});a.count++;staffLoginAttempts.set(key,a);await staffReady;const email=String(req.body?.email||"").trim().toLowerCase(),password=String(req.body?.password||"");const r=await pool.query("SELECT * FROM staff_users WHERE email=$1 LIMIT 1",[email]);if(!r.rows.length||!r.rows[0].active||!await bcrypt.compare(password,r.rows[0].password_hash))return res.status(401).json({success:false,message:"Invalid staff login details."});staffLoginAttempts.delete(key);const s=r.rows[0];await new Promise((ok,no)=>req.session.regenerate(e=>e?no(e):ok()));Object.assign(req.session,{adminAuthenticated:true,staffId:s.id,staffEmail:s.email,staffName:s.name,staffRole:s.role_key,staffPermissions:s.permissions,adminEmail:s.email,adminLoginAt:new Date().toISOString()});await pool.query("UPDATE staff_users SET last_login_at=NOW(),updated_at=NOW() WHERE id=$1",[s.id]);await audit(pool,req,"staff_login","staff",s.id,{role:s.role_key});await new Promise((ok,no)=>req.session.save(e=>e?no(e):ok()));res.json({success:true,staff:{id:s.id,name:s.name,email:s.email,role:s.role_key,permissions:s.permissions}});}catch(e){console.error(e);res.status(500).json({success:false,message:"Staff login failed."});}});
-app.get("/api/admin/staff/me",async(req,res)=>{await staffReady;if(!req.session?.staffId)return res.status(401).json({success:false,message:"Staff authentication required."});const r=await pool.query("SELECT id,name,email,role_key,permissions,active,last_login_at,created_at FROM staff_users WHERE id=$1",[req.session.staffId]);if(!r.rows.length||!r.rows[0].active)return res.status(401).json({success:false,message:"Staff account is inactive."});res.json({success:true,staff:r.rows[0]});});
+app.get("/api/admin/staff/me",async(req,res)=>{
+  // A Super Admin session is not a staff session. Return immediately instead
+  // of waiting for the staff table initialization; this keeps Admin Dashboard
+  // startup independent from staff-system initialization.
+  if(!req.session?.staffId)return res.status(401).json({success:false,message:"Staff authentication required."});
+  try{
+    await staffReady;
+    const r=await pool.query("SELECT id,name,email,role_key,permissions,active,last_login_at,created_at FROM staff_users WHERE id=$1",[req.session.staffId]);
+    if(!r.rows.length||!r.rows[0].active)return res.status(401).json({success:false,message:"Staff account is inactive."});
+    return res.json({success:true,staff:r.rows[0]});
+  }catch(e){
+    console.error("Staff session check error:",e);
+    return res.status(500).json({success:false,message:"Staff session check failed."});
+  }
+});
 app.post("/api/admin/staff/logout",(req,res)=>req.session.destroy(e=>e?res.status(500).json({success:false,message:"Staff logout failed."}):res.json({success:true})));
 const superOnly=(req,res,next)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false,message:"Admin authentication required."});if(req.session?.staffId)return res.status(403).json({success:false,message:"Only the Super Admin can manage staff."});next();};
 app.get("/api/admin/staff",superOnly,async(req,res)=>{await staffReady;return res.json({success:true,staff:(await pool.query("SELECT id,name,email,role_key,permissions,active,last_login_at,created_at FROM staff_users ORDER BY created_at DESC")).rows,roles:Object.entries(R).map(([key,v])=>({key,name:v[0],permissions:v[1]})),permission_catalog:P});});
