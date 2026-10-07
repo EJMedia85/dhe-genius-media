@@ -106,6 +106,9 @@ async function initAgentDatabase(pool) {
   await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT`);
   await pool.query(`CREATE TABLE IF NOT EXISTS agent_pricing_rules (id SERIAL PRIMARY KEY, agent_id INTEGER NOT NULL REFERENCES agent_profiles(id) ON DELETE CASCADE, service TEXT NOT NULL, network TEXT, capacity TEXT, sale_price NUMERIC(12,2) NOT NULL, UNIQUE(agent_id,service,network,capacity))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS agent_promo_codes (id SERIAL PRIMARY KEY, agent_id INTEGER NOT NULL REFERENCES agent_profiles(id) ON DELETE CASCADE, code TEXT NOT NULL, discount_type TEXT NOT NULL DEFAULT 'fixed', discount_value NUMERIC(12,2) NOT NULL DEFAULT 0, max_uses INTEGER, uses INTEGER NOT NULL DEFAULT 0, active BOOLEAN NOT NULL DEFAULT TRUE, expires_at TIMESTAMPTZ, UNIQUE(agent_id,code))`);
+  await pool.query(`INSERT INTO agent_wallets(agent_id,balance)
+    SELECT id,0 FROM agent_profiles
+    WHERE NOT EXISTS (SELECT 1 FROM agent_wallets WHERE agent_wallets.agent_id=agent_profiles.id)`);
 }
 
 function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice, fulfillDataOrder }) {
@@ -238,7 +241,9 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
         await refundAgentSale(a.id,saleId,base,orderRef,"Provider rejected the data sale.");
         return res.status(502).json({success:false,message:"The data provider rejected the sale. Agent Wallet has been refunded."});
       }
-      return res.json({success:true,message:"Data sale submitted.",order_ref:orderRef,sale_id:saleId,status:result?.status||"Processing",base_cost:base,sale_price:salePrice,profit:money(salePrice-base),wallet_balance:wa});
+      const providerStatus=String(result?.status||"").toLowerCase();
+      if(["completed","success","successful","delivered"].includes(providerStatus)) await completeAgentSale(saleId);
+      return res.json({success:true,message:"Data sale submitted.",order_ref:orderRef,sale_id:saleId,status:providerStatus==="completed"?"Completed":(result?.status||"Processing"),base_cost:base,sale_price:salePrice,profit:money(salePrice-base),wallet_balance:wa});
     } catch(e) {
       try { await client.query("ROLLBACK"); } catch {}
       if(saleId) await refundAgentSale((await getAgent(req.session.customerId))?.id,saleId,base,orderRef,e.message);
@@ -264,6 +269,32 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     }catch(e){await c.query("ROLLBACK");console.error("Agent refund:",e.message)}finally{c.release();}
   }
 
+  async function completeAgentSale(saleId) {
+    const c=await pool.connect();
+    try {
+      await c.query("BEGIN");
+      const locked=(await c.query("SELECT * FROM agent_sales WHERE id=$1 FOR UPDATE",[saleId])).rows[0];
+      if(!locked || locked.status!=="Processing") { await c.query("ROLLBACK"); return false; }
+      const a=(await c.query("SELECT * FROM agent_profiles WHERE id=$1 FOR UPDATE",[locked.agent_id])).rows[0];
+      if(!a) { await c.query("ROLLBACK"); return false; }
+      const profit=money(locked.profit);
+      const before=money(a.commission_balance);
+      const after=money(before+profit);
+      await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);
+      await c.query("UPDATE agent_sales SET status='Completed',completed_at=NOW() WHERE id=$1",[locked.id]);
+      await c.query(`INSERT INTO agent_commission_transactions(agent_id,sale_id,type,amount,balance_before,balance_after,description,reference)
+        VALUES($1,$2,'Credit',$3,$4,$5,'Profit from agent sale',$6)
+        ON CONFLICT(reference) DO NOTHING`,[a.id,locked.id,profit,before,after,"SALE:"+locked.order_ref]);
+      await c.query("COMMIT");
+      await notify(pool,a.customer_id,"Agent profit credited",`GH₵${profit.toFixed(2)} profit was added from sale ${locked.order_ref}.`,"success");
+      return true;
+    } catch(e) {
+      await c.query("ROLLBACK");
+      console.error("Agent sale completion:",e.message);
+      return false;
+    } finally { c.release(); }
+  }
+
   async function reconcileAgentSales() {
     try {
       const rows=await pool.query(`SELECT s.*,o.status AS order_status FROM agent_sales s JOIN orders o ON o.id=s.order_id
@@ -271,21 +302,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       for(const s of rows.rows){
         const status=String(s.order_status||"").toLowerCase();
         if(["completed","success","successful","delivered"].includes(status)){
-          const c=await pool.connect();
-          try{
-            await c.query("BEGIN");
-            const locked=(await c.query("SELECT * FROM agent_sales WHERE id=$1 FOR UPDATE",[s.id])).rows[0];
-            if(!locked||locked.status!=="Processing"){await c.query("ROLLBACK");continue;}
-            const a=(await c.query("SELECT * FROM agent_profiles WHERE id=$1 FOR UPDATE",[s.agent_id])).rows[0];
-            if(!a){await c.query("ROLLBACK");continue;}
-            const profit=money(locked.profit), before=money(a.commission_balance), after=money(before+profit);
-            await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);
-            await c.query("UPDATE agent_sales SET status='Completed',completed_at=NOW() WHERE id=$1",[locked.id]);
-            await c.query(`INSERT INTO agent_commission_transactions(agent_id,sale_id,type,amount,balance_before,balance_after,description,reference)
-              VALUES($1,$2,'Credit',$3,$4,$5,'Profit from agent sale',$6)`,[a.id,locked.id,profit,before,after,"SALE:"+locked.order_ref]);
-            await c.query("COMMIT");
-            await notify(pool,a.customer_id,"Agent profit credited",`GH₵${profit.toFixed(2)} profit was added from sale ${locked.order_ref}.`,"success");
-          }catch(e){await c.query("ROLLBACK");console.error("Agent commission reconcile:",e.message)}finally{c.release();}
+          await completeAgentSale(s.id);
         } else if(["failed","refunded","cancelled","canceled"].includes(status)){
           await refundAgentSale(s.agent_id,s.id,money(s.base_cost),s.order_ref,"Data sale failed; Agent Wallet refunded.");
         }
@@ -423,7 +440,21 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
   });
 
   app.post("/api/admin/agent-withdrawals/:id/approve", requireAdmin, async (req,res)=>{
-    try{const id=Number(req.params.id);const r=await pool.query("UPDATE agent_withdrawals SET status='Approved',approved_at=NOW(),updated_at=NOW() WHERE id=$1 AND status='Pending Approval' RETURNING agent_id");if(!r.rows.length)throw new Error("Withdrawal is no longer pending.");res.json({success:true,message:"Agent withdrawal approved for payment."});}catch(e){res.status(400).json({success:false,message:e.message});}
+    try{
+      const id=Number(req.params.id);
+      const r=await pool.query("UPDATE agent_withdrawals SET status='Approved',approved_at=NOW(),updated_at=NOW() WHERE id=$1 AND status='Pending Approval' RETURNING agent_id");
+      if(!r.rows.length) throw new Error("Withdrawal is no longer pending.");
+      res.json({success:true,message:"Agent withdrawal approved for payment."});
+    }catch(e){res.status(400).json({success:false,message:e.message});}
+  });
+
+  app.post("/api/admin/agent-withdrawals/:id/paid", requireAdmin, async (req,res)=>{
+    try{
+      const id=Number(req.params.id);
+      const r=await pool.query("UPDATE agent_withdrawals SET status='Paid',paid_at=NOW(),updated_at=NOW() WHERE id=$1 AND status='Approved' RETURNING reference");
+      if(!r.rows.length) throw new Error("Withdrawal must be approved before it can be marked paid.");
+      res.json({success:true,message:"Agent withdrawal marked as paid.",reference:r.rows[0].reference});
+    }catch(e){res.status(400).json({success:false,message:e.message});}
   });
   app.post("/api/admin/agent-withdrawals/:id/reject", requireAdmin, async (req,res)=>{
     const c=await pool.connect();try{await c.query("BEGIN");const w=(await c.query("SELECT * FROM agent_withdrawals WHERE id=$1 FOR UPDATE",[Number(req.params.id)])).rows[0];if(!w||w.status!=="Pending Approval")throw new Error("Withdrawal is no longer pending.");const a=(await c.query("SELECT * FROM agent_profiles WHERE id=$1 FOR UPDATE",[w.agent_id])).rows[0];const before=money(a.commission_balance),after=money(before+Number(w.amount));await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);await c.query("UPDATE agent_withdrawals SET status='Rejected',rejected_at=NOW(),updated_at=NOW() WHERE id=$1",[w.id]);await c.query(`INSERT INTO agent_commission_transactions(agent_id,type,amount,balance_before,balance_after,description,reference) VALUES($1,'Credit',$2,$3,$4,'Rejected withdrawal returned',$5)`,[a.id,w.amount,before,after,"RETURN:"+w.reference]);await c.query("COMMIT");res.json({success:true,message:"Withdrawal rejected and commission returned."});}catch(e){await c.query("ROLLBACK");res.status(400).json({success:false,message:e.message});}finally{c.release();}
