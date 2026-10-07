@@ -106,6 +106,10 @@ async function initAgentDatabase(pool) {
   await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT`);
   await pool.query(`CREATE TABLE IF NOT EXISTS agent_pricing_rules (id SERIAL PRIMARY KEY, agent_id INTEGER NOT NULL REFERENCES agent_profiles(id) ON DELETE CASCADE, service TEXT NOT NULL, network TEXT, capacity TEXT, sale_price NUMERIC(12,2) NOT NULL, UNIQUE(agent_id,service,network,capacity))`);
   await pool.query(`CREATE TABLE IF NOT EXISTS agent_promo_codes (id SERIAL PRIMARY KEY, agent_id INTEGER NOT NULL REFERENCES agent_profiles(id) ON DELETE CASCADE, code TEXT NOT NULL, discount_type TEXT NOT NULL DEFAULT 'fixed', discount_value NUMERIC(12,2) NOT NULL DEFAULT 0, max_uses INTEGER, uses INTEGER NOT NULL DEFAULT 0, active BOOLEAN NOT NULL DEFAULT TRUE, expires_at TIMESTAMPTZ, UNIQUE(agent_id,code))`);
+  await pool.query("ALTER TABLE agent_sales ADD COLUMN IF NOT EXISTS customer_payment_mode TEXT NOT NULL DEFAULT 'agent_wallet'");
+  await pool.query("ALTER TABLE agent_sales ADD COLUMN IF NOT EXISTS customer_charge NUMERIC(12,2) NOT NULL DEFAULT 0");
+  await pool.query("ALTER TABLE agent_sales ADD COLUMN IF NOT EXISTS customer_refunded BOOLEAN NOT NULL DEFAULT FALSE");
+  await pool.query("CREATE INDEX IF NOT EXISTS agent_sales_customer_payment_idx ON agent_sales(customer_payment_mode,status,created_at DESC)");
   await pool.query(`INSERT INTO agent_wallets(agent_id,balance)
     SELECT id,0 FROM agent_profiles
     WHERE NOT EXISTS (SELECT 1 FROM agent_wallets WHERE agent_wallets.agent_id=agent_profiles.id)`);
@@ -305,6 +309,9 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
           await completeAgentSale(s.id);
         } else if(["failed","refunded","cancelled","canceled"].includes(status)){
           await refundAgentSale(s.agent_id,s.id,money(s.base_cost),s.order_ref,"Data sale failed; Agent Wallet refunded.");
+          if(s.customer_payment_mode==="store_wallet" && !s.customer_refunded){
+            await refundStoreCustomer(s.customer_id,s.id,money(s.customer_charge),s.order_ref,"Store order failed; customer DGM Wallet refunded.");
+          }
         }
       }
     } catch(e){console.error("Agent reconciliation:",e.message)}
@@ -340,6 +347,97 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
   app.post("/api/agent/pricing", requireCustomer, async (req,res)=>{try{const a=await getAgent(req.session.customerId);if(!a||a.status!=="approved")throw new Error("Approved agent account required.");const network=String(req.body?.network||"").trim(),capacity=String(req.body?.capacity||"").replace(/GB/i,"").trim(),price=money(req.body?.sale_price),base=money(getRetailPrice(network,Number(capacity)));if(!base||price<base)throw new Error("Price must be at or above the DGM base price.");await pool.query("INSERT INTO agent_pricing_rules(agent_id,service,network,capacity,sale_price) VALUES($1,'Data',$2,$3,$4) ON CONFLICT(agent_id,service,network,capacity) DO UPDATE SET sale_price=EXCLUDED.sale_price",[a.id,network,capacity,price]);res.json({success:true,message:"Agent pricing saved."})}catch(e){res.status(400).json({success:false,message:e.message})}});
 
   app.get("/api/public/agent-store/:slug", async (req,res)=>{try{const slug=String(req.params.slug||"").toLowerCase();const q=await pool.query("SELECT a.id,a.agent_code,a.store_name,a.store_bio,a.whatsapp_phone,c.name,c.phone FROM agent_profiles a JOIN customers c ON c.id=a.customer_id WHERE a.store_slug=$1 AND a.status='approved' LIMIT 1",[slug]);if(!q.rows.length)return res.status(404).json({success:false,message:"Store not found."});const a=q.rows[0],p=await pool.query("SELECT service,network,capacity,sale_price FROM agent_pricing_rules WHERE agent_id=$1 ORDER BY network,capacity",[a.id]);res.json({success:true,store:{agent_code:a.agent_code,name:a.store_name||a.name,bio:a.store_bio||"DGM Agent Store",whatsapp:a.whatsapp_phone||a.phone,pricing:p.rows}})}catch(e){res.status(500).json({success:false,message:"Could not load store."})}});
+  // CUSTOMER-FACING DGM AGENT STORE CHECKOUT
+  app.post("/api/public/agent-store/:slug/order", requireCustomer, async (req,res)=>{
+    const slug=String(req.params.slug||"").trim().toLowerCase();
+    const network=String(req.body?.network||"").trim();
+    const capacity=String(req.body?.capacity||"").replace(/GB/i,"").trim();
+    const phone=String(req.body?.phone||"").trim();
+    const promo=String(req.body?.promo_code||"").trim().toUpperCase().slice(0,40);
+    if(!slug||!["MTN","AirtelTigo","Telecel"].includes(network)) return res.status(400).json({success:false,message:"Select a valid network."});
+    if(!/^\d+(?:\.\d+)?$/.test(capacity)||Number(capacity)<=0) return res.status(400).json({success:false,message:"Select a valid bundle."});
+    if(!/^0\d{9}$/.test(phone)) return res.status(400).json({success:false,message:"Enter a valid Ghana recipient number."});
+    const client=await pool.connect();
+    let saleId=null,orderId=null,orderRef=null,base=0,netPrice=0,agentId=null;
+    try{
+      await client.query("BEGIN");
+      const a=(await client.query("SELECT a.*,c.name,c.phone FROM agent_profiles a JOIN customers c ON c.id=a.customer_id WHERE a.store_slug=$1 AND a.status='approved' LIMIT 1 FOR UPDATE",[slug])).rows[0];
+      if(!a) throw new Error("Store not found or unavailable.");
+      agentId=a.id;
+      const p=(await client.query("SELECT sale_price FROM agent_pricing_rules WHERE agent_id=$1 AND service='Data' AND network=$2 AND capacity=$3 LIMIT 1",[a.id,network,capacity])).rows[0];
+      if(!p) throw new Error("This bundle is not available in this store.");
+      base=money(getRetailPrice(network,Number(capacity)));
+      const published=money(p.sale_price);
+      if(!base||published<base) throw new Error("This bundle is temporarily unavailable.");
+      netPrice=published;
+      if(promo){
+        const pr=(await client.query("SELECT * FROM agent_promo_codes WHERE agent_id=$1 AND UPPER(code)=UPPER($2) AND active=true AND (expires_at IS NULL OR expires_at>NOW()) AND (max_uses IS NULL OR uses<max_uses) FOR UPDATE",[a.id,promo])).rows[0];
+        if(!pr) throw new Error("Promo code is invalid or expired.");
+        const discount=pr.discount_type==="percent" ? money(published*(Number(pr.discount_value)/100)) : money(pr.discount_value);
+        netPrice=money(Math.max(base,published-discount));
+        if(netPrice>=published) throw new Error("Promo code does not reduce this order.");
+      }
+      const customer=(await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[req.session.customerId])).rows[0];
+      if(!customer) throw new Error("Customer account not found.");
+      const wallet=(await client.query("SELECT balance FROM agent_wallets WHERE agent_id=$1 FOR UPDATE",[a.id])).rows[0];
+      if(!wallet||Number(wallet.balance)<base) throw new Error("This agent is temporarily unable to process the order. Please try again later.");
+      if(Number(customer.balance)<netPrice) throw new Error("Insufficient DGM Wallet balance. You need GH₵"+netPrice.toFixed(2)+".");
+      const cb=money(customer.balance),ca=money(cb-netPrice),wb=money(wallet.balance),wa=money(wb-base);
+      await client.query("UPDATE customers SET balance=$1 WHERE id=$2",[ca,customer.id]);
+      await client.query("UPDATE agent_wallets SET balance=$1,updated_at=NOW() WHERE agent_id=$2",[wa,a.id]);
+      orderRef="DGM-STORE-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(4).toString("hex").toUpperCase();
+      const o=(await client.query("INSERT INTO orders(order_ref,customer_id,service,network,phone,amount,status,capacity,payment_status,paid_at) VALUES($1,$2,'Data',$3,$4,$5,'Processing',$6,'Paid',NOW()) RETURNING id",[orderRef,customer.id,network,phone,netPrice,capacity])).rows[0];
+      orderId=o.id;
+      const sale=(await client.query("INSERT INTO agent_sales(agent_id,order_id,order_ref,service,network,phone,capacity,base_cost,sale_price,profit,status,customer_payment_mode,customer_charge) VALUES($1,$2,$3,'Data',$4,$5,$6,$7,$8,$9,'Processing','store_wallet',$10) RETURNING id",[a.id,orderId,orderRef,network,phone,capacity,base,netPrice,money(netPrice-base),netPrice])).rows[0];
+      saleId=sale.id;
+      await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'Debit',$2,$3,$4,$5,$6,'Completed',$6)",[customer.id,netPrice,cb,ca,"Agent Store purchase - "+(a.store_name||a.name)+" - "+network+" "+capacity+"GB",orderRef]);
+      await client.query("INSERT INTO agent_wallet_transactions(agent_id,type,amount,balance_before,balance_after,description,reference) VALUES($1,'Debit',$2,$3,$4,'Customer Store order wholesale funding',$5)",[a.id,base,wb,wa,orderRef]);
+      if(promo) await client.query("UPDATE agent_promo_codes SET uses=uses+1 WHERE agent_id=$1 AND UPPER(code)=UPPER($2)",[a.id,promo]);
+      await client.query("COMMIT");
+      let result;
+      try{result=await fulfillDataOrder({id:orderId,order_ref:orderRef,customer_id:customer.id,service:"Data",network,phone,amount:netPrice,status:"Processing",payment_status:"Paid",capacity});}
+      catch(e){result={success:false,status:"Failed",message:e.message};}
+      const ps=String(result?.status||"").toLowerCase();
+      if(!result?.success && ["failed","rejected","error"].includes(ps)){
+        await refundAgentSale(agentId,saleId,base,orderRef,"Store order failed; Agent Wallet refunded.");
+        await refundStoreCustomer(customer.id,saleId,netPrice,orderRef,"Store order failed; customer DGM Wallet refunded.");
+        await pool.query("UPDATE orders SET status='Failed',provider_message=$1 WHERE id=$2",[String(result?.message||"Provider rejected the order."),orderId]);
+        return res.status(502).json({success:false,message:"The data provider rejected the order. Your DGM Wallet has been refunded.",order_ref:orderRef});
+      }
+      if(["completed","success","successful","delivered"].includes(ps)) await completeAgentSale(saleId);
+      return res.json({success:true,message:["completed","success","successful","delivered"].includes(ps)?"Data delivered successfully.":"Order submitted. Data is being delivered.",order_ref:orderRef,status:["completed","success","successful","delivered"].includes(ps)?"Completed":"Processing",charged:netPrice});
+    }catch(e){
+      try{await client.query("ROLLBACK")}catch{}
+      return res.status(400).json({success:false,message:e.message||"Could not place store order."});
+    }finally{client.release();}
+  });
+
+  async function refundStoreCustomer(customerId,saleId,amount,reference,reason){
+    if(!customerId||!saleId||!amount)return;
+    const c=await pool.connect();
+    try{
+      await c.query("BEGIN");
+      const s=(await c.query("SELECT customer_payment_mode,customer_refunded FROM agent_sales WHERE id=$1 FOR UPDATE",[saleId])).rows[0];
+      if(!s||s.customer_refunded||s.customer_payment_mode!=="store_wallet"){await c.query("ROLLBACK");return;}
+      const customer=(await c.query("SELECT balance FROM customers WHERE id=$1 FOR UPDATE",[customerId])).rows[0];
+      if(!customer){await c.query("ROLLBACK");return;}
+      const before=money(customer.balance),after=money(before+amount);
+      await c.query("UPDATE customers SET balance=$1 WHERE id=$2",[after,customerId]);
+      await c.query("UPDATE agent_sales SET customer_refunded=true WHERE id=$1",[saleId]);
+      await c.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'Credit',$2,$3,$4,$5,$6,'Completed',$6)",[customerId,amount,before,after,reason,"REFUND:"+reference]);
+      await c.query("COMMIT");
+    }catch(e){await c.query("ROLLBACK").catch(()=>{});console.error("Store customer refund:",e.message)}finally{c.release();}
+  }
+
+  app.get("/api/public/agent-store/:slug/order/:reference", requireCustomer, async (req,res)=>{
+    try{
+      const slug=String(req.params.slug||"").toLowerCase(),ref=String(req.params.reference||"").trim();
+      const q=await pool.query("SELECT s.order_ref,s.status,s.network,s.capacity,s.phone,s.sale_price,s.profit,o.provider_status,o.provider_message,o.completed_at FROM agent_sales s JOIN agent_profiles a ON a.id=s.agent_id JOIN orders o ON o.id=s.order_id WHERE a.store_slug=$1 AND s.order_ref=$2 AND o.customer_id=$3 LIMIT 1",[slug,ref,req.session.customerId]);
+      if(!q.rows.length)return res.status(404).json({success:false,message:"Order not found."});
+      res.json({success:true,order:q.rows[0]});
+    }catch(e){res.status(500).json({success:false,message:"Could not load order status."})}
+  });
+
 
   // ADMIN
   app.get("/api/admin/agents", requireAdmin, async (req,res)=>{
