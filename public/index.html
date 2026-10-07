@@ -17,596 +17,128 @@
   >
 
   <style>
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-
-    body {
-      font-family: Arial, sans-serif;
-
-      color: #fff;
-
-      min-height: 100vh;
-
-      background:
-        radial-gradient(
-          circle at 20% 10%,
-          rgba(37,211,102,.16),
-          transparent 30%
-        ),
-        radial-gradient(
-          circle at 90% 30%,
-          rgba(0,140,255,.13),
-          transparent 35%
-        ),
-        linear-gradient(
-          160deg,
-          #071111,
-          #020606
-        );
-    }
-
-    header {
-      width: 100%;
-
-      padding: 18px 16px;
-
-      display: flex;
-
-      justify-content: space-between;
-
-      align-items: center;
-
-      border-bottom:
-        1px solid rgba(255,255,255,.07);
-
-      background:
-        rgba(3,10,10,.75);
-
-      backdrop-filter: blur(15px);
-    }
-
-    .logo {
-      font-size: 17px;
-      font-weight: 900;
-      letter-spacing: .3px;
-    }
-
-    .logo span {
-      color: #25d366;
-    }
-
-    .header-btn {
-      text-decoration: none;
-
-      color: #fff;
-
-      font-size: 12px;
-
-      font-weight: 800;
-
-      padding: 10px 13px;
-
-      border-radius: 11px;
-
-      background:
-        rgba(255,255,255,.07);
-
-      border:
-        1px solid rgba(255,255,255,.08);
-    }
-
-    main {
-      width: 100%;
-
-      max-width: 850px;
-
-      margin: auto;
-
-      padding: 35px 16px 50px;
-    }
-
-    .hero {
-      text-align: center;
-
-      padding:
-        25px 5px 35px;
-    }
-
-    .badge {
-      display: inline-block;
-
-      padding: 7px 11px;
-
-      border-radius: 20px;
-
-      background:
-        rgba(37,211,102,.11);
-
-      border:
-        1px solid rgba(37,211,102,.2);
-
-      color: #25d366;
-
-      font-size: 10px;
-
-      font-weight: 900;
-
-      margin-bottom: 17px;
-    }
-
-    h1 {
-      font-size: 39px;
-
-      line-height: 1.08;
-
-      margin-bottom: 15px;
-    }
-
-    h1 span {
-      color: #25d366;
-    }
-
-    .hero-text {
-      max-width: 560px;
-
-      margin: auto;
-
-      color: #9aafaf;
-
-      font-size: 14px;
-
-      line-height: 1.65;
-    }
-
-    .buttons {
-      display: flex;
-
-      justify-content: center;
-
-      gap: 10px;
-
-      flex-wrap: wrap;
-
-      margin-top: 25px;
-    }
-
-    .btn {
-      display: inline-block;
-
-      text-decoration: none;
-
-      padding: 15px 22px;
-
-      border-radius: 14px;
-
-      font-size: 13px;
-
-      font-weight: 900;
-    }
-
-    .primary {
-      background:
-        linear-gradient(
-          135deg,
-          #25d366,
-          #19a653
-        );
-
-      color: #001b0b;
-
-      box-shadow:
-        0 10px 30px
-        rgba(37,211,102,.13);
-    }
-
-    .secondary {
-      background:
-        rgba(255,255,255,.06);
-
-      color: #fff;
-
-      border:
-        1px solid rgba(255,255,255,.1);
-    }
-
-    .features {
-      display: grid;
-
-      grid-template-columns:
-        repeat(2, 1fr);
-
-      gap: 11px;
-
-      margin-top: 10px;
-    }
-
-    .feature {
-      padding: 18px;
-
-      min-height: 145px;
-
-      border-radius: 19px;
-
-      background:
-        rgba(255,255,255,.045);
-
-      border:
-        1px solid rgba(255,255,255,.07);
-    }
-
-    .feature-icon {
-      font-size: 25px;
-
-      margin-bottom: 12px;
-    }
-
-    .feature h3 {
-      font-size: 14px;
-
-      margin-bottom: 6px;
-    }
-
-    .feature p {
-      color: #839898;
-
-      font-size: 11px;
-
-      line-height: 1.5;
-    }
-
-    .services {
-      margin-top: 30px;
-
-      padding: 20px;
-
-      border-radius: 21px;
-
-      background:
-        linear-gradient(
-          135deg,
-          rgba(37,211,102,.09),
-          rgba(255,255,255,.035)
-        );
-
-      border:
-        1px solid rgba(37,211,102,.12);
-    }
-
-    .services h2 {
-      font-size: 20px;
-
-      margin-bottom: 9px;
-    }
-
-    .services p {
-      color: #91a7a7;
-
-      font-size: 12px;
-
-      line-height: 1.55;
-
-      margin-bottom: 16px;
-    }
-
-    .chips {
-      display: flex;
-
-      flex-wrap: wrap;
-
-      gap: 8px;
-    }
-
-    .chip {
-      padding: 9px 11px;
-
-      border-radius: 10px;
-
-      background:
-        rgba(255,255,255,.06);
-
-      color: #c7d5d5;
-
-      font-size: 10px;
-
-      font-weight: 700;
-    }
-
-    .location {
-      text-align: center;
-
-      margin-top: 25px;
-
-      color: #6f8383;
-
-      font-size: 11px;
-
-      line-height: 1.6;
-    }
-
-    footer {
-      text-align: center;
-
-      padding:
-        0 16px 30px;
-
-      color: #586b6b;
-
-      font-size: 10px;
-    }
-
-    @media (min-width: 650px) {
-
-      main {
-        padding-top: 60px;
-      }
-
-      h1 {
-        font-size: 55px;
-      }
-
-      .hero-text {
-        font-size: 15px;
-      }
-
-      .features {
-        grid-template-columns:
-          repeat(4, 1fr);
-      }
-
-    }
-
-  </style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--green:#25d366;--green2:#128c7e;--bg:#030908;--panel:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--muted:#8fa4a2}
+html{scroll-behavior:smooth}
+body{font-family:Inter,Arial,sans-serif;color:#fff;min-height:100vh;background:radial-gradient(circle at 10% 0%,rgba(37,211,102,.15),transparent 30%),radial-gradient(circle at 95% 25%,rgba(18,140,126,.12),transparent 30%),linear-gradient(160deg,#071111,#020606 70%);overflow-x:hidden}
+a{text-decoration:none;color:inherit}.site-header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:15px clamp(16px,5vw,70px);background:rgba(3,9,8,.82);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--green),var(--green2));color:#001b0b;font-weight:1000;font-size:12px}.brand-copy{display:flex;flex-direction:column}.brand-copy strong{font-size:12px;letter-spacing:.4px}.brand-copy small{color:#6f8582;font-size:9px;margin-top:3px}.header-nav{display:flex;align-items:center;gap:22px}.header-nav>a:not(.header-btn){color:#9aadaa;font-size:11px;font-weight:700}.header-btn{padding:10px 15px;border:1px solid var(--line);border-radius:11px;font-size:11px;font-weight:800;background:rgba(255,255,255,.05)}
+main{max-width:1180px;margin:auto;padding:25px 18px 60px}.announcement{display:flex;justify-content:center;gap:8px;color:#a6b9b7;font-size:10px;margin:12px 0 30px}.announcement span{color:var(--green)}
+.hero{display:grid;grid-template-columns:1.35fr .65fr;gap:30px;align-items:center;padding:55px 0 65px}.eyebrow{display:inline-block;color:var(--green);font-size:10px;font-weight:900;letter-spacing:1.5px;margin-bottom:15px}.hero h1{font-size:clamp(42px,6vw,72px);line-height:1.02;letter-spacing:-2.5px;margin-bottom:20px}.hero h1 span,.cta h2 span{color:var(--green)}.hero-text{max-width:600px;color:var(--muted);font-size:15px;line-height:1.7}.hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}.btn{display:inline-flex;align-items:center;justify-content:center;padding:14px 19px;border-radius:13px;font-size:11px;font-weight:900}.primary{background:linear-gradient(135deg,var(--green),#18a653);color:#001b0b;box-shadow:0 12px 35px rgba(37,211,102,.12)}.secondary{background:rgba(255,255,255,.055);border:1px solid var(--line)}.trust-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:19px;color:#718582;font-size:10px}.hero-card{padding:27px;border:1px solid rgba(37,211,102,.16);border-radius:25px;background:linear-gradient(145deg,rgba(37,211,102,.09),rgba(255,255,255,.035));box-shadow:0 25px 80px rgba(0,0,0,.25)}.hero-card-top{display:flex;justify-content:space-between;color:#718582;font-size:9px;font-weight:900;letter-spacing:1px}.hero-card-top b{color:var(--green)}.hero-price{font-size:35px;line-height:1.08;font-weight:900;margin:65px 0 16px}.hero-price span{color:var(--green)}.hero-card p{color:#879c99;font-size:11px;line-height:1.6}.hero-card a{display:block;margin-top:20px;color:var(--green);font-size:11px;font-weight:900}.campaign{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:25px;border:1px solid rgba(37,211,102,.13);border-radius:20px;background:linear-gradient(100deg,rgba(37,211,102,.10),rgba(255,255,255,.025))}.campaign-label{color:var(--green);font-size:9px;font-weight:900;letter-spacing:1.4px}.campaign h2{font-size:21px;margin:7px 0}.campaign p{color:#819592;font-size:11px;line-height:1.5}.campaign-btn{border:1px solid rgba(37,211,102,.25);color:var(--green);background:rgba(37,211,102,.06);white-space:nowrap}.section{padding:85px 0 35px}.section-heading{margin-bottom:25px}.section-heading h2{font-size:32px;letter-spacing:-1px;margin-bottom:7px}.section-heading p{color:#718582;font-size:12px}.service-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.service-card{display:grid;grid-template-columns:auto 1fr auto;gap:15px;align-items:center;padding:21px;border:1px solid var(--line);border-radius:19px;background:var(--panel);transition:.2s}.service-card:hover{transform:translateY(-2px);border-color:rgba(37,211,102,.25)}.service-card.featured{border-color:rgba(37,211,102,.18);background:linear-gradient(140deg,rgba(37,211,102,.08),var(--panel))}.service-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:rgba(37,211,102,.09);font-size:22px}.service-card span{font-size:8px;color:var(--green);font-weight:900;letter-spacing:1.3px}.service-card h3{font-size:14px;margin:5px 0}.service-card p{font-size:10px;color:#778d89;line-height:1.5}.service-card>b{color:#637875}.why-section{padding:75px 0}.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.why-grid>div{padding:24px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)}.why-grid strong{color:var(--green);font-size:10px}.why-grid h3{margin:22px 0 7px;font-size:16px}.why-grid p{color:#788d8a;font-size:11px;line-height:1.6}.cta{display:flex;align-items:center;justify-content:space-between;gap:25px;padding:40px;border-radius:25px;background:linear-gradient(135deg,rgba(37,211,102,.13),rgba(255,255,255,.035));border:1px solid rgba(37,211,102,.14)}.cta h2{font-size:35px;line-height:1.05;margin-bottom:10px}.cta p{color:#829794;font-size:11px}.contact{text-align:center;color:#657976;font-size:10px;line-height:1.8;padding:45px 0 10px}.contact strong{color:#b7c7c5}footer{text-align:center;color:#4f6260;font-size:9px;padding:0 16px 30px}
+@media(max-width:760px){.header-nav>a:not(.header-btn){display:none}.hero{grid-template-columns:1fr;padding:35px 0 45px}.hero-card{display:none}.service-grid,.why-grid{grid-template-columns:1fr}.campaign,.cta{flex-direction:column;align-items:flex-start}.campaign-btn{width:100%}.cta .btn{width:100%}.section{padding-top:60px}.hero h1{letter-spacing:-1.5px}.brand-copy small{display:none}}
+</style>
 
 </head>
 
 <body>
 
-
-<header>
-
-  <div class="logo">
-    DHE <span>GENIUS</span> MEDIA
-  </div>
-
-  <a
-    class="header-btn"
-    href="/login.html"
-  >
-    Login
+<header class="site-header">
+  <a class="brand" href="/" aria-label="DGM home">
+    <span class="brand-mark">DGM</span>
+    <span class="brand-copy"><strong>DHE GENIUS MEDIA</strong><small>Stay Connected. Stay Genius.</small></span>
   </a>
-
+  <nav class="header-nav">
+    <a href="#services">Services</a>
+    <a href="#why-dgm">Why DGM</a>
+    <a class="header-btn" href="/login.html">Sign In</a>
+  </nav>
 </header>
 
-
 <main>
-
+  <section class="announcement">
+    <span>●</span> DGM is your everyday digital services hub for Ghana
+  </section>
 
   <section class="hero">
-
-    <div class="badge">
-      🇬🇭 GHANA DIGITAL SERVICES
+    <div class="hero-copy">
+      <div class="eyebrow">GHANA • DATA • AIRTIME • DIGITAL SERVICES</div>
+      <h1>Everything you need.<br><span>One DGM account.</span></h1>
+      <p class="hero-text">Your trusted hub for data, airtime and digital services. Fast, simple and built for customers across Ghana.</p>
+      <div class="hero-actions">
+        <a class="btn primary" href="/register.html">Create Your DGM Account</a>
+        <a class="btn secondary" href="/login.html">Sign In</a>
+      </div>
+      <div class="trust-row">
+        <span>✓ Fast ordering</span>
+        <span>✓ DGM Wallet</span>
+        <span>✓ Order history</span>
+      </div>
     </div>
+    <div class="hero-card">
+      <div class="hero-card-top"><span>DGM QUICK START</span><b>24/7</b></div>
+      <div class="hero-price">Data when<br><span>you need it.</span></div>
+      <p>Choose your network, select your bundle, enter the recipient and confirm.</p>
+      <a href="/register.html">Start buying →</a>
+    </div>
+  </section>
 
+  <section class="campaign">
+    <div>
+      <span class="campaign-label">DGM REWARDS</span>
+      <h2>Buy. Save. Earn more with DGM.</h2>
+      <p>Use your DGM account to access rewards, referrals and cashback features as you use the platform.</p>
+    </div>
+    <a class="btn campaign-btn" href="/register.html">Join DGM</a>
+  </section>
 
-    <h1>
-      Stay Connected.<br>
-      <span>Stay Genius.</span>
-    </h1>
-
-
-    <p class="hero-text">
-      Your trusted hub for data, airtime and digital services.
-      Fast, simple and built for customers across Ghana.
-    </p>
-
-
-    <div class="buttons">
-
-      <a
-        class="btn primary"
-        href="/register.html"
-      >
-        Create Account
+  <section id="services" class="section">
+    <div class="section-heading">
+      <span class="eyebrow">WHAT YOU CAN DO</span>
+      <h2>Your everyday services, simplified.</h2>
+      <p>One platform for the services you use most.</p>
+    </div>
+    <div class="service-grid">
+      <a class="service-card featured" href="/register.html">
+        <div class="service-icon">📶</div><div><span>DATA</span><h3>MTN • AirtelTigo • Telecel</h3><p>Choose a bundle and send it to any eligible Ghanaian number.</p></div><b>→</b>
       </a>
-
-
-      <a
-        class="btn secondary"
-        href="/login.html"
-      >
-        Sign In
+      <a class="service-card" href="/register.html">
+        <div class="service-icon">₵</div><div><span>AIRTIME</span><h3>Recharge in seconds</h3><p>Top up Ghanaian mobile numbers from your DGM account.</p></div><b>→</b>
       </a>
-
+      <a class="service-card" href="/register.html">
+        <div class="service-icon">💳</div><div><span>DGM WALLET</span><h3>Pay your way</h3><p>Fund your wallet and use it for faster DGM purchases.</p></div><b>→</b>
+      </a>
+      <a class="service-card" href="/register.html">
+        <div class="service-icon">🎁</div><div><span>REWARDS</span><h3>Refer & earn</h3><p>Share DGM with friends and participate in the rewards programme.</p></div><b>→</b>
+      </a>
     </div>
-
   </section>
 
-
-  <section class="features">
-
-
-    <div class="feature">
-
-      <div class="feature-icon">
-        📶
-      </div>
-
-      <h3>
-        Data Bundles
-      </h3>
-
-      <p>
-        MTN, AirtelTigo and Telecel
-        data bundles with DGM pricing.
-      </p>
-
+  <section id="why-dgm" class="why-section">
+    <div class="section-heading">
+      <span class="eyebrow">WHY DGM</span>
+      <h2>Built around the customer.</h2>
     </div>
-
-
-    <div class="feature">
-
-      <div class="feature-icon">
-        ₵
-      </div>
-
-      <h3>
-        Airtime
-      </h3>
-
-      <p>
-        Purchase airtime for your
-        Ghanaian mobile number.
-      </p>
-
+    <div class="why-grid">
+      <div><strong>01</strong><h3>Simple</h3><p>No complicated process. Select, enter, confirm.</p></div>
+      <div><strong>02</strong><h3>Connected</h3><p>Keep your orders, wallet and account in one place.</p></div>
+      <div><strong>03</strong><h3>Rewarding</h3><p>Referral, loyalty and cashback features are built into DGM.</p></div>
     </div>
-
-
-    <div class="feature">
-
-      <div class="feature-icon">
-        📺
-      </div>
-
-      <h3>
-        Digital Services
-      </h3>
-
-      <p>
-        Explore Netflix, DSTV and
-        other digital services.
-      </p>
-
-    </div>
-
-
-    <div class="feature">
-
-      <div class="feature-icon">
-        🔐
-      </div>
-
-      <h3>
-        Customer Account
-      </h3>
-
-      <p>
-        Keep your orders and account
-        information in one place.
-      </p>
-
-    </div>
-
-
   </section>
 
-
-  <section class="services">
-
-    <h2>
-      Everything in One Place
-    </h2>
-
-    <p>
-      DHE GENIUS MEDIA is your trusted hub for
-      everyday data, airtime and digital services
-      across Ghana.
-    </p>
-
-
-    <div class="chips">
-
-      <span class="chip">
-        MTN Data
-      </span>
-
-      <span class="chip">
-        AirtelTigo Data
-      </span>
-
-      <span class="chip">
-        Telecel Data
-      </span>
-
-      <span class="chip">
-        Airtime
-      </span>
-
-      <span class="chip">
-        Netflix
-      </span>
-
-      <span class="chip">
-        DSTV
-      </span>
-
-      <span class="chip">
-        Apple Music
-      </span>
-
-      <span class="chip">
-        WhatsApp Services
-      </span>
-
-      <span class="chip">
-        USA Numbers
-      </span>
-
-      <span class="chip">
-        Social Media
-      </span>
-
-      <span class="chip">
-        And More
-      </span>
-
-    </div>
-
+  <section class="cta">
+    <div><span class="eyebrow">READY?</span><h2>Stay connected.<br><span>Stay Genius.</span></h2><p>Create your DGM account and get started.</p></div>
+    <a class="btn primary" href="/register.html">Create Account →</a>
   </section>
 
-
-  <div class="location">
-
-    DHE GENIUS MEDIA 24/7<br>
-
-    Accra • Spintex<br>
-
-    WhatsApp: 0241518385
-
+  <div class="contact">
+    <strong>DHE GENIUS MEDIA</strong><br>
+    Accra • Spintex • 24/7<br>
+    WhatsApp: 0241518385 • Calls: 0508667776 / 0241518385
   </div>
-
-
 </main>
 
+<footer>© 2026 DHE GENIUS MEDIA (DGM) • Stay Connected. Stay Genius.</footer>
 
-<footer>
-
-  © 2026 DHE GENIUS MEDIA (DGM)
-  • Stay Connected. Stay Genius.
-
-</footer>
-
-
-
-<!-- DGM GLOBAL BRAND NAVIGATION -->
 <script>
 (function(){
   function enableDgmBrandNavigation(){
     document.querySelectorAll('.brand, .logo, .brand-name, .brand-tagline, header b, header strong').forEach(function(el){
       if(el.dataset.dgmNavBound==='1') return;
-      var text=(el.textContent||'').replace(/\\s+/g,' ').trim().toLowerCase();
+      var text=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
       if(!text.includes('dgm') && !text.includes('dhe genius media') && !text.includes('stay connected. stay genius')) return;
       el.dataset.dgmNavBound='1';
       el.style.cursor='pointer';
-      el.setAttribute('role','link');
-      el.setAttribute('aria-label','Go to DGM Dashboard');
-      el.addEventListener('click',function(event){
-        if(event.target.closest('a') && event.target.closest('a')!==el) return;
-        window.location.href='/dashboard.html';
-      });
+      el.addEventListener('click',function(){ window.location.href='/dashboard.html'; });
     });
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',enableDgmBrandNavigation);
