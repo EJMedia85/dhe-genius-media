@@ -317,6 +317,10 @@ async function loadAgents(){
     $('#agentsBody').innerHTML=a.map(x=>'<tr><td><b>'+esc(x.agent_code||'Pending')+'</b><br><span class="muted">'+esc(x.tier)+'</span></td><td>'+esc(x.name)+'<br>'+esc(x.phone)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+money(x.wallet)+'</td><td>'+money(x.commission_balance)+'</td><td>'+x.completed_sales+'</td><td>'+money(x.total_profit)+'</td></tr>').join('')||'<tr><td colspan="7" class="empty">No agent applications yet.</td></tr>';
   }catch(e){$('#agentsBody').innerHTML='<tr><td colspan="7" class="empty danger">'+esc(e.message)+'</td></tr>'}
 }
+async function agentAction(id,action){
+  if(!confirm(action+' this agent?'))return;
+  try{await api('/api/admin/agents/'+id+'/'+action,{method:'POST'});await loadAgents()}catch(e){alert(e.message)}
+}
 async function loadSavings(){
   const d=await api('/api/admin/savings');
   const s=d.summary;
