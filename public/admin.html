@@ -309,6 +309,14 @@ $('#marketProductForm').onsubmit=async e=>{
 };
 async function removeMarketProduct(id){if(!confirm('Remove this product from the DGM Market? Existing orders will remain.'))return;try{await api('/api/admin/market/products/'+id,{method:'DELETE'});await loadMarket();}catch(e){alert(e.message)}}
 async function updateMarketOrder(id,status){try{await api('/api/admin/market/orders/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({status})});await loadMarketOrders();}catch(e){alert(e.message);await loadMarketOrders();}}
+async function loadAgents(){
+  try{
+    const d=await api('/api/admin/agents');
+    const a=d.agents||[];
+    $('#agentStats').innerHTML=[['Total Agents',a.length],['Pending',a.filter(x=>x.status==='pending').length],['Approved',a.filter(x=>x.status==='approved').length],['Suspended',a.filter(x=>x.status==='suspended').length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
+    $('#agentsBody').innerHTML=a.map(x=>'<tr><td><b>'+esc(x.agent_code||'Pending')+'</b><br><span class="muted">'+esc(x.tier)+'</span></td><td>'+esc(x.name)+'<br>'+esc(x.phone)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+money(x.wallet)+'</td><td>'+money(x.commission_balance)+'</td><td>'+x.completed_sales+'</td><td>'+money(x.total_profit)+'</td></tr>').join('')||'<tr><td colspan="7" class="empty">No agent applications yet.</td></tr>';
+  }catch(e){$('#agentsBody').innerHTML='<tr><td colspan="7" class="empty danger">'+esc(e.message)+'</td></tr>'}
+}
 async function loadSavings(){
   const d=await api('/api/admin/savings');
   const s=d.summary;
