@@ -26,151 +26,41 @@
 </head>
 <body>
 <header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()" aria-label="Open menu">☰</button></header>
-
 <aside class="sidebar" id="sidebar">
 <div class="sidebar-header"><a class="brand" href="/dashboard.html"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Customer Portal</div></div></a><button class="close-btn" type="button" onclick="closeMenu()">×</button></div>
 <div class="nav-title">Main</div>
-<button class="nav-item" onclick="goTo('/dashboard.html')">🏠 <span>Dashboard</span></button>
-<button class="nav-item" onclick="goTo('/data.html')">📶 <span>Buy Data</span></button>
-<button class="nav-item" onclick="goTo('/airtime.html')">📱 <span>Buy Airtime</span></button>
-<button class="nav-item" onclick="goTo('/savings.html')">💰 <span>Savings / Susu</span></button>
-<button class="nav-item" onclick="goTo('/orders.html')">📦 <span>My Orders</span></button>
-<div class="nav-title">Account</div>
-<button class="nav-item" onclick="goTo('/account.html')">👤 <span>Account</span></button>
-<button class="nav-item" onclick="goTo('/account.html#security')">🔐 <span>Security</span></button>
-<div class="nav-title">Services</div>
-<button class="nav-item" onclick="goTo('/aviator.html')">✈️ <span>Aviator Analytics</span></button>
-<button class="nav-item" onclick="goTo('/market.html')">🛒 <span>DGM Market</span></button>
-<button class="nav-item" onclick="goTo('/service.html')">🛍️ <span>More Services</span></button>
-<button class="nav-item" onclick="goTo('/notifications.html')">🔔 <span>Notifications</span></button>
-<div class="nav-title">Support & Devices</div>
-<button class="nav-item" onclick="goTo('/support.html')">💬 <span>WhatsApp Support</span></button>
-<button class="nav-item logout" onclick="logout()">🚪 <span>Sign Out</span></button>
-</aside>
-<div class="overlay" id="overlay" onclick="closeMenu()"></div>
-
-<main class="main">
-<section class="welcome"><small>Customer Dashboard</small><h1>Welcome back 👋 <span id="customerName">DGM Customer</span></h1></section>
-
-
-
-<section class="promo-card"><div class="promo-kicker">DGM • Stay Connected. Stay Genius.</div><h2>Your digital life, one dashboard.</h2><p>Buy data, top up airt<body>
-<header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()">☰</button></header>
-<aside class="sidebar" id="sidebar">
-<div class="sidebar-header"><a class="brand" href="/dashboard.html"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Customer Portal</div></div></a><button class="close-btn" type="button" onclick="closeMenu()">×</button></div>
-<div class="nav-title">Main</div>
-<button class="nav-item" onclick="goTo('/dashboard.html')">🏠 <span>Dashboard</span></button>
-<button class="nav-item" onclick="goTo('/data.html')">📶 <span>Buy Data</span></button>
-<button class="nav-item" onclick="goTo('/airtime.html')">📱 <span>Buy Airtime</span></button>
-<button class="nav-item" onclick="goTo('/orders.html')">📦 <span>My Orders</span></button>
+<button class="nav-item" onclick="goTo('/dashboard.html')">🏠 <span>Dashboard</span></button><button class="nav-item" onclick="goTo('/data.html')">📶 <span>Buy Data</span></button><button class="nav-item" onclick="goTo('/airtime.html')">📱 <span>Buy Airtime</span></button><button class="nav-item" onclick="goTo('/orders.html')">📦 <span>My Orders</span></button>
 <div class="nav-title">Savings & Account</div>
-<button class="nav-item" onclick="goTo('/savings.html')">💰 <span>Savings / Susu</span></button>
-<button class="nav-item" onclick="goTo('/account.html')">👤 <span>Account</span></button>
-<button class="nav-item" onclick="goTo('/account.html#security')">🔐 <span>Security</span></button>
+<button class="nav-item" onclick="goTo('/savings.html')">💰 <span>Savings / Susu</span></button><button class="nav-item" onclick="goTo('/account.html')">👤 <span>Account</span></button><button class="nav-item" onclick="goTo('/account.html#security')">🔐 <span>Security</span></button>
 <div class="nav-title">Services</div>
-<button class="nav-item" onclick="goTo('/social-boosting.html')">🚀 <span>Social Boosting</span></button>
-<button class="nav-item" onclick="goTo('/market.html')">🛒 <span>DGM Market</span></button>
-<button class="nav-item" onclick="goTo('/aviator.html')">✈️ <span>Aviator Analytics</span></button>
-<button class="nav-item" onclick="goTo('/service.html')">✨ <span>More Services</span></button>
-<button class="nav-item" onclick="goTo('/notifications.html')">🔔 <span>Notifications</span></button>
-<div class="nav-title">Support</div>
-<button class="nav-item" onclick="goTo('/support.html')">💬 <span>WhatsApp Support</span></button>
-<button class="nav-item logout" onclick="logout()">🚪 <span>Sign Out</span></button>
-</aside>
-<div class="overlay" id="overlay" onclick="closeMenu()"></div>
-
+<button class="nav-item" onclick="goTo('/social-boosting.html')">🚀 <span>Social Boosting</span></button><button class="nav-item" onclick="goTo('/market.html')">🛒 <span>DGM Market</span></button><button class="nav-item" onclick="goTo('/aviator.html')">✈️ <span>Aviator Analytics</span></button><button class="nav-item" onclick="goTo('/service.html')">✨ <span>More Services</span></button><button class="nav-item" onclick="goTo('/notifications.html')">🔔 <span>Notifications</span></button>
+<div class="nav-title">Support</div><button class="nav-item" onclick="goTo('/support.html')">💬 <span>WhatsApp Support</span></button><button class="nav-item logout" onclick="logout()">🚪 <span>Sign Out</span></button>
+</aside><div class="overlay" id="overlay" onclick="closeMenu()"></div>
 <main class="main">
-<div class="topline">
-<section class="welcome"><small>DGM Customer Dashboard</small><h1>Welcome back, <span id="customerName">DGM Customer</span> 👋</h1></section>
-<div class="top-actions"><button class="icon-btn" onclick="goTo('/notifications.html')" aria-label="Notifications">🔔</button><button class="icon-btn" onclick="goTo('/account.html')" aria-label="Account">👤</button></div>
-</div>
-
-<section class="wallet">
-<div class="eyebrow">DGM Wallet • Available Balance</div>
-<div class="wallet-balance" id="walletBalance">GH₵0.00</div>
-<div class="wallet-actions"><button class="wallet-btn primary" onclick="goTo('/account.html#wallet')">＋ Add Money</button><button class="wallet-btn" onclick="goTo('/account.html#withdraw')">↗ Withdraw</button><button class="wallet-btn" onclick="goTo('/account.html#transactions')">Transactions</button></div>
-<div class="wallet-meta">Use your DGM Wallet for data, airtime, social boosting, savings and DGM Market purchases.</div>
-</section>
-
-<section class="section">
-<div class="section-head"><h2 class="section-title">What do you need today?</h2></div>
-<div class="primary-grid">
-<button class="primary-card" onclick="goTo('/data.html')"><div class="primary-icon">📶</div><strong>Buy Data</strong><span>MTN • Telecel • AirtelTigo</span></button>
-<button class="primary-card" onclick="goTo('/airtime.html')"><div class="primary-icon">📱</div><strong>Buy Airtime</strong><span>Top up instantly</span></button>
-<button class="primary-card" onclick="goTo('/social-boosting.html')"><div class="primary-icon">🚀</div><strong>Social Boost</strong><span>Instagram • TikTok • YouTube</span></button>
-<button class="primary-card" onclick="goTo('/market.html')"><div class="primary-icon">🛒</div><strong>DGM Market</strong><span>Shop products & deals</span></button>
-</div>
-</section>
-
-<section class="section">
-<div class="section-head"><h2 class="section-title">Your Services</h2><a class="section-link" href="/service.html">View all →</a></div>
-<div class="services-grid">
-<button class="service-card" onclick="goTo('/savings.html')"><b>🏦</b><span>Savings / Susu</span></button>
-<button class="service-card" onclick="goTo('/orders.html')"><b>📦</b><span>My Orders</span></button>
-<button class="service-card" onclick="goTo('/service.html')"><b>✨</b><span>More Services</span></button>
-<button class="service-card" onclick="goTo('/support.html')"><b>💬</b><span>Support</span></button>
-<button class="service-card" onclick="goTo('/account.html#security')"><b>🔐</b><span>Security</span></button>
-<button class="service-card" onclick="goTo('/notifications.html')"><b>🔔</b><span>Notifications</span></button>
-<button class="service-card" onclick="goTo('/aviator.html')"><b>✈️</b><span>Aviator</span></button>
-<button class="service-card" onclick="goTo('/account.html')"><b>👤</b><span>Account</span></button>
-</div>
-</section>
-
-<section class="section" id="activeSection" style="display:none">
-<div class="section-head"><h2 class="section-title">Active Order</h2><a class="section-link" href="/orders.html">Track →</a></div>
-<div class="activity-card" id="activeOrder"></div>
-</section>
-
-<section class="section">
-<div class="section-head"><h2 class="section-title">Recent Activity</h2><a class="section-link" href="/orders.html">View all →</a></div>
-<div class="activity-layout">
-<div class="activity-card" id="orders"><div class="empty"><div>📦</div>Loading recent activity...</div></div>
-<div class="activity-card">
-<div class="activity-row"><div class="activity-main"><strong>Orders</strong><small>Total purchases and service requests</small></div><div class="activity-right"><b id="totalOrders">0</b></div></div>
-<div class="activity-row"><div class="activity-main"><strong>Processing</strong><small>Currently being fulfilled</small></div><div class="activity-right"><b id="processingOrders">0</b></div></div>
-<div class="activity-row"><div class="activity-main"><strong>Completed</strong><small>Successfully delivered</small></div><div class="activity-right"><b id="completedOrders">0</b></div></div>
-<div class="activity-row"><div class="activity-main"><strong>Unread Alerts</strong><small>Important DGM updates</small></div><div class="activity-right"><b id="notificationCountMini">0</b></div></div>
-</div>
-</div>
-</section>
-
-<section class="section">
-<div class="section-head"><h2 class="section-title">Load a DGM Code</h2><a class="section-link" href="/orders.html">My Orders →</a></div>
-<div class="activity-card" style="padding:13px">
-<div class="code-loader"><input id="dgmCode" class="code-input" placeholder="e.g. DGM-MUL9487D-8C8331" autocomplete="off"><button class="code-btn" onclick="loadDgmCode()">Load</button></div>
-<div id="codeResult" class="code-result"></div>
-</div>
-</section>
-
-<section class="section">
-<div class="section-head"><h2 class="section-title">Notifications</h2><a class="section-link" href="/notifications.html">View all →</a></div>
-<div class="activity-card" id="notifications"><div class="empty"><div>🔔</div>Loading notifications...</div></div>
-</section>
+<div class="topline"><section class="welcome"><small>DGM Customer Dashboard</small><h1>Welcome back, <span id="customerName">DGM Customer</span> 👋</h1></section><div class="top-actions"><button class="icon-btn" onclick="goTo('/notifications.html')" aria-label="Notifications">🔔</button><button class="icon-btn" onclick="goTo('/account.html')" aria-label="Account">👤</button></div></div>
+<section class="wallet"><div class="eyebrow">DGM Wallet • Available Balance</div><div class="wallet-balance" id="walletBalance">GH₵0.00</div><div class="wallet-actions"><button class="wallet-btn primary" onclick="goTo('/account.html#wallet')">＋ Add Money</button><button class="wallet-btn" onclick="goTo('/account.html#withdraw')">↗ Withdraw</button><button class="wallet-btn" onclick="goTo('/account.html#transactions')">Transactions</button></div><div class="wallet-meta">Use your DGM Wallet for data, airtime, social boosting, savings and DGM Market purchases.</div></section>
+<section class="section"><div class="section-head"><h2 class="section-title">What do you need today?</h2></div><div class="primary-grid">
+<button class="primary-card" onclick="goTo('/data.html')"><div class="primary-icon">📶</div><strong>Buy Data</strong><span>MTN • Telecel • AirtelTigo</span></button><button class="primary-card" onclick="goTo('/airtime.html')"><div class="primary-icon">📱</div><strong>Buy Airtime</strong><span>Top up instantly</span></button><button class="primary-card" onclick="goTo('/social-boosting.html')"><div class="primary-icon">🚀</div><strong>Social Boost</strong><span>Instagram • TikTok • YouTube</span></button><button class="primary-card" onclick="goTo('/market.html')"><div class="primary-icon">🛒</div><strong>DGM Market</strong><span>Shop products & deals</span></button>
+</div></section>
+<section class="section"><div class="section-head"><h2 class="section-title">Your Services</h2><a class="section-link" href="/service.html">View all →</a></div><div class="services-grid">
+<button class="service-card" onclick="goTo('/savings.html')"><b>🏦</b><span>Savings / Susu</span></button><button class="service-card" onclick="goTo('/orders.html')"><b>📦</b><span>My Orders</span></button><button class="service-card" onclick="goTo('/service.html')"><b>✨</b><span>More Services</span></button><button class="service-card" onclick="goTo('/support.html')"><b>💬</b><span>Support</span></button><button class="service-card" onclick="goTo('/account.html#security')"><b>🔐</b><span>Security</span></button><button class="service-card" onclick="goTo('/notifications.html')"><b>🔔</b><span>Notifications</span></button><button class="service-card" onclick="goTo('/aviator.html')"><b>✈️</b><span>Aviator</span></button><button class="service-card" onclick="goTo('/account.html')"><b>👤</b><span>Account</span></button>
+</div></section>
+<section class="section" id="activeSection" style="display:none"><div class="section-head"><h2 class="section-title">Active Order</h2><a class="section-link" href="/orders.html">Track →</a></div><div class="activity-card" id="activeOrder"></div></section>
+<section class="section"><div class="section-head"><h2 class="section-title">Recent Activity</h2><a class="section-link" href="/orders.html">View all →</a></div><div class="activity-layout"><div class="activity-card" id="orders"><div class="empty"><div>📦</div>Loading recent activity...</div></div><div class="activity-card"><div class="activity-row"><div class="activity-main"><strong>Orders</strong><small>Total purchases and service requests</small></div><div class="activity-right"><b id="totalOrders">0</b></div></div><div class="activity-row"><div class="activity-main"><strong>Processing</strong><small>Currently being fulfilled</small></div><div class="activity-right"><b id="processingOrders">0</b></div></div><div class="activity-row"><div class="activity-main"><strong>Completed</strong><small>Successfully delivered</small></div><div class="activity-right"><b id="completedOrders">0</b></div></div><div class="activity-row"><div class="activity-main"><strong>Unread Alerts</strong><small>Important DGM updates</small></div><div class="activity-right"><b id="notificationCountMini">0</b></div></div></div></div></section>
+<section class="section"><div class="section-head"><h2 class="section-title">Load a DGM Code</h2><a class="section-link" href="/orders.html">My Orders →</a></div><div class="activity-card" style="padding:13px"><div class="code-loader"><input id="dgmCode" class="code-input" placeholder="e.g. DGM-MUL9487D-8C8331" autocomplete="off"><button class="code-btn" onclick="loadDgmCode()">Load</button></div><div id="codeResult" class="code-result"></div></div></section>
+<section class="section"><div class="section-head"><h2 class="section-title">Notifications</h2><a class="section-link" href="/notifications.html">View all →</a></div><div class="activity-card" id="notifications"><div class="empty"><div>🔔</div>Loading notifications...</div></div></section>
 </main>
-
-<nav class="bottom-nav">
-<button class="active" onclick="goTo('/dashboard.html')"><span class="bottom-icon">⌂</span>Home</button>
-<button onclick="goTo('/service.html')"><span class="bottom-icon">▦</span>Services</button>
-<button onclick="goTo('/orders.html')"><span class="bottom-icon">◷</span>Orders</button>
-<button onclick="goTo('/account.html')"><span class="bottom-icon">◉</span>Account</button>
-</nav>
+<nav class="bottom-nav"><button class="active" onclick="goTo('/dashboard.html')"><span class="bottom-icon">⌂</span>Home</button><button onclick="goTo('/service.html')"><span class="bottom-icon">▦</span>Services</button><button onclick="goTo('/orders.html')"><span class="bottom-icon">◷</span>Orders</button><button onclick="goTo('/account.html')"><span class="bottom-icon">◉</span>Account</button></nav>
 <script>
-function goTo(page){if(page){closeMenu();window.location.assign(page)}}
-function openMenu(){document.getElementById("sidebar").classList.add("open");document.getElementById("overlay").classList.add("show");document.body.style.overflow="hidden"}
-function closeMenu(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("show");document.body.style.overflow=""}
+function goTo(page){if(page){closeMenu();window.location.assign(page)}}function openMenu(){document.getElementById("sidebar").classList.add("open");document.getElementById("overlay").classList.add("show");document.body.style.overflow="hidden"}function closeMenu(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("show");document.body.style.overflow=""}
 async function logout(){try{await fetch("/api/logout",{method:"POST",credentials:"include",cache:"no-store"})}catch(e){}window.location.replace("/login.html")}
-function escapeHTML(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}
-function fetchWithTimeout(url,options={},timeoutMs=10000){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer))}
-function statusClass(s){const l=String(s||"").toLowerCase();return l.includes("complete")||l.includes("success")||l.includes("deliver")?"completed":l.includes("fail")||l.includes("refund")||l.includes("cancel")?"failed":""}
-function isActive(s){const l=String(s||"").toLowerCase();return ["processing","pending","initiated","queued","in progress","in-progress"].includes(l)}
-async function loadCustomer(){try{const r=await fetchWithTimeout("/api/me",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load account");const j=await r.json();if(!j.success||!j.customer)return window.location.replace("/login.html");document.getElementById("customerName").textContent=j.customer.name||"DGM Customer";const balance="GH₵"+Number(j.customer.balance||0).toFixed(2);document.getElementById("walletBalance").textContent=balance}catch(e){console.error("Customer loading error:",e)}}
+function escapeHTML(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}function fetchWithTimeout(url,options={},timeoutMs=10000){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer))}
+function statusClass(s){const l=String(s||"").toLowerCase();return l.includes("complete")||l.includes("success")||l.includes("deliver")?"completed":l.includes("fail")||l.includes("refund")||l.includes("cancel")?"failed":""}function isActive(s){return ["processing","pending","initiated","queued","in progress","in-progress"].includes(String(s||"").toLowerCase())}
 function renderOrder(o){const s=String(o.status||"Processing");return '<div class="activity-row" onclick="goTo(\'/orders.html\')"><div class="activity-main"><strong>'+escapeHTML(o.service||"Service")+'</strong><small>'+escapeHTML(o.order_ref||"N/A")+'</small></div><div class="activity-right"><b>GH₵'+Number(o.amount||0).toFixed(2)+'</b><span class="status '+statusClass(s)+'">'+escapeHTML(s)+'</span></div></div>'}
-async function loadOrders(){const c=document.getElementById("orders");try{const r=await fetchWithTimeout("/api/orders",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load orders");const j=await r.json();const list=Array.isArray(j.orders)?j.orders:[];const processing=["processing","pending","initiated","queued","in progress","in-progress"];const completed=["completed","complete","success","successful","delivered"];document.getElementById("totalOrders").textContent=list.length;document.getElementById("processingOrders").textContent=list.filter(o=>processing.includes(String(o.status||"").toLowerCase())).length;document.getElementById("completedOrders").textContent=list.filter(o=>completed.includes(String(o.status||"").toLowerCase())).length;if(!list.length){c.innerHTML='<div class="empty"><div>📦</div>No orders yet.<br>Your recent activity will appear here.</div>';return}c.innerHTML=list.slice(0,5).map(renderOrder).join("");const active=list.find(o=>isActive(o.status));if(active){document.getElementById("activeSection").style.display="block";document.getElementById("activeOrder").innerHTML=renderOrder(active)}else document.getElementById("activeSection").style.display="none"}catch(e){console.error("Orders loading error:",e);c.innerHTML='<div class="empty"><div>📦</div>Unable to load recent activity.<br>Please refresh and try again.</div>'}}
+async function loadCustomer(){try{const r=await fetchWithTimeout("/api/me",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load account");const j=await r.json();if(!j.success||!j.customer)return window.location.replace("/login.html");document.getElementById("customerName").textContent=j.customer.name||"DGM Customer";document.getElementById("walletBalance").textContent="GH₵"+Number(j.customer.balance||0).toFixed(2)}catch(e){console.error("Customer loading error:",e)}}
+async function loadOrders(){const c=document.getElementById("orders");try{const r=await fetchWithTimeout("/api/orders",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load orders");const j=await r.json();const list=Array.isArray(j.orders)?j.orders:[];const processing=["processing","pending","initiated","queued","in progress","in-progress"],completed=["completed","complete","success","successful","delivered"];document.getElementById("totalOrders").textContent=list.length;document.getElementById("processingOrders").textContent=list.filter(o=>processing.includes(String(o.status||"").toLowerCase())).length;document.getElementById("completedOrders").textContent=list.filter(o=>completed.includes(String(o.status||"").toLowerCase())).length;const active=list.find(o=>isActive(o.status));if(active){document.getElementById("activeSection").style.display="block";document.getElementById("activeOrder").innerHTML=renderOrder(active)}else document.getElementById("activeSection").style.display="none";const recent=active?list.filter(o=>o!==active):list;if(!recent.length){c.innerHTML='<div class="empty"><div>📦</div>No other recent activity.</div>';return}c.innerHTML=recent.slice(0,5).map(renderOrder).join("")}catch(e){console.error("Orders loading error:",e);c.innerHTML='<div class="empty"><div>📦</div>Unable to load recent activity.<br>Please refresh and try again.</div>'}}
 async function loadNotifications(){const c=document.getElementById("notifications");try{const r=await fetchWithTimeout("/api/notifications",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load notifications");const j=await r.json(),items=Array.isArray(j.notifications)?j.notifications:[];document.getElementById("notificationCountMini").textContent=Number(j.unread_count||0);if(!items.length){c.innerHTML='<div class="empty"><div>🔔</div>No notifications yet.</div>';return}c.innerHTML=items.slice(0,3).map(n=>'<div class="activity-row" onclick="markNotificationRead('+Number(n.id)+')"><div class="activity-main"><strong>'+escapeHTML(n.title||"DGM Update")+'</strong><small>'+escapeHTML(n.message||"")+'<br>'+escapeHTML(n.created_at?new Date(n.created_at).toLocaleString():"")+'</small></div><div class="activity-right">'+(!n.read_at?'<span class="status completed">NEW</span>':"")+'</div></div>').join("")}catch(e){console.error("Notifications error:",e);c.innerHTML='<div class="empty"><div>🔔</div>Unable to load notifications.</div>'}}
 async function markNotificationRead(id){try{await fetch("/api/notifications/"+encodeURIComponent(id)+"/read",{method:"POST",credentials:"include",cache:"no-store"});loadNotifications()}catch(e){}}
 async function loadDgmCode(){const input=document.getElementById("dgmCode"),out=document.getElementById("codeResult"),code=String(input.value||"").trim().toUpperCase();if(!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(code)){out.innerHTML='<div class="empty" style="padding:14px">Enter a valid DGM code such as DGM-MUL9487D-8C8331.</div>';return}out.innerHTML='<div class="empty" style="padding:14px">Loading code...</div>';try{const r=await fetchWithTimeout("/api/order-code/"+encodeURIComponent(code),{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);const j=await r.json();if(!r.ok||!j.success)throw Error(j.message||"DGM code not found.");const o=j.order||{};out.innerHTML='<div class="activity-row"><div class="activity-main"><strong>'+escapeHTML(o.service||"DGM Service")+'</strong><small>'+escapeHTML(o.order_ref||code)+'<br>'+escapeHTML(o.recipient||"")+'</small></div><div class="activity-right"><b>GH₵'+Number(o.amount||0).toFixed(2)+'</b><span class="status '+statusClass(o.status)+'">'+escapeHTML(o.status||"Processing")+'</span></div></div>'}catch(e){out.innerHTML='<div class="empty" style="padding:14px">'+escapeHTML(e.message||"DGM code not found.")+'</div>'}}
 document.addEventListener("DOMContentLoaded",()=>{loadCustomer();loadOrders();loadNotifications();setInterval(loadNotifications,15000);setInterval(loadOrders,15000)})
-</script>
-<script src="/pwa.js" defer></script>
-</body>
-</html>
+</script><script src="/pwa.js" defer></script></body></html>
