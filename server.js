@@ -6824,6 +6824,66 @@ app.get(
 );
 
 // =====================================================
+// LOAD DGM ORDER CODE
+// =====================================================
+app.get(
+  "/api/order-code/:code",
+  requireLogin,
+  async (req, res) => {
+    try {
+      const code = String(req.params.code || "").trim().toUpperCase();
+      if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(code)) {
+        return sendError(res, 400, "Invalid DGM code.");
+      }
+
+      const customerId = req.session.customerId;
+
+      const orderResult = await pool.query(
+        "SELECT id, order_ref, service, network, phone, amount, status, capacity, payment_status, paid_at, provider_reference, provider_status, provider_message, created_at, completed_at FROM orders WHERE customer_id = $1 AND UPPER(order_ref) = $2 LIMIT 1",
+        [customerId, code]
+      );
+
+      if (orderResult.rows.length) {
+        return res.json({ success: true, source: "orders", order: orderResult.rows[0] });
+      }
+
+      const socialTable = await pool.query(
+        "SELECT to_regclass('public.bwm_xmd_orders') IS NOT NULL AS exists"
+      );
+      if (socialTable.rows[0].exists) {
+        const social = await pool.query(
+          "SELECT id, order_ref, service_name, link, quantity, customer_price, status, provider_order_id, provider_status, created_at FROM bwm_xmd_orders WHERE customer_id = $1 AND UPPER(order_ref) = $2 LIMIT 1",
+          [customerId, code]
+        );
+        if (social.rows.length) {
+          const o = social.rows[0];
+          return res.json({ success: true, source: "social_boosting", order: { ...o, service: "Social Boosting", amount: Number(o.customer_price || 0), phone: o.link || null, payment_status: "paid" } });
+        }
+      }
+
+      const marketTable = await pool.query(
+        "SELECT to_regclass('public.market_orders') IS NOT NULL AS exists"
+      );
+      if (marketTable.rows[0].exists) {
+        const market = await pool.query(
+          "SELECT id, order_ref, total_amount, status, created_at FROM market_orders WHERE customer_id = $1 AND UPPER(order_ref) = $2 LIMIT 1",
+          [customerId, code]
+        );
+        if (market.rows.length) {
+          const o = market.rows[0];
+          return res.json({ success: true, source: "market", order: { ...o, service: "DGM Market", amount: Number(o.total_amount || 0), payment_status: "paid" } });
+        }
+      }
+
+      return sendError(res, 404, "DGM code not found.");
+    } catch (error) {
+      console.error("DGM code lookup error:", error);
+      return sendError(res, 500, "Could not load DGM code.");
+    }
+  }
+);
+
+// =====================================================
 // CREATE DATA ORDER
 // =====================================================
 
