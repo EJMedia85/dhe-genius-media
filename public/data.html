@@ -88,7 +88,7 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 <div class="summary-row"><span>Network</span><strong id="summaryNetwork">—</strong></div>
 <div class="summary-row"><span>Bundle</span><strong id="summaryBundle">—</strong></div>
 <div class="summary-row"><span>Recipient</span><strong id="summaryRecipient">—</strong></div>
-<div class="summary-row summary-total"><span>Total</span><strong id="selectedPrice">GH₵0.00</strong></div>
+<div class="summary-row"><span>Promotion</span><strong id="promotionSummary">—</strong></div><div class="summary-row"><span>Discount</span><strong id="discountSummary">GH₵0.00</strong></div><div class="summary-row summary-total"><span>Total</span><strong id="selectedPrice">GH₵0.00</strong></div>
 </div>
 
 <button id="confirmButton" class="confirm-button" onclick="createOrder()">Confirm Order</button>
@@ -155,7 +155,7 @@ function updateRecipientSummary(){
 }
 function selectBundle(size,price,button){
  document.querySelectorAll(".bundle").forEach(item=>item.classList.remove("selected"));button.classList.add("selected");
- selectedBundle={size:String(size),price:Number(price)};
+ selectedBundle={size:String(size),price:Number(price),basePrice:Number(price)};
  document.getElementById("selectedBundle").textContent=selectedNetwork+" • "+selectedBundle.size;
  document.getElementById("summaryNetwork").textContent=selectedNetwork;
  document.getElementById("summaryBundle").textContent=selectedBundle.size;
@@ -178,7 +178,7 @@ async function createOrder(){
   if(response.status===401){window.location.href="/login.html";return}
   if(!response.ok)throw new Error(data.message||"Could not create order.");
   if(!data.order||!data.order.order_ref)throw new Error("Order reference was not returned.");
-  currentOrder=data.order;document.getElementById("paymentBox").classList.add("show");showMessage("Order created successfully. Choose your payment method.","success");button.textContent="Order Created ✓";
+  currentOrder=data.order;const promo=data.promotion||null;const sale=Number(data.order.amount||selectedBundle.price);const base=Number(data.order.base_amount||selectedBundle.price);const discount=Number(data.order.promo_discount||Math.max(0,base-sale));document.getElementById("promotionSummary").textContent=promo?.title||"No promotion";document.getElementById("discountSummary").textContent="GH₵"+discount.toFixed(2);document.getElementById("selectedPrice").textContent="GH₵"+sale.toFixed(2);document.getElementById("paymentBox").classList.add("show");showMessage(promo?"Promotion applied: "+promo.title+". You save GH₵"+discount.toFixed(2)+".":"Order created successfully. Choose your payment method.","success");button.textContent="Order Created ✓";
  }catch(error){console.error("Create order error:",error);showMessage(error.message||"Could not create order.","error");button.disabled=false;button.textContent="Confirm Order"}
 }
 async function payFromWallet(){
