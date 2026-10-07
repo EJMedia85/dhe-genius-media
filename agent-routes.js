@@ -462,6 +462,63 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
   });
 
 
+  // AGENT BUSINESS MANAGEMENT — DataMart-style parity without copying DataMart branding
+  app.get("/api/agent/customers", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId);
+      if(!a||a.status!=="approved") return res.status(403).json({success:false,message:"Approved agent account required."});
+      const q=await pool.query(\`SELECT o.customer_id,COALESCE(c.name,'Customer') AS name,COALESCE(c.phone,o.phone) AS phone,
+        COUNT(*) FILTER (WHERE s.status='Completed')::int AS completed_orders,
+        COALESCE(SUM(s.sale_price) FILTER (WHERE s.status='Completed'),0) AS total_spend,
+        MAX(s.created_at) AS last_order
+        FROM agent_sales s JOIN orders o ON o.id=s.order_id LEFT JOIN customers c ON c.id=o.customer_id
+        WHERE s.agent_id=$1 GROUP BY o.customer_id,c.name,c.phone,o.phone ORDER BY last_order DESC LIMIT 200\`,[a.id]);
+      res.json({success:true,customers:q.rows});
+    }catch(e){res.status(500).json({success:false,message:"Could not load agent customers."});}
+  });
+
+  app.get("/api/agent/transactions", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId);
+      if(!a) return res.status(404).json({success:false,message:"Agent account not found."});
+      const [wallet,commission]=await Promise.all([
+        pool.query(\`SELECT type,amount,balance_before,balance_after,description,reference,created_at FROM agent_wallet_transactions WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 100\`,[a.id]),
+        pool.query(\`SELECT type,amount,balance_before,balance_after,description,reference,created_at FROM agent_commission_transactions WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 100\`,[a.id])
+      ]);
+      res.json({success:true,wallet:wallet.rows,commission:commission.rows});
+    }catch(e){res.status(500).json({success:false,message:"Could not load agent transactions."});}
+  });
+
+  app.get("/api/agent/promos", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId); if(!a) return res.status(404).json({success:false,message:"Agent account not found."});
+      const q=await pool.query(\`SELECT id,code,discount_type,discount_value,max_uses,uses,active,expires_at FROM agent_promo_codes WHERE agent_id=$1 ORDER BY id DESC\`,[a.id]);
+      res.json({success:true,promos:q.rows});
+    }catch(e){res.status(500).json({success:false,message:"Could not load promo codes."});}
+  });
+
+  app.post("/api/agent/promos", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId); if(!a||a.status!=="approved") throw new Error("Approved agent account required.");
+      const code=String(req.body?.code||"").trim().toUpperCase().replace(/[^A-Z0-9_-]/g,"").slice(0,32);
+      const type=String(req.body?.discount_type||"fixed").toLowerCase();
+      const value=money(req.body?.discount_value), maxUses=req.body?.max_uses?Number(req.body.max_uses):null;
+      const expires=req.body?.expires_at?new Date(req.body.expires_at):null;
+      if(!code||code.length<3) throw new Error("Promo code must be at least 3 characters.");
+      if(!["fixed","percent"].includes(type)||!Number.isFinite(value)||value<=0) throw new Error("Enter a valid discount.");
+      if(type==="percent"&&value>100) throw new Error("Percentage discount cannot exceed 100%.");
+      if(maxUses!==null&&(!Number.isInteger(maxUses)||maxUses<1)) throw new Error("Maximum uses must be a positive whole number.");
+      if(expires&&Number.isNaN(expires.getTime())) throw new Error("Invalid expiry date.");
+      await pool.query(\`INSERT INTO agent_promo_codes(agent_id,code,discount_type,discount_value,max_uses,expires_at) VALUES($1,$2,$3,$4,$5,$6)
+        ON CONFLICT(agent_id,code) DO UPDATE SET discount_type=EXCLUDED.discount_type,discount_value=EXCLUDED.discount_value,max_uses=EXCLUDED.max_uses,expires_at=EXCLUDED.expires_at,active=true\`,[a.id,code,type,value,maxUses,expires]);
+      res.json({success:true,message:"Promo code saved."});
+    }catch(e){res.status(400).json({success:false,message:e.message||"Could not save promo code."});}
+  });
+
+  app.post("/api/agent/promos/:id/toggle", requireCustomer, async (req,res)=>{
+    try{const a=await getAgent(req.session.customerId);if(!a)throw new Error("Agent account not found.");const r=await pool.query(\`UPDATE agent_promo_codes SET active=NOT active WHERE id=$1 AND agent_id=$2 RETURNING active\`,[Number(req.params.id),a.id]);if(!r.rows.length)throw new Error("Promo code not found.");res.json({success:true,message:r.rows[0].active?"Promo activated.":"Promo deactivated."});}catch(e){res.status(400).json({success:false,message:e.message});}
+  });
+
   // ADMIN
   app.get("/api/admin/agents", requireAdmin, async (req,res)=>{
     try{
