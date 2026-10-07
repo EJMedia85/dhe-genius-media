@@ -177,7 +177,7 @@
 <div id="customerModal" class="modal" hidden><div class="modal-card"><div class="kpi"><div><div class="brand">CUSTOMER PROFILE</div><h2 id="detailTitle">Customer</h2><div id="detailSub" class="muted"></div></div><button class="btn" onclick="closeCustomer()">Close</button></div><div id="detailContent"></div></div></div>
 
 <script>
-const $=s=>document.querySelector(s), $=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s);
 const IS_STAFF_PORTAL=location.pathname==='/staff.html';
 const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
 const money=v=>'GH₵'+Number(v||0).toFixed(2);
