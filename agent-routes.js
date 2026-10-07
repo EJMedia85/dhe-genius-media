@@ -142,7 +142,8 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       return res.json({
         success:true, enrolled:true,
         agent:{id:a.id,agent_code:a.agent_code,status:a.status,tier:a.tier,commission_balance:money(a.commission_balance),
-          wallet:money(a.agent_wallet),name:a.name,phone:a.phone,email:a.email,application_note:a.application_note},
+          wallet:money(a.agent_wallet),name:a.name,phone:a.phone,email:a.email,application_note:a.application_note,
+          store_slug:a.store_slug||"",store_name:a.store_name||"",store_bio:a.store_bio||"",whatsapp_phone:a.whatsapp_phone||""},
         stats:{completed_sales:sales.rows[0].count,total_sales:money(sales.rows[0].sales),total_profit:money(sales.rows[0].profit)},
         withdrawals:withdrawals.rows
       });
