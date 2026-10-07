@@ -168,48 +168,6 @@
     .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(37,211,102,.45); }
 
     /* =========================
-       SOCIAL BOOSTING ORDERS
-    ========================= */
-
-    async function loadSocialOrders() {
-      if (socialLoading) return;
-      socialLoading = true;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 5000);
-      try {
-        const response = await fetch("/api/bwm/orders", {
-          credentials:"include",
-          cache:"no-store",
-          signal: controller.signal
-        });
-        if (response.status === 401) { window.location.href="/login.html"; return; }
-        const data = await response.json();
-        socialOrders = Array.isArray(data.orders) ? data.orders : [];
-      } catch (error) {
-        console.error("SOCIAL ORDER LOAD ERROR:", error);
-        socialOrders = [];
-      } finally {
-        clearTimeout(timeout);
-        socialLoading = false;
-      }
-    }
-
-    function socialOrderAdapter(order) {
-      return {
-        ...order,
-        _social: true,
-        service: "Social Boosting",
-        network: order.service_name || "Social Media",
-        phone: order.link || "—",
-        amount: Number(order.customer_price || 0),
-        order_ref: order.order_ref || ("DGM-SB-" + order.id),
-        payment_status: "paid",
-        created_at: order.created_at,
-        status: order.status || "Pending"
-      };
-    }
-
-    /* =========================
        SUMMARY
     ========================= */
 
@@ -971,6 +929,50 @@
     /* =========================
        LOAD ORDERS
     ========================= */
+
+    /* =========================
+       SOCIAL BOOSTING ORDERS
+    ========================= */
+
+    async function loadSocialOrders() {
+      if (socialLoading) return;
+      socialLoading = true;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+      try {
+        const response = await fetch("/api/bwm/orders", {
+          credentials:"include",
+          cache:"no-store",
+          signal: controller.signal
+        });
+        if (response.status === 401) { window.location.href="/login.html"; return; }
+        const data = await response.json();
+        socialOrders = Array.isArray(data.orders) ? data.orders : [];
+      } catch (error) {
+        console.error("SOCIAL ORDER LOAD ERROR:", error);
+        socialOrders = [];
+      } finally {
+        clearTimeout(timeout);
+        socialLoading = false;
+      }
+    }
+
+    function socialOrderAdapter(order) {
+      return {
+        ...order,
+        _social: true,
+        service: "Social Boosting",
+        network: order.service_name || "Social Media",
+        phone: order.link || "—",
+        amount: Number(order.customer_price || 0),
+        order_ref: order.order_ref || ("DGM-SB-" + order.id),
+        payment_status: "paid",
+        created_at: order.created_at,
+        status: order.status || "Pending"
+      };
+    }
+
+
 
     async function loadOrders(manual = false) {
 
