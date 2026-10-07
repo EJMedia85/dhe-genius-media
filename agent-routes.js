@@ -110,6 +110,20 @@ async function initAgentDatabase(pool) {
   await pool.query("ALTER TABLE agent_sales ADD COLUMN IF NOT EXISTS customer_charge NUMERIC(12,2) NOT NULL DEFAULT 0");
   await pool.query("ALTER TABLE agent_sales ADD COLUMN IF NOT EXISTS customer_refunded BOOLEAN NOT NULL DEFAULT FALSE");
   await pool.query("CREATE INDEX IF NOT EXISTS agent_sales_customer_payment_idx ON agent_sales(customer_payment_mode,status,created_at DESC)");
+  await pool.query(`CREATE TABLE IF NOT EXISTS agent_subagents (
+    id SERIAL PRIMARY KEY,
+    parent_agent_id INTEGER NOT NULL REFERENCES agent_profiles(id) ON DELETE CASCADE,
+    customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    phone TEXT,
+    email TEXT,
+    status TEXT NOT NULL DEFAULT 'invited',
+    invite_code TEXT UNIQUE,
+    commission_rate NUMERIC(5,2) NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    joined_at TIMESTAMPTZ
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS agent_subagents_parent_idx ON agent_subagents(parent_agent_id, created_at DESC)`);
   await pool.query(`INSERT INTO agent_wallets(agent_id,balance)
     SELECT id,0 FROM agent_profiles
     WHERE NOT EXISTS (SELECT 1 FROM agent_wallets WHERE agent_wallets.agent_id=agent_profiles.id)`);
@@ -517,6 +531,68 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
 
   app.post("/api/agent/promos/:id/toggle", requireCustomer, async (req,res)=>{
     try{const a=await getAgent(req.session.customerId);if(!a)throw new Error("Agent account not found.");const r=await pool.query(\`UPDATE agent_promo_codes SET active=NOT active WHERE id=$1 AND agent_id=$2 RETURNING active\`,[Number(req.params.id),a.id]);if(!r.rows.length)throw new Error("Promo code not found.");res.json({success:true,message:r.rows[0].active?"Promo activated.":"Promo deactivated."});}catch(e){res.status(400).json({success:false,message:e.message});}
+  });
+
+  // AGENT TEAM / CRM
+  app.get("/api/agent/team", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId);
+      if(!a||a.status!=="approved") throw new Error("Approved agent account required.");
+      const rows=await pool.query(`SELECT id,name,phone,email,status,commission_rate,invite_code,created_at,joined_at
+        FROM agent_subagents WHERE parent_agent_id=$1 ORDER BY created_at DESC`,[a.id]);
+      res.json({success:true,agents:rows.rows});
+    }catch(e){res.status(400).json({success:false,message:e.message||"Could not load sub-agents."});}
+  });
+  app.post("/api/agent/team/invite", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId);
+      if(!a||a.status!=="approved") throw new Error("Approved agent account required.");
+      const name=String(req.body?.name||"").trim().slice(0,100);
+      const phone=String(req.body?.phone||"").trim();
+      const email=String(req.body?.email||"").trim().slice(0,160);
+      const rate=money(req.body?.commission_rate);
+      if(!name) throw new Error("Enter the sub-agent name.");
+      if(phone&&!/^0\d{9}$/.test(phone)) throw new Error("Enter a valid Ghana phone number.");
+      if(email&&!/^\\S+@\\S+\\.\\S+$/.test(email)) throw new Error("Enter a valid email address.");
+      if(rate<0||rate>100) throw new Error("Commission rate must be between 0% and 100%.");
+      const code="DGM-SUB-"+crypto.randomBytes(4).toString("hex").toUpperCase();
+      const row=(await pool.query(`INSERT INTO agent_subagents(parent_agent_id,name,phone,email,status,invite_code,commission_rate)
+        VALUES($1,$2,$3,$4,'invited',$5,$6) RETURNING id,name,phone,email,status,invite_code,commission_rate,created_at`,
+        [a.id,name,phone||null,email||null,code,rate])).rows[0];
+      res.json({success:true,message:"Sub-agent invitation created.",agent:row});
+    }catch(e){res.status(400).json({success:false,message:e.message||"Could not create invitation."});}
+  });
+  app.post("/api/agent/team/:id/toggle", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId);
+      if(!a||a.status!=="approved") throw new Error("Approved agent account required.");
+      const id=Number(req.params.id);
+      const r=await pool.query(`UPDATE agent_subagents SET status=CASE WHEN status='active' THEN 'suspended' ELSE 'active' END
+        WHERE id=$1 AND parent_agent_id=$2 RETURNING status`,[id,a.id]);
+      if(!r.rows.length) throw new Error("Sub-agent not found.");
+      res.json({success:true,message:"Sub-agent status updated.",status:r.rows[0].status});
+    }catch(e){res.status(400).json({success:false,message:e.message});}
+  });
+
+  app.get("/api/agent/customers", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId);
+      if(!a||a.status!=="approved") throw new Error("Approved agent account required.");
+      const rows=await pool.query(`SELECT phone,MAX(created_at) AS last_order,COUNT(*)::int AS orders,
+        COALESCE(SUM(customer_charge),0) AS spent,COALESCE(SUM(profit),0) AS profit
+        FROM agent_sales WHERE agent_id=$1 AND customer_charge>0 GROUP BY phone ORDER BY last_order DESC LIMIT 200`,[a.id]);
+      res.json({success:true,customers:rows.rows});
+    }catch(e){res.status(400).json({success:false,message:e.message});}
+  });
+
+  app.get("/api/agent/promos", requireCustomer, async (req,res)=>{
+    try{
+      const a=await getAgent(req.session.customerId);
+      if(!a||a.status!=="approved") throw new Error("Approved agent account required.");
+      const rows=await pool.query(`SELECT id,code,discount_type,discount_value,max_uses,uses,active,expires_at
+        FROM agent_promo_codes WHERE agent_id=$1 ORDER BY id DESC`,[a.id]);
+      res.json({success:true,promos:rows.rows});
+    }catch(e){res.status(400).json({success:false,message:e.message});}
   });
 
   // ADMIN
