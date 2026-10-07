@@ -208,7 +208,7 @@ $('#logout').onclick=async()=>{
     const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store'});
     if(!response.ok) console.warn('Logout response:',response.status,await response.text().catch(()=>'')); 
   }catch(e){ console.error('Logout request failed:',e); }
-  finally{ window.location.replace('/admin-login.html'); }
+  finally{ window.location.replace(staffSession?'/staff-login.html':'/admin-login.html'); }
 };
 
 async function loadMarketing(){
