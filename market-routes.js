@@ -52,6 +52,28 @@ async function ensureMarketDatabase() {
         );
       `);
       await pool.query(`
+        CREATE TABLE IF NOT EXISTS market_wishlists (
+          customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          product_id INTEGER NOT NULL REFERENCES market_products(id) ON DELETE CASCADE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY(customer_id, product_id)
+        );
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS market_reviews (
+          id SERIAL PRIMARY KEY,
+          customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          product_id INTEGER NOT NULL REFERENCES market_products(id) ON DELETE CASCADE,
+          rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+          title TEXT DEFAULT '',
+          body TEXT DEFAULT '',
+          verified_purchase BOOLEAN NOT NULL DEFAULT FALSE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          UNIQUE(customer_id, product_id)
+        );
+      `);
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS market_orders (
           id SERIAL PRIMARY KEY,
           order_ref TEXT NOT NULL UNIQUE,
@@ -215,6 +237,51 @@ function installMarket(app) {
     } catch(e){console.error("Market product:",e);sendError(res,500,"Could not load product.");}
   });
 
+  app.get("/api/market/wishlist",requireLogin,async(req,res)=>{
+    try {
+      await ensureMarketDatabase();
+      const r=await pool.query(`SELECT p.*,c.name category_name FROM market_wishlists w JOIN market_products p ON p.id=w.product_id LEFT JOIN market_categories c ON c.id=p.category_id WHERE w.customer_id=$1 AND p.active=TRUE ORDER BY w.created_at DESC`,[req.session.customerId]);
+      res.json({success:true,products:r.rows.map(publicProduct)});
+    } catch(e){sendError(res,500,"Could not load wishlist.");}
+  });
+
+  app.post("/api/market/wishlist/:id",requireLogin,async(req,res)=>{
+    try {
+      await ensureMarketDatabase();
+      const id=Number(req.params.id);
+      const p=await pool.query("SELECT id FROM market_products WHERE id=$1 AND active=TRUE",[id]);
+      if(!p.rows.length)return sendError(res,404,"Product not found.");
+      const exists=await pool.query("SELECT 1 FROM market_wishlists WHERE customer_id=$1 AND product_id=$2",[req.session.customerId,id]);
+      if(exists.rows.length){await pool.query("DELETE FROM market_wishlists WHERE customer_id=$1 AND product_id=$2",[req.session.customerId,id]);return res.json({success:true,saved:false});}
+      await pool.query("INSERT INTO market_wishlists(customer_id,product_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[req.session.customerId,id]);
+      res.json({success:true,saved:true});
+    } catch(e){sendError(res,500,"Could not update wishlist.");}
+  });
+
+  app.get("/api/market/products/:id/reviews",async(req,res)=>{
+    try {
+      await ensureMarketDatabase();
+      const r=await pool.query(`SELECT r.id,r.rating,r.title,r.body,r.verified_purchase,r.created_at,c.name customer_name FROM market_reviews r JOIN customers c ON c.id=r.customer_id WHERE r.product_id=$1 ORDER BY r.created_at DESC LIMIT 100`,[Number(req.params.id)]);
+      res.json({success:true,reviews:r.rows});
+    } catch(e){sendError(res,500,"Could not load reviews.");}
+  });
+
+  app.post("/api/market/products/:id/reviews",requireLogin,async(req,res)=>{
+    try {
+      await ensureMarketDatabase();
+      const productId=Number(req.params.id), rating=Math.round(Number(req.body?.rating));
+      const title=String(req.body?.title||"").trim().slice(0,160), body=String(req.body?.body||"").trim().slice(0,2000);
+      if(!Number.isInteger(rating)||rating<1||rating>5||!body)return sendError(res,400,"Rating and review text are required.");
+      const purchased=await pool.query(`SELECT 1 FROM market_order_items i JOIN market_orders o ON o.id=i.market_order_id WHERE o.customer_id=$1 AND i.product_id=$2 AND o.status='Delivered' LIMIT 1`,[req.session.customerId,productId]);
+      const v=purchased.rows.length>0;
+      const r=await pool.query(`INSERT INTO market_reviews(customer_id,product_id,rating,title,body,verified_purchase) VALUES($1,$2,$3,$4,$5,$6)
+        ON CONFLICT(customer_id,product_id) DO UPDATE SET rating=EXCLUDED.rating,title=EXCLUDED.title,body=EXCLUDED.body,verified_purchase=EXCLUDED.verified_purchase,updated_at=NOW()
+        RETURNING id`,[req.session.customerId,productId,rating,title,body,v]);
+      await pool.query(`UPDATE market_products SET rating=COALESCE((SELECT ROUND(AVG(rating)::numeric,2) FROM market_reviews WHERE product_id=$1),0),review_count=(SELECT COUNT(*) FROM market_reviews WHERE product_id=$1),updated_at=NOW() WHERE id=$1`,[productId]);
+      res.json({success:true,id:r.rows[0].id,verified_purchase:v});
+    } catch(e){console.error("Market review:",e);sendError(res,500,"Could not save review.");}
+  });
+
   app.get("/api/market/orders",requireLogin,async(req,res)=>{
     try {
       await ensureMarketDatabase();
@@ -294,7 +361,7 @@ function installMarket(app) {
       const current=await pool.query("SELECT * FROM market_products WHERE id=$1",[id]);
       if(!current.rows.length) return sendError(res,404,"Product not found.");
       const p=current.rows[0], name=String(b.name??p.name).trim(), slug=safeSlug(b.slug??p.slug);
-      const r=await pool.query(`UPDATE market_products SET name=$1,slug=$2,description=$3,category_id=$4,brand=$5,sku=$6,price=$7,sale_price=$8,stock=$9,image_url=$10,delivery_fee=$11,featured=$12,active=$13,updated_at=NOW() WHERE id=$14 RETURNING id`,[name,slug,String(b.description ?? p.description ?? ""),Number(b.category_id??p.category_id)||null,String(b.brand ?? p.brand ?? ""),String(b.sku ?? p.sku ?? "")||null,Number(b.price??p.price),b.sale_price===""||b.sale_price==null?null:Number(b.sale_price),Math.max(0,Number(b.stock??p.stock)||0),String(b.image_url ?? p.image_url ?? ""),Math.max(0,Number(b.delivery_fee??p.delivery_fee)||0),Boolean(b.featured??p.featured),b.active!==undefined?Boolean(b.active):Boolean(p.active),id]);
+      const r=await pool.query(`UPDATE market_products SET name=$1,slug=$2,description=$3,category_id=$4,brand=$5,sku=$6,price=$7,sale_price=$8,stock=$9,image_url=$10,gallery=$11,variants=$12,delivery_fee=$13,featured=$14,active=$15,updated_at=NOW() WHERE id=$16 RETURNING id`,[name,slug,String(b.description ?? p.description ?? ""),Number(b.category_id??p.category_id)||null,String(b.brand ?? p.brand ?? ""),String(b.sku ?? p.sku ?? "")||null,Number(b.price??p.price),b.sale_price===""||b.sale_price==null?null:Number(b.sale_price),Math.max(0,Number(b.stock??p.stock)||0),String(b.image_url ?? p.image_url ?? ""),JSON.stringify(Array.isArray(b.gallery)?b.gallery:(Array.isArray(p.gallery)?p.gallery:[])),JSON.stringify(Array.isArray(b.variants)?b.variants:(Array.isArray(p.variants)?p.variants:[])),Math.max(0,Number(b.delivery_fee??p.delivery_fee)||0),Boolean(b.featured??p.featured),b.active!==undefined?Boolean(b.active):Boolean(p.active),id]);
       res.json({success:true,id:r.rows[0].id});
     } catch(e){console.error("Admin market update:",e);sendError(res,400,e.code==="23505"?"Product slug or SKU already exists.":e.message||"Could not update product.");}
   });
