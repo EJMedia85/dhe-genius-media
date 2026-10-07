@@ -1616,6 +1616,15 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS marketing_campaigns_active_idx
     ON marketing_campaigns(active, starts_at, ends_at);
   `);
+  await pool.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS network TEXT;`);
+  await pool.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS capacity TEXT;`);
+  await pool.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS discount_type TEXT NOT NULL DEFAULT 'none';`);
+  await pool.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS discount_value NUMERIC(12,2) NOT NULL DEFAULT 0;`);
+  await pool.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS max_uses INTEGER;`);
+  await pool.query(`ALTER TABLE marketing_campaigns ADD COLUMN IF NOT EXISTS uses INTEGER NOT NULL DEFAULT 0;`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS base_amount NUMERIC(12,2);`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS campaign_id INTEGER REFERENCES marketing_campaigns(id) ON DELETE SET NULL;`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS promo_discount NUMERIC(12,2) NOT NULL DEFAULT 0;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS customer_promo_uses (
@@ -4249,6 +4258,7 @@ async function fulfillDataOrder(
     networkPrices[
       capacity
     ];
+  const chargedBaseAmount = Number(order.base_amount ?? order.amount);
 
   if (
     typeof expectedAmount !==
@@ -4262,7 +4272,7 @@ async function fulfillDataOrder(
 
   if (
     Math.round(
-      Number(order.amount) * 100
+      chargedBaseAmount * 100
     ) !==
     Math.round(
       expectedAmount * 100
@@ -7160,13 +7170,13 @@ app.post(
         );
       }
 
-      const amount =
+      const baseAmount =
         networkPrices[
           capacity
         ];
 
       if (
-        typeof amount !==
+        typeof baseAmount !==
         "number"
       ) {
 
@@ -7177,6 +7187,8 @@ app.post(
         );
       }
 
+      const campaign = await getAutomaticCampaign(network, capacity, baseAmount, req.session.customerId);
+      const amount = campaign ? campaign.sale_amount : baseAmount;
       const orderRef =
         createOrderReference();
 
@@ -7193,7 +7205,10 @@ app.post(
             amount,
             status,
             capacity,
-            payment_status
+            payment_status,
+            base_amount,
+            campaign_id,
+            promo_discount
           )
           VALUES
           (
@@ -7205,7 +7220,10 @@ app.post(
             $6,
             'Pending Payment',
             $7,
-            'Pending'
+            'Pending',
+            $8,
+            $9,
+            $10
           )
           RETURNING *
           `,
@@ -7222,13 +7240,20 @@ app.post(
 
             amount,
 
-            String(capacity)
+            String(capacity),
+            baseAmount,
+            campaign ? campaign.id : null,
+            campaign ? campaign.discount : 0
           ]
         );
 
+      if(campaign){
+        await pool.query("UPDATE marketing_campaigns SET uses=uses+1,updated_at=NOW() WHERE id=$1",[campaign.id]);
+        await pool.query("INSERT INTO customer_promo_uses(promo_id,customer_id,order_id,discount_amount) SELECT id,$1,$2,$3 FROM promo_codes WHERE code=$4 ON CONFLICT DO NOTHING",[req.session.customerId,result.rows[0].id,campaign.discount,campaign.promo_code]).catch(()=>{});
+      }
       return res.json({
         success: true,
-
+        promotion: campaign ? {id:campaign.id,title:campaign.title,discount:campaign.discount,promo_code:campaign.promo_code} : null,
         order:
           result.rows[0]
       });
@@ -8548,6 +8573,29 @@ app.post("/api/rewards/apply-referral", requireCustomer, async(req,res)=>{try{
 app.get("/api/saved-recipients",requireCustomer,async(req,res)=>{const r=await pool.query("SELECT id,label,phone,network,created_at FROM saved_recipients WHERE customer_id=$1 ORDER BY created_at DESC",[req.session.customerId]);res.json({success:true,recipients:r.rows});});
 app.post("/api/saved-recipients",requireCustomer,async(req,res)=>{try{const label=String(req.body?.label||"").trim().slice(0,80),phone=String(req.body?.phone||"").trim(),network=String(req.body?.network||"").trim();if(label.length<1||!validGhanaPhone(phone))return res.status(400).json({success:false,message:"Enter a valid label and Ghana phone number."});const r=await pool.query("INSERT INTO saved_recipients(customer_id,label,phone,network) VALUES($1,$2,$3,$4) ON CONFLICT(customer_id,label) DO UPDATE SET phone=EXCLUDED.phone,network=EXCLUDED.network RETURNING *",[req.session.customerId,label,phone,network||null]);res.status(201).json({success:true,recipient:r.rows[0]});}catch(e){res.status(500).json({success:false,message:"Could not save recipient."});}});
 app.delete("/api/saved-recipients/:id",requireCustomer,async(req,res)=>{await pool.query("DELETE FROM saved_recipients WHERE id=$1 AND customer_id=$2",[Number(req.params.id),req.session.customerId]);res.json({success:true});});
+async function getAutomaticCampaign(network, capacity, baseAmount, customerId=null){
+  const params=[network, String(capacity)];
+  const r=await pool.query(`
+    SELECT * FROM marketing_campaigns
+    WHERE active=TRUE AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW())
+      AND (network IS NULL OR network='' OR network=$1)
+      AND (capacity IS NULL OR capacity='' OR capacity=$2)
+      AND (max_uses IS NULL OR uses < max_uses)
+    ORDER BY
+      CASE WHEN network=$1 AND capacity=$2 THEN 0 WHEN network=$1 THEN 1 WHEN capacity=$2 THEN 2 ELSE 3 END,
+      starts_at DESC, id DESC
+    LIMIT 1`,params);
+  if(!r.rows.length) return null;
+  const c=r.rows[0];
+  let discount=0;
+  const type=String(c.discount_type||'none').toLowerCase();
+  const value=Number(c.discount_value||0);
+  if(type==='percent') discount=Math.min(baseAmount,baseAmount*(Math.max(0,Math.min(value,100))/100));
+  else if(type==='fixed') discount=Math.min(baseAmount,Math.max(0,value));
+  discount=Math.round(discount*100)/100;
+  return {...c,discount,sale_amount:Math.round((baseAmount-discount)*100)/100};
+}
+
 app.get("/api/marketing/campaigns",async(req,res)=>{
   try{
     const r=await pool.query(`SELECT id,title,subtitle,message,cta_label,cta_url,promo_code,starts_at,ends_at,impressions,clicks
@@ -8574,10 +8622,15 @@ app.post("/api/admin/marketing/campaigns",async(req,res)=>{
     const ctaLabel=String(req.body?.cta_label||"Shop DGM").trim().slice(0,60);
     const ctaUrl=String(req.body?.cta_url||"/data.html").trim().slice(0,300);
     const promoCode=String(req.body?.promo_code||"").trim().toUpperCase().slice(0,50)||null;
+    const network=String(req.body?.network||"").trim()||null;
+    const capacity=String(req.body?.capacity||"").trim()||null;
+    const discountType=["none","percent","fixed"].includes(String(req.body?.discount_type||"none"))?String(req.body.discount_type):"none";
+    const discountValue=Math.max(0,Number(req.body?.discount_value||0));
+    const maxUses=req.body?.max_uses===null||req.body?.max_uses===""||req.body?.max_uses===undefined?null:Math.max(1,Number(req.body.max_uses));
     const startsAt=req.body?.starts_at||new Date().toISOString();
     const endsAt=req.body?.ends_at||null;
     if(!title)return res.status(400).json({success:false,message:"Campaign title is required."});
-    const r=await pool.query("INSERT INTO marketing_campaigns(title,subtitle,message,cta_label,cta_url,promo_code,starts_at,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *",[title,subtitle||null,message||null,ctaLabel,ctaUrl,promoCode,startsAt,endsAt]);
+    const r=await pool.query("INSERT INTO marketing_campaigns(title,subtitle,message,cta_label,cta_url,promo_code,network,capacity,discount_type,discount_value,max_uses,starts_at,ends_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *",[title,subtitle||null,message||null,ctaLabel,ctaUrl,promoCode,network,capacity,discountType,discountValue,maxUses,startsAt,endsAt]);
     return res.status(201).json({success:true,campaign:r.rows[0]});
   }catch(e){console.error("Create campaign error",e);return res.status(400).json({success:false,message:e.message});}
 });
