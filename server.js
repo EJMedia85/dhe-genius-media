@@ -8598,7 +8598,7 @@ async function getAutomaticCampaign(network, capacity, baseAmount, customerId=nu
 
 app.get("/api/marketing/campaigns",async(req,res)=>{
   try{
-    const r=await pool.query(`SELECT id,title,subtitle,message,cta_label,cta_url,promo_code,starts_at,ends_at,impressions,clicks
+    const r=await pool.query(`SELECT id,title,subtitle,message,cta_label,cta_url,promo_code,network,capacity,discount_type,discount_value,starts_at,ends_at,impressions,clicks
       FROM marketing_campaigns
       WHERE active=TRUE AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW())
       ORDER BY starts_at DESC LIMIT 6`);
