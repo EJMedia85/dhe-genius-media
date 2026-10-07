@@ -168,6 +168,41 @@
     .sync-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px rgba(37,211,102,.45); }
 
     /* =========================
+       SOCIAL BOOSTING ORDERS
+    ========================= */
+
+    async function loadSocialOrders() {
+      if (socialLoading) return;
+      socialLoading = true;
+      try {
+        const response = await fetch("/api/bwm/orders", { credentials:"include", cache:"no-store" });
+        if (response.status === 401) { window.location.href="/login.html"; return; }
+        const data = await response.json();
+        socialOrders = Array.isArray(data.orders) ? data.orders : [];
+      } catch (error) {
+        console.error("SOCIAL ORDER LOAD ERROR:", error);
+        socialOrders = [];
+      } finally {
+        socialLoading = false;
+      }
+    }
+
+    function socialOrderAdapter(order) {
+      return {
+        ...order,
+        _social: true,
+        service: "Social Boosting",
+        network: order.service_name || "Social Media",
+        phone: order.link || "—",
+        amount: Number(order.customer_price || 0),
+        order_ref: order.order_ref || ("DGM-SB-" + order.id),
+        payment_status: "paid",
+        created_at: order.created_at,
+        status: order.status || "Pending"
+      };
+    }
+
+    /* =========================
        SUMMARY
     ========================= */
 
@@ -920,8 +955,10 @@
   <script>
 
     let orders = [];
+    let socialOrders = [];
     let currentFilter = "all";
     let loadingOrders = false;
+    let socialLoading = false;
 
 
     /* =========================
@@ -1006,7 +1043,7 @@
 
 
         updateSummary();
-
+        await loadSocialOrders();
         renderOrders();
 
       } catch (error) {
@@ -1062,13 +1099,14 @@
 
     function updateSummary() {
 
+      const allOrders = orders.concat(socialOrders.map(socialOrderAdapter));
       document.getElementById(
         "totalOrders"
-      ).textContent = orders.length;
+      ).textContent = allOrders.length;
 
 
       const processing =
-        orders.filter(order => {
+        orders.concat(socialOrders.map(socialOrderAdapter)).filter(order => {
 
           const status =
             normalizeStatus(order.status);
@@ -1145,7 +1183,7 @@
         );
 
 
-      let filtered = [...orders];
+      let filtered = orders.concat(socialOrders.map(socialOrderAdapter));
 
 
       if (currentFilter !== "all") {
@@ -1292,7 +1330,7 @@
         order.paystackReference ||
         "";
 
-      const statusInfo = getStatusMessage(status);
+      const statusInfo = order._social ? getSocialStatusMessage(status) : getStatusMessage(status);
 
 
       const created =
@@ -1464,6 +1502,22 @@
 
     }
 
+
+    function getSocialStatusMessage(status) {
+      switch (status) {
+        case "completed":
+        case "success":
+        case "successful":
+          return { title:"Boost completed", message:"Your social media promotion has been completed successfully." };
+        case "processing":
+          return { title:"Boost in progress", message:"Your payment was confirmed and your social media order is being processed." };
+        case "failed":
+        case "refunded":
+          return { title:"Boost failed", message:"The social media order could not be completed. Your DGM Wallet was refunded where applicable." };
+        default:
+          return { title:"Boost order received", message:"Your social media order is waiting to be processed." };
+      }
+    }
 
     function getStatusMessage(status) {
       switch (status) {
