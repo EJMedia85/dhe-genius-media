@@ -367,6 +367,60 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     try{const id=Number(req.params.id);await pool.query("UPDATE agent_profiles SET status='approved',suspended_at=NULL,updated_at=NOW() WHERE id=$1",[id]);res.json({success:true,message:"Agent reactivated."});}catch(e){res.status(400).json({success:false,message:e.message});}
   });
 
+
+  app.get("/api/admin/agents/:id/details", requireAdmin, async (req,res)=>{
+    try{
+      const id=Number(req.params.id);
+      const [agent,pricing,sales,walletTx,commissionTx]=await Promise.all([
+        pool.query(`SELECT a.id,a.customer_id,a.agent_code,a.status,a.tier,a.commission_balance,a.application_note,a.approved_at,a.created_at,a.store_slug,a.store_name,a.store_bio,a.whatsapp_phone,c.name,c.phone,c.email,COALESCE(w.balance,0) AS wallet
+          FROM agent_profiles a JOIN customers c ON c.id=a.customer_id LEFT JOIN agent_wallets w ON w.agent_id=a.id WHERE a.id=$1 LIMIT 1`,[id]),
+        pool.query(`SELECT service,network,capacity,sale_price FROM agent_pricing_rules WHERE agent_id=$1 ORDER BY service,network,capacity`,[id]),
+        pool.query(`SELECT id,order_ref,service,network,phone,capacity,base_cost,sale_price,profit,status,created_at,completed_at FROM agent_sales WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 100`,[id]),
+        pool.query(`SELECT type,amount,balance_before,balance_after,description,reference,created_at FROM agent_wallet_transactions WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 50`,[id]),
+        pool.query(`SELECT type,amount,balance_before,balance_after,description,reference,created_at FROM agent_commission_transactions WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 50`,[id])
+      ]);
+      if(!agent.rows.length) return res.status(404).json({success:false,message:"Agent not found."});
+      const a=agent.rows[0];
+      res.json({success:true,agent:a,pricing:pricing.rows,sales:sales.rows,wallet_transactions:walletTx.rows,commission_transactions:commissionTx.rows});
+    }catch(e){console.error("Admin agent details:",e);res.status(500).json({success:false,message:"Could not load agent details."});}
+  });
+
+  app.post("/api/admin/agents/:id/wallet", requireAdmin, async (req,res)=>{
+    const amount=money(req.body?.amount), action=String(req.body?.action||"").toLowerCase(), note=String(req.body?.note||"Admin wallet adjustment").trim().slice(0,200);
+    if(!["credit","debit"].includes(action)||!Number.isFinite(amount)||amount<=0) return res.status(400).json({success:false,message:"Enter a valid positive amount and choose credit or debit."});
+    const c=await pool.connect();
+    try{
+      await c.query("BEGIN");
+      const w=(await c.query("SELECT balance FROM agent_wallets WHERE agent_id=$1 FOR UPDATE",[Number(req.params.id)])).rows[0];
+      if(!w) throw new Error("Agent Wallet not found.");
+      const before=money(w.balance), after=money(action==="credit"?before+amount:before-amount);
+      if(after<0) throw new Error("Agent Wallet cannot go below GH₵0.00.");
+      await c.query("UPDATE agent_wallets SET balance=$1,updated_at=NOW() WHERE agent_id=$2",[after,Number(req.params.id)]);
+      const ref="DGM-ADMIN-AW-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(3).toString("hex").toUpperCase();
+      await c.query(`INSERT INTO agent_wallet_transactions(agent_id,type,amount,balance_before,balance_after,description,reference) VALUES($1,$2,$3,$4,$5,$6,$7)`,[Number(req.params.id),action==="credit"?"Credit":"Debit",amount,before,after,note,ref]);
+      await c.query("COMMIT");
+      res.json({success:true,message:"Agent Wallet "+action+"ed.",balance:after,reference:ref});
+    }catch(e){await c.query("ROLLBACK");res.status(400).json({success:false,message:e.message});}finally{c.release();}
+  });
+
+  app.post("/api/admin/agents/:id/commission", requireAdmin, async (req,res)=>{
+    const amount=money(req.body?.amount), action=String(req.body?.action||"").toLowerCase(), note=String(req.body?.note||"Admin commission adjustment").trim().slice(0,200);
+    if(!["credit","debit"].includes(action)||!Number.isFinite(amount)||amount<=0) return res.status(400).json({success:false,message:"Enter a valid positive amount and choose credit or debit."});
+    const c=await pool.connect();
+    try{
+      await c.query("BEGIN");
+      const a=(await c.query("SELECT commission_balance FROM agent_profiles WHERE id=$1 FOR UPDATE",[Number(req.params.id)])).rows[0];
+      if(!a) throw new Error("Agent not found.");
+      const before=money(a.commission_balance), after=money(action==="credit"?before+amount:before-amount);
+      if(after<0) throw new Error("Commission balance cannot go below GH₵0.00.");
+      await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,Number(req.params.id)]);
+      const ref="DGM-ADMIN-AC-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(3).toString("hex").toUpperCase();
+      await c.query(`INSERT INTO agent_commission_transactions(agent_id,type,amount,balance_before,balance_after,description,reference) VALUES($1,$2,$3,$4,$5,$6,$7)`,[Number(req.params.id),action==="credit"?"Credit":"Debit",amount,before,after,note,ref]);
+      await c.query("COMMIT");
+      res.json({success:true,message:"Agent commission "+action+"ed.",balance:after,reference:ref});
+    }catch(e){await c.query("ROLLBACK");res.status(400).json({success:false,message:e.message});}finally{c.release();}
+  });
+
   app.post("/api/admin/agent-withdrawals/:id/approve", requireAdmin, async (req,res)=>{
     try{const id=Number(req.params.id);const r=await pool.query("UPDATE agent_withdrawals SET status='Approved',approved_at=NOW(),updated_at=NOW() WHERE id=$1 AND status='Pending Approval' RETURNING agent_id");if(!r.rows.length)throw new Error("Withdrawal is no longer pending.");res.json({success:true,message:"Agent withdrawal approved for payment."});}catch(e){res.status(400).json({success:false,message:e.message});}
   });
