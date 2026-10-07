@@ -477,20 +477,6 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
 
 
   // AGENT BUSINESS MANAGEMENT — DataMart-style parity without copying DataMart branding
-  app.get("/api/agent/customers", requireCustomer, async (req,res)=>{
-    try{
-      const a=await getAgent(req.session.customerId);
-      if(!a||a.status!=="approved") return res.status(403).json({success:false,message:"Approved agent account required."});
-      const q=await pool.query(`SELECT o.customer_id,COALESCE(c.name,'Customer') AS name,COALESCE(c.phone,o.phone) AS phone,
-        COUNT(*) FILTER (WHERE s.status='Completed')::int AS completed_orders,
-        COALESCE(SUM(s.sale_price) FILTER (WHERE s.status='Completed'),0) AS total_spend,
-        MAX(s.created_at) AS last_order
-        FROM agent_sales s JOIN orders o ON o.id=s.order_id LEFT JOIN customers c ON c.id=o.customer_id
-        WHERE s.agent_id=$1 GROUP BY o.customer_id,c.name,c.phone,o.phone ORDER BY last_order DESC LIMIT 200`,[a.id]);
-      res.json({success:true,customers:q.rows});
-    }catch(e){res.status(500).json({success:false,message:"Could not load agent customers."});}
-  });
-
   app.get("/api/agent/transactions", requireCustomer, async (req,res)=>{
     try{
       const a=await getAgent(req.session.customerId);
@@ -501,14 +487,6 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       ]);
       res.json({success:true,wallet:wallet.rows,commission:commission.rows});
     }catch(e){res.status(500).json({success:false,message:"Could not load agent transactions."});}
-  });
-
-  app.get("/api/agent/promos", requireCustomer, async (req,res)=>{
-    try{
-      const a=await getAgent(req.session.customerId); if(!a) return res.status(404).json({success:false,message:"Agent account not found."});
-      const q=await pool.query(`SELECT id,code,discount_type,discount_value,max_uses,uses,active,expires_at FROM agent_promo_codes WHERE agent_id=$1 ORDER BY id DESC`,[a.id]);
-      res.json({success:true,promos:q.rows});
-    }catch(e){res.status(500).json({success:false,message:"Could not load promo codes."});}
   });
 
   app.post("/api/agent/promos", requireCustomer, async (req,res)=>{
