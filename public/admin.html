@@ -313,6 +313,8 @@ async function loadAgents(){
   try{
     const d=await api('/api/admin/agents');
     const a=d.agents||[];
+   const w=d.withdrawals||[];
+   $('#agentWithdrawalsBody').innerHTML=w.map(x=>'<tr><td>'+esc(x.reference)+'</td><td>'+esc(x.agent_code)+'<br>'+esc(x.name)+'</td><td>'+money(x.amount)+'</td><td>'+esc(x.momo_network+' '+x.momo_phone)+'</td><td>'+esc(x.status)+'</td><td>'+(x.status==='Pending Approval'?'<button class="btn green" onclick="agentWithdrawal('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentWithdrawal('+x.id+',\'reject\')">Reject</button>':'<span class="badge">'+esc(x.status)+'</span>')+'</td></tr>').join('')||'<tr><td colspan="6" class="empty">No agent withdrawals yet.</td></tr>';
     $('#agentStats').innerHTML=[['Total Agents',a.length],['Pending',a.filter(x=>x.status==='pending').length],['Approved',a.filter(x=>x.status==='approved').length],['Suspended',a.filter(x=>x.status==='suspended').length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
     $('#agentsBody').innerHTML=a.map(x=>{
  let action='';
@@ -326,6 +328,10 @@ async function loadAgents(){
 async function agentAction(id,action){
   if(!confirm(action+' this agent?'))return;
   try{await api('/api/admin/agents/'+id+'/'+action,{method:'POST'});await loadAgents()}catch(e){alert(e.message)}
+}
+async function agentWithdrawal(id,action){
+  if(!confirm(action+' this withdrawal?'))return;
+  try{await api('/api/admin/agent-withdrawals/'+id+'/'+action,{method:'POST'});await loadAgents()}catch(e){alert(e.message)}
 }
 async function loadSavings(){
   const d=await api('/api/admin/savings');
