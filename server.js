@@ -11,6 +11,7 @@ const { installMarket } = require("./market-routes");
 const { installBwmXmd } = require("./bwm-xmd-routes");
 const { installMashup } = require("./mashup-routes");
 const { initAgentDatabase, installAgent } = require("./agent-routes");
+const { installStaff } = require("./staff-routes");
 
 const app = express();
 
@@ -1964,6 +1965,10 @@ app.use(
 // DGM Bridge routes are registered after the session middleware so the
 // protected /api/admin/bridge/* endpoints can see req.session.
 installBridge(app);
+
+// DGM Staff & Permissions authorization is registered before admin endpoints.
+// Super Admin remains the environment-backed ADMIN_EMAIL/ADMIN_PASSWORD account.
+const staffInit = installStaff(app, pool);
 
 // =====================================================
 // HELPERS
@@ -8924,6 +8929,7 @@ async function startServer() {
 
   try {
     await initDatabase();
+    await staffInit;
     await initAgentDatabase(pool);
     databaseReady = true;
     await initSusuDatabase();
