@@ -10,6 +10,7 @@ const { installBridge } = require("./bridge-routes");
 const { installMarket } = require("./market-routes");
 const { installBwmXmd } = require("./bwm-xmd-routes");
 const { installMashup } = require("./mashup-routes");
+const { initAgentDatabase, installAgent } = require("./agent-routes");
 
 const app = express();
 
@@ -8603,6 +8604,7 @@ async function startServer() {
 
   try {
     await initDatabase();
+    await initAgentDatabase(pool);
     databaseReady = true;
     await initSusuDatabase();
     await installSusuEnhancements(app);
