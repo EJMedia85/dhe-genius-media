@@ -203,12 +203,14 @@ $('#logout').onclick=async()=>{
   button.dataset.busy='1';
   button.disabled=true;
   button.textContent='Logging out…';
-  const endpoint=staffSession?'/api/admin/staff/logout':'/api/admin/logout';
+  const endpoint=IS_STAFF_PORTAL?'/api/admin/staff/logout':'/api/admin/logout';
   try{
-    const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store'});
-    if(!response.ok) console.warn('Logout response:',response.status,await response.text().catch(()=>'')); 
+    const response=await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+    if(!response.ok) console.warn('Logout response:',response.status,await response.text().catch(()=>''));
   }catch(e){ console.error('Logout request failed:',e); }
-  finally{ window.location.replace('/admin-login.html'); }
+  finally{
+    window.location.replace(IS_STAFF_PORTAL?'/staff-login.html':'/admin-login.html');
+  }
 };
 
 async function loadMarketing(){
