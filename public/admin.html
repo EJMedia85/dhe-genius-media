@@ -314,7 +314,13 @@ async function loadAgents(){
     const d=await api('/api/admin/agents');
     const a=d.agents||[];
     $('#agentStats').innerHTML=[['Total Agents',a.length],['Pending',a.filter(x=>x.status==='pending').length],['Approved',a.filter(x=>x.status==='approved').length],['Suspended',a.filter(x=>x.status==='suspended').length]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
-    $('#agentsBody').innerHTML=a.map(x=>'<tr><td><b>'+esc(x.agent_code||'Pending')+'</b><br><span class="muted">'+esc(x.tier)+'</span></td><td>'+esc(x.name)+'<br>'+esc(x.phone)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+money(x.wallet)+'</td><td>'+money(x.commission_balance)+'</td><td>'+x.completed_sales+'</td><td>'+money(x.total_profit)+'</td></tr>').join('')||'<tr><td colspan="7" class="empty">No agent applications yet.</td></tr>';
+    $('#agentsBody').innerHTML=a.map(x=>{
+ let action='';
+ if(x.status==='pending') action='<button class="btn green" onclick="agentAction('+x.id+',\'approve\')">Approve</button> <button class="btn red" onclick="agentAction('+x.id+',\'reject\')">Reject</button>';
+ else if(x.status==='approved') action='<button class="btn red" onclick="agentAction('+x.id+',\'suspend\')">Suspend</button>';
+ else if(x.status==='suspended') action='<button class="btn green" onclick="agentAction('+x.id+',\'reactivate\')">Reactivate</button>';
+ return '<tr><td><b>'+esc(x.agent_code||'Pending')+'</b><br><span class="muted">'+esc(x.tier)+'</span></td><td>'+esc(x.name)+'<br>'+esc(x.phone)+'</td><td><span class="badge">'+esc(x.status)+'</span></td><td>'+money(x.wallet)+'</td><td>'+money(x.commission_balance)+'</td><td>'+x.completed_sales+'</td><td>'+money(x.total_profit)+'</td><td>'+action+'</td></tr>';
+}).join('')||'<tr><td colspan="8" class="empty">No agent applications yet.</td></tr>';
   }catch(e){$('#agentsBody').innerHTML='<tr><td colspan="7" class="empty danger">'+esc(e.message)+'</td></tr>'}
 }
 async function agentAction(id,action){
