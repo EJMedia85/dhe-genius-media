@@ -1243,10 +1243,16 @@
         function(item) {
 
           const size =
-            item[0];
+            String(item.size || item[0] || "");
 
           const price =
-            Number(item[1]);
+            Number(item.price ?? item[1]);
+
+          const available =
+            item.available !== false;
+
+          const availabilitySynced =
+            item.availability_synced === true;
 
 
           const button =
@@ -1258,7 +1264,10 @@
             "button";
 
           button.className =
-            "bundle";
+            "bundle" + (available ? "" : " out-of-stock");
+
+          button.disabled = !available;
+          button.setAttribute("aria-disabled", String(!available));
 
 
           const brandClass = selectedNetwork === "MTN" ? "mtn" : selectedNetwork === "AirtelTigo" ? "at" : "telecel";
@@ -1270,20 +1279,22 @@
           button.innerHTML = `
             <div class="bundle-brand ${brandClass}"><span class="bundle-logo">${brandLogo}</span><span class="bundle-network">${selectedNetwork === "AirtelTigo" ? "AirtelTigo / AT" : selectedNetwork}</span></div>
             <div class="check">✓</div>
-            <div class="bundle-content"><div class="bundle-name">${size}</div><div class="bundle-price">GH₵${price.toFixed(2)}</div><div class="bundle-validity">Validity: 90 days</div></div>
+            <div class="bundle-content"><div class="bundle-name">${size}</div><div class="bundle-price">GH₵${price.toFixed(2)}</div><div class="bundle-validity">Validity: 90 days</div><div class="bundle-availability ${available ? "available" : "unavailable"}">${available ? "✓ Available" : "✕ Out of stock"}</div></div>
           `;
 
 
-          button.onclick =
-            function() {
+          if (available) {
+            button.onclick =
+              function() {
 
-              selectBundle(
-                size,
-                price,
-                button
-              );
+                selectBundle(
+                  size,
+                  price,
+                  button
+                );
 
-            };
+              };
+          }
 
 
           grid.appendChild(
