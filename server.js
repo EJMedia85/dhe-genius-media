@@ -3302,17 +3302,89 @@ const DGM_PRICES = {
   }
 };
 
-app.get("/api/data-bundles", (req, res) => {
+// DataMart public catalogue availability sync.
+const DATAMART_PUBLIC_STORE_URL = "https://datamartgh.store/";
+let dataMartAvailabilityCache = { checked_at: 0, networks: {} };
+
+function normalizePublicStoreText(html) {
+  return String(html || "")
+    .replace(/<script[\\s\\S]*?<\\/script>/gi, " ")
+    .replace(/<style[\\s\\S]*?<\\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\\s+/g, " ")
+    .trim();
+}
+
+async function refreshDataMartBundleAvailability(force = false) {
+  const now = Date.now();
+  if (!force && now - Number(dataMartAvailabilityCache.checked_at || 0) < 60000) {
+    return dataMartAvailabilityCache.networks;
+  }
+  try {
+    const response = await fetch(DATAMART_PUBLIC_STORE_URL, {
+      headers: { "Accept": "text/html,application/xhtml+xml" },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) throw new Error("DataMart storefront HTTP " + response.status);
+    const text = normalizePublicStoreText(await response.text());
+    const next = {};
+
+    for (const [network, prices] of Object.entries(DGM_PRICES)) {
+      next[network] = {};
+      const networkLabel = network === "AirtelTigo" ? "AirtelTigo" : network;
+      const lower = text.toLowerCase();
+      const networkPos = lower.indexOf(networkLabel.toLowerCase());
+      const nextLabel = network === "MTN" ? "telecel" : network === "Telecel" ? "airteltigo" : "data bundle";
+      const networkEnd = networkPos >= 0 ? lower.indexOf(nextLabel, networkPos + networkLabel.length) : -1;
+      const section = networkPos >= 0
+        ? text.slice(networkPos, networkEnd > networkPos ? networkEnd : networkPos + 20000)
+        : "";
+
+      for (const [gb, price] of Object.entries(prices)) {
+        const size = String(gb) + "GB";
+        const priceText = Number(price).toFixed(2);
+        const sizePos = section.toLowerCase().indexOf(size.toLowerCase());
+        if (sizePos < 0) {
+          next[network][gb] = null;
+          continue;
+        }
+        const card = section.slice(Math.max(0, sizePos - 120), sizePos + 450).toLowerCase();
+        const pricePos = card.indexOf(priceText);
+        const stockWindow = pricePos >= 0 ? card.slice(Math.max(0, pricePos - 220), pricePos + 180) : card;
+        next[network][gb] = !/out\\s*of\\s*stock/.test(stockWindow);
+      }
+    }
+
+    dataMartAvailabilityCache = { checked_at: now, networks: next };
+  } catch (error) {
+    console.error("DataMart availability sync failed:", error.message);
+  }
+  return dataMartAvailabilityCache.networks;
+}
+
+app.get("/api/data-bundles", async (req, res) => {
+  const availability = await refreshDataMartBundleAvailability();
   const bundles = Object.fromEntries(
     Object.entries(DGM_PRICES).map(([network, prices]) => [
       network,
-      Object.entries(prices).map(([gb, price]) => [gb + "GB", Number(price)])
+      Object.entries(prices).map(([gb, price]) => ({
+        size: gb + "GB",
+        price: Number(price),
+        available: availability?.[network]?.[gb] !== false,
+        availability_synced: availability?.[network]?.[gb] !== undefined
+      }))
     ])
   );
   return res.json({
     success: true,
     currency: "GHS",
     validity_days: 90,
+    availability_source: DATAMART_PUBLIC_STORE_URL,
+    availability_checked_at: dataMartAvailabilityCache.checked_at
+      ? new Date(dataMartAvailabilityCache.checked_at).toISOString()
+      : null,
     networks: bundles
   });
 });
