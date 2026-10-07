@@ -100,6 +100,12 @@ async function initAgentDatabase(pool) {
     );
     CREATE INDEX IF NOT EXISTS agent_withdrawals_status_idx ON agent_withdrawals(status);
   `);
+  await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS store_slug TEXT UNIQUE`);
+  await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS store_name TEXT`);
+  await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS store_bio TEXT`);
+  await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS whatsapp_phone TEXT`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS agent_pricing_rules (id SERIAL PRIMARY KEY, agent_id INTEGER NOT NULL REFERENCES agent_profiles(id) ON DELETE CASCADE, service TEXT NOT NULL, network TEXT, capacity TEXT, sale_price NUMERIC(12,2) NOT NULL, UNIQUE(agent_id,service,network,capacity))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS agent_promo_codes (id SERIAL PRIMARY KEY, agent_id INTEGER NOT NULL REFERENCES agent_profiles(id) ON DELETE CASCADE, code TEXT NOT NULL, discount_type TEXT NOT NULL DEFAULT 'fixed', discount_value NUMERIC(12,2) NOT NULL DEFAULT 0, max_uses INTEGER, uses INTEGER NOT NULL DEFAULT 0, active BOOLEAN NOT NULL DEFAULT TRUE, expires_at TIMESTAMPTZ, UNIQUE(agent_id,code))`);
 }
 
 function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice, fulfillDataOrder }) {
