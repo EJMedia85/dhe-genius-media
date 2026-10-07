@@ -8588,6 +8588,18 @@ app.post("/api/susu/v2/invitations/:id/respond", requireLogin, async (req,res)=>
   } catch(e){ console.error("Respond Susu invitation:",e.message); res.status(500).json({success:false,message:e.message||"Could not process invitation."}); }
 });
 
+// DGM Agent System
+installAgent(app, {
+  pool,
+  requireCustomer: requireLogin,
+  requireAdmin,
+  getRetailPrice: (network, capacity) => {
+    const prices = DGM_PRICES[network];
+    return prices ? Number(prices[capacity]) || 0 : 0;
+  },
+  fulfillDataOrder
+});
+
 // START SERVER
 // =====================================================
 
