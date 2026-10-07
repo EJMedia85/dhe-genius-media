@@ -12,7 +12,42 @@ async function refund(customerId,orderId,amount,orderRef,reason){const c=await p
 async function reconcilePending(){if(!pool||!KEY()||!SECRET())return;let rows=[];try{const q=await pool.query("SELECT id,customer_id,amount,order_ref,provider_reference FROM orders WHERE service='MTN MashUp' AND status='Processing' AND provider_status='pending' AND provider_reference IS NOT NULL ORDER BY id ASC LIMIT 25");rows=q.rows}catch(e){console.error("MashUp reconciliation query:",e);return}for(const o of rows){try{const d=await dm("/order-status/"+encodeURIComponent(o.provider_reference));const p=d?.data||d||{};const s=String(p.orderStatus||p.status||"pending").toLowerCase();if(["completed","success","successful"].includes(s)){await pool.query("UPDATE orders SET status='Completed',provider_status=$1,provider_message=$2 WHERE id=$3 AND status='Processing'",[p.orderStatus||"completed",p.message||"Completed",o.id])}else if(["failed","cancelled","canceled","refunded"].includes(s)){await refund(o.customer_id,o.id,Number(o.amount||0),o.order_ref,p.message||("DataMart status: "+s))}}catch(e){console.error("MashUp reconciliation:",o.order_ref,e.message)}}}
 function startReconciliation(){if(!pool||!KEY()||!SECRET())return;setTimeout(()=>{reconcilePending().catch(()=>{});setInterval(()=>reconcilePending().catch(()=>{}),60000)},15000)}
 function installMashup(app){startReconciliation();
- app.get("/api/mashup/packages",async(req,res)=>{try{return res.json(await dm("/mashup/packages"))}catch(e){return res.status(e.status||500).json({success:false,message:e.message,code:e.data?.code})}});
+ app.get("/api/mashup/packages",async(req,res)=>{
+  try{
+    const data=await dm("/mashup/packages");
+    const providerMessage=String(data?.message||data?.error||data?.code||"").trim();
+    const accessDenied=/mashup.*not enabled|not enabled.*mashup|request access|access.*mashup/i.test(providerMessage)
+      || data?.code==="MASHUP_NOT_ENABLED"
+      || data?.code==="MASHUP_ACCESS_REQUIRED";
+    if(data?.open===false || accessDenied){
+      return res.json({
+        success:true,
+        enabled:false,
+        open:false,
+        access_required:true,
+        code:"MASHUP_ACCESS_REQUIRED",
+        message:"MTN MashUp is not enabled for this DGM account."
+      });
+    }
+    return res.json({...data,success:true,enabled:true,access_required:false});
+  }catch(e){
+    const providerMessage=String(e?.message||"").trim();
+    const accessDenied=e?.status===401 || e?.status===403
+      ? /mashup|access|enabled|permission|support/i.test(providerMessage)
+      : /mashup.*not enabled|not enabled.*mashup|request access/i.test(providerMessage);
+    if(accessDenied){
+      return res.json({
+        success:true,
+        enabled:false,
+        open:false,
+        access_required:true,
+        code:"MASHUP_ACCESS_REQUIRED",
+        message:"MTN MashUp is not enabled for this DGM account."
+      });
+    }
+    return res.status(e.status||500).json({success:false,message:e.message,code:e.data?.code});
+  }
+ });
  app.post("/api/mashup/purchase",login,async(req,res)=>{
   const phone=String(req.body?.phone||"").replace(/\s+/g,""),comboCost=Number(req.body?.comboCost);
   if(!/^024\d{7}$/.test(phone))return res.status(400).json({success:false,message:"Enter a valid MTN number."});
