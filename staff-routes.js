@@ -38,6 +38,24 @@ const m=MAP.find(x=>x[0].test(p));if(!m){await audit(pool,req,"authorization_den
 const s=await perms(pool,req.session.staffId);const required=m[1];if(!required.some(permission=>s.has(permission))){await audit(pool,req,"authorization_denied","permission",required.join(" OR "),{route:p});return res.status(403).json({success:false,message:"You do not have permission for this function."});}next();
 });
 app.post("/api/admin/staff/login",async(req,res)=>{try{const key=String(req.ip||req.socket?.remoteAddress||"unknown");const now=Date.now(),a=staffLoginAttempts.get(key)||{count:0,resetAt:now+15*60*1000};if(now>a.resetAt){a.count=0;a.resetAt=now+15*60*1000;}if(a.count>=10)return res.status(429).json({success:false,message:"Too many staff login attempts. Please wait 15 minutes."});a.count++;staffLoginAttempts.set(key,a);await staffReady;const email=String(req.body?.email||"").trim().toLowerCase(),password=String(req.body?.password||"");const r=await pool.query("SELECT * FROM staff_users WHERE email=$1 LIMIT 1",[email]);if(!r.rows.length||!r.rows[0].active||!await bcrypt.compare(password,r.rows[0].password_hash))return res.status(401).json({success:false,message:"Invalid staff login details."});staffLoginAttempts.delete(key);const s=r.rows[0];await new Promise((ok,no)=>req.session.regenerate(e=>e?no(e):ok()));Object.assign(req.session,{adminAuthenticated:true,staffId:s.id,staffEmail:s.email,staffName:s.name,staffRole:s.role_key,staffPermissions:s.permissions,adminEmail:s.email,adminLoginAt:new Date().toISOString()});await pool.query("UPDATE staff_users SET last_login_at=NOW(),updated_at=NOW() WHERE id=$1",[s.id]);await audit(pool,req,"staff_login","staff",s.id,{role:s.role_key});await new Promise((ok,no)=>req.session.save(e=>e?no(e):ok()));res.json({success:true,staff:{id:s.id,name:s.name,email:s.email,role:s.role_key,permissions:s.permissions}});}catch(e){console.error(e);res.status(500).json({success:false,message:"Staff login failed."});}});
+app.get("/api/admin/staff/session-bootstrap",async(req,res)=>{
+  res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma","no-cache");
+  if(!req.session?.staffId)return res.status(401).json({success:false,message:"Staff authentication required."});
+  const permissions=Array.isArray(req.session.staffPermissions)
+    ? req.session.staffPermissions.map(String)
+    : [];
+  return res.json({success:true,staff:{
+    id:req.session.staffId,
+    name:req.session.staffName||"Staff",
+    email:req.session.staffEmail||"",
+    role_key:req.session.staffRole||"staff",
+    permissions,
+    page_permissions:PAGE_PERMISSIONS,
+    permissions_updated_at:null
+  }});
+});
+
 app.get("/api/admin/staff/me",async(req,res)=>{
   if(!req.session?.staffId)return res.status(401).json({success:false,message:"Staff authentication required."});
   res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
