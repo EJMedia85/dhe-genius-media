@@ -316,30 +316,46 @@ async function loadBase(){
     }).catch(()=>{});
     return true;
   }
-  $('#who').textContent='Verifying staff session…';
-  let result=await verify();
-  if(!result.ok&&!result.redirect){
-    $('#who').textContent='Verifying staff session… retrying';
-    await new Promise(r=>setTimeout(r,500));
-    result=await verify();
-  }
-  if(!result.ok){
-    document.body.classList.remove('staff-pending');
-    $('#who').textContent=result.message||'Staff session could not be verified.';
-    if(result.redirect)setTimeout(()=>location.replace('/staff-login.html'),250);
-    return false;
-  }
-  const sd=result.staff;
+  // The /staff.html server route already requires an authenticated staff session.
+  // Do not block the workspace on a second network request. Boot the shell
+  // immediately, then hydrate the authoritative permissions in the background.
   staffSession=true;
-  staffPermissions=normalizeStaffPermissions(sd.permissions);
-  if(sd.page_permissions&&typeof sd.page_permissions==='object')PAGE_PERMISSION={...sd.page_permissions};
-  staffPermissionSignature=staffPermissions.slice().sort().join('|')+'::'+String(sd.permissions_updated_at||'');
-  $('#who').textContent='Signed in as '+(sd.name||'Staff')+' • '+(sd.role_key||'staff')+' staff session';
+  staffPermissions=['dashboard.view'];
+  staffPermissionSignature='bootstrap';
+  $('#who').textContent='Signed in as Staff • loading permissions…';
   $('#logout').textContent='Logout Staff';
   document.body.classList.remove('staff-pending');
   applyStaffNavigation();
   applyStaffActionPermissions();
   startStaffPermissionSync();
+
+  // Verify asynchronously. A slow database/session endpoint must never leave
+  // the visible Staff Workspace stuck on "Verifying staff session…".
+  verify().then(result=>{
+    if(!result.ok){
+      if(result.redirect){
+        try{sessionStorage.removeItem('dgm_staff_session');}catch(e){}
+        location.replace('/staff-login.html');
+      }else{
+        $('#who').textContent='Signed in as Staff • permission sync pending';
+      }
+      return;
+    }
+    const sd=result.staff||{};
+    staffPermissions=normalizeStaffPermissions(sd.permissions);
+    if(sd.page_permissions&&typeof sd.page_permissions==='object')PAGE_PERMISSION={...sd.page_permissions};
+    staffPermissionSignature=staffPermissions.slice().sort().join('|')+'::'+String(sd.permissions_updated_at||'');
+    $('#who').textContent='Signed in as '+(sd.name||'Staff')+' • '+(sd.role_key||'staff')+' staff session';
+    applyStaffNavigation();
+    applyStaffActionPermissions();
+    try{sessionStorage.setItem('dgm_staff_session',JSON.stringify({
+      id:sd.id,name:sd.name,email:sd.email,role:sd.role_key,role_key:sd.role_key,permissions:staffPermissions
+    }));}catch(e){}
+    const requested=(location.hash||'').replace(/^#/,'');
+    const allowed=Object.keys(PAGE_PERMISSION).filter(p=>staffPermissions.includes(PAGE_PERMISSION[p]));
+    const target=(requested&&allowed.includes(requested))?requested:(allowed[0]||null);
+    if(target)show(target);
+  }).catch(()=>{});
   return true;
 }
 let PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
