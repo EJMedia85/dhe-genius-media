@@ -44,7 +44,7 @@ button.submit:disabled{opacity:.65;cursor:wait}
 (async()=>{
   try{
     const r=await fetch('/api/admin/staff/me',{credentials:'same-origin'});
-    if(r.ok) location.replace('/staff.html');
+    if(r.ok) try{sessionStorage.setItem('dgm_staff_session',JSON.stringify(d.staff||{}));}catch(e){} location.replace('/staff.html');
   }catch(e){}
 })();
 document.getElementById('form').addEventListener('submit',async e=>{
