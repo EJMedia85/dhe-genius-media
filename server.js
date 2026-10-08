@@ -2787,6 +2787,7 @@ async function initializeAdminCredentials() {
 
 function requireAdmin(req, res, next) {
   if (!req.session || !req.session.adminAuthenticated) return sendError(res, 401, "Admin authentication required.");
+  if (req.session.staffId) return sendError(res, 403, "Super Admin access required.");
   next();
 }
 
