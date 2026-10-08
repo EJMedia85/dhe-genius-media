@@ -44,7 +44,7 @@
 </nav><div class="bottom"><button class="logout" id="logout">Logout Staff</button></div>
 </aside>
 <main class="main">
-<header class="head"><div><div class="muted" id="who">Checking secure session…</div><h1 id="pageTitle">DGM Staff Workspace</h1><div class="muted" id="pageSubtitle">Your assigned DGM operations and customer services</div><div id="staffAccessSummary" class="muted" style="margin-top:7px">Loading permitted access…</div></div><div class="toolbar" style="margin:0;align-items:center"><span class="badge" id="adminAreaBadge">STAFF</span><button class="btn green" onclick="refreshCurrent()">Refresh</button></div></header>
+<header class="head"><div><div class="muted" id="who">Verifying staff session…</div><h1 id="pageTitle">Business Control Center</h1><div class="muted" id="pageSubtitle">Your assigned DGM operations and customer services</div><div id="staffAccessSummary" class="muted" style="margin-top:7px">Loading permitted access…</div></div><div class="toolbar" style="margin:0;align-items:center"><span class="badge" id="adminAreaBadge">STAFF</span><button class="btn green" onclick="refreshCurrent()">Refresh</button></div></header>
 
 <section id="overview" class="section active">
 <div class="cards" id="overviewCards"></div>
@@ -193,7 +193,11 @@ async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origi
 let companionMessageTimer=null;
 const ADMIN_PAGE_META={overview:['Business Control Center','DGM operations, customers, revenue, services and infrastructure','EXECUTIVE'],customers:['Customers','Customer accounts, wallet balances and account actions','BUSINESS'],orders:['Orders & Fulfillment','Track sales, delivery status and customer orders','BUSINESS'],wallet:['Wallet & Withdrawals','Control wallet activity, funding and withdrawal approvals','BUSINESS'],agents:['Agent Network','Manage agents, pricing, commissions and withdrawals','BUSINESS'],analytics:['Business Analytics','Revenue, sales, customers and service performance','BUSINESS'],services:['Services & Providers','Control DGM service availability and provider integrations','SERVICES'],market:['DGM Market','Manage products, inventory, orders and fulfillment','SERVICES'],bwm:['Social Boosting','Manage social boosting services and delivery','SERVICES'],savings:['Savings / Susu','Monitor savings accounts, groups and contributions','SERVICES'],companion:['DGM Companion','Authorize devices and monitor Companion activity','DEVICES'],bridge:['DGM Bridge','Authorize devices, pairing and relay connectivity','DEVICES'],devices:['Device Management','Manage registered devices and lifecycle actions','DEVICES'],marketing:['Marketing','Campaigns, offers and promotional controls','ENGAGEMENT'],notifications:['Notifications','Broadcasts and customer notification history','ENGAGEMENT'],support:['Support','Customer support tickets and responses','ENGAGEMENT'],security:['Security & Audit','Review administrative actions and security events','ADMIN'],staff:['Staff & Permissions','Manage DGM staff roles, permissions and access lifecycle','ADMIN'],system:['System Health','Monitor application, database and provider health','ADMIN']};
 function show(page){const section=document.getElementById(page);if(!section||!section.classList.contains('section'))return false;const needed=PAGE_PERMISSION[page];if(staffSession&&needed&&!staffPermissions.includes(needed)){alert('Your staff role does not include access to this area.');return false;}currentPage=page;document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x===section));document.querySelectorAll('.nav button[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const meta=ADMIN_PAGE_META[page]||[page,'DGM Business Control Center','ADMIN'];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];$('#adminAreaBadge').textContent=meta[2];Promise.resolve(refreshCurrent()).catch(e=>console.error('Admin page refresh error',e));return true}
-async function refreshCurrent(){try{if(companionMessageTimer){clearInterval(companionMessageTimer);companionMessageTimer=null;}if(currentPage==='overview')await loadOverview();else if(currentPage==='bridge')await loadBridge();else if(currentPage==='companion'){await loadCompanion();companionMessageTimer=setInterval(()=>{if(currentPage==='companion')loadCompanionMessages();},5000);}else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='savings')await loadSavings();else if(currentPage==='agents')await loadAgents();else if(currentPage==='analytics')await loadAnalyticsPage();else if(currentPage==='notifications'){}else if(currentPage==='marketing')await loadMarketing();else if(currentPage==='services')await loadServices();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='staff')await loadStaff();else if(currentPage==='system')await loadSystem();else if(currentPage==='devices')await loadDevices();else if(currentPage==='entertainment')await loadMovies();else if(currentPage==='market')await loadMarket();else if(currentPage==='bwm')await loadBwm();}catch(e){console.error(e);}}
+async function refreshCurrent(){try{if(companionMessageTimer){clearInterval(companionMessageTimer);companionMessageTimer=null;}if(currentPage==='overview')await loadOverview();else if(currentPage==='bridge')await loadBridge();else if(currentPage==='companion'){await loadCompanion();companionMessageTimer=setInterval(()=>{if(currentPage==='companion')loadCompanionMessages();},5000);}else if(currentPage==='customers')await loadCustomers();else if(currentPage==='orders')await loadOrders();else if(currentPage==='wallet')await loadWallet();else if(currentPage==='savings')await loadSavings();else if(currentPage==='agents')await loadAgents();else if(currentPage==='analytics')await loadAnalyticsPage();else if(currentPage==='notifications'){}else if(currentPage==='marketing')await loadMarketing();else if(currentPage==='services')await loadServices();else if(currentPage==='support')await loadSupport();else if(currentPage==='security')await loadAudit();else if(currentPage==='staff')await loadStaff();else if(currentPage==='system')await loadSystem();else if(currentPage==='devices')await loadDevices();else if(currentPage==='entertainment')await loadMovies();else if(currentPage==='market')await loadMarket();else if(currentPage==='bwm')await loadBwm();}catch(e){
+ console.error('Staff dashboard refresh error:',e);
+ const target=$('#'+currentPage);
+ if(target) target.insertAdjacentHTML('afterbegin','<div class="notice danger" data-refresh-error>'+esc(e.message||'Could not load this section.')+'</div>');
+}}
 window.__adminNav=function(page){try{if(!show(page))return false;history.replaceState(null,'','#'+page);return false;}catch(e){console.error('Admin navigation error',e);const el=$('#who');if(el)el.textContent='Navigation error: '+e.message;return false;}};window.addEventListener('hashchange',()=>{const page=(location.hash||'').replace(/^#/,'');if(page&&document.getElementById(page)?.classList.contains('section'))show(page);});
 document.addEventListener('click',function(e){const b=e.target.closest('.nav button[data-page]');if(!b)return;e.preventDefault();e.stopPropagation();window.__adminNav(b.dataset.page);},true);
 document.querySelectorAll('.nav button[data-page]').forEach(b=>b.setAttribute('type','button'));
@@ -282,12 +286,28 @@ function applyStaffNavigation(){
 }
 
 async function loadOverview(){
- const [st,an,od,sys]=await Promise.all([api('/api/admin/stats'),api('/api/admin/analytics'),api('/api/admin/orders'),api('/api/admin/system')]);
- const s=st.stats,a=an.sales,w=an.wallet,wd=an.withdrawals,cu=an.customers;
- $('#overviewCards').innerHTML=[['Customers',s.customers],['Orders',s.orders],['Completed',s.completed],['Pending / Processing',s.pending],['Completed Value',money(s.completed_value)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
- $('#analyticsCards').innerHTML=[['30-Day Sales',money(a.completed_sales)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',cu.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
- renderHealth(sys.checks,'#healthMini');
- renderOrders(od.orders.slice(0,12),'#recentOrders',true);
+ const can=p=>staffSession?staffPermissions.includes(p):true;
+ const jobs=[
+   api('/api/admin/stats').then(d=>({key:'stats',data:d})),
+   can('analytics.view')?api('/api/admin/analytics').then(d=>({key:'analytics',data:d})):Promise.resolve(null),
+   can('orders.view')?api('/api/admin/orders').then(d=>({key:'orders',data:d})):Promise.resolve(null),
+   can('system.view')?api('/api/admin/system').then(d=>({key:'system',data:d})):Promise.resolve(null)
+ ];
+ const results=await Promise.all(jobs);
+ const byKey=Object.fromEntries(results.filter(Boolean).map(x=>[x.key,x.data]));
+ const s=byKey.stats?.stats||{};
+ $('#overviewCards').innerHTML=[
+   ['Customers',s.customers??'—'],['Orders',s.orders??'—'],['Completed',s.completed??'—'],
+   ['Pending / Processing',s.pending??'—'],['Completed Value',s.completed_value!=null?money(s.completed_value):'—']
+ ].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
+ const a=byKey.analytics?.sales,w=byKey.analytics?.wallet,wd=byKey.analytics?.withdrawals,cu=byKey.analytics?.customers;
+ $('#analyticsCards').innerHTML=[
+   ['30-Day Sales',a?money(a.completed_sales):'Restricted'],['Wallet In',w?money(w.wallet_in):'Restricted'],
+   ['Wallet Out',w?money(w.wallet_out):'Restricted'],['Pending Withdrawals',wd?.pending??'Restricted'],
+   ['Customers',cu?.total??s.customers??'—']
+ ].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+ $('#healthMini').innerHTML=byKey.system?.checks?renderHealth(byKey.system.checks,'#healthMini'): '<div class="notice">System health details require the <b>system.view</b> permission.</div>';
+ $('#recentOrders').innerHTML=byKey.orders?.orders?renderOrders(byKey.orders.orders.slice(0,12),'#recentOrders',true):'<tr><td class="empty">Recent orders require the <b>orders.view</b> permission.</td></tr>';
 }
 function renderHealth(checks,target){$(target).innerHTML=Object.entries(checks).map(([k,v])=>{const ok=['online','configured'].includes(v.status);return '<div><span class="dot '+(ok?'':'bad')+'"></span><b>'+esc(k)+'</b><br><span class="muted">'+esc(v.status)+'</span></div>'}).join('')}
 async function loadSystem(){const d=await api('/api/admin/system');renderHealth(d.checks,'#systemHealth');$('#systemChecked').textContent='Checked '+new Date(d.checked_at).toLocaleString()}
