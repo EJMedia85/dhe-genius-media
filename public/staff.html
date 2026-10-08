@@ -6,8 +6,8 @@
 <style>
 :root{--bg:#06100c;--panel:#0b1711;--panel2:#0e1d15;--line:#20372b;--text:#f4faf7;--muted:#91a49a;--green:#25d366;--danger:#ef5350;--amber:#f6c453}
 *{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#04100a,#081711 55%,#05100b);color:var(--text);font-family:Inter,Arial,sans-serif}.app{display:grid;grid-template-columns:235px 1fr;min-height:100vh}.side{border-right:1px solid var(--line);background:#07130d;padding:22px 14px;position:sticky;top:0;height:100vh}.brand{color:var(--green);font-weight:950;letter-spacing:1.4px}.side small{color:var(--muted);display:block;margin:7px 0 22px}.nav{display:grid;gap:12px;overflow:auto;max-height:calc(100vh - 155px);padding-right:3px}.nav-group{display:grid;gap:4px;padding-bottom:8px;border-bottom:1px solid rgba(32,55,43,.55)}.nav-group:last-child{border-bottom:0}.nav-label{font-size:10px;font-weight:950;letter-spacing:1.5px;color:#5f786b;padding:4px 10px 3px}.nav button{width:100%;text-align:left;background:transparent;color:#d9e8df;border:1px solid transparent;padding:11px 12px;border-radius:11px;font-weight:800}.nav button:hover,.nav button.active{background:#102219;border-color:#284536;color:var(--green)}.bottom{position:absolute;bottom:18px;left:14px;right:14px}.logout{width:100%;background:#17251e;color:#fff;border:1px solid #294236;padding:11px;border-radius:11px;font-weight:800}.main{padding:24px;max-width:1500px;width:100%}.head{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:22px}.head h1{margin:3px 0;font-size:28px}.muted{color:var(--muted);font-size:13px}.section{display:none}.section.active{display:block}.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.card{background:rgba(11,23,17,.96);border:1px solid var(--line);border-radius:16px;padding:17px;box-shadow:0 12px 35px #0002}.label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px}.value{font-size:26px;font-weight:950;margin-top:8px}.grid2{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;margin-top:15px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:17px}.panel h2,.panel h3{margin:0 0 13px}.health{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.health div{padding:11px;border:1px solid var(--line);border-radius:11px;background:#08140e}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green);margin-right:7px}.bad{background:var(--danger)}.warn{background:var(--amber)}.tablebox{overflow:auto;border:1px solid var(--line);border-radius:13px}.table{width:100%;border-collapse:collapse;min-width:850px}.table th,.table td{padding:11px;border-bottom:1px solid #1a2b23;text-align:left;font-size:12px;vertical-align:top}.table th{color:var(--muted);background:#09150f;position:sticky;top:0}.btn{border:1px solid #294236;background:#17251e;color:#fff;border-radius:9px;padding:8px 10px;font-weight:800;cursor:pointer}.btn.green{background:var(--green);color:#041008;border-color:var(--green)}.btn.red{background:#461714;color:#fff;border-color:#73302b}.toolbar{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:13px}.input,.select,.textarea{background:#07110d;color:#fff;border:1px solid #294236;border-radius:9px;padding:10px;width:100%}.search{max-width:420px}.kpi{display:flex;justify-content:space-between;gap:10px}.badge{display:inline-flex;padding:4px 8px;border-radius:20px;background:#163021;color:var(--green);font-weight:900;font-size:11px}.danger{color:#ff8b87}.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;padding:15px;z-index:20}.modal[hidden]{display:none}.modal-card{width:min(1100px,100%);max-height:92vh;overflow:auto;background:#09150f;border:1px solid #294236;border-radius:18px;padding:20px}.detail{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}.mini{background:#07110d;border:1px solid var(--line);border-radius:10px;padding:11px}.tabs2{display:flex;gap:7px;flex-wrap:wrap;margin:14px 0}.tabs2 button{background:#102018;color:#dce9e2;border:0;border-radius:8px;padding:8px 10px}.tabs2 button.active{background:var(--green);color:#041008}.notice{padding:12px;border:1px solid var(--line);border-radius:11px;background:#0a1710;color:#cfe0d7;margin-bottom:12px}.empty{padding:24px;color:var(--muted)}@media(max-width:1050px){.app{grid-template-columns:1fr}.side{position:relative;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:14px}.nav{display:flex;overflow:auto}.nav button{min-width:max-content}.bottom{position:static;margin-top:10px}.cards{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}}@media(max-width:650px){.main{padding:14px}.cards{grid-template-columns:1fr}.detail{grid-template-columns:1fr 1fr}.head h1{font-size:22px}.health{grid-template-columns:1fr}}
-.nav button[data-page="staff"]{display:none}.staff-only-hidden{display:none!important}</style></head>
-<body>
+.nav button[data-page="staff"]{display:none}.staff-only-hidden{display:none!important}body.staff-pending .nav button[data-page]{display:none!important}body.staff-pending .section{display:none!important}</style></head>
+<body class="staff-pending">
 <div class="app">
 <aside class="side">
 <div class="brand">DHE GENIUS MEDIA</div><small>Staff Workspace</small>
@@ -41,7 +41,7 @@
 
 <button data-page="system" type="button" onclick="window.__adminNav('system');return false;">⚙ System Health</button>
 </div>
-</nav><div class="bottom"><button class="logout" id="logout">Logout Admin</button></div>
+</nav><div class="bottom"><button class="logout" id="logout">Logout Staff</button></div>
 </aside>
 <main class="main">
 <header class="head"><div><div class="muted" id="who">Checking secure session…</div><h1 id="pageTitle">DGM Staff Workspace</h1><div class="muted" id="pageSubtitle">Your assigned DGM operations and customer services</div><div id="staffAccessSummary" class="muted" style="margin-top:7px">Loading permitted access…</div></div><div class="toolbar" style="margin:0;align-items:center"><span class="badge" id="adminAreaBadge">STAFF</span><button class="btn green" onclick="refreshCurrent()">Refresh</button></div></header>
@@ -229,29 +229,40 @@ document.getElementById('campaignForm')?.addEventListener('submit',async e=>{
   msg.textContent='Campaign published.';e.target.reset();$('#campaignCta').value='Shop DGM';$('#campaignUrl').value='/data.html';loadMarketing();
  }catch(err){msg.textContent=err.message||'Could not publish campaign.';}
 });
-async function loadBase(){
-  // Staff sessions are intentionally not accepted by /api/admin/me.
-  // Detect the staff session first, then fall back to the Super Admin session.
-  try{
-    const sr=await fetch('/api/admin/staff/me',{credentials:'same-origin',cache:'no-store'});
-    if(sr.ok){
-      const sd=await sr.json();
-      staffSession=true;
-      staffPermissions=Array.isArray(sd.staff?.permissions)?sd.staff.permissions:[];
-      $('#who').textContent='Signed in as '+(sd.staff?.name||'Staff')+' • '+(sd.staff?.role_key||'staff')+' staff session';
-      applyStaffNavigation();
-      return;
-    }
-  }catch(e){ console.warn('Staff session check failed:',e); }
-
-  if(IS_STAFF_PORTAL){
-    location.replace('/staff-login.html');
-    return;
+function normalizeStaffPermissions(value){
+  if(Array.isArray(value))return value.map(String);
+  if(typeof value==='string'){
+    try{const parsed=JSON.parse(value);return Array.isArray(parsed)?parsed.map(String):[];}catch(e){return value.split(',').map(x=>x.trim()).filter(Boolean);}
   }
-  const me=await api('/api/admin/me');
-  staffSession=false;
-  $('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';
-  applyStaffNavigation();
+  return [];
+}
+async function loadBase(){
+  if(!IS_STAFF_PORTAL){
+    const me=await api('/api/admin/me');
+    staffSession=false;
+    $('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';
+    applyStaffNavigation();
+    return true;
+  }
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const sr=await fetch('/api/admin/staff/me',{credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Cache-Control':'no-cache'}});
+    const sd=await sr.json().catch(()=>({success:false,message:'Invalid staff session response.'}));
+    if(sr.status===401){location.replace('/staff-login.html');return false;}
+    if(!sr.ok||!sd.success||!sd.staff)throw new Error(sd.message||'Staff session verification failed.');
+    staffSession=true;
+    staffPermissions=normalizeStaffPermissions(sd.staff.permissions);
+    $('#who').textContent='Signed in as '+(sd.staff.name||'Staff')+' • '+(sd.staff.role_key||'staff')+' staff session';
+    $('#logout').textContent='Logout Staff';
+    applyStaffNavigation();
+    document.body.classList.remove('staff-pending');
+    return true;
+  }catch(e){
+    console.error('Staff session check failed:',e);
+    $('#who').textContent=e.name==='AbortError'?'Staff session check timed out. Please sign in again.':(e.message||'Staff session verification failed.');
+    location.replace('/staff-login.html');
+    return false;
+  }finally{clearTimeout(timer);}
 }
 const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
 function applyStaffNavigation(){
@@ -587,7 +598,22 @@ async function replySupport(id){const box=$('#reply'+id);if(!box?.value.trim())r
 async function loadAudit(){const d=await api('/api/admin/audit');$('#auditBody').innerHTML=d.audit.length?d.audit.map(a=>'<tr><td>'+new Date(a.created_at).toLocaleString()+'</td><td>'+esc(a.admin_email)+'</td><td>'+esc(a.action)+'</td><td>'+esc(a.target_type||'')+' '+esc(a.target_id||'')+'</td><td><pre style="white-space:pre-wrap;margin:0">'+esc(JSON.stringify(a.details||{}))+'</pre></td></tr>').join(''):'<tr><td colspan="5" class="empty">No admin audit events yet.</td></tr>'}
 async function loadMovies(){try{const d=await api('/api/admin/movies/playback');const rows=d.movies||[];$('#moviesBody').innerHTML=rows.length?rows.map(x=>'<tr><td>'+esc(x.tmdb_id)+'</td><td>'+esc(x.title||'Untitled')+'</td><td>'+esc(x.playback_type||'')+'</td><td><span class="badge">'+(x.active?'ACTIVE':'INACTIVE')+'</span></td><td>'+new Date(x.updated_at||x.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="5" class="empty">No playback sources saved.</td></tr>';}catch(e){$('#moviesBody').innerHTML='<tr><td colspan="5" class="empty danger">'+esc(e.message)+'</td></tr>';}}
 $('#movieForm').onsubmit=async e=>{e.preventDefault();try{const d=await api('/api/admin/movies/playback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tmdb_id:Number($('#tmdb').value),title:$('#movieTitle').value,playback_type:$('#movieType').value,playback_url:$('#movieUrl').value})});$('#movieMsg').textContent=d.message||'Playback source saved.';e.target.reset()}catch(err){$('#movieMsg').textContent=err.message}}
-(async()=>{try{await loadBase();startBridgeAutoRefresh();const initial=(location.hash||'').replace(/^#/,'');if(initial&&document.getElementById(initial)&&document.getElementById(initial).classList.contains('section')){show(initial)}else{await loadOverview()}}catch(e){$('#who').textContent=e.message}})();
+(async()=>{try{
+  const ok=await loadBase();
+  if(!ok)return;
+  startBridgeAutoRefresh();
+  const requested=(location.hash||'').replace(/^#/,'');
+  const allowed=Object.keys(PAGE_PERMISSION).filter(p=>staffPermissions.includes(PAGE_PERMISSION[p]));
+  const firstAllowed=allowed[0]||null;
+  const target=(requested&&allowed.includes(requested))?requested:firstAllowed;
+  if(target)show(target);
+  else{
+    document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+    $('#pageTitle').textContent='Access not granted';
+    $('#pageSubtitle').textContent='The Super Admin has not assigned any operational permissions to this staff account.';
+    $('#staffAccessSummary').textContent='No operational permissions have been assigned.';
+  }
+}catch(e){console.error('Staff workspace bootstrap failed:',e);$('#who').textContent=e.message||'Staff workspace failed to load.'}})();
 async function loadStaff(){
   if(staffSession){$('#staffBody').innerHTML='<tr><td colspan="6" class="empty">Only the Super Admin can manage staff accounts.</td></tr>';return;}
   const d=await api('/api/admin/staff');staffDirectory=d.staff||[];staffPermissionCatalog=d.permission_catalog||{};
