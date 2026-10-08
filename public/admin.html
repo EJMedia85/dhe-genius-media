@@ -41,7 +41,7 @@
 <button data-page="staff" type="button" onclick="window.__adminNav('staff');return false;">👥 Staff & Permissions</button>
 <button data-page="system" type="button" onclick="window.__adminNav('system');return false;">⚙ System Health</button>
 </div>
-</nav><div class="bottom"><button class="logout" id="logout">Logout Admin</button></div>
+</nav><div class="bottom"><button class="logout" id="logout" type="button" onclick="(async function(){this.disabled=true;this.textContent='Logging out…';const endpoint=location.pathname==='/staff.html'?'/api/admin/staff/logout':'/api/admin/logout';try{await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store'});}finally{location.replace(location.pathname==='/staff.html'?'/staff-login.html':'/admin-login.html');}}).call(this)">Logout Admin</button></div>
 </aside>
 <main class="main">
 <header class="head"><div><div class="muted" id="who">Checking secure session…</div><h1 id="pageTitle">Business Control Center</h1><div class="muted" id="pageSubtitle">DGM operations, customers, revenue, services and infrastructure</div></div><div class="toolbar" style="margin:0;align-items:center"><span class="badge" id="adminAreaBadge">EXECUTIVE</span><button class="btn green" onclick="refreshCurrent()">Refresh</button></div></header>
