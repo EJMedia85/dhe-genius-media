@@ -8773,7 +8773,7 @@ async function processAutomaticSavings() {
 }
 
 // =====================================================
-// STAFF / SUPER ADMIN DASHBOARD ROUTING
+// DGM BUSINESS CONTROL CENTER ENTRY\n// Staff-facing business operations always begin at the dedicated staff login.\n// An already-authenticated staff member goes directly to the Staff Workspace.\napp.get("/business-control-center", (req, res) => {\n  if (req.session?.staffId) return res.redirect(302, "/staff.html");\n  return res.redirect(302, "/staff-login.html");\n});\n\n// STAFF / SUPER ADMIN DASHBOARD ROUTING
 // =====================================================
 // Keep the two portals separate at the URL level while sharing the
 // permission-aware dashboard implementation. Staff must never be able
