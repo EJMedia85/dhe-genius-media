@@ -273,29 +273,48 @@ async function loadBase(){
     applyStaffNavigation();
     return true;
   }
-  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
-  try{
-    const sr=await fetch('/api/admin/staff/me',{credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Cache-Control':'no-cache'}});
-    const sd=await sr.json().catch(()=>({success:false,message:'Invalid staff session response.'}));
-    if(sr.status===401){location.replace('/staff-login.html');return false;}
-    if(!sr.ok||!sd.success||!sd.staff)throw new Error(sd.message||'Staff session verification failed.');
-    staffSession=true;
-    staffPermissions=normalizeStaffPermissions(sd.staff.permissions);
-    if(sd.staff.page_permissions&&typeof sd.staff.page_permissions==='object')PAGE_PERMISSION={...sd.staff.page_permissions};
-    staffPermissionSignature=staffPermissions.slice().sort().join('|')+'::'+String(sd.staff.permissions_updated_at||'');
-    $('#who').textContent='Signed in as '+(sd.staff.name||'Staff')+' • '+(sd.staff.role_key||'staff')+' staff session';
-    $('#logout').textContent='Logout Staff';
-    applyStaffNavigation();
+  const verify=async()=>{
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),7000);
+    try{
+      const sr=await fetch('/api/admin/staff/me',{
+        credentials:'same-origin',
+        cache:'no-store',
+        signal:controller.signal,
+        headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}
+      });
+      const sd=await sr.json().catch(()=>({success:false,message:'Invalid staff session response.'}));
+      if(sr.status===401)return {ok:false,redirect:true,message:sd.message||'Staff authentication required.'};
+      if(!sr.ok||!sd.success||!sd.staff)return {ok:false,message:sd.message||('Staff session verification failed ('+sr.status+').')};
+      return {ok:true,staff:sd.staff};
+    }catch(e){
+      return {ok:false,message:e.name==='AbortError'?'Staff session verification timed out.':(e.message||'Staff session verification failed.')};
+    }finally{clearTimeout(timer);}
+  };
+  $('#who').textContent='Verifying staff session…';
+  let result=await verify();
+  if(!result.ok&&!result.redirect){
+    $('#who').textContent='Verifying staff session… retrying';
+    await new Promise(r=>setTimeout(r,500));
+    result=await verify();
+  }
+  if(!result.ok){
     document.body.classList.remove('staff-pending');
-    applyStaffActionPermissions();
-    startStaffPermissionSync();
-    return true;
-  }catch(e){
-    console.error('Staff session check failed:',e);
-    $('#who').textContent=e.name==='AbortError'?'Staff session check timed out. Please sign in again.':(e.message||'Staff session verification failed.');
-    location.replace('/staff-login.html');
+    $('#who').textContent=result.message||'Staff session could not be verified.';
+    if(result.redirect)setTimeout(()=>location.replace('/staff-login.html'),250);
     return false;
-  }finally{clearTimeout(timer);}
+  }
+  const sd=result.staff;
+  staffSession=true;
+  staffPermissions=normalizeStaffPermissions(sd.permissions);
+  if(sd.page_permissions&&typeof sd.page_permissions==='object')PAGE_PERMISSION={...sd.page_permissions};
+  staffPermissionSignature=staffPermissions.slice().sort().join('|')+'::'+String(sd.permissions_updated_at||'');
+  $('#who').textContent='Signed in as '+(sd.name||'Staff')+' • '+(sd.role_key||'staff')+' staff session';
+  $('#logout').textContent='Logout Staff';
+  document.body.classList.remove('staff-pending');
+  applyStaffNavigation();
+  applyStaffActionPermissions();
+  startStaffPermissionSync();
+  return true;
 }
 let PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
 let staffPermissionSyncTimer=null;
