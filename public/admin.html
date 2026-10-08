@@ -240,49 +240,47 @@ document.getElementById('campaignForm')?.addEventListener('submit',async e=>{
  }catch(err){msg.textContent=err.message||'Could not publish campaign.';}
 });
 async function loadBase(){
-  // The Staff portal must NEVER fall back to Super Admin mode. If the
-  // staff session cannot be verified, fail closed instead of exposing
-  // the full Admin Control Center.
+  // The Staff portal must NEVER fall back to Super Admin mode.
   if(IS_STAFF_PORTAL){
     staffSession=true;
     staffPermissions=[];
     try{
       const sr=await fetch('/api/admin/staff/me',{credentials:'same-origin',cache:'no-store'});
-      if(sr.status===401){
-        location.replace('/staff-login.html');
-        return false;
-      }
-      if(!sr.ok){
-        staffPermissions=[];
-        applyStaffNavigation();
-        $('#who').textContent='Staff session verification failed. Access is locked.';
-        return false;
-      }
+      if(sr.status===401){location.replace('/staff-login.html');return false;}
+      if(!sr.ok){staffPermissions=[];applyStaffNavigation();$('#who').textContent='Staff session verification failed. Access is locked.';return false;}
       const sd=await sr.json();
-      if(!sd.success||!sd.staff){
-        $('#who').textContent='Staff session verification failed. Access is locked.';
-        applyStaffNavigation();
-        return false;
-      }
+      if(!sd.success||!sd.staff){applyStaffNavigation();$('#who').textContent='Staff session verification failed. Access is locked.';return false;}
       staffPermissions=Array.isArray(sd.staff.permissions)?sd.staff.permissions:[];
       $('#who').textContent='Signed in as '+(sd.staff.name||'Staff')+' • '+(sd.staff.role_key||'staff')+' staff session';
       applyStaffNavigation();
       return true;
     }catch(e){
       console.warn('Staff session check failed:',e);
-      staffPermissions=[];
-      applyStaffNavigation();
+      staffPermissions=[];applyStaffNavigation();
       $('#who').textContent='Staff session verification failed. Access is locked.';
       return false;
     }
   }
 
-  const me=await api('/api/admin/me');
-  staffSession=false;
-  staffPermissions=[];
-  $('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';
-  applyStaffNavigation();
-  return true;
+  $('#who').textContent='Verifying Super Admin session…';
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const r=await fetch('/api/admin/me',{credentials:'same-origin',cache:'no-store',signal:controller.signal,headers:{'Cache-Control':'no-cache'}});
+    const d=await r.json().catch(()=>({success:false,message:'Invalid admin session response.'}));
+    if(r.status===401){location.replace('/admin-login.html');return false;}
+    if(!r.ok||!d.success||!d.admin)throw new Error(d.message||'Super Admin session verification failed.');
+    staffSession=false;
+    staffPermissions=[];
+    $('#who').textContent='Signed in as '+(d.admin.email||'Super Admin')+' • Super Admin';
+    applyStaffNavigation();
+    return true;
+  }catch(e){
+    console.error('Super Admin session check failed:',e);
+    $('#who').textContent=e.name==='AbortError'?'Super Admin session check timed out. Please sign in again.':(e.message||'Super Admin session verification failed.');
+    location.replace('/admin-login.html');
+    return false;
+  }finally{clearTimeout(timer);}
 }
 const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
 function staffCan(page){return !staffSession||new Set(Array.isArray(staffPermissions)?staffPermissions:[]).has(PAGE_PERMISSION[page]);}
