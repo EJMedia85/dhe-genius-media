@@ -5638,7 +5638,15 @@ app.post("/api/admin/login", loginRateLimit, async (req, res) => {
   }
 });
 
-app.get("/api/admin/me", requireAdmin, (req, res) => res.json({ success: true, admin: { email: req.session.adminEmail || ADMIN_EMAIL }, logged_in_at: req.session.adminLoginAt || null }));
+app.get("/api/admin/me", requireAdmin, (req, res) => {
+  res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma","no-cache");
+  return res.json({
+    success: true,
+    admin: { email: req.session.adminEmail || ADMIN_EMAIL },
+    logged_in_at: req.session.adminLoginAt || null
+  });
+});
 
 app.post("/api/admin/logout", (req, res) => {
   // Expire the browser session cookie immediately. This makes logout effective
