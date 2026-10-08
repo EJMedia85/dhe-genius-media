@@ -44,7 +44,7 @@ button.submit:disabled{opacity:.65;cursor:wait}
 (async()=>{
   try{
     const r=await fetch('/api/admin/staff/me',{credentials:'same-origin'});
-    if(r.ok) try{sessionStorage.setItem('dgm_staff_session',JSON.stringify(d.staff||{}));}catch(e){} location.replace('/staff.html');
+    if(r.ok) location.replace('/staff.html');
   }catch(e){}
 })();
 document.getElementById('form').addEventListener('submit',async e=>{
@@ -60,6 +60,7 @@ document.getElementById('form').addEventListener('submit',async e=>{
     });
     const d=await r.json().catch(()=>({}));
     if(!r.ok||!d.success) throw new Error(d.message||'Staff login failed.');
+    try{sessionStorage.setItem('dgm_staff_session',JSON.stringify(d.staff||{}));}catch(e){}
     location.replace('/staff.html');
   }catch(err){
     msg.textContent=err.message||'Staff login failed.';
