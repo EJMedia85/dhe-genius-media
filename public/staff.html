@@ -276,7 +276,7 @@ async function loadBase(){
   const verify=async()=>{
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),7000);
     try{
-      const sr=await fetch('/api/admin/staff/me',{
+      const sr=await fetch('/api/admin/staff/session-bootstrap',{
         credentials:'same-origin',
         cache:'no-store',
         signal:controller.signal,
