@@ -15,14 +15,20 @@ const staffLoginAttempts=new Map();
 const MAP=[
 [/^\/stats$/,["dashboard.view"]],[/^\/analytics/,["analytics.view"]],[/^\/orders/,["orders.view"]],
 [/^\/customers\/\d+\/balance$/,["customers.balance"]],[/^\/customers\/\d+$/,["customers.delete"]],[/^\/customers/,["customers.view"]],
-[/^\/withdrawals\/\d+\/(approve|reject|paid)$/,["wallet.withdrawals"]],[^\/withdrawals/,["wallet.view"]],
-[/^\/agents/,["agents.manage"]],[^\/services/,["services.manage"]],[^\/market/,["market.manage"]],[^\/bwm/,["social.manage"]],
-[/^\/savings/,["savings.manage"]],[^\/companion/,["companion.manage"]],[^\/bridge/,["bridge.manage"]],[^\/devices/,["devices.manage"]],
-[/^\/marketing/,["marketing.manage"]],[^\/notifications/,["notifications.manage"]],[^\/support/,["support.manage"]],
-[/^\/audit$/,["security.audit"]],[^\/system$/,["system.view","services.manage"]],[^\/staff/,["staff.manage"]]
+[/^\/withdrawals\/\d+\/(approve|reject|paid)$/,["wallet.withdrawals"]],[/^\/withdrawals/,["wallet.view"]],
+[/^\/agents/,["agents.manage"]],[/^\/services/,["services.manage"]],[/^\/market/,["market.manage"]],[/^\/bwm/,["social.manage"]],
+[/^\/savings/,["savings.manage"]],[/^\/companion/,["companion.manage"]],[/^\/bridge/,["bridge.manage"]],[/^\/devices/,["devices.manage"]],
+[/^\/marketing/,["marketing.manage"]],[/^\/notifications/,["notifications.manage"]],[/^\/support/,["support.manage"]],
+[/^\/audit$/,["security.audit"]],[/^\/system$/,["system.view","services.manage"]],[/^\/staff/,["staff.manage"]]
 ];
 async function audit(pool,req,action,target_type,target_id,details={}){try{await pool.query("INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,$2,$3,$4,$5::jsonb)",[req.session?.staffEmail||req.session?.adminEmail||"unknown",action,target_type,String(target_id||""),JSON.stringify({actor_type:req.session?.staffId?"staff":"super_admin",actor_id:req.session?.staffId||null,...details})]);}catch(e){console.error("staff audit:",e.message);}}
-async function perms(pool,id){const r=await pool.query("SELECT permissions FROM staff_users WHERE id=$1 AND active=TRUE",[id]);return new Set(r.rows[0]?.permissions||[]);}
+async function perms(pool,id){
+ const r=await pool.query("SELECT permissions FROM staff_users WHERE id=$1 AND active=TRUE",[id]);
+ const raw=r.rows[0]?.permissions; let list=[];
+ if(Array.isArray(raw)) list=raw;
+ else if(typeof raw==="string"){try{const v=JSON.parse(raw);if(Array.isArray(v))list=v;}catch(_){list=raw.split(",").map(x=>x.trim()).filter(Boolean);}}
+ return new Set(list.map(String));
+}
 function installStaff(app,pool){
 const staffReady=pool.query("CREATE TABLE IF NOT EXISTS staff_users(id SERIAL PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT NOT NULL,password_hash TEXT NOT NULL,role_key TEXT NOT NULL,permissions JSONB NOT NULL DEFAULT '[]',active BOOLEAN NOT NULL DEFAULT TRUE,last_login_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
 app.use("/api/admin",async(req,res,next)=>{
