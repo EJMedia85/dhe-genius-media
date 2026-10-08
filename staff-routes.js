@@ -36,7 +36,27 @@ app.get("/api/admin/staff/me",async(req,res)=>{
     return res.status(500).json({success:false,message:"Staff session check failed."});
   }
 });
-app.post("/api/admin/staff/logout",(req,res)=>req.session.destroy(e=>e?res.status(500).json({success:false,message:"Staff logout failed."}):res.json({success:true})));
+app.post("/api/admin/staff/logout",(req,res)=>{
+  // Expire the browser session cookie immediately. Even if the PostgreSQL
+  // session store is temporarily unavailable, the staff browser session
+  // cannot continue using the old cookie.
+  res.clearCookie("dgm.sid",{
+    httpOnly:true,
+    secure:process.env.NODE_ENV==="production",
+    sameSite:"lax",
+    path:"/",
+    expires:new Date(0)
+  });
+  res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma","no-cache");
+
+  if(!req.session)return res.json({success:true});
+
+  req.session.destroy(e=>{
+    if(e)console.error("Staff logout session cleanup error:",e);
+    return res.json({success:true});
+  });
+});
 const superOnly=(req,res,next)=>{if(!req.session?.adminAuthenticated)return res.status(401).json({success:false,message:"Admin authentication required."});if(req.session?.staffId)return res.status(403).json({success:false,message:"Only the Super Admin can manage staff."});next();};
 app.get("/api/admin/staff",superOnly,async(req,res)=>{await staffReady;return res.json({success:true,staff:(await pool.query("SELECT id,name,email,role_key,permissions,active,last_login_at,created_at FROM staff_users ORDER BY created_at DESC")).rows,roles:Object.entries(R).map(([key,v])=>({key,name:v[0],permissions:v[1]})),permission_catalog:P});});
 app.post("/api/admin/staff",superOnly,async(req,res)=>{try{await staffReady;const name=String(req.body?.name||"").trim(),email=String(req.body?.email||"").trim().toLowerCase(),password=String(req.body?.password||""),role=String(req.body?.role||"").trim().toLowerCase();if(name.length<2||!email.includes("@")||password.length<8||password.length>72||!R[role])return res.status(400).json({success:false,message:"Name, valid email, 8+ character password and valid role are required."});const h=await bcrypt.hash(password,12),r=await pool.query("INSERT INTO staff_users(name,email,password_hash,role_key,permissions) VALUES($1,$2,$3,$4,$5::jsonb) RETURNING id,name,email,role_key,active,created_at",[name,email,h,role,JSON.stringify(R[role][1])]);await audit(pool,req,"staff_created","staff",r.rows[0].id,{email,role});res.status(201).json({success:true,staff:r.rows[0]});}catch(e){res.status(e.code==="23505"?409:500).json({success:false,message:e.code==="23505"?"A staff account with that email already exists.":"Could not create staff account."});}});
