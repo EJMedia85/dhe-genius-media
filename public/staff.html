@@ -189,7 +189,7 @@ function filterBwm(){const q=String($('#bwmSearch')?.value||'').toLowerCase().tr
 async function refreshBwm(id){try{await api('/api/admin/bwm/orders/'+id+'/refresh',{method:'POST'});await loadBwm()}catch(e){alert(e.message)}}
 
 
-async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(r.status===401){location.replace('/admin-login.html');throw Error('Admin session expired.')}if(!r.ok||d.success===false)throw Error(d.message||'Request failed');return d}
+async function api(url,opts={}){const r=await fetch(url,{credentials:'same-origin',...opts});const d=await r.json().catch(()=>({success:false,message:'Invalid server response'}));if(r.status===401){location.replace(IS_STAFF_PORTAL?'/staff-login.html':'/admin-login.html');throw Error((IS_STAFF_PORTAL?'Staff':'Admin')+' session expired.')}if(!r.ok||d.success===false)throw Error(d.message||'Request failed');return d}
 let companionMessageTimer=null;
 const ADMIN_PAGE_META={overview:['Business Control Center','DGM operations, customers, revenue, services and infrastructure','EXECUTIVE'],customers:['Customers','Customer accounts, wallet balances and account actions','BUSINESS'],orders:['Orders & Fulfillment','Track sales, delivery status and customer orders','BUSINESS'],wallet:['Wallet & Withdrawals','Control wallet activity, funding and withdrawal approvals','BUSINESS'],agents:['Agent Network','Manage agents, pricing, commissions and withdrawals','BUSINESS'],analytics:['Business Analytics','Revenue, sales, customers and service performance','BUSINESS'],services:['Services & Providers','Control DGM service availability and provider integrations','SERVICES'],market:['DGM Market','Manage products, inventory, orders and fulfillment','SERVICES'],bwm:['Social Boosting','Manage social boosting services and delivery','SERVICES'],savings:['Savings / Susu','Monitor savings accounts, groups and contributions','SERVICES'],companion:['DGM Companion','Authorize devices and monitor Companion activity','DEVICES'],bridge:['DGM Bridge','Authorize devices, pairing and relay connectivity','DEVICES'],devices:['Device Management','Manage registered devices and lifecycle actions','DEVICES'],marketing:['Marketing','Campaigns, offers and promotional controls','ENGAGEMENT'],notifications:['Notifications','Broadcasts and customer notification history','ENGAGEMENT'],support:['Support','Customer support tickets and responses','ENGAGEMENT'],security:['Security & Audit','Review administrative actions and security events','ADMIN'],staff:['Staff & Permissions','Manage DGM staff roles, permissions and access lifecycle','ADMIN'],system:['System Health','Monitor application, database and provider health','ADMIN']};
 function show(page){const section=document.getElementById(page);if(!section||!section.classList.contains('section'))return false;const needed=PAGE_PERMISSION[page];if(staffSession&&needed&&!staffPermissions.includes(needed)){alert('Your staff role does not include access to this area.');return false;}currentPage=page;document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x===section));document.querySelectorAll('.nav button[data-page]').forEach(x=>x.classList.toggle('active',x.dataset.page===page));const meta=ADMIN_PAGE_META[page]||[page,'DGM Business Control Center','ADMIN'];$('#pageTitle').textContent=meta[0];$('#pageSubtitle').textContent=meta[1];$('#adminAreaBadge').textContent=meta[2];Promise.resolve(refreshCurrent()).catch(e=>console.error('Admin page refresh error',e));return true}
@@ -244,6 +244,10 @@ async function loadBase(){
     }
   }catch(e){ console.warn('Staff session check failed:',e); }
 
+  if(IS_STAFF_PORTAL){
+    location.replace('/staff-login.html');
+    return;
+  }
   const me=await api('/api/admin/me');
   staffSession=false;
   $('#who').textContent='Signed in as '+me.admin.email+' • Super Admin';
