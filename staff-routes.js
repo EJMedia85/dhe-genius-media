@@ -47,12 +47,39 @@ app.get("/api/admin/staff/me",async(req,res)=>{
     // Do not depend on the table-initialization promise here: a previously
     // created staff account must be able to authenticate even if initialization
     // is still resolving elsewhere in the process.
-    const r=await pool.query(
-      "SELECT id,name,email,role_key,permissions,active,last_login_at,created_at,updated_at FROM staff_users WHERE id=$1 LIMIT 1",
-      [req.session.staffId]
-    );
-    if(!r.rows.length)return res.status(401).json({success:false,message:"Staff account no longer exists."});
-    const s=r.rows[0];
+    const sessionPermissions=Array.isArray(req.session.staffPermissions)
+      ? req.session.staffPermissions.map(String)
+      : (typeof req.session.staffPermissions==="string" ? req.session.staffPermissions.split(",").map(x=>x.trim()).filter(Boolean) : []);
+    const fallback={
+      id:req.session.staffId,
+      name:req.session.staffName||"Staff",
+      email:req.session.staffEmail||"",
+      role_key:req.session.staffRole||"staff",
+      permissions:sessionPermissions,
+      page_permissions:PAGE_PERMISSIONS,
+      permission_catalog:P,
+      permissions_updated_at:null,
+      active:true,
+      last_login_at:null,
+      created_at:null
+    };
+    // Do not let a slow database connection leave the Staff Workspace stuck
+    // on "Verifying staff session". The session is already authenticated; use
+    // its permission snapshot immediately if the authoritative lookup is slow.
+    let lookup;
+    try{
+      lookup=await Promise.race([
+        pool.query("SELECT id,name,email,role_key,permissions,active,last_login_at,created_at,updated_at FROM staff_users WHERE id=$1 LIMIT 1",[req.session.staffId]),
+        new Promise((_,reject)=>setTimeout(()=>reject(Object.assign(new Error("Staff permission lookup timed out"),{code:"STAFF_LOOKUP_TIMEOUT"})),2500))
+      ]);
+    }catch(e){
+      if(e.code==="STAFF_LOOKUP_TIMEOUT"){
+        return res.json({success:true,staff:fallback,source:"session-fallback"});
+      }
+      throw e;
+    }
+    if(!lookup.rows.length)return res.status(401).json({success:false,message:"Staff account no longer exists."});
+    const s=lookup.rows[0];
     if(!s.active)return res.status(401).json({success:false,message:"Staff account is inactive."});
     const permissions=Array.isArray(s.permissions)
       ? s.permissions.map(String)
