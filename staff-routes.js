@@ -33,7 +33,7 @@ function installStaff(app,pool){
 const staffReady=pool.query("CREATE TABLE IF NOT EXISTS staff_users(id SERIAL PRIMARY KEY,email TEXT UNIQUE NOT NULL,name TEXT NOT NULL,password_hash TEXT NOT NULL,role_key TEXT NOT NULL,permissions JSONB NOT NULL DEFAULT '[]',active BOOLEAN NOT NULL DEFAULT TRUE,last_login_at TIMESTAMPTZ,created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
 app.use("/api/admin",async(req,res,next)=>{
 if(!req.session?.staffId)return next();
-await staffReady;const p=req.path||"/";if(["/me","/logout","/staff/me","/staff/logout","/staff/login"].includes(p))return next();
+await staffReady;const p=req.path||"/";if(["/me","/logout","/staff/me","/staff/logout","/staff/login","/staff/session-bootstrap"].includes(p))return next();
 const m=MAP.find(x=>x[0].test(p));if(!m){await audit(pool,req,"authorization_denied","route",p);return res.status(403).json({success:false,message:"Staff permission required."});}
 const s=await perms(pool,req.session.staffId);const required=m[1];if(!required.some(permission=>s.has(permission))){await audit(pool,req,"authorization_denied","permission",required.join(" OR "),{route:p});return res.status(403).json({success:false,message:"You do not have permission for this function."});}next();
 });
