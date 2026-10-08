@@ -7,7 +7,7 @@ finance:["Finance",["dashboard.view","customers.view","orders.view","wallet.view
 operations:["Operations",["dashboard.view","customers.view","orders.view","agents.manage","services.manage","companion.manage","bridge.manage","devices.manage","analytics.view"]],
 manager:["Business Manager",Object.keys(P).filter(x=>!["staff.manage","customers.delete","customers.balance","security.audit"].includes(x))]
 };
-const PAGE_PERMISSIONS={overview:"dashboard.view",customers:"customers.view",orders:"orders.view",wallet:"wallet.view",agents:"agents.manage",analytics:"analytics.view",services:"services.manage",market:"market.manage",bwm:"social.manage",savings:"savings.manage",companion:"companion.manage",bridge:"bridge.manage",devices:"devices.manage",marketing:"marketing.manage",notifications:"notifications.manage",support:"support.manage",security:"security.audit",system:"system.view"};
+const PAGE_PERMISSIONS={overview:"dashboard.view",customers:"customers.view",orders:"orders.view",wallet:"wallet.view",agents:"agents.manage",analytics:"analytics.view",services:"services.manage",market:"market.manage",bwm:"social.manage",savings:"savings.manage",companion:"companion.manage",bridge:"bridge.manage",devices:"devices.manage",marketing:"marketing.manage",notifications:"notifications.manage",support:"support.manage",security:"security.audit",system:"system.view",staff:"staff.manage"};
 const staffLoginAttempts=new Map();
 // Every Staff Workspace API capability is mapped here to the same permission
 // catalog that the Super Admin edits. A route may intentionally accept more
