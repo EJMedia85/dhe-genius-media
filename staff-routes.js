@@ -7,9 +7,20 @@ finance:["Finance",["dashboard.view","customers.view","orders.view","wallet.view
 operations:["Operations",["dashboard.view","customers.view","orders.view","agents.manage","services.manage","companion.manage","bridge.manage","devices.manage","analytics.view"]],
 manager:["Business Manager",Object.keys(P).filter(x=>!["staff.manage","customers.delete","customers.balance","security.audit"].includes(x))]
 };
+const PAGE_PERMISSIONS={overview:"dashboard.view",customers:"customers.view",orders:"orders.view",wallet:"wallet.view",agents:"agents.manage",analytics:"analytics.view",services:"services.manage",market:"market.manage",bwm:"social.manage",savings:"savings.manage",companion:"companion.manage",bridge:"bridge.manage",devices:"devices.manage",marketing:"marketing.manage",notifications:"notifications.manage",support:"support.manage",security:"security.audit",system:"system.view"};
 const staffLoginAttempts=new Map();
+// Every Staff Workspace API capability is mapped here to the same permission
+// catalog that the Super Admin edits. A route may intentionally accept more
+// than one permission when two dashboard areas share the same underlying API.
 const MAP=[
-[/^\/stats$/,"dashboard.view"],[/^\/analytics/,"analytics.view"],[/^\/orders/,"orders.view"],[/^\/customers\/\d+\/balance$/,"customers.balance"],[/^\/customers\/\d+$/,"customers.delete"],[/^\/customers/,"customers.view"],[/^\/withdrawals\/\d+\/(approve|reject|paid)$/,"wallet.withdrawals"],[/^\/withdrawals/,"wallet.view"],[/^\/agents/,"agents.manage"],[/^\/services/,"services.manage"],[/^\/market/,"market.manage"],[/^\/bwm/,"social.manage"],[/^\/savings/,"savings.manage"],[/^\/companion/,"companion.manage"],[/^\/bridge/,"bridge.manage"],[/^\/devices/,"devices.manage"],[/^\/marketing/,"marketing.manage"],[/^\/notifications/,"notifications.manage"],[/^\/support/,"support.manage"],[/^\/audit$/,"security.audit"],[/^\/system$/,"system.view"],[/^\/staff/,"staff.manage"]];
+[/^\/stats$/,["dashboard.view"]],[/^\/analytics/,["analytics.view"]],[/^\/orders/,["orders.view"]],
+[/^\/customers\/\d+\/balance$/,["customers.balance"]],[/^\/customers\/\d+$/,["customers.delete"]],[/^\/customers/,["customers.view"]],
+[/^\/withdrawals\/\d+\/(approve|reject|paid)$/,["wallet.withdrawals"]],[^\/withdrawals/,["wallet.view"]],
+[/^\/agents/,["agents.manage"]],[^\/services/,["services.manage"]],[^\/market/,["market.manage"]],[^\/bwm/,["social.manage"]],
+[/^\/savings/,["savings.manage"]],[^\/companion/,["companion.manage"]],[^\/bridge/,["bridge.manage"]],[^\/devices/,["devices.manage"]],
+[/^\/marketing/,["marketing.manage"]],[^\/notifications/,["notifications.manage"]],[^\/support/,["support.manage"]],
+[/^\/audit$/,["security.audit"]],[^\/system$/,["system.view","services.manage"]],[^\/staff/,["staff.manage"]]
+];
 async function audit(pool,req,action,target_type,target_id,details={}){try{await pool.query("INSERT INTO admin_audit_log(admin_email,action,target_type,target_id,details) VALUES($1,$2,$3,$4,$5::jsonb)",[req.session?.staffEmail||req.session?.adminEmail||"unknown",action,target_type,String(target_id||""),JSON.stringify({actor_type:req.session?.staffId?"staff":"super_admin",actor_id:req.session?.staffId||null,...details})]);}catch(e){console.error("staff audit:",e.message);}}
 async function perms(pool,id){const r=await pool.query("SELECT permissions FROM staff_users WHERE id=$1 AND active=TRUE",[id]);return new Set(r.rows[0]?.permissions||[]);}
 function installStaff(app,pool){
@@ -18,7 +29,7 @@ app.use("/api/admin",async(req,res,next)=>{
 if(!req.session?.staffId)return next();
 await staffReady;const p=req.path||"/";if(["/me","/logout","/staff/me","/staff/logout","/staff/login"].includes(p))return next();
 const m=MAP.find(x=>x[0].test(p));if(!m){await audit(pool,req,"authorization_denied","route",p);return res.status(403).json({success:false,message:"Staff permission required."});}
-const s=await perms(pool,req.session.staffId);if(!s.has(m[1])){await audit(pool,req,"authorization_denied","permission",m[1],{route:p});return res.status(403).json({success:false,message:"You do not have permission for this function."});}next();
+const s=await perms(pool,req.session.staffId);const required=m[1];if(!required.some(permission=>s.has(permission))){await audit(pool,req,"authorization_denied","permission",required.join(" OR "),{route:p});return res.status(403).json({success:false,message:"You do not have permission for this function."});}next();
 });
 app.post("/api/admin/staff/login",async(req,res)=>{try{const key=String(req.ip||req.socket?.remoteAddress||"unknown");const now=Date.now(),a=staffLoginAttempts.get(key)||{count:0,resetAt:now+15*60*1000};if(now>a.resetAt){a.count=0;a.resetAt=now+15*60*1000;}if(a.count>=10)return res.status(429).json({success:false,message:"Too many staff login attempts. Please wait 15 minutes."});a.count++;staffLoginAttempts.set(key,a);await staffReady;const email=String(req.body?.email||"").trim().toLowerCase(),password=String(req.body?.password||"");const r=await pool.query("SELECT * FROM staff_users WHERE email=$1 LIMIT 1",[email]);if(!r.rows.length||!r.rows[0].active||!await bcrypt.compare(password,r.rows[0].password_hash))return res.status(401).json({success:false,message:"Invalid staff login details."});staffLoginAttempts.delete(key);const s=r.rows[0];await new Promise((ok,no)=>req.session.regenerate(e=>e?no(e):ok()));Object.assign(req.session,{adminAuthenticated:true,staffId:s.id,staffEmail:s.email,staffName:s.name,staffRole:s.role_key,staffPermissions:s.permissions,adminEmail:s.email,adminLoginAt:new Date().toISOString()});await pool.query("UPDATE staff_users SET last_login_at=NOW(),updated_at=NOW() WHERE id=$1",[s.id]);await audit(pool,req,"staff_login","staff",s.id,{role:s.role_key});await new Promise((ok,no)=>req.session.save(e=>e?no(e):ok()));res.json({success:true,staff:{id:s.id,name:s.name,email:s.email,role:s.role_key,permissions:s.permissions}});}catch(e){console.error(e);res.status(500).json({success:false,message:"Staff login failed."});}});
 app.get("/api/admin/staff/me",async(req,res)=>{
@@ -31,7 +42,7 @@ app.get("/api/admin/staff/me",async(req,res)=>{
     // created staff account must be able to authenticate even if initialization
     // is still resolving elsewhere in the process.
     const r=await pool.query(
-      "SELECT id,name,email,role_key,permissions,active,last_login_at,created_at FROM staff_users WHERE id=$1 LIMIT 1",
+      "SELECT id,name,email,role_key,permissions,active,last_login_at,created_at,updated_at FROM staff_users WHERE id=$1 LIMIT 1",
       [req.session.staffId]
     );
     if(!r.rows.length)return res.status(401).json({success:false,message:"Staff account no longer exists."});
@@ -45,6 +56,9 @@ app.get("/api/admin/staff/me",async(req,res)=>{
       staff:{
         id:s.id,name:s.name,email:s.email,role_key:s.role_key,
         permissions,
+        page_permissions:PAGE_PERMISSIONS,
+        permission_catalog:P,
+        permissions_updated_at:s.updated_at || null,
         active:Boolean(s.active),
         last_login_at:s.last_login_at,
         created_at:s.created_at
