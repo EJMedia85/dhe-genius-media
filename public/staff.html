@@ -240,6 +240,31 @@ function normalizeStaffPermissions(value){
   }
   return [];
 }
+async function syncStaffPermissions(){
+  if(!IS_STAFF_PORTAL||!staffSession)return;
+  try{
+    const r=await fetch('/api/admin/staff/me',{credentials:'same-origin',cache:'no-store',headers:{'Cache-Control':'no-cache'}});
+    const d=await r.json().catch(()=>({success:false}));
+    if(r.status===401){location.replace('/staff-login.html');return;}
+    if(!r.ok||!d.success||!d.staff)throw new Error(d.message||'Staff permission verification failed.');
+    const next=normalizeStaffPermissions(d.staff.permissions);
+    const nextSignature=next.slice().sort().join('|')+'::'+String(d.staff.permissions_updated_at||'');
+    if(nextSignature!==staffPermissionSignature){
+      staffPermissions=next;staffPermissionSignature=nextSignature;
+      if(d.staff.page_permissions&&typeof d.staff.page_permissions==='object')PAGE_PERMISSION={...d.staff.page_permissions};
+      applyStaffNavigation();
+      const needed=PAGE_PERMISSION[currentPage];
+      if(needed&&!staffCan(needed))show(Object.keys(PAGE_PERMISSION).find(p=>staffCan(PAGE_PERMISSION[p]))||'overview');
+      else await refreshCurrent();
+    }else{
+      applyStaffActionPermissions();
+    }
+  }catch(e){console.warn('Staff permission sync failed:',e.message||e);}
+}
+function startStaffPermissionSync(){
+  if(staffPermissionSyncTimer)clearInterval(staffPermissionSyncTimer);
+  staffPermissionSyncTimer=setInterval(syncStaffPermissions,15000);
+}
 async function loadBase(){
   if(!IS_STAFF_PORTAL){
     const me=await api('/api/admin/me');
@@ -256,10 +281,14 @@ async function loadBase(){
     if(!sr.ok||!sd.success||!sd.staff)throw new Error(sd.message||'Staff session verification failed.');
     staffSession=true;
     staffPermissions=normalizeStaffPermissions(sd.staff.permissions);
+    if(sd.staff.page_permissions&&typeof sd.staff.page_permissions==='object')PAGE_PERMISSION={...sd.staff.page_permissions};
+    staffPermissionSignature=staffPermissions.slice().sort().join('|')+'::'+String(sd.staff.permissions_updated_at||'');
     $('#who').textContent='Signed in as '+(sd.staff.name||'Staff')+' • '+(sd.staff.role_key||'staff')+' staff session';
     $('#logout').textContent='Logout Staff';
     applyStaffNavigation();
     document.body.classList.remove('staff-pending');
+    applyStaffActionPermissions();
+    startStaffPermissionSync();
     return true;
   }catch(e){
     console.error('Staff session check failed:',e);
@@ -268,7 +297,36 @@ async function loadBase(){
     return false;
   }finally{clearTimeout(timer);}
 }
-const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
+let PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
+let staffPermissionSyncTimer=null;
+let staffPermissionSignature='';
+function staffCan(permission){
+  return !staffSession || staffPermissions.includes(String(permission));
+}
+function applyStaffActionPermissions(){
+  if(!staffSession)return;
+  const onclickPermissions=[
+    ['adjustCustomerBalance','customers.balance'],['deleteCustomer','customers.delete'],
+    ['withdrawalAction','wallet.withdrawals'],
+    ['agentAction','agents.manage'],['agentWithdrawal','agents.manage'],['openAgentControl','agents.manage'],
+    ['bridgeApprove','bridge.manage'],['bridgeDeny','bridge.manage'],['bridgeResetPin','bridge.manage'],
+    ['bridgeDisconnect','bridge.manage'],['bridgeSuspend','bridge.manage'],['bridgeRevoke','bridge.manage'],
+    ['approveCompanion','companion.manage'],['rejectCompanion','companion.manage'],['reauthorizeCompanion','companion.manage'],['revokeCompanion','companion.manage'],
+    ['toggleCampaign','marketing.manage'],['deleteCampaign','marketing.manage'],
+    ['replySupport','support.manage'],
+    ['marketEdit','market.manage'],['marketDelete','market.manage'],['marketOrderAction','market.manage'],
+    ['bwmOrderAction','social.manage']
+  ];
+  document.querySelectorAll('[onclick]').forEach(el=>{
+    const code=String(el.getAttribute('onclick')||'');
+    const rule=onclickPermissions.find(([name])=>code.includes(name));
+    if(rule)el.hidden=!staffCan(rule[1]);
+  });
+  const formPermissions={bridgeConfigForm:'bridge.manage',companionEnrollForm:'companion.manage',broadcastForm:'notifications.manage',campaignForm:'marketing.manage',marketProductForm:'market.manage'};
+  Object.entries(formPermissions).forEach(([id,perm])=>{
+    const el=document.getElementById(id);if(el)el.hidden=!staffCan(perm);
+  });
+}
 function applyStaffNavigation(){
  if(!staffSession)return;
  const allowed=staffPermissions.map(String);
@@ -282,7 +340,7 @@ function applyStaffNavigation(){
  const names=visiblePages.map(p=>labels[p]||p);
  const summary=$('#staffAccessSummary');
  if(summary)summary.innerHTML=names.length?'Permitted access: <b>'+esc(names.join(' • '))+'</b>':'No operational permissions have been assigned yet.';
- if(currentPage!=='overview'&&document.querySelector('.nav button[data-page="'+currentPage+'"]')?.hidden)show(visiblePages.includes('overview')?'overview':(visiblePages[0]||'overview'));
+ if(currentPage!=='overview'&&document.querySelector('.nav button[data-page="'+currentPage+'"]')?.hidden)show(visiblePages.includes('overview')?'overview':(visiblePages[0]||'overview'));applyStaffActionPermissions();
 }
 
 async function loadOverview(){
