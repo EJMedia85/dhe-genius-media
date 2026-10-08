@@ -290,6 +290,32 @@ async function loadBase(){
       return {ok:false,message:e.name==='AbortError'?'Staff session verification timed out.':(e.message||'Staff session verification failed.')};
     }finally{clearTimeout(timer);}
   };
+  let cached=null;
+  try{cached=JSON.parse(sessionStorage.getItem('dgm_staff_session')||'null');}catch(e){}
+  if(cached&&cached.id&&Array.isArray(cached.permissions)){
+    staffSession=true;
+    staffPermissions=normalizeStaffPermissions(cached.permissions);
+    if(cached.role)cached.role_key=cached.role;
+    $('#who').textContent='Signed in as '+(cached.name||'Staff')+' • '+(cached.role_key||'staff')+' staff session';
+    $('#logout').textContent='Logout Staff';
+    document.body.classList.remove('staff-pending');
+    applyStaffNavigation();
+    applyStaffActionPermissions();
+    startStaffPermissionSync();
+    verify().then(result=>{
+      if(!result.ok){
+        if(result.redirect){try{sessionStorage.removeItem('dgm_staff_session');}catch(e){} location.replace('/staff-login.html');}
+        return;
+      }
+      const fresh=result.staff;
+      staffPermissions=normalizeStaffPermissions(fresh.permissions);
+      PAGE_PERMISSION={...PAGE_PERMISSION,...(fresh.page_permissions||{})};
+      staffPermissionSignature=staffPermissions.slice().sort().join('|')+'::'+String(fresh.permissions_updated_at||'');
+      applyStaffNavigation();
+      applyStaffActionPermissions();
+    }).catch(()=>{});
+    return true;
+  }
   $('#who').textContent='Verifying staff session…';
   let result=await verify();
   if(!result.ok&&!result.redirect){
