@@ -279,36 +279,26 @@ const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orde
 function staffCan(page){return !staffSession||new Set(Array.isArray(staffPermissions)?staffPermissions:[]).has(PAGE_PERMISSION[page]);}
 function applyStaffNavigation(){
  if(!staffSession)return;
- document.querySelectorAll('.nav button[data-page]').forEach(b=>{
-   b.hidden=false;
-   b.classList.remove('staff-allowed');
- });
- document.querySelectorAll('.nav-group').forEach(g=>{g.classList.remove('staff-empty','staff-has-access');});
  const permissions=new Set(Array.isArray(staffPermissions)?staffPermissions:[]);
+ document.querySelectorAll('.nav button[data-page]').forEach(b=>{b.hidden=false;b.classList.remove('staff-allowed');b.style.display='none';});
+ document.querySelectorAll('.nav-group').forEach(g=>{g.classList.remove('staff-empty','staff-has-access');g.style.display='none';});
  Object.entries(PAGE_PERMISSION).forEach(([page,permission])=>{
    const button=document.querySelector('.nav button[data-page="'+page+'"]');
    const section=document.getElementById(page);
    const allowed=permissions.has(permission);
-   if(button){
-     button.hidden=!allowed;
-     button.classList.toggle('staff-allowed',allowed);
-   }
-   if(section){section.classList.remove('staff-allowed-section');if(allowed)section.classList.add('staff-allowed-section');if(!allowed)section.classList.remove('active');}
+   if(button){button.hidden=!allowed;button.classList.toggle('staff-allowed',allowed);button.style.display=allowed?'':'none';}
+   if(section){section.classList.remove('staff-allowed-section');section.style.display=allowed?'':'none';if(allowed)section.classList.add('staff-allowed-section');if(!allowed)section.classList.remove('active');}
  });
  document.querySelectorAll('.nav-group').forEach(g=>{
-   const hasAllowed=[...g.querySelectorAll('button[data-page]')].some(b=>!b.hidden&&b.classList.contains('staff-allowed'));
-   g.classList.toggle('staff-empty',!hasAllowed);g.classList.toggle('staff-has-access',hasAllowed);
+   const hasAllowed=[...g.querySelectorAll('button[data-page]')].some(b=>b.classList.contains('staff-allowed')&&!b.hidden);
+   g.classList.toggle('staff-empty',!hasAllowed);g.classList.toggle('staff-has-access',hasAllowed);g.style.display=hasAllowed?'':'none';
  });
  const firstAllowed=Object.entries(PAGE_PERMISSION).find(([page,permission])=>permissions.has(permission));
  const currentButton=document.querySelector('.nav button[data-page="'+currentPage+'"]');
- if(firstAllowed){document.documentElement.classList.add('staff-ready');}else{document.documentElement.classList.remove('staff-ready');}
+ document.documentElement.classList.toggle('staff-ready',!!firstAllowed);
  if(!currentButton||currentButton.hidden){
    document.querySelectorAll('.nav button.active').forEach(b=>b.classList.remove('active'));
-   if(firstAllowed){
-     const b=document.querySelector('.nav button[data-page="'+firstAllowed[0]+'"]');
-     if(b)b.classList.add('active');
-     currentPage=firstAllowed[0];
-   }
+   if(firstAllowed){const b=document.querySelector('.nav button[data-page="'+firstAllowed[0]+'"]');if(b)b.classList.add('active');currentPage=firstAllowed[0];}
  }
 }
 async function loadOverview(){
