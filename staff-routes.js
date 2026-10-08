@@ -22,18 +22,37 @@ const s=await perms(pool,req.session.staffId);if(!s.has(m[1])){await audit(pool,
 });
 app.post("/api/admin/staff/login",async(req,res)=>{try{const key=String(req.ip||req.socket?.remoteAddress||"unknown");const now=Date.now(),a=staffLoginAttempts.get(key)||{count:0,resetAt:now+15*60*1000};if(now>a.resetAt){a.count=0;a.resetAt=now+15*60*1000;}if(a.count>=10)return res.status(429).json({success:false,message:"Too many staff login attempts. Please wait 15 minutes."});a.count++;staffLoginAttempts.set(key,a);await staffReady;const email=String(req.body?.email||"").trim().toLowerCase(),password=String(req.body?.password||"");const r=await pool.query("SELECT * FROM staff_users WHERE email=$1 LIMIT 1",[email]);if(!r.rows.length||!r.rows[0].active||!await bcrypt.compare(password,r.rows[0].password_hash))return res.status(401).json({success:false,message:"Invalid staff login details."});staffLoginAttempts.delete(key);const s=r.rows[0];await new Promise((ok,no)=>req.session.regenerate(e=>e?no(e):ok()));Object.assign(req.session,{adminAuthenticated:true,staffId:s.id,staffEmail:s.email,staffName:s.name,staffRole:s.role_key,staffPermissions:s.permissions,adminEmail:s.email,adminLoginAt:new Date().toISOString()});await pool.query("UPDATE staff_users SET last_login_at=NOW(),updated_at=NOW() WHERE id=$1",[s.id]);await audit(pool,req,"staff_login","staff",s.id,{role:s.role_key});await new Promise((ok,no)=>req.session.save(e=>e?no(e):ok()));res.json({success:true,staff:{id:s.id,name:s.name,email:s.email,role:s.role_key,permissions:s.permissions}});}catch(e){console.error(e);res.status(500).json({success:false,message:"Staff login failed."});}});
 app.get("/api/admin/staff/me",async(req,res)=>{
-  // A Super Admin session is not a staff session. Return immediately instead
-  // of waiting for the staff table initialization; this keeps Admin Dashboard
-  // startup independent from staff-system initialization.
   if(!req.session?.staffId)return res.status(401).json({success:false,message:"Staff authentication required."});
+  res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma","no-cache");
   try{
-    await staffReady;
-    const r=await pool.query("SELECT id,name,email,role_key,permissions,active,last_login_at,created_at FROM staff_users WHERE id=$1",[req.session.staffId]);
-    if(!r.rows.length||!r.rows[0].active)return res.status(401).json({success:false,message:"Staff account is inactive."});
-    return res.json({success:true,staff:r.rows[0]});
+    // Read the authoritative permission set directly from staff_users.
+    // Do not depend on the table-initialization promise here: a previously
+    // created staff account must be able to authenticate even if initialization
+    // is still resolving elsewhere in the process.
+    const r=await pool.query(
+      "SELECT id,name,email,role_key,permissions,active,last_login_at,created_at FROM staff_users WHERE id=$1 LIMIT 1",
+      [req.session.staffId]
+    );
+    if(!r.rows.length)return res.status(401).json({success:false,message:"Staff account no longer exists."});
+    const s=r.rows[0];
+    if(!s.active)return res.status(401).json({success:false,message:"Staff account is inactive."});
+    const permissions=Array.isArray(s.permissions)
+      ? s.permissions.map(String)
+      : (typeof s.permissions==="string" ? (()=>{try{const v=JSON.parse(s.permissions);return Array.isArray(v)?v.map(String):[];}catch(_){return [];}})() : []);
+    return res.json({
+      success:true,
+      staff:{
+        id:s.id,name:s.name,email:s.email,role_key:s.role_key,
+        permissions,
+        active:Boolean(s.active),
+        last_login_at:s.last_login_at,
+        created_at:s.created_at
+      }
+    });
   }catch(e){
     console.error("Staff session check error:",e);
-    return res.status(500).json({success:false,message:"Staff session check failed."});
+    return res.status(503).json({success:false,message:"Staff session could not be verified. Please try again."});
   }
 });
 app.post("/api/admin/staff/logout",(req,res)=>{
