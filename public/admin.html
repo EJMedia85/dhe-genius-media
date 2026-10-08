@@ -252,17 +252,62 @@ async function loadBase(){
   applyStaffNavigation();
 }
 const PAGE_PERMISSION={overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',support:'support.manage',security:'security.audit',system:'system.view',staff:'staff.manage'};
-function applyStaffNavigation(){if(!staffSession)return;document.querySelectorAll('.nav button[data-page]').forEach(b=>{const p=b.dataset.page,perm=PAGE_PERMISSION[p];b.hidden=Boolean(perm&&!staffPermissions.includes(perm));});if(currentPage!=='overview'&&document.querySelector('.nav button[data-page="'+currentPage+'"]')?.hidden)show('overview');}
-
-async function loadOverview(){
- const [st,an,od,sys]=await Promise.all([api('/api/admin/stats'),api('/api/admin/analytics'),api('/api/admin/orders'),api('/api/admin/system')]);
- const s=st.stats,a=an.sales,w=an.wallet,wd=an.withdrawals,cu=an.customers;
- $('#overviewCards').innerHTML=[['Customers',s.customers],['Orders',s.orders],['Completed',s.completed],['Pending / Processing',s.pending],['Completed Value',money(s.completed_value)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
- $('#analyticsCards').innerHTML=[['30-Day Sales',money(a.completed_sales)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',cu.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
- renderHealth(sys.checks,'#healthMini');
- renderOrders(od.orders.slice(0,12),'#recentOrders',true);
+function applyStaffNavigation(){
+ if(!staffSession)return;
+ const permissions=new Set(Array.isArray(staffPermissions)?staffPermissions:[]);
+ Object.entries(PAGE_PERMISSION).forEach(([page,permission])=>{
+   const button=document.querySelector('.nav button[data-page="'+page+'"]');
+   const section=document.getElementById(page);
+   const allowed=permissions.has(permission);
+   if(button)button.hidden=!allowed;
+   if(section&&!allowed)section.classList.remove('active');
+ });
+ const firstAllowed=Object.entries(PAGE_PERMISSION).find(([page,permission])=>permissions.has(permission));
+ const currentButton=document.querySelector('.nav button[data-page="'+currentPage+'"]');
+ if(!currentButton||currentButton.hidden){
+   document.querySelectorAll('.nav button.active').forEach(b=>b.classList.remove('active'));
+   if(firstAllowed){
+     const b=document.querySelector('.nav button[data-page="'+firstAllowed[0]+'"]');
+     if(b)b.classList.add('active');
+     currentPage=firstAllowed[0];
+   }
+ }
 }
-function renderHealth(checks,target){$(target).innerHTML=Object.entries(checks).map(([k,v])=>{const ok=['online','configured'].includes(v.status);return '<div><span class="dot '+(ok?'':'bad')+'"></span><b>'+esc(k)+'</b><br><span class="muted">'+esc(v.status)+'</span></div>'}).join('')}
+async function loadOverview(){
+ const allowed=p=>staffCan(p);
+ const jobs=[];
+ if(allowed('overview'))jobs.push(api('/api/admin/stats').then(d=>['stats',d]));
+ if(allowed('analytics'))jobs.push(api('/api/admin/analytics').then(d=>['analytics',d]));
+ if(allowed('orders'))jobs.push(api('/api/admin/orders').then(d=>['orders',d]));
+ if(allowed('system'))jobs.push(api('/api/admin/system').then(d=>['system',d]));
+ const results=await Promise.allSettled(jobs);
+ const data=Object.fromEntries(results.filter(r=>r.status==='fulfilled').map(r=>r.value));
+ const s=data.stats?.stats||{customers:0,orders:0,completed:0,pending:0,completed_value:0};
+ const a=data.analytics?.sales||{};
+ const w=data.analytics?.wallet||{};
+ const wd=data.analytics?.withdrawals||{};
+ const cu=data.analytics?.customers||{};
+ const cards=[];
+ if(allowed('overview'))cards.push(['Customers',s.customers],['Orders',s.orders],['Completed',s.completed],['Pending / Processing',s.pending],['Completed Value',money(s.completed_value)]);
+ $('#overviewCards').innerHTML=cards.map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value">'+x[1]+'</div></div>').join('');
+ if(allowed('analytics')){
+   $('#analyticsCards').innerHTML=[['30-Day Sales',money(a.completed_sales)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',cu.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
+ }else{
+   const p=$('#analyticsCards')?.closest('.panel');if(p)p.hidden=true;
+ }
+ if(allowed('system')){
+   const health=data.system?.health||data.system||{};
+   $('#healthMini').innerHTML=Object.entries(health).slice(0,8).map(([k,v])=>'<div><span class="dot '+(v===false?'bad':'')+'"></span><b>'+esc(k)+'</b><br><span class="muted">'+esc(typeof v==='object'?JSON.stringify(v):String(v))+'</span></div>').join('');
+ }else{
+   const p=$('#healthMini')?.closest('.panel');if(p)p.hidden=true;
+ }
+ if(allowed('orders')){
+   const rows=data.orders?.orders||[];
+   $('#recentOrders').innerHTML=rows.slice(0,12).map(o=>'<tr><td><b>'+esc(o.order_ref||'')+'</b></td><td>'+esc(o.customer_name||'Unknown')+'</td><td>'+esc(o.service||'')+'</td><td>'+money(o.amount)+'</td><td><span class="badge">'+esc(o.status||'')+'</span></td></tr>').join('')||'<tr><td class="empty">No recent orders.</td></tr>';
+ }else{
+   const p=$('#recentOrders')?.closest('.panel');if(p)p.hidden=true;
+ }
+}
 async function loadSystem(){const d=await api('/api/admin/system');renderHealth(d.checks,'#systemHealth');$('#systemChecked').textContent='Checked '+new Date(d.checked_at).toLocaleString()}
 function renderOrders(rows,target='#ordersBody',compact=false){$(target).innerHTML=rows.length?rows.map(o=>'<tr><td><b>'+esc(o.order_ref)+'</b></td><td>'+esc(o.customer_name||'')+'<br><span class="muted">'+esc(o.customer_email||'')+'</span></td><td>'+esc(o.service)+'</td><td>'+esc(o.network||'')+'</td><td>'+esc(o.phone||'')+'</td><td>'+money(o.amount)+'</td><td><span class="badge">'+esc(o.status)+'</span></td><td>'+new Date(o.created_at).toLocaleString()+'</td></tr>').join(''):'<tr><td colspan="8" class="empty">No orders found.</td></tr>'}
 async function loadOrders(){const d=await api('/api/admin/orders');orders=d.orders;filterOrders()}
