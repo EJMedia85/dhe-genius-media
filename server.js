@@ -7477,21 +7477,33 @@ app.post(
 
       const orderAmount =
         Number(order.amount);
+      const orderBaseAmount =
+        Number(order.base_amount ?? order.amount);
+      const orderDiscount =
+        Math.round(Number(order.promo_discount || 0) * 100) / 100;
+
+      // Validate the original bundle price independently from the campaign
+      // discount. Comparing the discounted amount directly to the list price
+      // incorrectly rejects every discounted wallet purchase.
+      if (
+        !Number.isFinite(orderBaseAmount) ||
+        Math.round(orderBaseAmount * 100) !==
+        Math.round(expectedAmount * 100)
+      ) {
+        throw new Error(
+          "Order base amount does not match the current DGM price."
+        );
+      }
 
       if (
-        !Number.isFinite(
-          orderAmount
-        ) ||
-        Math.round(
-          orderAmount * 100
-        ) !==
-        Math.round(
-          expectedAmount * 100
-        )
+        !Number.isFinite(orderAmount) ||
+        orderAmount < 0 ||
+        orderAmount > orderBaseAmount ||
+        Math.round((orderBaseAmount - orderAmount) * 100) !==
+        Math.round(orderDiscount * 100)
       ) {
-
         throw new Error(
-          "Order amount does not match the current DGM price."
+          "Order discount does not match the recorded campaign discount."
         );
       }
 
