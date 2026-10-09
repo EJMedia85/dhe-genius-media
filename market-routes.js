@@ -433,7 +433,7 @@ function installMarket(app) {
   });
 
   app.get("/api/admin/market/products",requireAdmin,async(req,res)=>{
-    try { await ensureMarketDatabase(); const r=await pool.query("SELECT p.*,c.name category_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id ORDER BY p.created_at DESC"); res.json({success:true,products:r.rows.map(publicProduct)}); }
+    try { await ensureMarketDatabase(); const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id ORDER BY p.created_at DESC"); res.json({success:true,products:r.rows.map(publicProduct)}); }
     catch(e){sendError(res,500,"Could not load products.");}
   });
 
