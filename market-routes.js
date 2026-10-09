@@ -155,23 +155,18 @@ async function ensureMarketDatabase() {
         );
       }
 
-      const demo = [
-        ["DGM Wireless Earbuds","dgm-wireless-earbuds","Premium wireless earbuds with charging case.","Electronics","DGM","59.00",49, "https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?auto=format&fit=crop&w=800&q=80",true],
-        ["Fast USB-C Power Bank","fast-usbc-power-bank","Portable fast-charging power bank for phones and tablets.","Electronics","DGM","149.00",35,"https://images.unsplash.com/photo-1609592424896-8e8c0b7d5f0e?auto=format&fit=crop&w=800&q=80",true],
-        ["Smart Phone Stand","smart-phone-stand","Adjustable desktop phone stand for home and office.","Home & Kitchen","DGM","45.00",60,"https://images.unsplash.com/photo-1586953208448-b95a79798f07?auto=format&fit=crop&w=800&q=80",false],
-        ["Classic Unisex Backpack","classic-unisex-backpack","Durable everyday backpack for school, work and travel.","Fashion","DGM","120.00",25,"https://images.unsplash.com/photo-1553062407-98eeb64c6a62?auto=format&fit=crop&w=800&q=80",false],
-        ["Bluetooth Mini Speaker","bluetooth-mini-speaker","Compact Bluetooth speaker with strong portable sound.","Electronics","DGM","85.00",40,"https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?auto=format&fit=crop&w=800&q=80",true]
-      ];
-      for (const item of demo) {
-        const [name,slug,description,categoryName,brand,price,stock,image,featured] = item;
-        const cat = await pool.query("SELECT id FROM market_categories WHERE name=$1 LIMIT 1",[categoryName]);
-        await pool.query(
-          `INSERT INTO market_products(name,slug,description,category_id,brand,price,stock,image_url,featured)
-           VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
-           ON CONFLICT(slug) DO NOTHING`,
-          [name,slug,description,cat.rows[0]?.id || null,brand,price,stock,image,featured]
-        );
-      }
+      // Never publish placeholder/demo merchandise as real DGM inventory. Older deployments
+      // may already have seeded these sample rows, so deactivate those exact known slugs.
+      await pool.query(
+        "UPDATE market_products SET active=FALSE,updated_at=NOW() WHERE slug = ANY($1::text[])",
+        [[
+          "dgm-wireless-earbuds",
+          "fast-usbc-power-bank",
+          "smart-phone-stand",
+          "classic-unisex-backpack",
+          "bluetooth-mini-speaker"
+        ]]
+      );
     })().catch(error => {
       readyPromise = null;
       throw error;
