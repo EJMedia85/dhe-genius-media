@@ -291,12 +291,13 @@ function installMarket(app) {
   });
 
   app.post("/api/market/checkout",requireLogin,async(req,res)=>{
-    const client=await pool.connect();
+    let client=null;
     try {
       await ensureMarketDatabase();
       const items=Array.isArray(req.body.items)?req.body.items:[], delivery=req.body.delivery||{};
       if(!items.length) return sendError(res,400,"Your cart is empty.");
       if(!String(delivery.name||"").trim() || !String(delivery.phone||"").trim() || !String(delivery.address||"").trim()) return sendError(res,400,"Delivery name, phone and address are required.");
+      client=await pool.connect();
       await client.query("BEGIN");
       if(items.length>30) throw new Error("Your cart has too many separate items.");
       const requested=new Map();
@@ -340,10 +341,10 @@ function installMarket(app) {
       await client.query("COMMIT");
       res.json({success:true,order:o.rows[0],balance:after});
     } catch(e) {
-      try { await client.query("ROLLBACK"); } catch {}
+      if(client) { try { await client.query("ROLLBACK"); } catch {} }
       console.error("Market checkout:",e);
       sendError(res,400,e.message||"Checkout failed.");
-    } finally { client.release(); }
+    } finally { if(client) client.release(); }
   });
 
   app.get("/api/admin/market/categories",requireAdmin,async(req,res)=>{
