@@ -1560,7 +1560,9 @@
               ${
                 paymentStatus === "paid"
                   ? "Payment confirmed"
-                  : "Payment pending"
+                  : paymentStatus === "refunded"
+                    ? "Payment refunded"
+                    : "Payment pending"
               }
 
             </div>
@@ -1616,6 +1618,8 @@
           return { title:"Payment confirmed", message:"Your payment was confirmed. Your service is being processed." };
         case "failed":
           return { title:"Delivery failed", message:"Your order could not be completed. If applicable, the amount has been returned to your DGM Wallet." };
+        case "refunded":
+          return { title:"Order refunded", message:"This order could not be completed. The amount has been returned to your DGM Wallet." };
         case "cancelled":
           return { title:"Order cancelled", message:"This order has been cancelled. Please contact DHE GENIUS MEDIA Support if you need assistance." };
         default:
@@ -1647,6 +1651,10 @@
 
       }
 
+
+      if (value.includes("refund")) {
+        return "refunded";
+      }
 
       if (
         value.includes("fail") ||
@@ -1694,6 +1702,9 @@
 
       }
 
+      if (value === "refunded" || value === "refund") {
+        return "refunded";
+      }
 
       return "pending";
 
@@ -1721,7 +1732,8 @@
 
 
       if (
-        status === "failed"
+        status === "failed" ||
+        status === "refunded"
       ) {
 
         return "failed";
