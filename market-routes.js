@@ -416,7 +416,7 @@ function installMarket(app) {
           [order.customer_id,amount,before,after,"Refund for DGM Market order "+order.order_ref,refundRef,order.order_ref]
         );
         await client.query(
-          "UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM market_order_items items WHERE items.market_order_id=$1 AND items.product_id=p.id",
+          "UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int AS quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",
           [id]
         );
         await client.query("UPDATE market_orders SET status='Refunded',payment_status='Refunded',updated_at=NOW() WHERE id=$1",[id]);
