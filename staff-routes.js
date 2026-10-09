@@ -47,18 +47,44 @@ app.get("/api/admin/staff/session-bootstrap",async(req,res)=>{
   res.setHeader("Cache-Control","no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma","no-cache");
   if(!req.session?.staffId)return res.status(401).json({success:false,message:"Staff authentication required."});
-  const permissions=Array.isArray(req.session.staffPermissions)
+  const sessionPermissions=Array.isArray(req.session.staffPermissions)
     ? req.session.staffPermissions.map(String)
-    : [];
-  return res.json({success:true,staff:{
+    : (typeof req.session.staffPermissions==="string" ? req.session.staffPermissions.split(",").map(x=>x.trim()).filter(Boolean) : []);
+  const fallback={
     id:req.session.staffId,
     name:req.session.staffName||"Staff",
     email:req.session.staffEmail||"",
     role_key:req.session.staffRole||"staff",
-    permissions,
+    permissions:sessionPermissions,
     page_permissions:PAGE_PERMISSIONS,
     permissions_updated_at:null
-  }});
+  };
+  try{
+    // The session snapshot may be stale after the Super Admin edits staff
+    // permissions. Read the current database record so the UI and the API
+    // authorization middleware make decisions from the same permission set.
+    const result=await Promise.race([
+      pool.query("SELECT id,name,email,role_key,permissions,active,updated_at FROM staff_users WHERE id=$1 LIMIT 1",[req.session.staffId]),
+      new Promise((_,reject)=>setTimeout(()=>reject(Object.assign(new Error("Staff permission lookup timed out"),{code:"STAFF_LOOKUP_TIMEOUT"})),2500))
+    ]);
+    if(!result.rows.length)return res.status(401).json({success:false,message:"Staff account no longer exists."});
+    const s=result.rows[0];
+    if(!s.active)return res.status(401).json({success:false,message:"Staff account is inactive."});
+    const permissions=Array.isArray(s.permissions)
+      ? s.permissions.map(String)
+      : (typeof s.permissions==="string" ? (()=>{try{const v=JSON.parse(s.permissions);return Array.isArray(v)?v.map(String):[];}catch(_){return [];}})() : []);
+    return res.json({success:true,staff:{
+      id:s.id,name:s.name,email:s.email,role_key:s.role_key,
+      permissions,page_permissions:PAGE_PERMISSIONS,
+      permissions_updated_at:s.updated_at||null
+    }});
+  }catch(e){
+    if(e.code==="STAFF_LOOKUP_TIMEOUT"){
+      return res.json({success:true,staff:fallback,source:"session-fallback"});
+    }
+    console.error("Staff session bootstrap error:",e);
+    return res.status(503).json({success:false,message:"Staff permissions could not be verified. Please try again."});
+  }
 });
 
 app.get("/api/admin/staff/me",async(req,res)=>{
