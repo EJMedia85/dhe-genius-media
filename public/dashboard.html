@@ -152,6 +152,20 @@ body{
  .wallet,.primary-card,.service-card,.activity-card,.reward-card,.campaign-card{box-shadow:0 10px 28px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.07)}
 }
 </style>
+
+<style id="dgm-image-hero">
+.dgm-image-hero{position:relative;display:grid;grid-template-columns:1.05fr .95fr;min-height:205px;overflow:hidden;margin:0 0 20px;border:1px solid rgba(255,255,255,.17);border-radius:23px;background:linear-gradient(115deg,rgba(5,22,16,.97),rgba(8,40,28,.82));box-shadow:0 20px 46px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12)}
+.dgm-image-copy{position:relative;z-index:2;padding:25px 22px;align-self:center}
+.dgm-image-kicker{font-size:10px;font-weight:900;letter-spacing:1.7px;text-transform:uppercase;color:#61f59a}
+.dgm-image-copy h2{font-size:clamp(22px,3vw,32px);line-height:1.08;letter-spacing:-1px;margin:9px 0}
+.dgm-image-copy p{font-size:12px;line-height:1.65;color:#c3d8ce;max-width:360px}
+.dgm-image-cta{display:inline-flex;margin-top:14px;padding:10px 14px;border-radius:11px;background:linear-gradient(135deg,#49ef88,#16a879);color:#031008;font-size:11px;font-weight:900;box-shadow:0 8px 22px rgba(37,211,102,.15)}
+.dgm-image-visual{position:relative;min-height:205px;overflow:hidden}
+.dgm-image-visual:before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(6,25,17,.78),rgba(6,25,17,.08) 48%,rgba(6,25,17,.05)),linear-gradient(0deg,rgba(5,18,12,.22),transparent 45%)}
+.dgm-image-visual img{position:absolute;width:100%;height:100%;inset:0;object-fit:cover;object-position:center 48%;filter:saturate(.9) contrast(1.04)}
+@media(max-width:600px){.dgm-image-hero{grid-template-columns:1fr;min-height:0}.dgm-image-copy{padding:21px 19px 13px}.dgm-image-copy h2{font-size:25px;max-width:330px}.dgm-image-copy p{font-size:11px}.dgm-image-visual{min-height:150px;height:150px}.dgm-image-visual:before{background:linear-gradient(0deg,rgba(5,18,12,.14),transparent 60%)}}
+</style>
+
 </head>
 <body>
 <header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()" aria-label="Open menu">☰</button></header>
@@ -167,6 +181,18 @@ body{
 </aside><div class="overlay" id="overlay" onclick="closeMenu()"></div>
 <main class="main">
 <div class="topline"><section class="welcome"><small>DGM Customer Dashboard</small><h1>Welcome back, <span id="customerName">DGM Customer</span> 👋</h1></section><div class="top-actions"><button class="icon-btn" onclick="goTo('/notifications.html')" aria-label="Notifications">🔔</button><button class="icon-btn" onclick="goTo('/account.html')" aria-label="Account">👤</button></div></div>
+
+<section class="dgm-image-hero" aria-label="DGM digital services">
+  <div class="dgm-image-copy">
+    <div class="dgm-image-kicker">Stay Connected. Stay Genius.</div>
+    <h2>Your digital life, all in one place.</h2>
+    <p>Buy data and airtime, manage your wallet, save with Susu and explore DGM services.</p>
+    <a class="dgm-image-cta" href="/data.html">Explore DGM Services&nbsp; →</a>
+  </div>
+  <div class="dgm-image-visual">
+    <img src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&amp;fit=crop&amp;w=1100&amp;q=85" alt="Smartphone representing DGM mobile and digital services" loading="eager" fetchpriority="high">
+  </div>
+</section>
 <section class="section" id="broadcastSection" style="display:none;margin-top:14px">
 <div class="activity-card" id="broadcastBanner" style="border-color:rgba(37,211,102,.35);background:linear-gradient(135deg,rgba(37,211,102,.10),rgba(11,21,21,.98));padding:16px"></div>
 </section>
