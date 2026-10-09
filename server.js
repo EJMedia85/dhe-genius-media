@@ -2787,7 +2787,13 @@ async function initializeAdminCredentials() {
 
 function requireAdmin(req, res, next) {
   if (!req.session || !req.session.adminAuthenticated) return sendError(res, 401, "Admin authentication required.");
-  if (req.session.staffId) return sendError(res, 403, "Super Admin access required.");
+  // Staff API permissions are checked by installStaff's /api/admin middleware
+  // before this route handler. Allow staff with orders.view to read the order
+  // list, but keep every other legacy admin-only endpoint Super Admin-only.
+  const requestPath = String(req.originalUrl || req.path || "").split("?")[0];
+  if (req.session.staffId && !(req.method === "GET" && requestPath === "/api/admin/orders")) {
+    return sendError(res, 403, "Super Admin access required.");
+  }
   next();
 }
 
