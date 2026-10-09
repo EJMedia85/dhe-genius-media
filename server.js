@@ -8628,17 +8628,22 @@ app.get("/api/marketing/campaigns",async(req,res)=>{
     const r=await pool.query(`SELECT id,title,subtitle,message,cta_label,cta_url,promo_code,network,capacity,discount_type,discount_value,starts_at,ends_at,impressions,clicks
       FROM marketing_campaigns
       WHERE active=TRUE AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW())
-      ORDER BY starts_at DESC LIMIT 6`);
+        AND (max_uses IS NULL OR uses < max_uses)
+      ORDER BY starts_at DESC, id DESC LIMIT 6`);
     return res.json({success:true,campaigns:r.rows});
   }catch(e){console.error("Marketing campaigns error",e);return res.status(500).json({success:false,message:"Could not load campaigns."});}
 });
 app.post("/api/marketing/campaigns/:id/impression",async(req,res)=>{
-  try{await pool.query("UPDATE marketing_campaigns SET impressions=impressions+1 WHERE id=$1 AND active=TRUE",[Number(req.params.id)]);return res.json({success:true});}
-  catch(e){return res.status(500).json({success:false});}
+  try{
+    await pool.query("UPDATE marketing_campaigns SET impressions=impressions+1 WHERE id=$1 AND active=TRUE AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW()) AND (max_uses IS NULL OR uses < max_uses)",[Number(req.params.id)]);
+    return res.json({success:true});
+  }catch(e){console.error("Marketing impression tracking error",e);return res.status(500).json({success:false});}
 });
 app.post("/api/marketing/campaigns/:id/click",async(req,res)=>{
-  try{await pool.query("UPDATE marketing_campaigns SET clicks=clicks+1 WHERE id=$1 AND active=TRUE",[Number(req.params.id)]);return res.json({success:true});}
-  catch(e){return res.status(500).json({success:false});}
+  try{
+    await pool.query("UPDATE marketing_campaigns SET clicks=clicks+1 WHERE id=$1 AND active=TRUE AND starts_at<=NOW() AND (ends_at IS NULL OR ends_at>=NOW()) AND (max_uses IS NULL OR uses < max_uses)",[Number(req.params.id)]);
+    return res.json({success:true});
+  }catch(e){console.error("Marketing click tracking error",e);return res.status(500).json({success:false});}
 });
 app.post("/api/admin/marketing/campaigns",async(req,res)=>{
   if(!req.session?.adminAuthenticated)return res.status(401).json({success:false});
