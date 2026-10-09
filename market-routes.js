@@ -307,7 +307,7 @@ function installMarket(app) {
   app.get("/api/market/orders",requireLogin,async(req,res)=>{
     try {
       await ensureMarketDatabase();
-      const r=await pool.query("SELECT id,order_ref,subtotal,delivery_fee,total,payment_method,payment_status,status,delivery_name,delivery_phone,delivery_address,created_at,updated_at FROM market_orders WHERE customer_id=$1 ORDER BY created_at DESC",[req.session.customerId]);
+      const r=await pool.query("SELECT o.id,o.order_ref,o.subtotal,o.delivery_fee,o.total,o.payment_method,o.payment_status,o.status,o.delivery_name,o.delivery_phone,o.delivery_address,o.created_at,o.updated_at,EXISTS(SELECT 1 FROM market_order_items i WHERE i.market_order_id=o.id AND i.supplier_id IS NOT NULL) AS supplier_delivery FROM market_orders o WHERE o.customer_id=$1 ORDER BY o.created_at DESC",[req.session.customerId]);
       res.json({success:true,orders:r.rows});
     } catch(e){console.error("Market orders:",e);sendError(res,500,"Could not load market orders.");}
   });
@@ -371,7 +371,6 @@ function installMarket(app) {
         const customer=await pool.query("SELECT email FROM customers WHERE id=$1",[req.session.customerId]);
         const email=String(customer.rows[0]?.email||"").trim();
         if(!secret||!email){
-          await pool.query("BEGIN").catch(()=>{});
           await pool.query("UPDATE market_orders SET status='Cancelled',payment_status='Failed',updated_at=NOW() WHERE id=$1",[o.rows[0].id]);
           await pool.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",[o.rows[0].id]);
           if(!secret)return sendError(res,503,"Paystack is not configured. Choose DGM Wallet or Cash on Delivery.");
@@ -497,6 +496,15 @@ function installMarket(app) {
     } catch(e){sendError(res,400,"Could not update supplier.");}
   });
 
+  app.get("/api/admin/market/orders/:id/items",requireAdmin,async(req,res)=>{
+    try{
+      await ensureMarketDatabase();
+      const id=Number(req.params.id);
+      const r=await pool.query("SELECT i.id,i.product_name,i.quantity,i.unit_price,i.line_total,i.variant,s.business_name supplier_name,s.phone supplier_phone,s.delivery_areas FROM market_order_items i LEFT JOIN market_suppliers s ON s.id=i.supplier_id WHERE i.market_order_id=$1 ORDER BY i.id",[id]);
+      res.json({success:true,items:r.rows});
+    }catch(e){sendError(res,500,"Could not load order items.");}
+  });
+
   app.get("/api/admin/market/orders",requireAdmin,async(req,res)=>{
     try { await ensureMarketDatabase(); const r=await pool.query(`SELECT o.*,c.name customer_name,c.phone customer_phone FROM market_orders o JOIN customers c ON c.id=o.customer_id ORDER BY o.created_at DESC`); res.json({success:true,orders:r.rows}); }
     catch(e){sendError(res,500,"Could not load market orders.");}
@@ -557,6 +565,7 @@ function installMarket(app) {
       if(status==="Cancelled"&&["Pending","Confirmed","Processing"].includes(order.status)){
         await client.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int AS quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",[order.id]);
       }
+      if(status==="Delivered"&&String(order.payment_method||"").toLowerCase()==="cash on delivery") paymentStatus="Paid";
       const updated=await client.query("UPDATE market_orders SET status=$1,payment_status=$2,updated_at=NOW() WHERE id=$3 RETURNING id,order_ref,status,payment_status,total",[status,paymentStatus,id]);
       await client.query("COMMIT");
       return res.json({success:true,order:updated.rows[0]});
