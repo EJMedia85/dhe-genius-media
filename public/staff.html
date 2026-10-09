@@ -766,4 +766,58 @@ async function saveStaffPermissions(){if(!selectedStaffId)return;const permissio
 async function toggleStaff(id,active){if(!confirm((active?'Enable':'Disable')+' this staff account?'))return;try{await api('/api/admin/staff/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})});await loadStaff();}catch(e){alert(e.message);}}
 async function changeStaffRole(id){const s=staffDirectory.find(x=>Number(x.id)===Number(id));if(!s)return;const role=prompt('Enter role: support, finance, operations, manager',s.role_key);if(!role||!['support','finance','operations','manager'].includes(role.toLowerCase()))return;try{await api('/api/admin/staff/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role.toLowerCase()})});await loadStaff();}catch(e){alert(e.message);}}
 async function deleteStaff(id){if(!confirm('Permanently delete this staff account?'))return;try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}catch(e){alert(e.message);}}
+</script><script>
+/* Independent recovery path: if the main workspace script fails before its boot
+   routine runs, do not leave the page permanently showing its static placeholders. */
+setTimeout(async()=>{
+  if(!document.body.classList.contains('staff-pending'))return;
+  const who=document.getElementById('who');
+  const summary=document.getElementById('staffAccessSummary');
+  try{
+    if(typeof window.loadBase==='function'){
+      await window.loadBase();
+      if(!document.body.classList.contains('staff-pending'))return;
+    }
+    const response=await fetch('/api/admin/staff/session-bootstrap',{
+      credentials:'same-origin',cache:'no-store',
+      headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}
+    });
+    const data=await response.json().catch(()=>({success:false,message:'Invalid server response.'}));
+    if(response.status===401){location.replace('/staff-login.html');return;}
+    if(!response.ok||!data.success||!data.staff){
+      if(who)who.textContent=data.message||('Staff session verification failed ('+response.status+').');
+      if(summary)summary.textContent='Access could not be verified. Use Refresh or sign in again.';
+      return;
+    }
+    const staff=data.staff;
+    const permissions=Array.isArray(staff.permissions)?staff.permissions.map(String):[];
+    document.body.classList.remove('staff-pending');
+    if(who)who.textContent='Signed in as '+(staff.name||'Staff')+' • '+(staff.role_key||'staff')+' staff session';
+    if(summary)summary.textContent=permissions.length+' permitted access rules loaded.';
+    if(typeof window.applyStaffNavigation==='function')window.applyStaffNavigation();
+    const pagePermissions=data.staff.page_permissions||{
+      overview:'dashboard.view',customers:'customers.view',orders:'orders.view',wallet:'wallet.view',
+      agents:'agents.manage',analytics:'analytics.view',services:'services.manage',market:'market.manage',
+      bwm:'social.manage',savings:'savings.manage',companion:'companion.manage',bridge:'bridge.manage',
+      devices:'devices.manage',marketing:'marketing.manage',notifications:'notifications.manage',
+      support:'support.manage',security:'security.audit',system:'system.view'
+    };
+    const permitted=Object.keys(pagePermissions).filter(page=>permissions.includes(pagePermissions[page])&&document.getElementById(page));
+    const requested=(location.hash||'').replace(/^#/,'');
+    const target=permitted.includes(requested)?requested:(permitted[0]||null);
+    if(target&&typeof window.show==='function')window.show(target);
+    else if(!target){
+      document.querySelectorAll('.section').forEach(section=>section.classList.remove('active'));
+      const title=document.getElementById('pageTitle'),subtitle=document.getElementById('pageSubtitle');
+      if(title)title.textContent='Access not granted';
+      if(subtitle)subtitle.textContent='The Super Admin has not assigned operational permissions to this staff account.';
+    }
+    if(typeof window.applyStaffActionPermissions==='function')window.applyStaffActionPermissions();
+    if(typeof window.refreshCurrent==='function'&&target)await window.refreshCurrent();
+  }catch(error){
+    if(who)who.textContent='Workspace startup error: '+(error&&error.message?error.message:'unknown error');
+    if(summary)summary.textContent='The workspace did not finish starting. Refresh the page or sign in again.';
+    console.error('DGM staff recovery bootstrap failed:',error);
+  }
+},1500);
 </script><div id="marketProductModal" class="modal" hidden><div class="modal-card" style="max-width:760px"><div class="kpi"><div><h2 id="marketProductTitle">Add Product</h2><div class="muted">Catalog details, pricing and inventory</div></div><button class="btn" onclick="closeMarketProduct()">Close</button></div><form id="marketProductForm"><div class="detail"><div><label class="label">Name</label><input class="input" id="mpName" required></div><div><label class="label">Slug</label><input class="input" id="mpSlug"></div><div><label class="label">Brand</label><input class="input" id="mpBrand"></div><div><label class="label">SKU</label><input class="input" id="mpSku"></div><div><label class="label">Category</label><select class="select" id="mpCategory"></select></div><div><label class="label">Price</label><input class="input" id="mpPrice" type="number" min="0" step="0.01" required></div><div><label class="label">Sale price</label><input class="input" id="mpSale" type="number" min="0" step="0.01"></div><div><label class="label">Stock</label><input class="input" id="mpStock" type="number" min="0" step="1" required></div><div><label class="label">Delivery fee</label><input class="input" id="mpDelivery" type="number" min="0" step="0.01"></div><div><label class="label">Image URL</label><input class="input" id="mpImage" placeholder="https://..."></div></div><div class="detail"><div><label class="label">Gallery URLs</label><textarea class="textarea" id="mpGallery" rows="4" placeholder="One image URL per line"></textarea></div><div><label class="label">Variants JSON</label><textarea class="textarea" id="mpVariants" rows="4" placeholder='[{"name":"Color","options":["Black","Blue"]}]'></textarea></div></div><label class="label">Description</label><textarea class="textarea" id="mpDescription" rows="5"></textarea><div class="toolbar" style="margin-top:12px"><label><input type="checkbox" id="mpFeatured"> Featured</label><label><input type="checkbox" id="mpActive" checked> Active</label></div><div id="marketProductMsg" class="danger" style="margin:8px 0"></div><button class="btn green" style="width:100%">Save Product</button></form></div></div></body></html>
