@@ -411,8 +411,10 @@ function installMarket(app) {
       const found=await client.query("SELECT * FROM market_orders WHERE payment_reference=$1 AND payment_method='Paystack' FOR UPDATE",[reference]);
       if(!found.rows.length){await client.query("ROLLBACK");return res.redirect("/market-orders.html?payment=failed");}
       const order=found.rows[0];
+      if(order.status==="Cancelled"||String(order.payment_status).toLowerCase()==="failed"){await client.query("ROLLBACK");return res.redirect("/market-orders.html?payment=failed");}
       if(String(order.payment_status).toLowerCase()==="paid"){await client.query("COMMIT");return res.redirect("/market-orders.html?payment=success&order="+encodeURIComponent(order.order_ref));}
-      const verified=vr.ok&&data.status&&String(payment.status).toLowerCase()==="success"&&String(payment.currency).toUpperCase()==="GHS"&&Math.round(Number(payment.amount||0))===Math.round(Number(order.total||0)*100)&&String(payment.reference||"")===reference;
+      if(!vr.ok||!data.status){await client.query("ROLLBACK");return res.redirect("/market-orders.html?payment=pending");}
+      const verified=String(payment.status).toLowerCase()==="success"&&String(payment.currency).toUpperCase()==="GHS"&&Math.round(Number(payment.amount||0))===Math.round(Number(order.total||0)*100)&&String(payment.reference||"")===reference;
       if(!verified){
         if(order.status!=="Cancelled"){
           await client.query("UPDATE market_orders SET status='Cancelled',payment_status='Failed',updated_at=NOW() WHERE id=$1",[order.id]);
