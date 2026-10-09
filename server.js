@@ -4047,6 +4047,33 @@ async function syncPendingDataMartOrders() {
 
   try {
 
+    // Recover legacy wallet-paid data orders where provider fulfillment failed
+    // before a DataMart reference was saved. These orders cannot be picked up by
+    // the normal provider-status poll, so refund them exactly once.
+    const strandedFailures = await pool.query(
+      `
+      SELECT id, order_ref, datamart_status
+      FROM orders
+      WHERE payment_status = 'Paid'
+        AND status IN ('Pending', 'Processing', 'Failed')
+        AND datamart_reference IS NULL
+        AND service IN ('Data', 'Data Bundle', 'MTN Data', 'Telecel Data', 'AirtelTigo Data')
+        AND datamart_status LIKE 'payment_confirmed_pending_fulfillment:%'
+      ORDER BY created_at ASC
+      LIMIT 100
+      `
+    );
+
+    for (const strandedOrder of strandedFailures.rows) {
+      console.warn(
+        `Recovering failed wallet-paid data order ${strandedOrder.order_ref}: ${strandedOrder.datamart_status}`
+      );
+      await refundFailedCustomerOrder(
+        strandedOrder.id,
+        String(strandedOrder.datamart_status || "Data bundle fulfillment failed.")
+      );
+    }
+
     const result = await pool.query(
       `
       SELECT *
