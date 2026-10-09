@@ -443,7 +443,7 @@ function installMarket(app) {
         paymentStatus="Refunded";
       }
       if(status==="Cancelled"&&["Pending","Confirmed","Processing"].includes(order.status)){
-        await client.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM market_order_items items WHERE items.market_order_id=$1 AND items.product_id=p.id",[order.id]);
+        await client.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int AS quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",[order.id]);
       }
       const updated=await client.query("UPDATE market_orders SET status=$1,payment_status=$2,updated_at=NOW() WHERE id=$3 RETURNING id,order_ref,status,payment_status,total",[status,paymentStatus,id]);
       await client.query("COMMIT");
