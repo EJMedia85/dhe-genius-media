@@ -29,7 +29,130 @@
 </style></style>
 <style>
 .campaign-card{position:relative;overflow:hidden;border:1px solid rgba(37,211,102,.28);border-radius:18px;padding:20px;background:linear-gradient(135deg,rgba(37,211,102,.13),rgba(8,18,14,.98));box-shadow:0 16px 40px rgba(0,0,0,.18);margin-bottom:10px}.campaign-card:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;right:-80px;top:-80px;background:rgba(37,211,102,.10)}.campaign-kicker{font-size:10px;letter-spacing:1.5px;font-weight:900;color:#25d366}.campaign-card h3{margin:6px 0 4px;font-size:22px}.campaign-card p{margin:0;color:var(--muted);line-height:1.5;max-width:680px}.campaign-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}.campaign-btn{border:0;border-radius:10px;background:#25d366;color:#041008;padding:10px 15px;font-weight:900;cursor:pointer}.campaign-code{border:1px dashed rgba(37,211,102,.45);border-radius:10px;padding:9px 12px;color:#dff8e8;font-weight:800;font-size:12px}
-</style></head>
+
+<style id="dgm-liquid-glass">
+/* DGM Liquid Glass — visual-only layer; dashboard behavior and APIs remain unchanged */
+:root{--glass-surface:rgba(255,255,255,.055);--glass-surface-strong:rgba(255,255,255,.085);--glass-edge:rgba(255,255,255,.15);--glass-glow:rgba(37,211,102,.14)}
+body{
+ background:
+  radial-gradient(ellipse at 8% 8%,rgba(37,211,102,.15),transparent 32%),
+  radial-gradient(ellipse at 94% 34%,rgba(18,140,126,.13),transparent 30%),
+  radial-gradient(ellipse at 54% 100%,rgba(25,95,75,.13),transparent 38%),
+  linear-gradient(145deg,#030908 0%,#071411 48%,#04090d 100%);
+ background-attachment:fixed;
+}
+.mobile-header,.bottom-nav{
+ background:rgba(5,13,12,.72);
+ border-color:rgba(255,255,255,.13);
+ -webkit-backdrop-filter:blur(28px) saturate(165%);
+ backdrop-filter:blur(28px) saturate(165%);
+ box-shadow:0 8px 32px rgba(0,0,0,.18),inset 0 1px 0 rgba(255,255,255,.07);
+}
+.sidebar{
+ background:linear-gradient(155deg,rgba(14,31,28,.94),rgba(4,12,12,.88));
+ border-color:rgba(255,255,255,.12);
+ -webkit-backdrop-filter:blur(28px) saturate(150%);
+ backdrop-filter:blur(28px) saturate(150%);
+}
+.brand-logo{
+ position:relative;overflow:hidden;
+ background:linear-gradient(135deg,rgba(75,255,144,.95),rgba(9,130,104,.9));
+ border:1px solid rgba(255,255,255,.35);
+ box-shadow:0 8px 28px rgba(37,211,102,.22),inset 0 1px 0 rgba(255,255,255,.4);
+}
+.brand-logo:after{
+ content:"";position:absolute;inset:0;
+ background:linear-gradient(135deg,rgba(255,255,255,.42),transparent 43%,rgba(255,255,255,.04));
+ pointer-events:none;
+}
+.menu-btn,.close-btn,.icon-btn{
+ background:rgba(255,255,255,.055);
+ border-color:rgba(255,255,255,.15);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.08);
+ -webkit-backdrop-filter:blur(18px);
+ backdrop-filter:blur(18px);
+}
+.nav-item{transition:background .2s ease,border-color .2s ease,transform .2s ease}
+.nav-item:hover,.nav-item:focus-visible{
+ background:linear-gradient(110deg,rgba(37,211,102,.13),rgba(255,255,255,.035));
+ border-color:rgba(255,255,255,.13);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+}
+.wallet{
+ border:1px solid rgba(255,255,255,.25);
+ background:
+  radial-gradient(ellipse at 12% 0%,rgba(255,255,255,.24),transparent 42%),
+  radial-gradient(ellipse at 100% 100%,rgba(37,211,102,.22),transparent 48%),
+  linear-gradient(135deg,rgba(19,150,78,.88),rgba(5,91,63,.84));
+ box-shadow:0 24px 60px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.3),inset 0 -1px 0 rgba(255,255,255,.05);
+ -webkit-backdrop-filter:blur(22px) saturate(145%);
+ backdrop-filter:blur(22px) saturate(145%);
+}
+.wallet:before{
+ content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+ background:linear-gradient(118deg,rgba(255,255,255,.12),transparent 27%,transparent 72%,rgba(255,255,255,.045));
+}
+.wallet-btn{
+ background:rgba(255,255,255,.13);
+ border-color:rgba(255,255,255,.25);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.16);
+ -webkit-backdrop-filter:blur(14px);
+ backdrop-filter:blur(14px);
+ transition:transform .2s ease,background .2s ease,box-shadow .2s ease;
+}
+.wallet-btn:hover{transform:translateY(-1px);background:rgba(255,255,255,.2)}
+.wallet-btn.primary{background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(226,255,237,.91));box-shadow:inset 0 1px 0 #fff,0 7px 20px rgba(0,0,0,.1)}
+.primary-card,.service-card,.activity-card,.reward-card,.campaign-card{
+ position:relative;isolation:isolate;overflow:hidden;
+ background:linear-gradient(145deg,rgba(255,255,255,.085),rgba(255,255,255,.025) 58%,rgba(37,211,102,.035));
+ border-color:rgba(255,255,255,.13);
+ box-shadow:0 14px 36px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.075);
+ -webkit-backdrop-filter:blur(22px) saturate(140%);
+ backdrop-filter:blur(22px) saturate(140%);
+}
+.primary-card:before,.service-card:before,.activity-card:before,.reward-card:before,.campaign-card:before{
+ content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+ background:linear-gradient(125deg,rgba(255,255,255,.07),transparent 32%,transparent 74%,rgba(37,211,102,.035));
+}
+.primary-card,.service-card{transition:transform .22s ease,border-color .22s ease,background .22s ease,box-shadow .22s ease}
+.primary-card:hover,.service-card:hover{
+ transform:translateY(-3px);
+ border-color:rgba(118,255,176,.3);
+ background:linear-gradient(145deg,rgba(255,255,255,.105),rgba(37,211,102,.045));
+ box-shadow:0 18px 38px rgba(0,0,0,.22),0 0 22px rgba(37,211,102,.045),inset 0 1px 0 rgba(255,255,255,.1);
+}
+.primary-icon{
+ background:linear-gradient(145deg,rgba(37,211,102,.2),rgba(18,140,126,.08));
+ border-color:rgba(255,255,255,.12);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.1);
+}
+.activity-row{border-color:rgba(255,255,255,.075)}
+.code-input{
+ background:rgba(1,10,9,.4);
+ border-color:rgba(255,255,255,.14);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.035);
+}
+.code-input:focus{border-color:rgba(89,245,145,.65);box-shadow:0 0 0 3px rgba(37,211,102,.1)}
+.code-btn,.reward-code button,.campaign-btn{
+ background:linear-gradient(135deg,#49ef88,#16a879);
+ box-shadow:0 8px 22px rgba(37,211,102,.14),inset 0 1px 0 rgba(255,255,255,.38);
+ transition:transform .2s ease,filter .2s ease;
+}
+.code-btn:hover,.reward-code button:hover,.campaign-btn:hover{transform:translateY(-1px);filter:brightness(1.06)}
+.reward-code{
+ background:rgba(0,0,0,.16);
+ border-color:rgba(255,255,255,.14);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.055);
+}
+.campaign-card{border-color:rgba(37,211,102,.22)}
+.overlay{background:rgba(0,5,5,.68);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+:focus-visible{outline:2px solid rgba(94,255,153,.8);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+@media(max-width:760px){
+ .wallet,.primary-card,.service-card,.activity-card,.reward-card,.campaign-card{box-shadow:0 10px 28px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.07)}
+}
+</style>
+</head>
 <body>
 <header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()" aria-label="Open menu">☰</button></header>
 <aside class="sidebar" id="sidebar">
