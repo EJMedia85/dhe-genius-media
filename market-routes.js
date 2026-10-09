@@ -401,40 +401,61 @@ function installMarket(app) {
       const found=await client.query("SELECT * FROM market_orders WHERE id=$1 FOR UPDATE",[id]);
       if(!found.rows.length){await client.query("ROLLBACK");return sendError(res,404,"Market order not found.");}
       const order=found.rows[0];
-      if(status==="Refunded"&&order.status!=="Refunded"){
-        if(String(order.payment_status).toLowerCase()!=="paid"){
-          await client.query("ROLLBACK");
-          return sendError(res,400,"Only paid market orders can be refunded.");
-        }
-        const customer=await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[order.customer_id]);
-        if(!customer.rows.length) throw new Error("Customer account not found.");
-        const before=Number(customer.rows[0].balance||0), amount=Number(order.total||0), after=before+amount;
-        await client.query("UPDATE customers SET balance=balance+$1 WHERE id=$2",[amount,order.customer_id]);
-        const refundRef="DGM-MKT-REFUND-"+String(order.order_ref);
-        await client.query(
-          "INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'credit',$2,$3,$4,$5,$6,'Completed',$7) ON CONFLICT(transaction_ref) DO NOTHING",
-          [order.customer_id,amount,before,after,"Refund for DGM Market order "+order.order_ref,refundRef,order.order_ref]
-        );
-        await client.query(
-          "UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int AS quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",
-          [id]
-        );
-        await client.query("UPDATE market_orders SET status='Refunded',payment_status='Refunded',updated_at=NOW() WHERE id=$1",[id]);
-      } else {
-        await client.query("UPDATE market_orders SET status=$1,updated_at=NOW() WHERE id=$2",[status,id]);
+      if(order.status===status){
+        await client.query("COMMIT");
+        return res.json({success:true,order:{id:order.id,order_ref:order.order_ref,status:order.status,payment_status:order.payment_status,total:order.total}});
       }
-      const result=await client.query("SELECT id,order_ref,status,payment_status,total FROM market_orders WHERE id=$1",[id]);
+      if(["Cancelled","Refunded"].includes(order.status)){
+        await client.query("ROLLBACK");
+        return sendError(res,409,"This order is already cancelled or refunded and cannot be reopened.");
+      }
+      const transitions={
+        "Pending":["Confirmed","Processing","Cancelled","Refunded"],
+        "Confirmed":["Processing","Shipped","Cancelled","Refunded"],
+        "Processing":["Shipped","Out for Delivery","Cancelled","Refunded"],
+        "Shipped":["Out for Delivery","Delivered","Refunded"],
+        "Out for Delivery":["Delivered","Refunded"],
+        "Delivered":["Refunded"]
+      };
+      if(!(transitions[order.status]||[]).includes(status)){
+        await client.query("ROLLBACK");
+        return sendError(res,409,"This fulfillment status change is not allowed.");
+      }
+      const paid=String(order.payment_status||"").toLowerCase()==="paid";
+      const walletPaid=String(order.payment_method||"").toLowerCase()==="wallet"&&paid;
+      if(["Cancelled","Refunded"].includes(status)&&paid&&!walletPaid){
+        await client.query("ROLLBACK");
+        return sendError(res,409,"This order used an external payment method. Process its refund with the payment provider before marking it refunded.");
+      }
+      let paymentStatus=order.payment_status;
+      if(["Cancelled","Refunded"].includes(status)&&walletPaid){
+        const customer=await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[order.customer_id]);
+        if(!customer.rows.length) throw new Error("Customer account for this order was not found.");
+        const before=Number(customer.rows[0].balance||0);
+        const amount=Number(order.total||0);
+        if(!Number.isFinite(amount)||amount<0) throw new Error("Order total is invalid; refund was not processed.");
+        const after=before+amount;
+        const refundRef="DGM-MKT-REFUND-"+String(order.order_ref);
+        await client.query("UPDATE customers SET balance=balance+$1 WHERE id=$2",[amount,order.customer_id]);
+        await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'credit',$2,$3,$4,$5,$6,'Completed',$7)",[order.customer_id,amount,before,after,"Refund for DGM Market order "+order.order_ref,refundRef,order.order_ref]);
+        await client.query("INSERT INTO market_wallet_transactions(market_order_id,customer_id,amount,balance_before,balance_after,transaction_ref) VALUES($1,$2,$3,$4,$5,$6)",[order.id,order.customer_id,amount,before,after,refundRef]);
+        paymentStatus="Refunded";
+      }
+      if(status==="Cancelled"&&["Pending","Confirmed","Processing"].includes(order.status)){
+        await client.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM market_order_items items WHERE items.market_order_id=$1 AND items.product_id=p.id",[order.id]);
+      }
+      const updated=await client.query("UPDATE market_orders SET status=$1,payment_status=$2,updated_at=NOW() WHERE id=$3 RETURNING id,order_ref,status,payment_status,total",[status,paymentStatus,id]);
       await client.query("COMMIT");
-      return res.json({success:true,order:result.rows[0]});
+      return res.json({success:true,order:updated.rows[0]});
     } catch(e){
       try{await client.query("ROLLBACK");}catch{}
       console.error("Admin market order update:",e);
-      return sendError(res,500,"Could not update market order.");
+      return sendError(res,500,e.message||"Could not update market order.");
     } finally {client.release();}
   });
 
   app.get("/api/admin/market/summary",requireAdmin,async(req,res)=>{
-    try { await ensureMarketDatabase(); const [p,o,s]=await Promise.all([pool.query("SELECT COUNT(*)::int count FROM market_products WHERE active=TRUE"),pool.query("SELECT COUNT(*)::int count FROM market_orders"),pool.query("SELECT COALESCE(SUM(total),0)::numeric total FROM market_orders WHERE payment_status='Paid' AND status<>'Cancelled'")]); res.json({success:true,products:p.rows[0].count,orders:o.rows[0].count,sales:Number(s.rows[0].total||0)}); }
+    try { await ensureMarketDatabase(); const [p,o,s]=await Promise.all([pool.query("SELECT COUNT(*)::int count FROM market_products WHERE active=TRUE"),pool.query("SELECT COUNT(*)::int count FROM market_orders"),pool.query("SELECT COALESCE(SUM(total),0)::numeric total FROM market_orders WHERE payment_status='Paid' AND status NOT IN ('Cancelled','Refunded')")]); res.json({success:true,products:p.rows[0].count,orders:o.rows[0].count,sales:Number(s.rows[0].total||0)}); }
     catch(e){sendError(res,500,"Could not load market summary.");}
   });
 }
