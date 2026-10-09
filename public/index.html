@@ -1,150 +1,63 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-
-  <meta charset="UTF-8">
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
-  >
-
-  <title>DHE GENIUS MEDIA • Digital Services</title>
-
-  <meta
-    name="description"
-    content="DHE GENIUS MEDIA - Your trusted hub for data, airtime and digital services in Ghana."
-  >
-
-  <style>
-*{box-sizing:border-box;margin:0;padding:0}
-:root{--green:#25d366;--green2:#128c7e;--bg:#030908;--panel:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--muted:#8fa4a2}
-html{scroll-behavior:smooth}
-body{font-family:Inter,Arial,sans-serif;color:#fff;min-height:100vh;background:radial-gradient(circle at 10% 0%,rgba(37,211,102,.15),transparent 30%),radial-gradient(circle at 95% 25%,rgba(18,140,126,.12),transparent 30%),linear-gradient(160deg,#071111,#020606 70%);overflow-x:hidden}
-a{text-decoration:none;color:inherit}.site-header{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:15px clamp(16px,5vw,70px);background:rgba(3,9,8,.82);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:center;gap:10px}.brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--green),var(--green2));color:#001b0b;font-weight:1000;font-size:12px}.brand-copy{display:flex;flex-direction:column}.brand-copy strong{font-size:12px;letter-spacing:.4px}.brand-copy small{color:#6f8582;font-size:9px;margin-top:3px}.header-nav{display:flex;align-items:center;gap:22px}.header-nav>a:not(.header-btn){color:#9aadaa;font-size:11px;font-weight:700}.header-btn{padding:10px 15px;border:1px solid var(--line);border-radius:11px;font-size:11px;font-weight:800;background:rgba(255,255,255,.05)}
-main{max-width:1180px;margin:auto;padding:25px 18px 60px}.announcement{display:flex;justify-content:center;gap:8px;color:#a6b9b7;font-size:10px;margin:12px 0 30px}.announcement span{color:var(--green)}
-.hero{display:grid;grid-template-columns:1.35fr .65fr;gap:30px;align-items:center;padding:55px 0 65px}.eyebrow{display:inline-block;color:var(--green);font-size:10px;font-weight:900;letter-spacing:1.5px;margin-bottom:15px}.hero h1{font-size:clamp(42px,6vw,72px);line-height:1.02;letter-spacing:-2.5px;margin-bottom:20px}.hero h1 span,.cta h2 span{color:var(--green)}.hero-text{max-width:600px;color:var(--muted);font-size:15px;line-height:1.7}.hero-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}.btn{display:inline-flex;align-items:center;justify-content:center;padding:14px 19px;border-radius:13px;font-size:11px;font-weight:900}.primary{background:linear-gradient(135deg,var(--green),#18a653);color:#001b0b;box-shadow:0 12px 35px rgba(37,211,102,.12)}.secondary{background:rgba(255,255,255,.055);border:1px solid var(--line)}.trust-row{display:flex;gap:16px;flex-wrap:wrap;margin-top:19px;color:#718582;font-size:10px}.hero-card{padding:27px;border:1px solid rgba(37,211,102,.16);border-radius:25px;background:linear-gradient(145deg,rgba(37,211,102,.09),rgba(255,255,255,.035));box-shadow:0 25px 80px rgba(0,0,0,.25)}.hero-card-top{display:flex;justify-content:space-between;color:#718582;font-size:9px;font-weight:900;letter-spacing:1px}.hero-card-top b{color:var(--green)}.hero-price{font-size:35px;line-height:1.08;font-weight:900;margin:65px 0 16px}.hero-price span{color:var(--green)}.hero-card p{color:#879c99;font-size:11px;line-height:1.6}.hero-card a{display:block;margin-top:20px;color:var(--green);font-size:11px;font-weight:900}.campaign{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:25px;border:1px solid rgba(37,211,102,.13);border-radius:20px;background:linear-gradient(100deg,rgba(37,211,102,.10),rgba(255,255,255,.025))}.campaign-label{color:var(--green);font-size:9px;font-weight:900;letter-spacing:1.4px}.campaign h2{font-size:21px;margin:7px 0}.campaign p{color:#819592;font-size:11px;line-height:1.5}.campaign-btn{border:1px solid rgba(37,211,102,.25);color:var(--green);background:rgba(37,211,102,.06);white-space:nowrap}.section{padding:85px 0 35px}.section-heading{margin-bottom:25px}.section-heading h2{font-size:32px;letter-spacing:-1px;margin-bottom:7px}.section-heading p{color:#718582;font-size:12px}.service-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.service-card{display:grid;grid-template-columns:auto 1fr auto;gap:15px;align-items:center;padding:21px;border:1px solid var(--line);border-radius:19px;background:var(--panel);transition:.2s}.service-card:hover{transform:translateY(-2px);border-color:rgba(37,211,102,.25)}.service-card.featured{border-color:rgba(37,211,102,.18);background:linear-gradient(140deg,rgba(37,211,102,.08),var(--panel))}.service-icon{display:grid;place-items:center;width:48px;height:48px;border-radius:14px;background:rgba(37,211,102,.09);font-size:22px}.service-card span{font-size:8px;color:var(--green);font-weight:900;letter-spacing:1.3px}.service-card h3{font-size:14px;margin:5px 0}.service-card p{font-size:10px;color:#778d89;line-height:1.5}.service-card>b{color:#637875}.why-section{padding:75px 0}.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.why-grid>div{padding:24px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.03)}.why-grid strong{color:var(--green);font-size:10px}.why-grid h3{margin:22px 0 7px;font-size:16px}.why-grid p{color:#788d8a;font-size:11px;line-height:1.6}.cta{display:flex;align-items:center;justify-content:space-between;gap:25px;padding:40px;border-radius:25px;background:linear-gradient(135deg,rgba(37,211,102,.13),rgba(255,255,255,.035));border:1px solid rgba(37,211,102,.14)}.cta h2{font-size:35px;line-height:1.05;margin-bottom:10px}.cta p{color:#829794;font-size:11px}.contact{text-align:center;color:#657976;font-size:10px;line-height:1.8;padding:45px 0 10px}.contact strong{color:#b7c7c5}footer{text-align:center;color:#4f6260;font-size:9px;padding:0 16px 30px}
-@media(max-width:760px){.header-nav>a:not(.header-btn){display:none}.hero{grid-template-columns:1fr;padding:35px 0 45px}.hero-card{display:none}.service-grid,.why-grid{grid-template-columns:1fr}.campaign,.cta{flex-direction:column;align-items:flex-start}.campaign-btn{width:100%}.cta .btn{width:100%}.section{padding-top:60px}.hero h1{letter-spacing:-1.5px}.brand-copy small{display:none}}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#06110e">
+<title>DGM | Everything Digital. One Genius Platform.</title>
+<meta name="description" content="DHE GENIUS MEDIA brings data bundles, airtime, wallet payments, savings and digital services together in one convenient platform in Ghana.">
+<meta property="og:title" content="DGM — Stay Connected. Stay Genius.">
+<meta property="og:description" content="Your digital life, made easier. Explore DGM data, airtime and digital services.">
+<style>
+:root{color-scheme:dark;--bg:#06100e;--panel:#0b1915;--green:#25d366;--mint:#7df5ad;--teal:#128c7e;--text:#f4faf6;--muted:#a0b4aa;--line:rgba(190,255,215,.13);--max:1180px}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:radial-gradient(ellipse at 80% 12%,rgba(18,140,126,.2),transparent 35%),radial-gradient(ellipse at 10% 35%,rgba(37,211,102,.11),transparent 35%),var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);line-height:1.5}a{color:inherit;text-decoration:none}button,a{-webkit-tap-highlight-color:transparent}.wrap{width:min(var(--max),calc(100% - 40px));margin:auto}
+header{position:sticky;top:0;z-index:20;background:rgba(6,16,14,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}.nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px}.brand{display:flex;align-items:center;gap:12px}.logo{width:47px;height:47px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(140deg,var(--mint),var(--green) 60%,var(--teal));color:#052115;font-weight:1000;letter-spacing:-1px;box-shadow:0 8px 28px #25d36620}.brand strong{display:block;font-size:13px;letter-spacing:.07em}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}.navlinks{display:flex;align-items:center;gap:25px;color:#c3d3ca;font-size:13px}.navlinks a:hover{color:var(--mint)}.nav-actions{display:flex;gap:9px;align-items:center}.btn{min-height:44px;padding:12px 17px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;border:1px solid var(--line);transition:transform .2s,border-color .2s}.btn:hover{transform:translateY(-2px);border-color:#25d36688}.primary{background:linear-gradient(135deg,var(--mint),var(--green));color:#052115;border:0}.quiet{background:rgba(255,255,255,.035)}
+.hero{padding:82px 0 70px;display:grid;grid-template-columns:1.12fr .88fr;align-items:center;gap:55px}.kicker{display:inline-flex;align-items:center;gap:9px;color:var(--mint);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase}.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 15px var(--green)}h1{font-size:clamp(43px,6.3vw,76px);line-height:.99;letter-spacing:-.065em;margin:20px 0 23px;max-width:720px}h1 em{font-style:normal;color:var(--mint)}.lead{font-size:17px;line-height:1.75;color:var(--muted);max-width:620px}.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:29px}.proof{display:flex;flex-wrap:wrap;gap:19px;margin-top:27px;color:#c4d2ca;font-size:12px}.proof span:before{content:"✓";color:var(--mint);font-weight:900;margin-right:7px}.visual{position:relative;min-height:410px;border:1px solid rgba(125,245,173,.18);border-radius:28px;padding:25px;background:linear-gradient(145deg,rgba(28,85,61,.45),rgba(9,25,20,.9));box-shadow:0 30px 100px #0006;overflow:hidden}.visual:before{content:"";position:absolute;width:280px;height:280px;border-radius:50%;background:#25d3661a;filter:blur(35px);right:-50px;top:-70px}.visual-head{position:relative;display:flex;justify-content:space-between;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.1em}.live{color:var(--mint)}.phone{position:relative;margin:27px auto 0;max-width:330px;border:1px solid #a9e7c14d;border-radius:25px;padding:21px;background:linear-gradient(160deg,#122b20,#06110e 75%);box-shadow:0 25px 55px #0008;transform:rotate(-2deg)}.phone-top{display:flex;justify-content:space-between;color:#9bb5a5;font-size:10px}.phone-brand{margin-top:22px;font-weight:900;font-size:19px;letter-spacing:.05em}.phone-brand span{color:var(--mint)}.phone-sub{color:var(--muted);font-size:11px;margin-top:3px}.wallet{margin-top:22px;padding:17px;border-radius:16px;background:linear-gradient(120deg,#16452e,#0c281c);border:1px solid #7df5ad28}.wallet small{color:#b5cabe}.wallet strong{display:block;font-size:25px;margin:5px 0 11px}.wallet .mini{display:inline-block;background:var(--green);color:#052115;padding:8px 12px;border-radius:8px;font-size:10px;font-weight:900}.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:13px}.tile{padding:13px 5px;border:1px solid var(--line);border-radius:12px;text-align:center;font-size:10px;color:#d8e8de;background:#ffffff05}.tile b{display:block;font-size:19px;color:var(--mint);margin-bottom:5px}.float-note{position:absolute;right:18px;bottom:20px;padding:12px 15px;background:#0c1e17;border:1px solid var(--line);border-radius:13px;font-size:11px;color:#cce2d4;box-shadow:0 10px 30px #0005}
+.trustbar{border:1px solid var(--line);border-radius:18px;display:grid;grid-template-columns:repeat(4,1fr);background:#ffffff04;margin-bottom:25px}.trustitem{padding:20px;display:flex;align-items:center;gap:12px;border-right:1px solid var(--line)}.trustitem:last-child{border:0}.trusticon{width:38px;height:38px;display:grid;place-items:center;background:#25d36614;border-radius:12px;color:var(--mint);font-size:18px}.trustitem strong{font-size:12px;display:block}.trustitem small{color:var(--muted);font-size:10px}
+section.block{padding:78px 0 20px}.sectionhead{max-width:660px;margin-bottom:29px}.sectionhead h2{font-size:clamp(29px,4vw,43px);line-height:1.08;letter-spacing:-.045em;margin:12px 0}.sectionhead p{color:var(--muted);font-size:14px;line-height:1.75}.services{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.service{padding:23px;border:1px solid var(--line);border-radius:19px;background:linear-gradient(150deg,#ffffff07,#ffffff02);min-height:190px;transition:transform .2s,border-color .2s}.service:hover{transform:translateY(-3px);border-color:#25d36670}.service .ico{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;background:#25d36616;color:var(--mint);font-size:22px}.service h3{font-size:16px;margin:17px 0 7px}.service p{color:var(--muted);font-size:12px;line-height:1.7;margin:0}.service a{display:inline-block;color:var(--mint);font-size:11px;font-weight:900;margin-top:15px}.networks{display:flex;flex-wrap:wrap;gap:10px;margin-top:25px}.network{padding:10px 15px;border-radius:10px;border:1px solid var(--line);background:#ffffff04;color:#e2f0e7;font-size:12px;font-weight:800}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.step{padding:25px;border-radius:18px;background:#ffffff04;border:1px solid var(--line)}.step .num{color:var(--mint);font-size:11px;font-weight:900;letter-spacing:.12em}.step h3{font-size:16px;margin:17px 0 8px}.step p{color:var(--muted);font-size:12px;line-height:1.7;margin:0}
+.cta{margin-top:82px;padding:clamp(28px,5vw,55px);border:1px solid #25d36638;border-radius:26px;background:radial-gradient(ellipse at 85% 10%,#25d36620,transparent 42%),linear-gradient(130deg,#0d2118,#09130f);display:flex;align-items:center;justify-content:space-between;gap:25px}.cta h2{font-size:clamp(30px,4vw,46px);line-height:1.06;letter-spacing:-.05em;margin:12px 0}.cta h2 span{color:var(--mint)}.cta p{color:var(--muted);font-size:13px}.contact{padding:45px 0 25px;display:flex;align-items:center;justify-content:space-between;gap:22px;border-bottom:1px solid var(--line)}.contact p{margin:4px 0;color:var(--muted);font-size:12px}.contact-links{display:flex;gap:10px;flex-wrap:wrap}.contact-links a{border:1px solid var(--line);border-radius:11px;padding:11px 14px;font-size:12px;font-weight:800}.contact-links a:first-child{border-color:#25d36655;color:var(--mint)}footer{padding:20px 0 35px;color:#72877b;font-size:11px;display:flex;justify-content:space-between;gap:15px;flex-wrap:wrap}
+@media(max-width:850px){.navlinks{display:none}.hero{grid-template-columns:1fr;gap:28px;padding-top:55px}.visual{min-height:380px}.trustbar{grid-template-columns:repeat(2,1fr)}.trustitem:nth-child(2){border-right:0}.trustitem:nth-child(-n+2){border-bottom:1px solid var(--line)}.services{grid-template-columns:repeat(2,1fr)}.contact{align-items:flex-start;flex-direction:column}}
+@media(max-width:520px){.wrap{width:min(var(--max),calc(100% - 28px))}.nav{min-height:68px}.brand strong{font-size:11px}.brand small{font-size:9px}.logo{width:41px;height:41px}.nav-actions .quiet{display:none}.hero{padding:44px 0 40px}h1{font-size:47px}.lead{font-size:15px}.visual{padding:17px;min-height:360px}.phone{padding:17px}.float-note{right:10px;bottom:12px}.trustitem{padding:13px 10px}.trustitem strong{font-size:11px}.services,.steps{grid-template-columns:1fr}.service{min-height:0}.block{padding-top:58px!important}.cta{align-items:flex-start;flex-direction:column;margin-top:55px}.cta .btn{width:100%}.contact-links{width:100%}.contact-links a{flex:1;text-align:center}footer{flex-direction:column}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
 </style>
-
 </head>
-
 <body>
-
-<header class="site-header">
-  <a class="brand" href="/" aria-label="DGM home">
-    <span class="brand-mark">DGM</span>
-    <span class="brand-copy"><strong>DHE GENIUS MEDIA</strong><small>Stay Connected. Stay Genius.</small></span>
-  </a>
-  <nav class="header-nav">
-    <a href="#services">Services</a>
-    <a href="#why-dgm">Why DGM</a>
-    <a class="header-btn" href="/login.html">Sign In</a>
-  </nav>
-</header>
-
-<main>
-  <section class="announcement">
-    <span>●</span> DGM is your everyday digital services hub for Ghana
-  </section>
-
-  <section class="hero">
-    <div class="hero-copy">
-      <div class="eyebrow">GHANA • DATA • AIRTIME • DIGITAL SERVICES</div>
-      <h1>Everything you need.<br><span>One DGM account.</span></h1>
-      <p class="hero-text">Your trusted hub for data, airtime and digital services. Fast, simple and built for customers across Ghana.</p>
-      <div class="hero-actions">
-        <a class="btn primary" href="/register.html">Create Your DGM Account</a>
-        <a class="btn secondary" href="/login.html">Sign In</a>
-      </div>
-      <div class="trust-row">
-        <span>✓ Fast ordering</span>
-        <span>✓ DGM Wallet</span>
-        <span>✓ Order history</span>
-      </div>
-    </div>
-    <div class="hero-card">
-      <div class="hero-card-top"><span>DGM QUICK START</span><b>24/7</b></div>
-      <div class="hero-price">Data when<br><span>you need it.</span></div>
-      <p>Choose your network, select your bundle, enter the recipient and confirm.</p>
-      <a href="/register.html">Start buying →</a>
-    </div>
-  </section>
-
-  <section class="campaign">
-    <div>
-      <span class="campaign-label">DGM REWARDS</span>
-      <h2>Buy. Save. Earn more with DGM.</h2>
-      <p>Use your DGM account to access rewards, referrals and cashback features as you use the platform.</p>
-    </div>
-    <a class="btn campaign-btn" href="/register.html">Join DGM</a>
-  </section>
-
-  <section id="services" class="section">
-    <div class="section-heading">
-      <span class="eyebrow">WHAT YOU CAN DO</span>
-      <h2>Your everyday services, simplified.</h2>
-      <p>One platform for the services you use most.</p>
-    </div>
-    <div class="service-grid">
-      <a class="service-card featured" href="/register.html">
-        <div class="service-icon">📶</div><div><span>DATA</span><h3>MTN • AirtelTigo • Telecel</h3><p>Choose a bundle and send it to any eligible Ghanaian number.</p></div><b>→</b>
-      </a>
-      <a class="service-card" href="/register.html">
-        <div class="service-icon">₵</div><div><span>AIRTIME</span><h3>Recharge in seconds</h3><p>Top up Ghanaian mobile numbers from your DGM account.</p></div><b>→</b>
-      </a>
-      <a class="service-card" href="/register.html">
-        <div class="service-icon">💳</div><div><span>DGM WALLET</span><h3>Pay your way</h3><p>Fund your wallet and use it for faster DGM purchases.</p></div><b>→</b>
-      </a>
-      <a class="service-card" href="/register.html">
-        <div class="service-icon">🎁</div><div><span>REWARDS</span><h3>Refer & earn</h3><p>Share DGM with friends and participate in the rewards programme.</p></div><b>→</b>
-      </a>
-    </div>
-  </section>
-
-  <section id="why-dgm" class="why-section">
-    <div class="section-heading">
-      <span class="eyebrow">WHY DGM</span>
-      <h2>Built around the customer.</h2>
-    </div>
-    <div class="why-grid">
-      <div><strong>01</strong><h3>Simple</h3><p>No complicated process. Select, enter, confirm.</p></div>
-      <div><strong>02</strong><h3>Connected</h3><p>Keep your orders, wallet and account in one place.</p></div>
-      <div><strong>03</strong><h3>Rewarding</h3><p>Referral, loyalty and cashback features are built into DGM.</p></div>
-    </div>
-  </section>
-
-  <section class="cta">
-    <div><span class="eyebrow">READY?</span><h2>Stay connected.<br><span>Stay Genius.</span></h2><p>Create your DGM account and get started.</p></div>
-    <a class="btn primary" href="/register.html">Create Account →</a>
-  </section>
-
-  <div class="contact">
-    <strong>DHE GENIUS MEDIA</strong><br>
-    Accra • Spintex • 24/7<br>
-    WhatsApp: 0241518385 • Calls: 0508667776 / 0241518385
-  </div>
+<header><div class="wrap nav">
+<a class="brand" href="/" aria-label="DGM home"><span class="logo">DGM</span><span><strong>DHE GENIUS MEDIA</strong><small>Stay Connected. Stay Genius.</small></span></a>
+<nav class="navlinks" aria-label="Main navigation"><a href="#services">Services</a><a href="#how-it-works">How it works</a><a href="#why-dgm">Why DGM</a></nav>
+<div class="nav-actions"><a class="btn quiet" href="/login.html">Sign in</a><a class="btn primary" href="/register.html">Get started <span aria-hidden="true">↗</span></a></div>
+</div></header>
+<main class="wrap">
+<section class="hero">
+<div><div class="kicker"><span class="dot"></span> YOUR DIGITAL SERVICES PARTNER</div>
+<h1>Everything digital.<br><em>One genius platform.</em></h1>
+<p class="lead">Get connected, top up, manage your purchases and explore everyday digital services — all through DHE GENIUS MEDIA.</p>
+<div class="hero-actions"><a class="btn primary" href="/register.html">Create your DGM account&nbsp; ↗</a><a class="btn quiet" href="#services">Explore services ↓</a></div>
+<div class="proof"><span>Simple ordering</span><span>Order history</span><span>Customer support</span></div>
+</div>
+<div class="visual" aria-label="Illustration of the DGM customer dashboard"><div class="visual-head"><span>DGM CUSTOMER EXPERIENCE</span><span class="live">● CONNECTED</span></div>
+<div class="phone"><div class="phone-top"><span>9:41</span><span>●●●  ▰</span></div><div class="phone-brand">DGM<span>.</span></div><div class="phone-sub">Stay Connected. Stay Genius.</div>
+<div class="wallet"><small>Your digital services, together</small><strong>One simple account.</strong><span class="mini">Explore DGM</span></div>
+<div class="tiles"><div class="tile"><b>⌁</b>Buy Data</div><div class="tile"><b>↗</b>Airtime</div><div class="tile"><b>▣</b>Services</div><div class="tile"><b>₵</b>Wallet</div><div class="tile"><b>◎</b>Savings</div><div class="tile"><b>⋯</b>More</div></div></div><div class="float-note">✦ <b>Stay connected.</b> Stay Genius.</div>
+</div>
+</section>
+<div class="trustbar" aria-label="DGM service benefits"><div class="trustitem"><span class="trusticon">↗</span><div><strong>Easy to use</strong><small>Clear, simple steps</small></div></div><div class="trustitem"><span class="trusticon">◈</span><div><strong>One DGM account</strong><small>Keep activity together</small></div></div><div class="trustitem"><span class="trusticon">✓</span><div><strong>Order visibility</strong><small>Check purchase status</small></div></div><div class="trustitem"><span class="trusticon">☏</span><div><strong>Human support</strong><small>Contact our team</small></div></div></div>
+<section id="services" class="block"><div class="sectionhead"><div class="kicker">THE DGM PLATFORM</div><h2>Your everyday digital needs, in one place.</h2><p>Start with the essentials and explore more services from DHE GENIUS MEDIA. Available options may vary by service.</p></div>
+<div class="services">
+<article class="service"><div class="ico">▥</div><h3>Data bundles</h3><p>Choose from MTN, Telecel and AirtelTigo bundle options and review the price before ordering.</p><a href="/register.html">Explore data →</a></article>
+<article class="service"><div class="ico">↗</div><h3>Airtime top-up</h3><p>Access airtime services for supported networks from your DGM customer account.</p><a href="/register.html">Get started →</a></article>
+<article class="service"><div class="ico">₵</div><h3>DGM Wallet & payments</h3><p>Manage your wallet and use supported payment options for eligible DGM services.</p><a href="/login.html">Open your account →</a></article>
+<article class="service"><div class="ico">◎</div><h3>Savings & Susu</h3><p>Explore personal savings and group Susu options where enabled on the platform.</p><a href="/login.html">Explore savings →</a></article>
+<article class="service"><div class="ico">▣</div><h3>Entertainment & subscriptions</h3><p>Discover available TV, music and other digital subscription services.</p><a href="/register.html">Explore services →</a></article>
+<article class="service"><div class="ico">✳</div><h3>More digital services</h3><p>Discover eligible services such as social boosting, WhatsApp tools, devices and more.</p><a href="/register.html">See what’s available →</a></article>
+</div>
+<div class="networks" aria-label="Featured networks and service categories"><span class="network">MTN</span><span class="network">Telecel</span><span class="network">AirtelTigo</span><span class="network">Digital services</span><span class="network">Wallet & payments</span><span class="network">Savings & Susu</span></div>
+</section>
+<section id="how-it-works" class="block"><div class="sectionhead"><div class="kicker">GET STARTED</div><h2>Simple from the first tap.</h2><p>A clear journey helps customers know what to do next.</p></div><div class="steps"><article class="step"><span class="num">STEP 01</span><h3>Create your account</h3><p>Register or sign in to access the DGM customer experience.</p></article><article class="step"><span class="num">STEP 02</span><h3>Choose a service</h3><p>Select a service, check its available options and confirm the details.</p></article><article class="step"><span class="num">STEP 03</span><h3>Track your activity</h3><p>Use your account to review orders and contact support if you need help.</p></article></div></section>
+<section id="why-dgm" class="cta"><div><div class="kicker">DHE GENIUS MEDIA</div><h2>Your digital life,<br><span>made easier.</span></h2><p>Stay connected with a platform designed around everyday digital services.</p></div><a class="btn primary" href="/register.html">Join DGM today&nbsp; ↗</a></section>
+<section class="contact" aria-label="Contact DGM"><div><div class="kicker">WE’RE HERE TO HELP</div><strong>DHE GENIUS MEDIA</strong><p>Accra – Spintex · 24/7</p><p>Stay Connected. Stay Genius.</p></div><div class="contact-links"><a href="https://wa.me/233241518385" target="_blank" rel="noopener">WhatsApp 0241518385</a><a href="tel:+233508667776">Call 0508667776</a><a href="tel:+233241518385">Call 0241518385</a></div></section>
 </main>
-
-<footer>© 2026 DHE GENIUS MEDIA (DGM) • Stay Connected. Stay Genius.</footer>
-
-<script>
-(function(){
-  function enableDgmBrandNavigation(){
-    document.querySelectorAll('.brand, .logo, .brand-name, .brand-tagline, header b, header strong').forEach(function(el){
-      if(el.dataset.dgmNavBound==='1') return;
-      var text=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
-      if(!text.includes('dgm') && !text.includes('dhe genius media') && !text.includes('stay connected. stay genius')) return;
-      el.dataset.dgmNavBound='1';
-      el.style.cursor='pointer';
-      el.addEventListener('click',function(){ window.location.href='/dashboard.html'; });
-    });
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',enableDgmBrandNavigation);
-  else enableDgmBrandNavigation();
-})();
-</script>
+<footer class="wrap"><span>© 2026 DHE GENIUS MEDIA (DGM)</span><span>Stay Connected. Stay Genius.</span></footer>
 <script src="/pwa.js" defer></script>
-</body>
-</html>
+</body></html>
