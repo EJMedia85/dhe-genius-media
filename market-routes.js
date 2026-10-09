@@ -28,6 +28,19 @@ async function ensureMarketDatabase() {
         );
       `);
       await pool.query(`
+        CREATE TABLE IF NOT EXISTS market_suppliers (
+          id SERIAL PRIMARY KEY,
+          business_name TEXT NOT NULL,
+          contact_name TEXT DEFAULT '',
+          email TEXT DEFAULT '',
+          phone TEXT NOT NULL,
+          delivery_areas TEXT DEFAULT '',
+          active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+      `);
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS market_products (
           id SERIAL PRIMARY KEY,
           name TEXT NOT NULL,
@@ -43,6 +56,7 @@ async function ensureMarketDatabase() {
           gallery JSONB NOT NULL DEFAULT '[]'::jsonb,
           variants JSONB NOT NULL DEFAULT '[]'::jsonb,
           delivery_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
+          supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL,
           rating NUMERIC(3,2) NOT NULL DEFAULT 0,
           review_count INTEGER NOT NULL DEFAULT 0,
           featured BOOLEAN NOT NULL DEFAULT FALSE,
@@ -51,6 +65,9 @@ async function ensureMarketDatabase() {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+      await pool.query("ALTER TABLE market_products ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL");
+      await pool.query("ALTER TABLE market_orders ADD COLUMN IF NOT EXISTS payment_reference TEXT");
+      await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS market_orders_payment_reference_uq ON market_orders(payment_reference) WHERE payment_reference IS NOT NULL");
       await pool.query(`
         CREATE TABLE IF NOT EXISTS market_wishlists (
           customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -101,7 +118,8 @@ async function ensureMarketDatabase() {
           quantity INTEGER NOT NULL CHECK (quantity > 0),
           unit_price NUMERIC(12,2) NOT NULL,
           line_total NUMERIC(12,2) NOT NULL,
-          variant JSONB NOT NULL DEFAULT '{}'::jsonb
+          variant JSONB NOT NULL DEFAULT '{}'::jsonb,
+          supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL
         );
       `);
       await pool.query(`
@@ -116,6 +134,8 @@ async function ensureMarketDatabase() {
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+
+      await pool.query("ALTER TABLE market_order_items ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL");
 
       const categories = [
         ["Phones & Accessories","phones-accessories","📱"],
@@ -190,7 +210,9 @@ function publicProduct(row) {
     variants: Array.isArray(row.variants) ? row.variants : [],
     delivery_fee: Number(row.delivery_fee || 0), rating: Number(row.rating || 0),
     review_count: Number(row.review_count || 0), featured: Boolean(row.featured),
-    active: Boolean(row.active)
+    active: Boolean(row.active),
+    supplier_id: row.supplier_id == null ? null : Number(row.supplier_id),
+    supplier_name: row.supplier_name || null
   };
 }
 
@@ -223,7 +245,7 @@ function installMarket(app) {
       if(category){ values.push(category); where.push("c.slug=$"+n); n++; }
       const order={newest:"p.created_at DESC",price_asc:"COALESCE(p.sale_price,p.price) ASC",price_desc:"COALESCE(p.sale_price,p.price) DESC",popular:"p.rating DESC,p.review_count DESC"}[sort]||"p.created_at DESC";
       const count=await pool.query(`SELECT COUNT(*)::int count FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE ${where.join(" AND ")}`,values);
-      const rows=await pool.query(`SELECT p.*,c.name category_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ${limit} OFFSET ${(page-1)*limit}`,values);
+      const rows=await pool.query(`SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ${limit} OFFSET ${(page-1)*limit}`,values);
       res.json({success:true,page,limit,total:count.rows[0].count,products:rows.rows.map(publicProduct)});
     } catch(e){console.error("Market products:",e);sendError(res,500,"Could not load market products.");}
   });
@@ -231,7 +253,7 @@ function installMarket(app) {
   app.get("/api/market/products/:id", async (req,res) => {
     try {
       await ensureMarketDatabase();
-      const r=await pool.query("SELECT p.*,c.name category_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE p.id=$1 AND p.active=TRUE",[Number(req.params.id)]);
+      const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id WHERE p.id=$1 AND p.active=TRUE",[Number(req.params.id)]);
       if(!r.rows.length) return sendError(res,404,"Product not found.");
       res.json({success:true,product:publicProduct(r.rows[0])});
     } catch(e){console.error("Market product:",e);sendError(res,500,"Could not load product.");}
@@ -312,7 +334,7 @@ function installMarket(app) {
         requested.set(key,{productId,quantity:combined,variant:item?.variant&&typeof item.variant==="object"?item.variant:{}});
       }
       const ids=[...new Set([...requested.values()].map(x=>x.productId))];
-      const rows=await client.query("SELECT p.*,c.name category_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE p.id=ANY($1::int[]) AND p.active=TRUE FOR UPDATE",[ids]);
+      const rows=await client.query("SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id WHERE p.id=ANY($1::int[]) AND p.active=TRUE FOR UPDATE OF p",[ids]);
       const map=new Map(rows.rows.map(r=>[r.id,r]));
       let subtotal=0, deliveryFee=0, normalized=[];
       for(const item of requested.values()){
@@ -330,16 +352,21 @@ function installMarket(app) {
       const before=Number(cust.rows[0].balance||0);
       if(before<total) throw new Error("Insufficient DGM Wallet balance.");
       const after=before-total, ref=orderRef(), txref="DGM-MKT-WALLET-"+crypto.randomBytes(6).toString("hex").toUpperCase();
-      const o=await client.query(`INSERT INTO market_orders(order_ref,customer_id,subtotal,delivery_fee,total,payment_method,payment_status,status,delivery_name,delivery_phone,delivery_address,notes) VALUES($1,$2,$3,$4,$5,'Wallet','Paid','Pending',$6,$7,$8,$9) RETURNING id,order_ref,total,status,created_at`,[ref,req.session.customerId,subtotal,deliveryFee,total,String(delivery.name).trim(),String(delivery.phone).trim(),String(delivery.address).trim(),String(delivery.notes||"").trim()]);
+      const paymentMethod=String(req.body.payment_method||"Wallet").trim();
+      if(!["Wallet","Cash on Delivery"].includes(paymentMethod)) throw new Error("Choose DGM Wallet or Cash on Delivery.");
+      const paymentStatus=paymentMethod==="Wallet"?"Paid":"Pending";
+      const o=await client.query(`INSERT INTO market_orders(order_ref,customer_id,subtotal,delivery_fee,total,payment_method,payment_status,status,delivery_name,delivery_phone,delivery_address,notes) VALUES($1,$2,$3,$4,$5,$6,$7,'Pending',$8,$9,$10,$11) RETURNING id,order_ref,total,status,created_at,payment_method,payment_status`,[ref,req.session.customerId,subtotal,deliveryFee,total,paymentMethod,paymentStatus,String(delivery.name).trim(),String(delivery.phone).trim(),String(delivery.address).trim(),String(delivery.notes||"").trim()]);
       for(const x of normalized){
         await client.query("UPDATE market_products SET stock=stock-$1,updated_at=NOW() WHERE id=$2",[x.qty,x.p.id]);
-        await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant) VALUES($1,$2,$3,$4,$5,$6,$7)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify(x.variant||{})]);
+        await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant,supplier_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify(x.variant||{}),x.p.supplier_id||null]);
       }
-      await client.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[total,req.session.customerId]);
-      await client.query("INSERT INTO market_wallet_transactions(market_order_id,customer_id,amount,balance_before,balance_after,transaction_ref) VALUES($1,$2,$3,$4,$5,$6)",[o.rows[0].id,req.session.customerId,total,before,after,txref]);
-      await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'debit',$2,$3,$4,$5,$6,'Completed',$7)",[req.session.customerId,total,before,after,"DGM Market order "+ref,txref,ref]);
+      if(paymentMethod==="Wallet"){
+        await client.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[total,req.session.customerId]);
+        await client.query("INSERT INTO market_wallet_transactions(market_order_id,customer_id,amount,balance_before,balance_after,transaction_ref) VALUES($1,$2,$3,$4,$5,$6)",[o.rows[0].id,req.session.customerId,total,before,after,txref]);
+        await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'debit',$2,$3,$4,$5,$6,'Completed',$7)",[req.session.customerId,total,before,after,"DGM Market order "+ref,txref,ref]);
+      }
       await client.query("COMMIT");
-      res.json({success:true,order:o.rows[0],balance:after});
+      res.json({success:true,order:o.rows[0],balance:paymentMethod==="Wallet"?after:before,message:paymentMethod==="Wallet"?"Order placed and paid from DGM Wallet.":"Order placed. Pay the supplier on delivery."});
     } catch(e) {
       if(client) { try { await client.query("ROLLBACK"); } catch {} }
       console.error("Market checkout:",e);
@@ -363,7 +390,9 @@ function installMarket(app) {
       const b=req.body||{}, name=String(b.name||"").trim(), slug=safeSlug(b.slug||name);
       if(!name||!slug||!Number.isFinite(Number(b.price))) return sendError(res,400,"Product name and valid price are required.");
       const cat=Number(b.category_id)||null, price=Number(b.price), sale=b.sale_price===""||b.sale_price==null?null:Number(b.sale_price), stock=Math.max(0,Number(b.stock)||0);
-      const r=await pool.query(`INSERT INTO market_products(name,slug,description,category_id,brand,sku,price,sale_price,stock,image_url,gallery,variants,delivery_fee,featured,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id`,[name,slug,String(b.description||""),cat,String(b.brand||""),String(b.sku||"")||null,price,sale,stock,String(b.image_url||""),JSON.stringify(Array.isArray(b.gallery)?b.gallery:[]),JSON.stringify(Array.isArray(b.variants)?b.variants:[]),Math.max(0,Number(b.delivery_fee)||0),Boolean(b.featured),b.active!==false]);
+      const supplierId=Number(b.supplier_id)||null;
+      if(supplierId){const supplier=await pool.query("SELECT id FROM market_suppliers WHERE id=$1 AND active=TRUE",[supplierId]);if(!supplier.rows.length)return sendError(res,400,"Choose an active supplier.");}
+      const r=await pool.query(`INSERT INTO market_products(name,slug,description,category_id,brand,sku,price,sale_price,stock,image_url,gallery,variants,delivery_fee,supplier_id,featured,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,[name,slug,String(b.description||""),cat,String(b.brand||""),String(b.sku||"")||null,price,sale,stock,String(b.image_url||""),JSON.stringify(Array.isArray(b.gallery)?b.gallery:[]),JSON.stringify(Array.isArray(b.variants)?b.variants:[]),Math.max(0,Number(b.delivery_fee)||0),supplierId,Boolean(b.featured),b.active!==false]);
       res.json({success:true,id:r.rows[0].id});
     } catch(e){console.error("Admin market product:",e);sendError(res,400,e.code==="23505"?"Product slug or SKU already exists.":e.message||"Could not create product.");}
   });
@@ -375,7 +404,9 @@ function installMarket(app) {
       const current=await pool.query("SELECT * FROM market_products WHERE id=$1",[id]);
       if(!current.rows.length) return sendError(res,404,"Product not found.");
       const p=current.rows[0], name=String(b.name??p.name).trim(), slug=safeSlug(b.slug??p.slug);
-      const r=await pool.query(`UPDATE market_products SET name=$1,slug=$2,description=$3,category_id=$4,brand=$5,sku=$6,price=$7,sale_price=$8,stock=$9,image_url=$10,gallery=$11,variants=$12,delivery_fee=$13,featured=$14,active=$15,updated_at=NOW() WHERE id=$16 RETURNING id`,[name,slug,String(b.description ?? p.description ?? ""),Number(b.category_id??p.category_id)||null,String(b.brand ?? p.brand ?? ""),String(b.sku ?? p.sku ?? "")||null,Number(b.price??p.price),b.sale_price===""||b.sale_price==null?null:Number(b.sale_price),Math.max(0,Number(b.stock??p.stock)||0),String(b.image_url ?? p.image_url ?? ""),JSON.stringify(Array.isArray(b.gallery)?b.gallery:(Array.isArray(p.gallery)?p.gallery:[])),JSON.stringify(Array.isArray(b.variants)?b.variants:(Array.isArray(p.variants)?p.variants:[])),Math.max(0,Number(b.delivery_fee??p.delivery_fee)||0),Boolean(b.featured??p.featured),b.active!==undefined?Boolean(b.active):Boolean(p.active),id]);
+      const supplierId=b.supplier_id===undefined?(p.supplier_id==null?null:Number(p.supplier_id)):(Number(b.supplier_id)||null);
+      if(supplierId){const supplier=await pool.query("SELECT id FROM market_suppliers WHERE id=$1 AND active=TRUE",[supplierId]);if(!supplier.rows.length)return sendError(res,400,"Choose an active supplier.");}
+      const r=await pool.query(`UPDATE market_products SET name=$1,slug=$2,description=$3,category_id=$4,brand=$5,sku=$6,price=$7,sale_price=$8,stock=$9,image_url=$10,gallery=$11,variants=$12,delivery_fee=$13,supplier_id=$14,featured=$15,active=$16,updated_at=NOW() WHERE id=$17 RETURNING id`,[name,slug,String(b.description ?? p.description ?? ""),Number(b.category_id??p.category_id)||null,String(b.brand ?? p.brand ?? ""),String(b.sku ?? p.sku ?? "")||null,Number(b.price??p.price),b.sale_price===""||b.sale_price==null?null:Number(b.sale_price),Math.max(0,Number(b.stock??p.stock)||0),String(b.image_url ?? p.image_url ?? ""),JSON.stringify(Array.isArray(b.gallery)?b.gallery:(Array.isArray(p.gallery)?p.gallery:[])),JSON.stringify(Array.isArray(b.variants)?b.variants:(Array.isArray(p.variants)?p.variants:[])),Math.max(0,Number(b.delivery_fee??p.delivery_fee)||0),supplierId,Boolean(b.featured??p.featured),b.active!==undefined?Boolean(b.active):Boolean(p.active),id]);
       res.json({success:true,id:r.rows[0].id});
     } catch(e){console.error("Admin market update:",e);sendError(res,400,e.code==="23505"?"Product slug or SKU already exists.":e.message||"Could not update product.");}
   });
@@ -383,6 +414,33 @@ function installMarket(app) {
   app.delete("/api/admin/market/products/:id",requireAdmin,async(req,res)=>{
     try { await ensureMarketDatabase(); await pool.query("UPDATE market_products SET active=FALSE,updated_at=NOW() WHERE id=$1",[Number(req.params.id)]); res.json({success:true}); }
     catch(e){sendError(res,500,"Could not remove product.");}
+  });
+
+  app.get("/api/admin/market/suppliers",requireAdmin,async(req,res)=>{
+    try { await ensureMarketDatabase(); const r=await pool.query("SELECT * FROM market_suppliers ORDER BY created_at DESC"); res.json({success:true,suppliers:r.rows}); }
+    catch(e){sendError(res,500,"Could not load suppliers.");}
+  });
+
+  app.post("/api/admin/market/suppliers",requireAdmin,async(req,res)=>{
+    try {
+      await ensureMarketDatabase();
+      const b=req.body||{}, name=String(b.business_name||"").trim(), phone=String(b.phone||"").trim();
+      if(!name||!phone)return sendError(res,400,"Supplier business name and phone are required.");
+      const r=await pool.query("INSERT INTO market_suppliers(business_name,contact_name,email,phone,delivery_areas,active) VALUES($1,$2,$3,$4,$5,$6) RETURNING id,business_name,phone,active",[name,String(b.contact_name||"").trim(),String(b.email||"").trim(),phone,String(b.delivery_areas||"").trim(),b.active!==false]);
+      res.json({success:true,supplier:r.rows[0]});
+    } catch(e){sendError(res,400,"Could not create supplier.");}
+  });
+
+  app.patch("/api/admin/market/suppliers/:id",requireAdmin,async(req,res)=>{
+    try {
+      await ensureMarketDatabase();
+      const id=Number(req.params.id), b=req.body||{};
+      const current=await pool.query("SELECT * FROM market_suppliers WHERE id=$1",[id]);
+      if(!current.rows.length)return sendError(res,404,"Supplier not found.");
+      const s=current.rows[0];
+      const r=await pool.query("UPDATE market_suppliers SET business_name=$1,contact_name=$2,email=$3,phone=$4,delivery_areas=$5,active=$6,updated_at=NOW() WHERE id=$7 RETURNING id,business_name,phone,active",[String(b.business_name??s.business_name).trim(),String(b.contact_name??s.contact_name??"").trim(),String(b.email??s.email??"").trim(),String(b.phone??s.phone).trim(),String(b.delivery_areas??s.delivery_areas??"").trim(),b.active===undefined?Boolean(s.active):Boolean(b.active),id]);
+      res.json({success:true,supplier:r.rows[0]});
+    } catch(e){sendError(res,400,"Could not update supplier.");}
   });
 
   app.get("/api/admin/market/orders",requireAdmin,async(req,res)=>{
