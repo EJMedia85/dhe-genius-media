@@ -66,8 +66,6 @@ async function ensureMarketDatabase() {
         );
       `);
       await pool.query("ALTER TABLE market_products ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL");
-      await pool.query("ALTER TABLE market_orders ADD COLUMN IF NOT EXISTS payment_reference TEXT");
-      await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS market_orders_payment_reference_uq ON market_orders(payment_reference) WHERE payment_reference IS NOT NULL");
       await pool.query(`
         CREATE TABLE IF NOT EXISTS market_wishlists (
           customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -109,6 +107,8 @@ async function ensureMarketDatabase() {
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
       `);
+      await pool.query("ALTER TABLE market_orders ADD COLUMN IF NOT EXISTS payment_reference TEXT");
+      await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS market_orders_payment_reference_uq ON market_orders(payment_reference) WHERE payment_reference IS NOT NULL");
       await pool.query(`
         CREATE TABLE IF NOT EXISTS market_order_items (
           id SERIAL PRIMARY KEY,
@@ -350,12 +350,12 @@ function installMarket(app) {
       const cust=await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[req.session.customerId]);
       if(!cust.rows.length) throw new Error("Customer account not found.");
       const before=Number(cust.rows[0].balance||0);
-      if(before<total) throw new Error("Insufficient DGM Wallet balance.");
-      const after=before-total, ref=orderRef(), txref="DGM-MKT-WALLET-"+crypto.randomBytes(6).toString("hex").toUpperCase();
       const paymentMethod=String(req.body.payment_method||"Wallet").trim();
-      if(!["Wallet","Cash on Delivery"].includes(paymentMethod)) throw new Error("Choose DGM Wallet or Cash on Delivery.");
+      if(!["Wallet","Cash on Delivery","Paystack"].includes(paymentMethod)) throw new Error("Choose DGM Wallet, Paystack, or Cash on Delivery.");
+      if(paymentMethod==="Wallet"&&before<total) throw new Error("Insufficient DGM Wallet balance.");
+      const after=paymentMethod==="Wallet"?before-total:before, ref=orderRef(), txref="DGM-MKT-WALLET-"+crypto.randomBytes(6).toString("hex").toUpperCase();
       const paymentStatus=paymentMethod==="Wallet"?"Paid":"Pending";
-      const o=await client.query(`INSERT INTO market_orders(order_ref,customer_id,subtotal,delivery_fee,total,payment_method,payment_status,status,delivery_name,delivery_phone,delivery_address,notes) VALUES($1,$2,$3,$4,$5,$6,$7,'Pending',$8,$9,$10,$11) RETURNING id,order_ref,total,status,created_at,payment_method,payment_status`,[ref,req.session.customerId,subtotal,deliveryFee,total,paymentMethod,paymentStatus,String(delivery.name).trim(),String(delivery.phone).trim(),String(delivery.address).trim(),String(delivery.notes||"").trim()]);
+      const o=await client.query(`INSERT INTO market_orders(order_ref,customer_id,subtotal,delivery_fee,total,payment_method,payment_status,payment_reference,status,delivery_name,delivery_phone,delivery_address,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'Pending',$9,$10,$11,$12) RETURNING id,order_ref,total,status,created_at,payment_method,payment_status`,[ref,req.session.customerId,subtotal,deliveryFee,total,paymentMethod,paymentStatus,paymentMethod==="Paystack"?ref:null,String(delivery.name).trim(),String(delivery.phone).trim(),String(delivery.address).trim(),String(delivery.notes||"").trim()]);
       for(const x of normalized){
         await client.query("UPDATE market_products SET stock=stock-$1,updated_at=NOW() WHERE id=$2",[x.qty,x.p.id]);
         await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant,supplier_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify(x.variant||{}),x.p.supplier_id||null]);
@@ -366,12 +366,66 @@ function installMarket(app) {
         await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'debit',$2,$3,$4,$5,$6,'Completed',$7)",[req.session.customerId,total,before,after,"DGM Market order "+ref,txref,ref]);
       }
       await client.query("COMMIT");
-      res.json({success:true,order:o.rows[0],balance:paymentMethod==="Wallet"?after:before,message:paymentMethod==="Wallet"?"Order placed and paid from DGM Wallet.":"Order placed. Pay the supplier on delivery."});
+      if(paymentMethod==="Paystack"){
+        const secret=String(process.env.PAYSTACK_SECRET_KEY||"").trim();
+        const customer=await pool.query("SELECT email FROM customers WHERE id=$1",[req.session.customerId]);
+        const email=String(customer.rows[0]?.email||"").trim();
+        if(!secret||!email){
+          await pool.query("BEGIN").catch(()=>{});
+          await pool.query("UPDATE market_orders SET status='Cancelled',payment_status='Failed',updated_at=NOW() WHERE id=$1",[o.rows[0].id]);
+          await pool.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",[o.rows[0].id]);
+          if(!secret)return sendError(res,503,"Paystack is not configured. Choose DGM Wallet or Cash on Delivery.");
+          return sendError(res,400,"Add an email address to your DGM account before using Paystack.");
+        }
+        try{
+          const ps=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{Authorization:"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({email,amount:String(Math.round(total*100)),currency:"GHS",reference:ref,callback_url:(String(process.env.BASE_URL||"https://dhe-genius-media.onrender.com").replace(/\/$/,""))+"/api/market/paystack-callback",metadata:{type:"dgm_market_order",order_ref:ref,customer_id:req.session.customerId}})});
+          const raw=await ps.text();let data={};try{data=JSON.parse(raw)}catch{}
+          if(!ps.ok||!data.status||!data.data?.authorization_url)throw new Error(data.message||"Paystack could not initialize payment.");
+          return res.json({success:true,payment_required:true,authorization_url:data.data.authorization_url,order:o.rows[0],message:"Continue to Paystack to complete payment."});
+        }catch(payError){
+          await pool.query("UPDATE market_orders SET status='Cancelled',payment_status='Failed',updated_at=NOW() WHERE id=$1",[o.rows[0].id]);
+          await pool.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",[o.rows[0].id]);
+          console.error("DGM Market Paystack initialize:",payError.message);
+          return sendError(res,502,"Could not start Paystack payment. Please retry checkout.");
+        }
+      }
+      res.json({success:true,order:o.rows[0],balance:paymentMethod==="Wallet"?after:before,message:paymentMethod==="Wallet"?"Order placed and paid from DGM Wallet.":"Order placed. Payment is due to the supplier on delivery."});
     } catch(e) {
       if(client) { try { await client.query("ROLLBACK"); } catch {} }
       console.error("Market checkout:",e);
       sendError(res,400,e.message||"Checkout failed.");
     } finally { if(client) client.release(); }
+  });
+
+  app.get("/api/market/paystack-callback",async(req,res)=>{
+    const reference=String(req.query.reference||"").trim();
+    if(!reference)return res.redirect("/market-orders.html?payment=failed");
+    const client=await pool.connect();
+    try{
+      await ensureMarketDatabase();
+      const secret=String(process.env.PAYSTACK_SECRET_KEY||"").trim();
+      if(!secret)return res.redirect("/market-orders.html?payment=failed");
+      const vr=await fetch("https://api.paystack.co/transaction/verify/"+encodeURIComponent(reference),{headers:{Authorization:"Bearer "+secret,Accept:"application/json"}});
+      const raw=await vr.text();let data={};try{data=JSON.parse(raw)}catch{}
+      const payment=data?.data||{};
+      await client.query("BEGIN");
+      const found=await client.query("SELECT * FROM market_orders WHERE payment_reference=$1 AND payment_method='Paystack' FOR UPDATE",[reference]);
+      if(!found.rows.length){await client.query("ROLLBACK");return res.redirect("/market-orders.html?payment=failed");}
+      const order=found.rows[0];
+      if(String(order.payment_status).toLowerCase()==="paid"){await client.query("COMMIT");return res.redirect("/market-orders.html?payment=success&order="+encodeURIComponent(order.order_ref));}
+      const verified=vr.ok&&data.status&&String(payment.status).toLowerCase()==="success"&&String(payment.currency).toUpperCase()==="GHS"&&Math.round(Number(payment.amount||0))===Math.round(Number(order.total||0)*100)&&String(payment.reference||"")===reference;
+      if(!verified){
+        if(order.status!=="Cancelled"){
+          await client.query("UPDATE market_orders SET status='Cancelled',payment_status='Failed',updated_at=NOW() WHERE id=$1",[order.id]);
+          await client.query("UPDATE market_products p SET stock=p.stock+items.quantity,updated_at=NOW() FROM (SELECT product_id,SUM(quantity)::int quantity FROM market_order_items WHERE market_order_id=$1 AND product_id IS NOT NULL GROUP BY product_id) items WHERE items.product_id=p.id",[order.id]);
+        }
+        await client.query("COMMIT");return res.redirect("/market-orders.html?payment=failed");
+      }
+      await client.query("UPDATE market_orders SET payment_status='Paid',status='Confirmed',updated_at=NOW() WHERE id=$1 AND payment_status='Pending'",[order.id]);
+      await client.query("COMMIT");
+      return res.redirect("/market-orders.html?payment=success&order="+encodeURIComponent(order.order_ref));
+    }catch(e){try{await client.query("ROLLBACK")}catch{}console.error("DGM Market Paystack callback:",e.message);return res.redirect("/market-orders.html?payment=failed");}
+    finally{client.release();}
   });
 
   app.get("/api/admin/market/categories",requireAdmin,async(req,res)=>{
