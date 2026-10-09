@@ -222,22 +222,56 @@ $('#logout').onclick=async()=>{
 };
 
 async function loadMarketing(){
- const d=await api('/api/admin/marketing/campaigns'),rows=Array.isArray(d.campaigns)?d.campaigns:[];
- $('#campaignsBody').innerHTML=rows.length?rows.map(c=>{
+ const body=$('#campaignsBody');
+ if(!body)return false;
+ body.innerHTML='<tr><td colspan="7" class="empty">Loading campaigns…</td></tr>';
+ try{
+  const d=await api('/api/admin/marketing/campaigns'),rows=Array.isArray(d.campaigns)?d.campaigns:[];
+  body.innerHTML=rows.length?rows.map(c=>{
    const now=Date.now(),start=new Date(c.starts_at).getTime(),end=c.ends_at?new Date(c.ends_at).getTime():Infinity;
-   const status=!c.active?'Paused':now<start?'Scheduled':now>end?'Ended':'Live';
-   return '<tr><td><b>'+esc(c.title)+'</b><br><span class="muted">'+esc(c.subtitle||'')+'</span><br><span class="muted">'+esc(c.message||'')+'</span></td><td>'+new Date(c.starts_at).toLocaleString()+'<br>→ '+(c.ends_at?new Date(c.ends_at).toLocaleString():'No end')+'</td><td>'+esc(c.promo_code||'—')+'</td><td>'+Number(c.impressions||0)+'</td><td>'+Number(c.clicks||0)+'</td><td><span class="badge">'+esc(status)+'</span></td><td><button class="btn" onclick="toggleCampaign('+Number(c.id)+','+(!c.active)+')">'+(c.active?'Pause':'Activate')+'</button> <button class="btn red" onclick="deleteCampaign('+Number(c.id)+')">Delete</button></td></tr>';
- }).join(''):'<tr><td colspan="7" class="empty">No campaigns yet.</td></tr>';
+   const limitReached=c.max_uses!==null&&c.max_uses!==undefined&&Number(c.uses)>=Number(c.max_uses);
+   const status=!c.active?'Paused':now<start?'Scheduled':now>end?'Ended':limitReached?'Limit reached':'Live';
+   const startLabel=Number.isFinite(start)?new Date(start).toLocaleString():'Invalid date';
+   return '<tr><td><b>'+esc(c.title)+'</b><br><span class="muted">'+esc(c.subtitle||'')+'</span><br><span class="muted">'+esc(c.message||'')+'</span></td><td>'+startLabel+'<br>→ '+(c.ends_at&&Number.isFinite(end)?new Date(end).toLocaleString():'No end')+'</td><td>'+esc(c.promo_code||'—')+'</td><td>'+Number(c.impressions||0)+'</td><td>'+Number(c.clicks||0)+'</td><td><span class="badge">'+esc(status)+'</span></td><td><button class="btn" onclick="toggleCampaign('+Number(c.id)+','+(!c.active)+')" '+(limitReached&&c.active?'disabled title="Usage limit reached"':'')+'>'+(c.active?'Pause':'Activate')+'</button> <button class="btn red" onclick="deleteCampaign('+Number(c.id)+')">Delete</button></td></tr>';
+  }).join(''):'<tr><td colspan="7" class="empty">No campaigns yet. Create your first campaign using the form above.</td></tr>';
+  return true;
+ }catch(err){
+  body.innerHTML='<tr><td colspan="7" class="empty">Could not load campaigns: '+esc(err.message||'Request failed')+'. Use Refresh to try again.</td></tr>';
+  return false;
+ }
 }
-async function toggleCampaign(id,active){await api('/api/admin/marketing/campaigns/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})});loadMarketing();}
-async function deleteCampaign(id){if(!confirm('Delete this campaign?'))return;await api('/api/admin/marketing/campaigns/'+id,{method:'DELETE'});loadMarketing();}
+async function toggleCampaign(id,active){
+ try{
+  await api('/api/admin/marketing/campaigns/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({active})});
+  const ok=await loadMarketing();
+  if(!ok)$('#campaignMsg').textContent='Campaign updated, but the list could not refresh.';
+ }catch(err){$('#campaignMsg').textContent=err.message||'Could not update campaign.';}
+}
+async function deleteCampaign(id){
+ if(!confirm('Delete this campaign?'))return;
+ try{await api('/api/admin/marketing/campaigns/'+id,{method:'DELETE'});await loadMarketing();}
+ catch(err){$('#campaignMsg').textContent=err.message||'Could not delete campaign.';}
+}
 document.getElementById('campaignForm')?.addEventListener('submit',async e=>{
- e.preventDefault();const msg=$('#campaignMsg');msg.textContent='Publishing…';
+ e.preventDefault();
+ const form=e.currentTarget,msg=$('#campaignMsg'),submit=form.querySelector('button[type="submit"],button:not([type])');
+ if(form.dataset.submitting==='1')return;
+ const title=$('#campaignTitle').value.trim(),discountType=$('#campaignDiscountType').value,discountValue=Number($('#campaignDiscountValue').value||0);
+ const startValue=$('#campaignStart').value,endValue=$('#campaignEnd').value;
+ if(!title){msg.textContent='Enter a campaign title.';return;}
+ if(endValue&&startValue&&new Date(endValue).getTime()<new Date(startValue).getTime()){msg.textContent='End date must be after the start date.';return;}
+ if(discountType!=='none'&&(!Number.isFinite(discountValue)||discountValue<=0)){msg.textContent='Enter a discount greater than zero, or choose No discount.';return;}
+ if(discountType==='percent'&&discountValue>100){msg.textContent='Percentage discount cannot exceed 100%.';return;}
+ if($('#campaignMaxUses').value&&(!Number.isInteger(Number($('#campaignMaxUses').value))||Number($('#campaignMaxUses').value)<1)){msg.textContent='Maximum uses must be a whole number greater than zero.';return;}
+ form.dataset.submitting='1';if(submit)submit.disabled=true;msg.textContent='Publishing campaign…';
  try{
   const local=v=>v?new Date(v).toISOString():null;
-  await api('/api/admin/marketing/campaigns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('#campaignTitle').value,subtitle:$('#campaignSubtitle').value,message:$('#campaignMessage').value,cta_label:$('#campaignCta').value,cta_url:$('#campaignUrl').value,promo_code:$('#campaignPromo').value,network:$('#campaignNetwork').value,capacity:$('#campaignCapacity').value,discount_type:$('#campaignDiscountType').value,discount_value:$('#campaignDiscountValue').value,max_uses:$('#campaignMaxUses').value,starts_at:local($('#campaignStart').value),ends_at:local($('#campaignEnd').value)})});
-  msg.textContent='Campaign published.';e.target.reset();$('#campaignCta').value='Shop DGM';$('#campaignUrl').value='/data.html';loadMarketing();
+  await api('/api/admin/marketing/campaigns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title,subtitle:$('#campaignSubtitle').value,message:$('#campaignMessage').value,cta_label:$('#campaignCta').value,cta_url:$('#campaignUrl').value,promo_code:$('#campaignPromo').value,network:$('#campaignNetwork').value,capacity:$('#campaignCapacity').value,discount_type:discountType,discount_value:discountValue,max_uses:$('#campaignMaxUses').value||null,starts_at:local(startValue),ends_at:local(endValue)})});
+  form.reset();$('#campaignCta').value='Shop DGM';$('#campaignUrl').value='/data.html';
+  const refreshed=await loadMarketing();
+  msg.textContent=refreshed?'Campaign published successfully.': 'Campaign was published, but the campaign list could not refresh. Use Refresh to reload it.';
  }catch(err){msg.textContent=err.message||'Could not publish campaign.';}
+ finally{delete form.dataset.submitting;if(submit)submit.disabled=false;}
 });
 async function loadBase(){
   // The Staff portal must NEVER fall back to Super Admin mode.
