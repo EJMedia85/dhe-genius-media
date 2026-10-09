@@ -298,17 +298,30 @@ function installMarket(app) {
       if(!items.length) return sendError(res,400,"Your cart is empty.");
       if(!String(delivery.name||"").trim() || !String(delivery.phone||"").trim() || !String(delivery.address||"").trim()) return sendError(res,400,"Delivery name, phone and address are required.");
       await client.query("BEGIN");
-      const ids=items.map(x=>Number(x.product_id)).filter(Number.isInteger);
-      if(!ids.length) throw new Error("No valid products in cart.");
+      if(items.length>30) throw new Error("Your cart has too many separate items.");
+      const requested=new Map();
+      for(const item of items){
+        const productId=Number(item?.product_id), quantity=Number(item?.quantity);
+        if(!Number.isSafeInteger(productId)||productId<=0) throw new Error("One of the products in your cart is invalid.");
+        if(!Number.isSafeInteger(quantity)||quantity<1||quantity>99) throw new Error("Each product quantity must be a whole number from 1 to 99.");
+        const key=productId+":"+JSON.stringify(item?.variant&&typeof item.variant==="object"?item.variant:{});
+        const prior=requested.get(key);
+        const combined=(prior?.quantity||0)+quantity;
+        if(combined>99) throw new Error("A product quantity cannot exceed 99.");
+        requested.set(key,{productId,quantity:combined,variant:item?.variant&&typeof item.variant==="object"?item.variant:{}});
+      }
+      const ids=[...new Set([...requested.values()].map(x=>x.productId))];
       const rows=await client.query("SELECT p.*,c.name category_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE p.id=ANY($1::int[]) AND p.active=TRUE FOR UPDATE",[ids]);
       const map=new Map(rows.rows.map(r=>[r.id,r]));
       let subtotal=0, deliveryFee=0, normalized=[];
-      for(const item of items){
-        const p=map.get(Number(item.product_id)), qty=Math.max(1,Math.min(Number(item.quantity)||1,99));
+      for(const item of requested.values()){
+        const p=map.get(item.productId), qty=item.quantity;
         if(!p) throw new Error("One of the products is no longer available.");
         if(Number(p.stock)<qty) throw new Error(p.name+" is out of stock.");
-        const unit=effectivePrice(p); subtotal+=unit*qty; deliveryFee=Math.max(deliveryFee,Number(p.delivery_fee||0));
-        normalized.push({p,qty,unit,variant:item.variant&&typeof item.variant==="object"?item.variant:{}});
+        const unit=effectivePrice(p);
+        if(!Number.isFinite(unit)||unit<0) throw new Error(p.name+" has an invalid price. Please contact support.");
+        subtotal+=unit*qty; deliveryFee=Math.max(deliveryFee,Number(p.delivery_fee||0));
+        normalized.push({p,qty,unit,variant:item.variant});
       }
       const total=subtotal+deliveryFee;
       const cust=await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[req.session.customerId]);
