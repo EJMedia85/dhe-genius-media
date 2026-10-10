@@ -82,7 +82,7 @@
 
     <!-- WALLET -->
 
-    <section class="wallet">
+    <section class="wallet" id="wallet">
 
       <div class="wallet-label">
         Available Wallet Balance
@@ -1232,6 +1232,17 @@
                   transaction.status ||
                   "Completed";
 
+                const type = String(transaction.type || "").toLowerCase();
+                const balanceBefore = Number(transaction.balance_before);
+                const balanceAfter = Number(transaction.balance_after);
+                const hasBalanceMovement =
+                  Number.isFinite(balanceBefore) &&
+                  Number.isFinite(balanceAfter) &&
+                  balanceBefore !== balanceAfter;
+                const isCredit = hasBalanceMovement
+                  ? balanceAfter > balanceBefore
+                  : /credit|top.?up|refund|deposit|cashback|reward/i.test(type);
+                const amountSign = isCredit ? "+" : "−";
 
                 const date =
                   transaction.created_at ||
@@ -1274,7 +1285,7 @@
                       <div
                         class="transaction-amount">
 
-                        +${money(amount)}
+                        ${amountSign}${money(amount)}
 
                       </div>
 
