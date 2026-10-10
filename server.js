@@ -1127,6 +1127,42 @@ app.post("/api/analytics/event", async (req, res) => {
   }
 });
 
+app.get("/api/admin/analytics/funnel", requireAdmin, async (req, res) => {
+  try {
+    const days = Math.min(90, Math.max(1, Number.parseInt(req.query.days, 10) || 7));
+    const summary = await pool.query(
+      `SELECT event_name,
+              COUNT(*)::int AS event_count,
+              COUNT(DISTINCT visit_id)::int AS unique_visits
+       FROM dgm_funnel_events
+       WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+       GROUP BY event_name
+       ORDER BY event_name`,
+      [days]
+    );
+    const daily = await pool.query(
+      `SELECT DATE_TRUNC('day', created_at) AS day,
+              event_name,
+              COUNT(*)::int AS event_count,
+              COUNT(DISTINCT visit_id)::int AS unique_visits
+       FROM dgm_funnel_events
+       WHERE created_at >= NOW() - ($1::int * INTERVAL '1 day')
+       GROUP BY DATE_TRUNC('day', created_at), event_name
+       ORDER BY day ASC, event_name ASC`,
+      [days]
+    );
+    return res.json({
+      success: true,
+      period_days: days,
+      summary: summary.rows,
+      daily: daily.rows
+    });
+  } catch (error) {
+    console.error("DGM funnel analytics report failed:", error.message);
+    return res.status(503).json({ success: false, message: "Funnel analytics report unavailable." });
+  }
+});
+
 // =====================================================
 // DATABASE SETUP
 // IMPORTANT:
