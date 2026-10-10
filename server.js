@@ -2383,51 +2383,65 @@ async function applyKingflexyStatus(orderId, data) {
 
 async function submitKingflexyAirtime(order) {
   if (!KINGFLEXY_API_KEY) {
-    await pool.query(
-      `
-      UPDATE orders
-      SET status = 'Processing',
-          provider_status = 'not_configured',
-          provider_message = $1,
-          provider_updated_at = NOW()
-      WHERE id = $2
-      `,
-      [
-        "KingFlexy Airtime API is not configured. Add KINGFLEXY_API_KEY in Render.",
-        order.id
-      ]
-    );
+    const message =
+      "KingFlexy Airtime API is not configured. The wallet payment has been refunded; contact DGM support when airtime service is available.";
 
-    return {
-      success: false,
-      pending: true,
-      status: "Processing",
-      message: "KingFlexy Airtime API is not configured."
-    };
+    try {
+      return await refundAirtimeOrder(order.id, message);
+    } catch (refundError) {
+      console.error(
+        "KingFlexy missing-configuration refund failed for " +
+          order.order_ref + ": " + refundError.message
+      );
+      await pool.query(
+        `
+        UPDATE orders
+        SET status = 'Processing',
+            provider_status = 'not_configured_refund_pending',
+            provider_message = $1,
+            provider_updated_at = NOW()
+        WHERE id = $2 AND payment_status <> 'Refunded'
+        `,
+        [message + " Refund is pending automatic recovery.", order.id]
+      );
+      return {
+        success: false,
+        pending: true,
+        status: "Processing",
+        message: "Airtime is unavailable and the refund is being retried."
+      };
+    }
   }
 
   if (KINGFLEXY_AIRTIME_KEY_TYPE !== "commission_services") {
     const message =
-      "KingFlexy Airtime requires a Commission Services API key (kf_cs_live_...). The configured key is not an Airtime key.";
+      "KingFlexy Airtime requires a Commission Services API key (kf_cs_live_...). The configured key is not an Airtime key. The wallet payment has been refunded.";
 
-    await pool.query(
-      `
-      UPDATE orders
-      SET status = 'Processing',
-          provider_status = 'invalid_api_key_type',
-          provider_message = $1,
-          provider_updated_at = NOW()
-      WHERE id = $2
-      `,
-      [message, order.id]
-    );
-
-    return {
-      success: false,
-      pending: true,
-      status: "Processing",
-      message
-    };
+    try {
+      return await refundAirtimeOrder(order.id, message);
+    } catch (refundError) {
+      console.error(
+        "KingFlexy invalid-key refund failed for " +
+          order.order_ref + ": " + refundError.message
+      );
+      await pool.query(
+        `
+        UPDATE orders
+        SET status = 'Processing',
+            provider_status = 'invalid_api_key_type_refund_pending',
+            provider_message = $1,
+            provider_updated_at = NOW()
+        WHERE id = $2 AND payment_status <> 'Refunded'
+        `,
+        [message + " Refund is pending automatic recovery.", order.id]
+      );
+      return {
+        success: false,
+        pending: true,
+        status: "Processing",
+        message: "Airtime service is misconfigured and the refund is being retried."
+      };
+    }
   }
 
   try {
@@ -2571,9 +2585,46 @@ async function submitKingflexyAirtime(order) {
 }
 
 async function syncKingflexyAirtimeOrders() {
-  if (!KINGFLEXY_API_KEY) return;
-
   try {
+    // Recover paid orders that could not be submitted because the provider
+    // was unconfigured or the wrong key type was installed. These cases are
+    // safe to refund because no purchase request was sent to KingFlexy.
+    const stranded = await pool.query(
+      `
+      SELECT id, order_ref, provider_status
+      FROM orders
+      WHERE service = 'Airtime'
+        AND payment_status = 'Paid'
+        AND status IN ('Pending','Processing')
+        AND provider_status IN (
+          'not_configured',
+          'invalid_api_key_type',
+          'not_configured_refund_pending',
+          'invalid_api_key_type_refund_pending'
+        )
+      ORDER BY created_at ASC
+      LIMIT 100
+      `
+    );
+
+    for (const order of stranded.rows) {
+      try {
+        await refundAirtimeOrder(
+          order.id,
+          "Automatic recovery: KingFlexy Airtime could not be submitted because its API configuration was missing or invalid."
+        );
+      } catch (refundError) {
+        console.error(
+          "KingFlexy stranded-order refund retry failed for " +
+            order.order_ref + ": " + refundError.message
+        );
+      }
+    }
+
+    // Status polling requires a configured provider key. Stranded orders above
+    // are still recovered even when the key is absent.
+    if (!KINGFLEXY_API_KEY || KINGFLEXY_AIRTIME_KEY_TYPE !== "commission_services") return;
+
     const result = await pool.query(
       `
       SELECT *
