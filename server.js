@@ -9225,10 +9225,12 @@ async function startServer() {
     await initDatabase();
     await staffInit;
     await initAgentDatabase(pool);
-    databaseReady = true;
     await initSusuDatabase();
     await installSusuEnhancements(app);
     await initializeAdminCredentials();
+
+    // Report readiness only after every required database/module initializer succeeds.
+    databaseReady = true;
 
     app.use("/api", (req, res) => {
       return res.status(404).json({
