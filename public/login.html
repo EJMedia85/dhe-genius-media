@@ -240,10 +240,14 @@
       color:#eef8f2; font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       background:radial-gradient(circle at 85% -5%,rgba(37,211,102,.13),transparent 30%),linear-gradient(180deg,#050b0b,#071010 52%,#050909) !important;
     }
-    .brand, .footer { display:none !important; }
+    .footer { display:none !important; }
+    .brand { display:block !important; position:relative; z-index:2; text-align:center; margin:0 0 16px; padding:0 12px; }
+    .logo { width:44px; height:44px; margin:0 auto 8px; border-radius:13px; font-size:16px; letter-spacing:.5px; }
+    .brand h1 { font-size:17px; line-height:1.2; font-weight:800; letter-spacing:.4px; color:#eef8f2; }
+    .brand p { margin-top:5px; font-size:11px; color:#a4c7b8; }
     .scene-panel {
       position:relative; isolation:isolate; width:100%; min-height:100vh; min-height:100svh;
-      display:flex; align-items:center; justify-content:center; overflow:hidden;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; overflow:hidden;
       background:radial-gradient(circle at 85% -5%,rgba(37,211,102,.13),transparent 30%),linear-gradient(180deg,#050b0b,#071010 52%,#050909);
     }
     .orb { position:absolute; z-index:-1; border-radius:50%; background:radial-gradient(circle at 35% 28%,rgba(60,255,176,.32) 0%,rgba(0,201,130,.13) 38%,rgba(0,133,77,.04) 78%); box-shadow:0 0 22px rgba(0,255,159,.12); }
