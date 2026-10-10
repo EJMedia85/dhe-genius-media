@@ -9097,6 +9097,7 @@ app.get("/api/health", async (req, res) => {
     return res.status(200).json({
       success: true,
       status: "starting",
+      ready: false,
       database: "starting",
       paystack: Boolean(PAYSTACK_SECRET_KEY),
       datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
@@ -9109,6 +9110,7 @@ app.get("/api/health", async (req, res) => {
     return res.status(503).json({
       success: false,
       status: "offline",
+      ready: false,
       database: databaseReady ? "online" : "offline",
       message: "Server initialization failed."
     });
@@ -9119,6 +9121,7 @@ app.get("/api/health", async (req, res) => {
     return res.status(200).json({
       success: true,
       status: "online",
+      ready: true,
       database: "online",
       paystack: Boolean(PAYSTACK_SECRET_KEY),
       datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
@@ -9130,6 +9133,7 @@ app.get("/api/health", async (req, res) => {
     return res.status(200).json({
       success: true,
       status: "degraded",
+      ready: false,
       database: "offline",
       paystack: Boolean(PAYSTACK_SECRET_KEY),
       datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
@@ -9225,10 +9229,12 @@ async function startServer() {
     await initDatabase();
     await staffInit;
     await initAgentDatabase(pool);
-    databaseReady = true;
     await initSusuDatabase();
     await installSusuEnhancements(app);
     await initializeAdminCredentials();
+
+    // Report readiness only after every required database/module initializer succeeds.
+    databaseReady = true;
 
     app.use("/api", (req, res) => {
       return res.status(404).json({

@@ -3,8 +3,14 @@
   "version": "2.1.0",
   "description": "DHE GENIUS MEDIA - Ghana digital services platform",
   "main": "server.js",
-  "scripts": {"start": "node -r ./bridge-routes.js server.js"},
-  "engines": {"node": "22.x"},
+  "scripts": {
+    "start": "node -r ./bridge-routes.js server.js",
+    "check": "node --check server.js && node --check bridge-routes.js && node --check staff-routes.js && node --check susu-enhancements.js && node --check market-routes.js && node --check mashup-routes.js && node --check bwm-xmd-routes.js && node --check agent-routes.js",
+    "test": "npm run check"
+  },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
     "express": "^4.21.2",
     "express-session": "^1.18.1",
