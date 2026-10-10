@@ -50,7 +50,7 @@ function installMashup(app){startReconciliation();
  });
  app.post("/api/mashup/purchase",login,async(req,res)=>{
   const phone=String(req.body?.phone||"").replace(/\s+/g,""),comboCost=Number(req.body?.comboCost);
-  if(!/^024\d{7}$/.test(phone))return res.status(400).json({success:false,message:"Enter a valid MTN number."});
+  if(!/^0(?:24|54|55|59)\d{7}$/.test(phone))return res.status(400).json({success:false,message:"Enter a valid MTN number."});
   if(!Number.isInteger(comboCost)||comboCost<1)return res.status(400).json({success:false,message:"Invalid MashUp package."});
   let cat;try{cat=await dm("/mashup/packages")}catch(e){return res.status(e.status||500).json({success:false,message:e.message,code:e.data?.code})}
   if(cat?.open===false)return res.status(503).json({success:false,message:"MTN MashUp is temporarily unavailable.",code:"MASHUP_UNAVAILABLE"});
