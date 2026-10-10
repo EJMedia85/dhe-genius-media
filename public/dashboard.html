@@ -250,31 +250,33 @@ body{
 <nav class="bottom-nav"><button class="active" onclick="goTo('/dashboard.html')"><span class="bottom-icon">⌂</span>Home</button><button onclick="goTo('/service.html')"><span class="bottom-icon">▦</span>Services</button><button onclick="goTo('/orders.html')"><span class="bottom-icon">◷</span>Orders</button><button onclick="goTo('/account.html')"><span class="bottom-icon">◉</span>Account</button></nav>
 <script>
 (function(){
- const root=document.getElementById('dgmServiceCarousel');
- if(!root)return;
- const slides=Array.from(root.querySelectorAll('.dgm-service-slide'));
- const dots=Array.from(root.querySelectorAll('.dgm-carousel-dot'));
- const prev=root.querySelector('.dgm-carousel-prev');
- const next=root.querySelector('.dgm-carousel-next');
- if(!slides.length)return;
- let current=0,timer=null;
- const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
- function show(index){
+ const initCarousel=function(){
+  const root=document.getElementById('dgmServiceCarousel');
+  if(!root||root.dataset.carouselInitialized==='true')return;
+  const slides=Array.from(root.querySelectorAll('.dgm-service-slide'));
+  const dots=Array.from(root.querySelectorAll('.dgm-carousel-dot'));
+  const prev=root.querySelector('.dgm-carousel-prev');
+  const next=root.querySelector('.dgm-carousel-next');
+  if(slides.length<2)return;
+  root.dataset.carouselInitialized='true';
+  let current=0;
+  function show(index){
    current=(index+slides.length)%slides.length;
-   slides.forEach((slide,i)=>{slide.classList.toggle('is-active',i===current);slide.setAttribute('aria-hidden',i===current?'false':'true');});
+   slides.forEach((slide,i)=>{
+    const active=i===current;
+    slide.classList.toggle('is-active',active);
+    slide.setAttribute('aria-hidden',active?'false':'true');
+   });
    dots.forEach((dot,i)=>dot.setAttribute('aria-pressed',i===current?'true':'false'));
- }
- function stop(){if(timer){window.clearInterval(timer);timer=null;}}
- function start(){stop();if(!reduced&&!document.hidden)timer=window.setInterval(()=>show(current+1),2000);}
- dots.forEach((dot,i)=>dot.addEventListener('click',()=>{show(i);start();}));
- prev.addEventListener('click',()=>{show(current-1);start();});
- next.addEventListener('click',()=>{show(current+1);start();});
- root.addEventListener('mouseenter',stop);
- root.addEventListener('mouseleave',start);
- root.addEventListener('focusin',stop);
- root.addEventListener('focusout',start);
- document.addEventListener('visibilitychange',()=>document.hidden?stop():start());
- show(0);start();
+  }
+  dots.forEach((dot,i)=>dot.addEventListener('click',()=>show(i)));
+  if(prev)prev.addEventListener('click',()=>show(current-1));
+  if(next)next.addEventListener('click',()=>show(current+1));
+  show(0);
+  window.setInterval(()=>show(current+1),1000);
+ };
+ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initCarousel,{once:true});
+ else initCarousel();
 })();
 </script>
 <script>
