@@ -198,8 +198,10 @@ function installBridge(app) {
   app.get("/api/admin/bridge/registrations", async (req,res) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
-      const rows=(await pool.query(`SELECT device_id,role,country,device_name,app_version,platform,status,approval_status,approved_at,approved_by,last_seen,last_error,created_at,pin_ciphertext FROM dgm_bridge_devices ORDER BY CASE approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,created_at DESC`)).rows;
-      return res.json({success:true,registrations:rows.map(x=>({...x,pin:x.pin_ciphertext?decryptPin(x.pin_ciphertext):"",pin_ciphertext:undefined}))});
+      const rows=(await pool.query(`SELECT device_id,role,country,device_name,app_version,platform,status,approval_status,approved_at,approved_by,last_seen,last_error,created_at,(pin_ciphertext IS NOT NULL AND pin_ciphertext <> '') AS has_pin FROM dgm_bridge_devices ORDER BY CASE approval_status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,created_at DESC`)).rows;
+      // Never return recoverable PINs in list APIs. Admins can explicitly reset a PIN;
+      // the new PIN is returned once by the reset endpoint only.
+      return res.json({success:true,registrations:rows});
     } catch(e){ return res.status(500).json({success:false,message:"Could not load registrations."}); }
   });
 
@@ -440,6 +442,7 @@ function installBridge(app) {
       if (!pool) return res.status(503).json({success:false,message:"Database unavailable."});
       const devices = await pool.query(
         `SELECT d.device_id,d.role,d.country,d.device_name,d.app_version,d.platform,d.status,d.approval_status,d.approved_at,d.approved_by,d.last_seen,d.last_error,d.created_at,
+                (d.pin_ciphertext IS NOT NULL AND d.pin_ciphertext <> '') AS has_pin,
                 EXISTS(
                   SELECT 1 FROM dgm_bridge_pairings p
                   WHERE p.host_device_id=d.device_id
@@ -457,7 +460,7 @@ function installBridge(app) {
          FROM dgm_bridge_pairings p
          ORDER BY p.created_at DESC LIMIT 100`
       );
-      return res.json({success:true,devices:devices.rows.map(x=>({...x,pin:x.pin_ciphertext?decryptPin(x.pin_ciphertext):""})),pairings:pairings.rows});
+      return res.json({success:true,devices:devices.rows,pairings:pairings.rows});
     } catch(e) {
       console.error("Admin Bridge devices error:",e.message);
       return res.status(500).json({success:false,message:"Could not load DGM Bridge devices."});
