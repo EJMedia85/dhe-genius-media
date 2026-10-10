@@ -444,7 +444,7 @@ function installMarket(app) {
       if(supplierId){const supplier=await pool.query("SELECT id FROM market_suppliers WHERE id=$1 AND active=TRUE",[supplierId]);if(!supplier.rows.length)return sendError(res,400,"Choose an active supplier.");}
       const r=await pool.query(`INSERT INTO market_products(name,slug,description,category_id,brand,sku,price,sale_price,stock,image_url,gallery,variants,delivery_fee,supplier_id,featured,active) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,[name,slug,String(b.description||""),cat,String(b.brand||""),String(b.sku||"")||null,price,sale,stock,String(b.image_url||""),JSON.stringify(Array.isArray(b.gallery)?b.gallery:[]),JSON.stringify(Array.isArray(b.variants)?b.variants:[]),Math.max(0,Number(b.delivery_fee)||0),supplierId,Boolean(b.featured),b.active!==false]);
       res.json({success:true,id:r.rows[0].id});
-    } catch(e){console.error("Admin market product:",e);sendError(res,400,e.code==="23505"?"Product slug or SKU already exists.":e.message||"Could not create product.");}
+    } catch(e){if(e.code==="23505") return sendError(res,409,"Product slug or SKU already exists. Choose a different slug or SKU.");console.error("Admin market product:",e);sendError(res,500,"Could not create product.");}
   });
 
   app.patch("/api/admin/market/products/:id",requireAdmin,async(req,res)=>{
@@ -458,7 +458,7 @@ function installMarket(app) {
       if(supplierId){const supplier=await pool.query("SELECT id FROM market_suppliers WHERE id=$1 AND active=TRUE",[supplierId]);if(!supplier.rows.length)return sendError(res,400,"Choose an active supplier.");}
       const r=await pool.query(`UPDATE market_products SET name=$1,slug=$2,description=$3,category_id=$4,brand=$5,sku=$6,price=$7,sale_price=$8,stock=$9,image_url=$10,gallery=$11,variants=$12,delivery_fee=$13,supplier_id=$14,featured=$15,active=$16,updated_at=NOW() WHERE id=$17 RETURNING id`,[name,slug,String(b.description ?? p.description ?? ""),Number(b.category_id??p.category_id)||null,String(b.brand ?? p.brand ?? ""),String(b.sku ?? p.sku ?? "")||null,Number(b.price??p.price),b.sale_price===""||b.sale_price==null?null:Number(b.sale_price),Math.max(0,Number(b.stock??p.stock)||0),String(b.image_url ?? p.image_url ?? ""),JSON.stringify(Array.isArray(b.gallery)?b.gallery:(Array.isArray(p.gallery)?p.gallery:[])),JSON.stringify(Array.isArray(b.variants)?b.variants:(Array.isArray(p.variants)?p.variants:[])),Math.max(0,Number(b.delivery_fee??p.delivery_fee)||0),supplierId,Boolean(b.featured??p.featured),b.active!==undefined?Boolean(b.active):Boolean(p.active),id]);
       res.json({success:true,id:r.rows[0].id});
-    } catch(e){console.error("Admin market update:",e);sendError(res,400,e.code==="23505"?"Product slug or SKU already exists.":e.message||"Could not update product.");}
+    } catch(e){if(e.code==="23505") return sendError(res,409,"Product slug or SKU already exists. Choose a different slug or SKU.");console.error("Admin market update:",e);sendError(res,500,"Could not update product.");}
   });
 
   app.delete("/api/admin/market/products/:id",requireAdmin,async(req,res)=>{
