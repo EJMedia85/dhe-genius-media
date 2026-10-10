@@ -3471,19 +3471,52 @@ async function refreshDataMartPrices(force = false) {
 
   try {
     const customer = {};
+    let storefrontHtml = null;
+    const getStorefrontHtml = async () => {
+      if (storefrontHtml === null) {
+        storefrontHtml = await fetchDataMartCataloguePage(DATAMART_PUBLIC_PRICE_URL);
+      }
+      return storefrontHtml;
+    };
+
     for (const [network, fallback] of Object.entries(DGM_PRICES)) {
+      let parsed = null;
+      let networkError = null;
       try {
         const html = await fetchDataMartCataloguePage(DATAMART_CATALOGUE_URLS[network] || DATAMART_PUBLIC_PRICE_URL);
-        const parsed = parseDataMartCatalogue(html, fallback);
-        customer[network] = {};
-        for (const gb of Object.keys(fallback)) {
-          customer[network][gb] = Number(parsed?.[network]?.[gb]) > 0
-            ? Number(parsed[network][gb])
-            : Number(fallback[gb]);
+        parsed = parseDataMartCatalogue(html, { [network]: fallback });
+        if (!Object.values(parsed[network] || {}).some(price => Number(price) > 0)) {
+          parsed = null;
         }
-      } catch (networkError) {
-        console.error("DataMart " + network + " price sync failed:", networkError.message);
-        customer[network] = { ...fallback };
+      } catch (error) {
+        networkError = error;
+      }
+
+      // Some storefront builds do not expose a separate public route for every
+      // network. Retry against the public storefront before using cached DGM
+      // prices; never make up a price or block an otherwise valid catalogue.
+      if (!parsed) {
+        try {
+          const html = await getStorefrontHtml();
+          const storefrontPrices = parseDataMartCatalogue(html, { [network]: fallback });
+          if (Object.values(storefrontPrices[network] || {}).some(price => Number(price) > 0)) {
+            parsed = storefrontPrices;
+          }
+        } catch (storefrontError) {
+          networkError = networkError || storefrontError;
+        }
+      }
+
+      customer[network] = {};
+      for (const gb of Object.keys(fallback)) {
+        const livePrice = Number(parsed?.[network]?.[gb]);
+        customer[network][gb] = Number.isFinite(livePrice) && livePrice > 0
+          ? Number(livePrice.toFixed(2))
+          : Number(fallback[gb]);
+      }
+
+      if (!parsed && networkError) {
+        console.warn("DataMart " + network + " price sync unavailable; using configured DGM fallback prices:", networkError.message);
       }
     }
 
