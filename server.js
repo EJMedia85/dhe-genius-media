@@ -1560,6 +1560,9 @@ async function initDatabase() {
   await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE companion_devices ADD COLUMN IF NOT EXISTS rejected_by TEXT`);
   await pool.query(`UPDATE companion_devices SET authorization_status='approved' WHERE authorization_status IS NULL`);
+  // Older databases may still enforce NOT NULL from an earlier Companion schema.
+  // Devices without a linked DGM customer must still be able to sync their authorized messages.
+  await pool.query(`ALTER TABLE companion_messages ALTER COLUMN customer_id DROP NOT NULL`);
   await pool.query(`ALTER TABLE companion_messages ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS companion_devices_enrollment_hash_idx ON companion_devices(enrollment_token_hash) WHERE enrollment_token_hash IS NOT NULL`);
   await pool.query(`CREATE INDEX IF NOT EXISTS companion_devices_phone_idx ON companion_devices(phone)`);
