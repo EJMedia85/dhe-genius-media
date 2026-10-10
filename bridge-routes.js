@@ -286,7 +286,9 @@ function installBridge(app) {
   app.post("/api/admin/bridge/devices/:deviceId/reset-pin", async (req,res) => {
     if (!req.session?.adminAuthenticated) return res.status(401).json({success:false,message:"Admin authentication required."});
     try {
-      const id=String(req.params.deviceId||"").trim(), supplied=String(req.body?.pin||"").trim(), pin=/^\d{6}$/.test(supplied)?supplied:bridgePin();
+      const id=String(req.params.deviceId||"").trim(), supplied=String(req.body?.pin||"").trim();
+      if(supplied && !/^\d{6}$/.test(supplied)) return res.status(400).json({success:false,message:"PIN must be exactly 6 digits, or blank to generate one."});
+      const pin=supplied || bridgePin();
       const row=(await pool.query("UPDATE dgm_bridge_devices SET pin_ciphertext=$2,active_session_id=NULL,active_token_hash=NULL WHERE device_id=$1 RETURNING device_id,device_name",[id,encryptPin(pin)])).rows[0];
       if(!row)return res.status(404).json({success:false,message:"Device not found."});
       await bridgeAudit(req.session.adminEmail,"bridge.reset_pin",id,{device_name:row.device_name});
