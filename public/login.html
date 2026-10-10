@@ -231,10 +231,48 @@
         font-size: 24px;
       }
     }
+
+    /* Reference-matched DGM glass login */
+    html, body { width:100%; min-height:100%; background:#000 !important; }
+    body { min-height:100vh; padding:0 !important; display:flex; justify-content:center; align-items:center; overflow-x:hidden; background:#000 !important; }
+    .brand, .footer { display:none !important; }
+    .scene-panel { position:relative; isolation:isolate; width:100%; height:min(70vh, 500px); min-height:440px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:linear-gradient(135deg,#002b1d 0%,#003b28 48%,#00170f 100%); }
+    .orb { position:absolute; z-index:-1; border-radius:50%; background:radial-gradient(circle at 35% 28%,#3cffb0 0%,#00c982 38%,#00854d 78%); box-shadow:0 0 22px rgba(0,255,159,.22); }
+    .orb-a { width:105px;height:105px;left:7%;top:15%;filter:blur(5px); }
+    .orb-b { width:150px;height:150px;left:19%;bottom:23%; }
+    .orb-c { width:135px;height:135px;right:24%;top:24%; }
+    .orb-d { width:78px;height:78px;right:13%;bottom:32%;filter:blur(5px); }
+    .orb-e { width:83px;height:83px;right:34%;bottom:8%; }
+    .orb-f { width:100px;height:100px;left:38%;top:10%;filter:blur(5px); }
+    .card { position:relative; z-index:2; width:min(36%, 300px); min-width:245px; height:355px; padding:70px 40px 28px; border-radius:15px; background:rgba(0,35,25,.46); border:1px solid rgba(69,255,184,.14); box-shadow:0 0 28px rgba(0,255,160,.08), inset 0 1px 1px rgba(255,255,255,.08); backdrop-filter:blur(24px) saturate(160%); -webkit-backdrop-filter:blur(24px) saturate(160%); }
+    .card h2 { text-align:center; font-size:22px; font-weight:500; margin:0 0 6px; letter-spacing:.2px; }
+    .subtitle { display:none; }
+    .message { padding:7px 8px; margin-bottom:8px; font-size:11px; }
+    .field { margin-bottom:12px; }
+    label { margin-bottom:4px; font-size:9px; font-weight:400; color:#a4e9d0; }
+    input { height:28px; padding:0 9px; border-radius:5px; border:1px solid rgba(66,255,185,.12); background:rgba(20,205,140,.55); box-shadow:none; font-size:11px; }
+    input::placeholder { color:rgba(255,255,255,.52); }
+    input:focus { background:rgba(25,205,142,.68); border-color:rgba(75,255,190,.65); box-shadow:0 0 0 2px rgba(37,211,102,.12); }
+    .forgot { margin:10px 0 0; text-align:center; }
+    .forgot a { font-size:9px; color:#d0eee2; }
+    button { height:37px; border-radius:24px; font-size:14px; font-weight:500; box-shadow:none; background:linear-gradient(110deg,#20c994,#14a875); }
+    .register { display:inline; margin:0 0 0 8px; font-size:9px; color:#c7e8dc; }
+    .register a { font-weight:400; }
+    .register-wrap { text-align:center; margin-top:8px; }
+    @media (max-width:480px) {
+      body { padding:0 !important; }
+      .scene-panel { height:min(70vh, 500px); min-height:440px; }
+      .card { width:min(36%, 300px); min-width:245px; padding:70px 40px 28px; border-radius:15px; }
+      .card h2 { font-size:22px; }
+    }
+
   </style>
 </head>
 
 <body>
+
+  <main class="scene-panel" aria-label="DGM login">
+    <span class="orb orb-a"></span><span class="orb orb-b"></span><span class="orb orb-c"></span><span class="orb orb-d"></span><span class="orb orb-e"></span><span class="orb orb-f"></span>
 
   <div class="brand">
 
@@ -255,13 +293,9 @@
 
   <section class="card">
 
-    <h2>
-      Welcome back
-    </h2>
+    <h2>LOGIN</h2>
 
-    <p class="subtitle">
-      Login to your DGM customer account.
-    </p>
+    <p class="subtitle">Stay Connected. Stay Genius.</p>
 
 
     <div
@@ -274,15 +308,13 @@
 
       <div class="field">
 
-        <label for="identifier">
-          Phone Number or Email
-        </label>
+        <label for="identifier">Email</label>
 
         <input
           type="text"
           id="identifier"
           name="identifier"
-          placeholder="0241234567 or you@example.com"
+          placeholder=""
           autocomplete="username"
           required
         >
@@ -292,15 +324,13 @@
 
       <div class="field">
 
-        <label for="password">
-          Password
-        </label>
+        <label for="password">Password</label>
 
         <input
           type="password"
           id="password"
           name="password"
-          placeholder="Enter your password"
+          placeholder=""
           autocomplete="current-password"
           required
         >
@@ -310,9 +340,7 @@
 
       <div class="forgot">
 
-        <a href="/forgot-password.html">
-          Forgot password?
-        </a>
+        <a href="/forgot-password.html">Forgot password?</a>
 
       </div>
 
@@ -321,28 +349,17 @@
         type="submit"
         id="loginButton"
       >
-        Login
+        Sign In
       </button>
 
     </form>
 
-
-    <div class="register">
-
-      Don't have a DGM account?
-
-      <a href="/register.html">
-        Create Account
-      </a>
-
-    </div>
+    <div class="register-wrap"><div class="register"><a href="/register.html">Sign up</a></div></div>
 
   </section>
 
 
-  <div class="footer">
-    © 2026 DHE GENIUS MEDIA • Accra - Spintex
-  </div>
+  </main>
 
 
   <script>
