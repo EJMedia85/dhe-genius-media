@@ -265,7 +265,7 @@ body{
    dots.forEach((dot,i)=>dot.setAttribute('aria-pressed',i===current?'true':'false'));
  }
  function stop(){if(timer){window.clearInterval(timer);timer=null;}}
- function start(){stop();if(!reduced&&!document.hidden)timer=window.setInterval(()=>show(current+1),4600);}
+ function start(){stop();if(!reduced&&!document.hidden)timer=window.setInterval(()=>show(current+1),2000);}
  dots.forEach((dot,i)=>dot.addEventListener('click',()=>{show(i);start();}));
  prev.addEventListener('click',()=>{show(current-1);start();});
  next.addEventListener('click',()=>{show(current+1);start();});
