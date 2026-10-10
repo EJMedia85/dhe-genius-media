@@ -1,0 +1,24 @@
+name: DGM backend syntax checks
+
+on:
+  push:
+    branches: [main, "fix/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check backend JavaScript syntax
+        run: npm run check
