@@ -5974,29 +5974,8 @@ app.post("/api/admin/withdrawals/:id/approve", requireAdmin, async (req, res) =>
   const note = String(req.body?.note || "").trim().slice(0, 250);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "Invalid withdrawal ID.");
 
-  try {
-    const result = await pool.query(
-      `UPDATE wallet_withdrawals
-       SET status = 'Approved', admin_note = $2, approved_at = NOW(), updated_at = NOW()
-       WHERE id = $1 AND status = 'Pending Approval'
-       RETURNING *`,
-      [id, note]
-    );
-    if (!result.rows.length) return sendError(res, 409, "Withdrawal is no longer pending approval.");
-    await createCustomerNotification(result.rows[0].customer_id, "Withdrawal approved", "Your MoMo withdrawal of GH₵" + Number(result.rows[0].amount).toFixed(2) + " was approved. Payment will be sent by DGM.", "withdrawal");
-    return res.json({ success: true, message: "Withdrawal approved. Send the approved amount to the customer's MoMo account, then mark it as paid.", withdrawal: result.rows[0] });
-  } catch (error) {
-    console.error("Admin approve withdrawal error:", error);
-    return sendError(res, 500, "Could not approve withdrawal.");
-  }
-});
-
-app.post("/api/admin/withdrawals/:id/reject", requireAdmin, async (req, res) => {
-  const id = Number(req.params.id);
-  const note = String(req.body?.note || "").trim().slice(0, 250);
-  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "Invalid withdrawal ID.");
-
   const client = await pool.connect();
+  let withdrawal;
   try {
     await client.query("BEGIN");
     const result = await client.query(
@@ -6007,43 +5986,103 @@ app.post("/api/admin/withdrawals/:id/reject", requireAdmin, async (req, res) => 
       await client.query("ROLLBACK");
       return sendError(res, 404, "Withdrawal not found.");
     }
-    const w = result.rows[0];
-    if (w.status !== "Pending Approval") {
+    withdrawal = result.rows[0];
+    if (withdrawal.status !== "Pending Approval") {
+      await client.query("ROLLBACK");
+      return sendError(res, 409, "Withdrawal is no longer pending approval.");
+    }
+
+    const tx = await client.query(
+      "UPDATE wallet_transactions SET status = 'Approved' WHERE customer_id = $1 AND reference = $2 AND type = 'withdrawal_pending' AND status = 'Pending'",
+      [withdrawal.customer_id, withdrawal.reference]
+    );
+    if (tx.rowCount !== 1) {
+      await client.query("ROLLBACK");
+      console.error("Withdrawal approval blocked: matching pending wallet transaction missing.", { withdrawalId: id, reference: withdrawal.reference, updatedRows: tx.rowCount });
+      return sendError(res, 409, "The matching wallet transaction could not be verified. No status was changed.");
+    }
+
+    const updated = await client.query(
+      "UPDATE wallet_withdrawals SET status = 'Approved', admin_note = $2, approved_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'Pending Approval' RETURNING *",
+      [id, note]
+    );
+    if (!updated.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 409, "Withdrawal status changed. Refresh and try again.");
+    }
+    withdrawal = updated.rows[0];
+    await client.query("COMMIT");
+    await createCustomerNotification(withdrawal.customer_id, "Withdrawal approved", "Your MoMo withdrawal of GH₵" + Number(withdrawal.amount).toFixed(2) + " was approved. Payment will be sent by DGM.", "withdrawal");
+    return res.json({ success: true, message: "Withdrawal approved. Send the approved amount to the customer's MoMo account, then mark it as paid.", withdrawal });
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    console.error("Admin approve withdrawal error:", error);
+    return sendError(res, 500, "Could not approve withdrawal.");
+  } finally {
+    client.release();
+  }
+});
+
+app.post("/api/admin/withdrawals/:id/reject", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const note = String(req.body?.note || "").trim().slice(0, 250);
+  if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "Invalid withdrawal ID.");
+
+  const client = await pool.connect();
+  let withdrawal;
+  let after;
+  try {
+    await client.query("BEGIN");
+    const result = await client.query("SELECT * FROM wallet_withdrawals WHERE id = $1 FOR UPDATE", [id]);
+    if (!result.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Withdrawal not found.");
+    }
+    withdrawal = result.rows[0];
+    if (withdrawal.status !== "Pending Approval") {
       await client.query("ROLLBACK");
       return sendError(res, 409, "Only pending withdrawals can be rejected.");
     }
 
-    const customerResult = await client.query(
-      "SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE",
-      [w.customer_id]
+    const pendingTx = await client.query(
+      "UPDATE wallet_transactions SET status = 'Rejected' WHERE customer_id = $1 AND reference = $2 AND type = 'withdrawal_pending' AND status = 'Pending'",
+      [withdrawal.customer_id, withdrawal.reference]
     );
+    if (pendingTx.rowCount !== 1) {
+      await client.query("ROLLBACK");
+      console.error("Withdrawal rejection blocked: matching pending wallet transaction missing.", { withdrawalId: id, reference: withdrawal.reference, updatedRows: pendingTx.rowCount });
+      return sendError(res, 409, "The matching wallet transaction could not be verified. No refund was issued.");
+    }
+
+    const customerResult = await client.query("SELECT id, balance FROM customers WHERE id = $1 FOR UPDATE", [withdrawal.customer_id]);
     if (!customerResult.rows.length) {
       await client.query("ROLLBACK");
       return sendError(res, 404, "Customer account no longer exists.");
     }
 
     const before = Number(customerResult.rows[0].balance || 0);
-    const after = Math.round((before + Number(w.amount)) * 100) / 100;
-    await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [after, w.customer_id]);
+    after = Math.round((before + Number(withdrawal.amount)) * 100) / 100;
+    await client.query("UPDATE customers SET balance = $1 WHERE id = $2", [after, withdrawal.customer_id]);
 
-    await client.query(
-      `UPDATE wallet_withdrawals
-       SET status = 'Rejected', admin_note = $2, rejected_at = NOW(), updated_at = NOW()
-       WHERE id = $1`,
+    const updated = await client.query(
+      "UPDATE wallet_withdrawals SET status = 'Rejected', admin_note = $2, rejected_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'Pending Approval' RETURNING *",
       [id, note]
     );
+    if (!updated.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 409, "Withdrawal status changed. No refund was issued.");
+    }
+    withdrawal = updated.rows[0];
 
-    const refundRef = "DGM-WD-REFUND-" + Date.now().toString(36).toUpperCase() + "-" + w.id;
+    const refundRef = "DGM-WD-REFUND-" + Date.now().toString(36).toUpperCase() + "-" + withdrawal.id;
     await client.query(
-      `INSERT INTO wallet_transactions
-       (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, status, reference)
-       VALUES ($1,'withdrawal_refund',$2,$3,$4,$5,$6,'Completed',$6)`,
-      [w.customer_id, Number(w.amount), before, after, "Rejected MoMo withdrawal refund - " + w.reference, refundRef]
+      "INSERT INTO wallet_transactions (customer_id, type, amount, balance_before, balance_after, description, transaction_ref, status, reference) VALUES ($1,'withdrawal_refund',$2,$3,$4,$5,$6,'Completed',$6)",
+      [withdrawal.customer_id, Number(withdrawal.amount), before, after, "Rejected MoMo withdrawal refund - " + withdrawal.reference, refundRef]
     );
 
     await client.query("COMMIT");
-    await createCustomerNotification(w.customer_id, "Withdrawal rejected", "Your MoMo withdrawal of GH₵" + Number(w.amount).toFixed(2) + " was rejected and the funds were returned to your wallet." + (note ? " Note: " + note : ""), "withdrawal");
-    return res.json({ success: true, message: "Withdrawal rejected and wallet refunded.", balance: after });
+    await createCustomerNotification(withdrawal.customer_id, "Withdrawal rejected", "Your MoMo withdrawal of GH₵" + Number(withdrawal.amount).toFixed(2) + " was rejected and the funds were returned to your wallet." + (note ? " Note: " + note : ""), "withdrawal");
+    return res.json({ success: true, message: "Withdrawal rejected and wallet refunded.", balance: after, withdrawal });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
     console.error("Admin reject withdrawal error:", error);
@@ -6057,20 +6096,50 @@ app.post("/api/admin/withdrawals/:id/paid", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const note = String(req.body?.note || "").trim().slice(0, 250);
   if (!Number.isInteger(id) || id <= 0) return sendError(res, 400, "Invalid withdrawal ID.");
+
+  const client = await pool.connect();
+  let withdrawal;
   try {
-    const result = await pool.query(
-      `UPDATE wallet_withdrawals
-       SET status = 'Paid', admin_note = COALESCE(NULLIF($2,''), admin_note), paid_at = NOW(), updated_at = NOW()
-       WHERE id = $1 AND status = 'Approved'
-       RETURNING *`,
+    await client.query("BEGIN");
+    const result = await client.query("SELECT * FROM wallet_withdrawals WHERE id = $1 FOR UPDATE", [id]);
+    if (!result.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 404, "Withdrawal not found.");
+    }
+    withdrawal = result.rows[0];
+    if (withdrawal.status !== "Approved") {
+      await client.query("ROLLBACK");
+      return sendError(res, 409, "Only approved withdrawals can be marked as paid.");
+    }
+
+    const tx = await client.query(
+      "UPDATE wallet_transactions SET status = 'Completed' WHERE customer_id = $1 AND reference = $2 AND type = 'withdrawal_pending' AND status = 'Approved'",
+      [withdrawal.customer_id, withdrawal.reference]
+    );
+    if (tx.rowCount !== 1) {
+      await client.query("ROLLBACK");
+      console.error("Withdrawal payment marking blocked: matching approved wallet transaction missing.", { withdrawalId: id, reference: withdrawal.reference, updatedRows: tx.rowCount });
+      return sendError(res, 409, "The matching approved wallet transaction could not be verified. No status was changed.");
+    }
+
+    const updated = await client.query(
+      "UPDATE wallet_withdrawals SET status = 'Paid', admin_note = COALESCE(NULLIF($2,''), admin_note), paid_at = NOW(), updated_at = NOW() WHERE id = $1 AND status = 'Approved' RETURNING *",
       [id, note]
     );
-    if (!result.rows.length) return sendError(res, 409, "Only approved withdrawals can be marked as paid.");
-    await createCustomerNotification(result.rows[0].customer_id, "Withdrawal paid", "Your MoMo withdrawal of GH₵" + Number(result.rows[0].amount).toFixed(2) + " has been marked as paid by DGM.", "withdrawal");
-    return res.json({ success: true, message: "Withdrawal marked as paid.", withdrawal: result.rows[0] });
+    if (!updated.rows.length) {
+      await client.query("ROLLBACK");
+      return sendError(res, 409, "Withdrawal status changed. Refresh and try again.");
+    }
+    withdrawal = updated.rows[0];
+    await client.query("COMMIT");
+    await createCustomerNotification(withdrawal.customer_id, "Withdrawal paid", "Your MoMo withdrawal of GH₵" + Number(withdrawal.amount).toFixed(2) + " has been marked as paid by DGM.", "withdrawal");
+    return res.json({ success: true, message: "Withdrawal marked as paid.", withdrawal });
   } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
     console.error("Admin paid withdrawal error:", error);
     return sendError(res, 500, "Could not mark withdrawal as paid.");
+  } finally {
+    client.release();
   }
 });
 
