@@ -206,6 +206,23 @@
       text-decoration: underline;
     }
 
+    .password-wrap { position:relative; }
+    .password-wrap input { padding-right:48px; }
+    .password-toggle {
+      position:absolute; right:5px; top:50%; transform:translateY(-50%);
+      width:38px; height:25px; padding:0; border:0; border-radius:6px;
+      background:transparent; color:#e0fff0; box-shadow:none;
+      font-size:10px; font-weight:700; cursor:pointer;
+    }
+    .password-toggle:hover { transform:translateY(-50%); background:rgba(255,255,255,.08); }
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline:2px solid #25d366; outline-offset:3px;
+    }
+    .security-note {
+      position:relative; z-index:2; margin-top:13px; padding:0 12px;
+      text-align:center; color:#87aa9b; font-size:10px; line-height:1.5;
+    }
+
     .footer {
       margin-top: 25px;
       text-align: center;
@@ -327,13 +344,13 @@
 
       <div class="field">
 
-        <label for="identifier">Email</label>
+        <label for="identifier">Email or phone number</label>
 
         <input
           type="text"
           id="identifier"
           name="identifier"
-          placeholder=""
+          placeholder="Enter your email or phone"
           autocomplete="username"
           required
         >
@@ -345,14 +362,17 @@
 
         <label for="password">Password</label>
 
-        <input
-          type="password"
-          id="password"
-          name="password"
-          placeholder=""
-          autocomplete="current-password"
-          required
-        >
+        <div class="password-wrap">
+          <input
+            type="password"
+            id="password"
+            name="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            required
+          >
+          <button class="password-toggle" type="button" id="togglePassword" aria-label="Show password" aria-pressed="false">SHOW</button>
+        </div>
 
       </div>
 
@@ -375,6 +395,7 @@
 
   </section>
 
+  <p class="security-note">Secure sign-in to your DGM account. Never share your password or verification codes.</p>
 
   </main>
 
@@ -389,6 +410,17 @@
 
     const message =
       document.getElementById("message");
+    const passwordInput = document.getElementById("password");
+    const togglePassword = document.getElementById("togglePassword");
+
+    togglePassword.addEventListener("click", function () {
+      const show = passwordInput.type === "password";
+      passwordInput.type = show ? "text" : "password";
+      togglePassword.textContent = show ? "HIDE" : "SHOW";
+      togglePassword.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      togglePassword.setAttribute("aria-pressed", String(show));
+      passwordInput.focus();
+    });
 
 
     function showMessage(text, type = "error") {
@@ -544,7 +576,7 @@
           loginButton.disabled = false;
 
           loginButton.textContent =
-            "Login";
+            "Sign In";
         }
 
       }
