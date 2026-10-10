@@ -1102,7 +1102,7 @@ const DGM_FUNNEL_EVENTS = new Set([
   "service_cta_click"
 ]);
 
-app.post("/api/analytics/event", async (req, res) => {
+app.post("/api/analytics/event", express.json({ limit: "16kb" }), async (req, res) => {
   try {
     const eventName = String(req.body?.event_name || "").trim();
     const visitId = String(req.body?.visit_id || "").trim();
