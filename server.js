@@ -1091,6 +1091,42 @@ pool.on("error", (error) => {
   );
 });
 
+const DGM_FUNNEL_EVENTS = new Set([
+  "page_view",
+  "signup_cta_click",
+  "signup_form_submit",
+  "login_cta_click",
+  "login_form_submit",
+  "data_page_view",
+  "dashboard_view",
+  "service_cta_click"
+]);
+
+app.post("/api/analytics/event", async (req, res) => {
+  try {
+    const eventName = String(req.body?.event_name || "").trim();
+    const visitId = String(req.body?.visit_id || "").trim();
+    const rawPath = String(req.body?.page_path || "/").trim();
+    const pagePath = rawPath.startsWith("/") && !rawPath.startsWith("//")
+      ? rawPath.split("?")[0].slice(0, 160)
+      : "/";
+    if (!DGM_FUNNEL_EVENTS.has(eventName)) {
+      return res.status(400).json({ success: false, message: "Unsupported analytics event." });
+    }
+    if (!/^[a-f0-9-]{16,64}$/i.test(visitId)) {
+      return res.status(400).json({ success: false, message: "Invalid visit identifier." });
+    }
+    await pool.query(
+      "INSERT INTO dgm_funnel_events (visit_id, event_name, page_path) VALUES ($1, $2, $3)",
+      [visitId, eventName, pagePath]
+    );
+    return res.status(202).json({ success: true });
+  } catch (error) {
+    console.error("DGM funnel analytics write failed:", error.message);
+    return res.status(503).json({ success: false, message: "Analytics temporarily unavailable." });
+  }
+});
+
 // =====================================================
 // DATABASE SETUP
 // IMPORTANT:
@@ -1113,6 +1149,25 @@ async function initDatabase() {
       balance NUMERIC(12,2) NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+  `);
+
+  // Privacy-conscious funnel analytics: event names and page paths only.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS dgm_funnel_events (
+      id BIGSERIAL PRIMARY KEY,
+      visit_id TEXT NOT NULL,
+      event_name TEXT NOT NULL,
+      page_path TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_dgm_funnel_events_created
+    ON dgm_funnel_events(created_at DESC);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_dgm_funnel_events_name_created
+    ON dgm_funnel_events(event_name, created_at DESC);
   `);
 
   // ---------------------------------------------------
