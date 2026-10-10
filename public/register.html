@@ -412,6 +412,7 @@
             name="password"
             placeholder="Create a password"
             autocomplete="new-password"
+            minlength="8"
             required
           >
 
@@ -507,6 +508,32 @@
           "Creating account...";
 
 
+        const password =
+          document.getElementById("password").value;
+
+        const confirmPassword =
+          document.getElementById("confirmPassword").value;
+
+        if (password.length < 8) {
+          showMessage(
+            "Your password must be at least 8 characters long.",
+            "error"
+          );
+          button.disabled = false;
+          button.textContent = "Create Account";
+          return;
+        }
+
+        if (password !== confirmPassword) {
+          showMessage(
+            "Your passwords do not match.",
+            "error"
+          );
+          button.disabled = false;
+          button.textContent = "Create Account";
+          return;
+        }
+
         const data = {
 
           name:
@@ -527,10 +554,7 @@
               .value
               .trim(),
 
-          password:
-            document
-              .getElementById("password")
-              .value,
+          password: password,
 
           confirmPassword:
             document
