@@ -9133,6 +9133,7 @@ app.get("/api/health", async (req, res) => {
     return res.status(200).json({
       success: true,
       status: "degraded",
+      ready: false,
       database: "offline",
       paystack: Boolean(PAYSTACK_SECRET_KEY),
       datamart: Boolean(DATAMART_API_KEY && DATAMART_API_SECRET),
