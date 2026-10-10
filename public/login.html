@@ -232,38 +232,71 @@
       }
     }
 
-    /* Reference-matched DGM glass login */
-    html, body { width:100%; min-height:100%; background:#000 !important; }
-    body { min-height:100vh; padding:0 !important; display:flex; justify-content:center; align-items:center; overflow-x:hidden; background:#000 !important; }
-    .brand, .footer { display:none !important; }
-    .scene-panel { position:relative; isolation:isolate; width:100%; height:min(70vh, 500px); min-height:440px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:linear-gradient(135deg,#002b1d 0%,#003b28 48%,#00170f 100%); }
-    .orb { position:absolute; z-index:-1; border-radius:50%; background:radial-gradient(circle at 35% 28%,#3cffb0 0%,#00c982 38%,#00854d 78%); box-shadow:0 0 22px rgba(0,255,159,.22); }
-    .orb-a { width:105px;height:105px;left:7%;top:15%;filter:blur(5px); }
-    .orb-b { width:150px;height:150px;left:19%;bottom:23%; }
-    .orb-c { width:135px;height:135px;right:24%;top:24%; }
-    .orb-d { width:78px;height:78px;right:13%;bottom:32%;filter:blur(5px); }
-    .orb-e { width:83px;height:83px;right:34%;bottom:8%; }
-    .orb-f { width:100px;height:100px;left:38%;top:10%;filter:blur(5px); }
-    .card { position:relative; z-index:2; width:min(36%, 300px); min-width:245px; height:355px; padding:70px 40px 28px; border-radius:15px; background:rgba(0,35,25,.46); border:1px solid rgba(69,255,184,.14); box-shadow:0 0 28px rgba(0,255,160,.08), inset 0 1px 1px rgba(255,255,255,.08); backdrop-filter:blur(24px) saturate(160%); -webkit-backdrop-filter:blur(24px) saturate(160%); }
-    .card h2 { text-align:center; font-size:22px; font-weight:500; margin:0 0 6px; letter-spacing:.2px; }
-    .subtitle { display:none; }
-    .message { padding:7px 8px; margin-bottom:8px; font-size:11px; }
-    .field { margin-bottom:12px; }
-    label { margin-bottom:4px; font-size:9px; font-weight:400; color:#a4e9d0; }
-    input { height:28px; padding:0 9px; border-radius:5px; border:1px solid rgba(66,255,185,.12); background:rgba(20,205,140,.55); box-shadow:none; font-size:11px; }
+    /* DGM dashboard-aligned responsive login */
+    html, body { width:100%; min-height:100%; }
+    body {
+      min-height:100vh; min-height:100svh; padding:0 !important; margin:0;
+      display:flex; align-items:stretch; justify-content:center; overflow-x:hidden;
+      color:#eef8f2;
+      background:radial-gradient(circle at 85% -5%,rgba(37,211,102,.13),transparent 30%),linear-gradient(180deg,#050b0b,#071010 52%,#050909) !important;
+      font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+    .scene-panel {
+      position:relative; isolation:isolate; width:100%; min-height:100vh; min-height:100svh;
+      padding:104px 16px 42px; display:flex; align-items:center; justify-content:center;
+      overflow:hidden; background:transparent;
+    }
+    .brand {
+      display:flex !important; position:absolute; z-index:3; top:20px; left:20px;
+      align-items:center; gap:11px; margin:0; color:#f2fff6;
+    }
+    .brand .logo {
+      width:44px; height:44px; flex:0 0 44px; display:grid; place-items:center;
+      border-radius:13px; background:linear-gradient(145deg,#35f47c,#0b9f4a);
+      color:#052011; font-size:13px; font-weight:900; box-shadow:0 8px 28px rgba(37,211,102,.22);
+    }
+    .brand h1 { margin:0; font-size:14px; line-height:1.25; font-weight:900; letter-spacing:-.03em; }
+    .brand p { margin:3px 0 0; color:#8ba99b; font-size:10px; }
+    .orb { position:absolute; z-index:0; pointer-events:none; border-radius:50%; background:radial-gradient(circle at 35% 28%,rgba(60,255,176,.45),rgba(0,201,130,.15) 48%,rgba(0,133,77,0) 78%); filter:blur(2px); }
+    .orb-a { width:180px;height:180px;left:2%;top:12%; }
+    .orb-b { width:240px;height:240px;left:12%;bottom:4%; }
+    .orb-c { width:220px;height:220px;right:8%;top:18%; }
+    .orb-d { width:130px;height:130px;right:4%;bottom:16%; }
+    .orb-e { width:150px;height:150px;right:34%;bottom:0; }
+    .orb-f { width:170px;height:170px;left:38%;top:3%; }
+    .card {
+      position:relative; z-index:2; width:100%; max-width:430px; min-width:0; height:auto;
+      margin:0 auto; padding:30px 24px 26px; border-radius:22px;
+      background:linear-gradient(155deg,rgba(14,31,28,.94),rgba(4,12,12,.90));
+      border:1px solid rgba(37,211,102,.19);
+      box-shadow:0 22px 60px rgba(0,0,0,.32),inset 0 1px 0 rgba(255,255,255,.08);
+      backdrop-filter:blur(24px) saturate(145%); -webkit-backdrop-filter:blur(24px) saturate(145%);
+    }
+    .card h2 { text-align:left; font-size:25px; line-height:1.2; font-weight:850; margin:0 0 8px; letter-spacing:-.04em; }
+    .subtitle { display:block; margin:0 0 22px; color:#8ba99b; font-size:12px; line-height:1.5; }
+    .message { padding:10px 12px; margin-bottom:12px; font-size:12px; border-radius:10px; }
+    .field { margin-bottom:16px; }
+    label { display:block; margin-bottom:7px; font-size:12px; font-weight:700; color:#b9d4c6; }
+    input { display:block; width:100%; min-width:0; height:46px; padding:0 13px; border-radius:12px; border:1px solid rgba(255,255,255,.10); background:rgba(1,10,9,.4); color:#f2fff6; box-shadow:none; font-size:14px; }
     input::placeholder { color:rgba(255,255,255,.52); }
-    input:focus { background:rgba(25,205,142,.68); border-color:rgba(75,255,190,.65); box-shadow:0 0 0 2px rgba(37,211,102,.12); }
-    .forgot { margin:10px 0 0; text-align:center; }
-    .forgot a { font-size:9px; color:#d0eee2; }
-    button { height:37px; border-radius:24px; font-size:14px; font-weight:500; box-shadow:none; background:linear-gradient(110deg,#20c994,#14a875); }
-    .register { display:inline; margin:0 0 0 8px; font-size:9px; color:#c7e8dc; }
-    .register a { font-weight:400; }
-    .register-wrap { text-align:center; margin-top:8px; }
+    input:focus { background:rgba(1,10,9,.65); border-color:rgba(37,211,102,.55); box-shadow:0 0 0 3px rgba(37,211,102,.10); outline:none; }
+    .forgot { margin:13px 0 0; text-align:center; }
+    .forgot a { font-size:12px; color:#a8e9c0; }
+    button { width:100%; min-height:46px; height:auto; margin-top:6px; border-radius:12px; font-size:14px; font-weight:850; box-shadow:0 8px 22px rgba(37,211,102,.15); background:linear-gradient(135deg,#49ef88,#16a879); color:#031008; }
+    .register { display:inline; margin:0; font-size:12px; color:#a8bfb4; }
+    .register a { font-weight:800; color:#49ef88; }
+    .register-wrap { text-align:center; margin-top:18px; line-height:1.6; }
     @media (max-width:480px) {
-      body { padding:0 !important; }
-      .scene-panel { height:min(70vh, 500px); min-height:440px; }
-      .card { width:min(36%, 300px); min-width:245px; padding:70px 40px 28px; border-radius:15px; }
-      .card h2 { font-size:22px; }
+      .scene-panel { padding:92px 16px 28px; }
+      .brand { top:16px; left:16px; gap:9px; }
+      .brand .logo { width:40px; height:40px; flex-basis:40px; }
+      .brand h1 { font-size:13px; }
+      .brand p { font-size:9px; }
+      .card { width:100%; max-width:430px; min-width:0; padding:26px 20px 23px; border-radius:19px; }
+      .card h2 { font-size:24px; }
+    }
+    @media (max-height:560px) and (min-width:481px) {
+      .scene-panel { padding-top:84px; padding-bottom:24px; align-items:flex-start; }
     }
 
   </style>
