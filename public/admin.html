@@ -162,6 +162,18 @@
 <section id="analytics" class="section">
 <div class="cards" id="analyticsPageCards"></div>
 <div class="grid2"><div class="panel"><h2>Top Services — 30 Days</h2><div class="tablebox"><table class="table"><thead><tr><th>Service</th><th>Orders</th><th>Value</th></tr></thead><tbody id="topServicesBody"></tbody></table></div></div><div class="panel"><h2>Top Networks — 30 Days</h2><div class="tablebox"><table class="table"><thead><tr><th>Network</th><th>Orders</th><th>Value</th></tr></thead><tbody id="topNetworksBody"></tbody></table></div></div></div>
+<div class="panel" style="margin-top:16px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div><h2 style="margin-bottom:4px">Customer Conversion Funnel</h2><div class="muted">Privacy-conscious visit and action counts. Events begin accumulating after deployment.</div></div>
+    <label for="funnelDays" class="muted">Reporting period
+      <select id="funnelDays" class="select" style="margin-top:6px;min-width:120px" onchange="loadFunnelAnalytics()">
+        <option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option>
+      </select>
+    </label>
+  </div>
+  <div id="funnelNotice" class="notice" style="margin-top:12px">Loading customer journey events…</div>
+  <div class="cards" id="funnelCards" style="margin-top:12px"></div>
+</div>
 </section>
 
 <section id="notifications" class="section">
@@ -630,6 +642,29 @@ async function loadAnalyticsPage(){
   $('#analyticsPageCards').innerHTML=[['30-Day Completed Sales',money(a.completed_sales)],['30-Day Order Value',money(a.total_order_value)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',c.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
   $('#topServicesBody').innerHTML=(d.top_services||[]).map(x=>'<tr><td>'+esc(x.service||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No service data.</td></tr>';
   $('#topNetworksBody').innerHTML=(d.top_networks||[]).map(x=>'<tr><td>'+esc(x.network||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No network data.</td></tr>';
+  await loadFunnelAnalytics();
+}
+async function loadFunnelAnalytics(){
+  const notice=$('#funnelNotice'), cards=$('#funnelCards');
+  if(!notice||!cards)return;
+  notice.textContent='Loading customer journey events…';
+  try{
+    const days=Number($('#funnelDays')?.value||30);
+    const d=await api('/api/admin/analytics/funnel?days='+encodeURIComponent(days));
+    const labels={
+      page_view:'Page views',signup_cta_click:'Signup link clicks',signup_form_submit:'Signup attempts',
+      login_cta_click:'Login link clicks',login_form_submit:'Login attempts',data_page_view:'Data page visits',
+      dashboard_view:'Dashboard visits',service_cta_click:'Data service link clicks'
+    };
+    const rows=Array.isArray(d.summary)?d.summary:[];
+    cards.innerHTML=rows.map(x=>'<div class="card"><div class="label">'+esc(labels[x.event_name]||x.event_name)+'</div><div class="value" style="font-size:20px">'+Number(x.event_count||0).toLocaleString()+'</div><div class="muted" style="margin-top:5px">'+Number(x.unique_visits||0).toLocaleString()+' unique visits</div></div>').join('');
+    notice.textContent=rows.length
+      ?'Tracking is active for the selected '+days+'-day period. Counts may initially be low while new visits accumulate.'
+      :'No funnel events recorded in this period yet. Visit the public DGM pages to begin collecting data.';
+  }catch(error){
+    cards.innerHTML='';
+    notice.textContent=error.message||'Could not load funnel analytics. Confirm Super Admin access and retry.';
+  }
 }
 async function loadCompanion(){
   const d=await api('/api/admin/companion/devices');
