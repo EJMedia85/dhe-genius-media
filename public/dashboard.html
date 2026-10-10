@@ -154,16 +154,31 @@ body{
 </style>
 
 <style id="dgm-image-hero">
-.dgm-image-hero{position:relative;display:grid;grid-template-columns:1.05fr .95fr;min-height:205px;overflow:hidden;margin:0 0 20px;border:1px solid rgba(255,255,255,.17);border-radius:23px;background:linear-gradient(115deg,rgba(5,22,16,.97),rgba(8,40,28,.82));box-shadow:0 20px 46px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12)}
+.dgm-image-hero{position:relative;display:grid;grid-template-columns:1fr 1fr;min-height:225px;overflow:hidden;margin:0 0 20px;border:1px solid rgba(255,255,255,.17);border-radius:23px;background:linear-gradient(115deg,rgba(5,22,16,.97),rgba(8,40,28,.82));box-shadow:0 20px 46px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.12)}
 .dgm-image-copy{position:relative;z-index:2;padding:25px 22px;align-self:center}
 .dgm-image-kicker{font-size:10px;font-weight:900;letter-spacing:1.7px;text-transform:uppercase;color:#61f59a}
 .dgm-image-copy h2{font-size:clamp(22px,3vw,32px);line-height:1.08;letter-spacing:-1px;margin:9px 0}
 .dgm-image-copy p{font-size:12px;line-height:1.65;color:#c3d8ce;max-width:360px}
 .dgm-image-cta{display:inline-flex;margin-top:14px;padding:10px 14px;border-radius:11px;background:linear-gradient(135deg,#49ef88,#16a879);color:#031008;font-size:11px;font-weight:900;box-shadow:0 8px 22px rgba(37,211,102,.15)}
-.dgm-image-visual{position:relative;min-height:205px;overflow:hidden}
-.dgm-image-visual:before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(90deg,rgba(6,25,17,.78),rgba(6,25,17,.08) 48%,rgba(6,25,17,.05)),linear-gradient(0deg,rgba(5,18,12,.22),transparent 45%)}
-.dgm-image-visual img{position:absolute;width:100%;height:100%;inset:0;object-fit:cover;object-position:center 48%;filter:saturate(.9) contrast(1.04)}
-@media(max-width:600px){.dgm-image-hero{grid-template-columns:1fr;min-height:0}.dgm-image-copy{padding:21px 19px 13px}.dgm-image-copy h2{font-size:25px;max-width:330px}.dgm-image-copy p{font-size:11px}.dgm-image-visual{min-height:150px;height:150px}.dgm-image-visual:before{background:linear-gradient(0deg,rgba(5,18,12,.14),transparent 60%)}}
+.dgm-service-carousel{position:relative;min-height:225px;overflow:hidden;background:radial-gradient(circle at 70% 35%,rgba(37,211,102,.16),transparent 46%),linear-gradient(145deg,#0a2018,#07110f)}
+.dgm-service-slide{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:22px;opacity:0;transform:translateX(14px) scale(.985);transition:opacity .55s ease,transform .55s ease;pointer-events:none}
+.dgm-service-slide.is-active{opacity:1;transform:translateX(0) scale(1);pointer-events:auto}
+.dgm-showcase-panel{width:min(100%,320px);min-height:155px;padding:17px;border-radius:20px;border:1px solid rgba(255,255,255,.17);background:linear-gradient(145deg,rgba(255,255,255,.13),rgba(255,255,255,.035));box-shadow:0 18px 38px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.13);backdrop-filter:blur(14px)}
+.dgm-showcase-label{font-size:9px;font-weight:900;letter-spacing:1.3px;color:#7ff5aa;text-transform:uppercase}
+.dgm-showcase-title{font-size:19px;font-weight:900;letter-spacing:-.5px;margin:7px 0 11px}
+.dgm-showcase-row{display:flex;gap:7px;flex-wrap:wrap}
+.dgm-showcase-chip{display:inline-flex;align-items:center;gap:6px;border-radius:10px;padding:8px 10px;background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.09);font-size:10px;font-weight:800;color:#f1fff6}
+.dgm-showcase-chip i{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:6px;background:rgba(37,211,102,.17);font-style:normal}
+.dgm-showcase-meter{height:6px;border-radius:9px;background:rgba(255,255,255,.1);overflow:hidden;margin-top:14px}
+.dgm-showcase-meter span{display:block;height:100%;width:68%;border-radius:9px;background:linear-gradient(90deg,#25d366,#8dffb4)}
+.dgm-showcase-note{display:flex;justify-content:space-between;gap:10px;margin-top:7px;color:#b6cec1;font-size:9px}
+.dgm-carousel-controls{position:absolute;bottom:11px;left:0;right:0;z-index:4;display:flex;align-items:center;justify-content:center;gap:7px}
+.dgm-carousel-dot{width:7px;height:7px;border:0;border-radius:99px;background:rgba(255,255,255,.35);padding:0;transition:width .2s ease,background .2s ease}
+.dgm-carousel-dot[aria-pressed="true"]{width:21px;background:#55ef92}
+.dgm-carousel-arrow{position:absolute;z-index:5;top:50%;transform:translateY(-50%);width:30px;height:30px;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(0,0,0,.28);color:#fff;font-size:18px;display:grid;place-items:center}
+.dgm-carousel-prev{left:8px}.dgm-carousel-next{right:8px}
+@media(max-width:600px){.dgm-image-hero{grid-template-columns:1fr;min-height:0}.dgm-image-copy{padding:21px 19px 13px}.dgm-image-copy h2{font-size:25px;max-width:330px}.dgm-image-copy p{font-size:11px}.dgm-service-carousel{min-height:210px}.dgm-service-slide{padding:20px 35px}.dgm-showcase-panel{min-height:145px;padding:15px}.dgm-showcase-title{font-size:18px}}
+@media(prefers-reduced-motion:reduce){.dgm-service-slide,.dgm-carousel-dot{transition:none!important}}
 </style>
 
 </head>
@@ -187,10 +202,27 @@ body{
     <div class="dgm-image-kicker">Stay Connected. Stay Genius.</div>
     <h2>Your digital life, all in one place.</h2>
     <p>Buy data and airtime, manage your wallet, save with Susu and explore DGM services.</p>
-    <a class="dgm-image-cta" href="/data.html">Explore DGM Services&nbsp; →</a>
+    <a class="dgm-image-cta" href="/service.html">Explore DGM Services&nbsp; →</a>
   </div>
-  <div class="dgm-image-visual">
-    <img src="https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&amp;fit=crop&amp;w=1100&amp;q=85" alt="Smartphone representing DGM mobile and digital services" loading="eager" fetchpriority="high">
+  <div class="dgm-service-carousel" id="dgmServiceCarousel" aria-label="Featured DGM services" aria-roledescription="carousel">
+    <div class="dgm-service-slide is-active" role="group" aria-label="1 of 5: Data and airtime">
+      <div class="dgm-showcase-panel"><div class="dgm-showcase-label">Stay connected</div><div class="dgm-showcase-title">Data &amp; Airtime</div><div class="dgm-showcase-row"><span class="dgm-showcase-chip"><i>📶</i> MTN</span><span class="dgm-showcase-chip"><i>📱</i> Telecel</span><span class="dgm-showcase-chip"><i>🌐</i> AirtelTigo</span></div><div class="dgm-showcase-note"><span>Quick top-ups</span><span>Easy ordering</span></div></div>
+    </div>
+    <div class="dgm-service-slide" role="group" aria-label="2 of 5: Wallet and payments">
+      <div class="dgm-showcase-panel"><div class="dgm-showcase-label">Your money, your control</div><div class="dgm-showcase-title">DGM Wallet</div><div class="dgm-showcase-row"><span class="dgm-showcase-chip"><i>₵</i> Add money</span><span class="dgm-showcase-chip"><i>↗</i> Withdraw</span></div><div class="dgm-showcase-note"><span>Wallet payments</span><span>Transaction history</span></div></div>
+    </div>
+    <div class="dgm-service-slide" role="group" aria-label="3 of 5: Savings and Susu">
+      <div class="dgm-showcase-panel"><div class="dgm-showcase-label">Build toward your goals</div><div class="dgm-showcase-title">Savings &amp; Susu</div><div class="dgm-showcase-row"><span class="dgm-showcase-chip"><i>🏦</i> Personal savings</span><span class="dgm-showcase-chip"><i>👥</i> Group Susu</span></div><div class="dgm-showcase-meter"><span></span></div><div class="dgm-showcase-note"><span>Small steps add up</span><span>Save with purpose</span></div></div>
+    </div>
+    <div class="dgm-service-slide" role="group" aria-label="4 of 5: Digital services">
+      <div class="dgm-showcase-panel"><div class="dgm-showcase-label">More in one place</div><div class="dgm-showcase-title">Digital Services</div><div class="dgm-showcase-row"><span class="dgm-showcase-chip"><i>🚀</i> Social boost</span><span class="dgm-showcase-chip"><i>🛒</i> DGM Market</span><span class="dgm-showcase-chip"><i>✨</i> More services</span></div><div class="dgm-showcase-note"><span>Explore what you need</span><span>DGM services</span></div></div>
+    </div>
+    <div class="dgm-service-slide" role="group" aria-label="5 of 5: Orders and support">
+      <div class="dgm-showcase-panel"><div class="dgm-showcase-label">Help when you need it</div><div class="dgm-showcase-title">Orders &amp; Support</div><div class="dgm-showcase-row"><span class="dgm-showcase-chip"><i>📦</i> Track orders</span><span class="dgm-showcase-chip"><i>💬</i> Customer support</span></div><div class="dgm-showcase-note"><span>Stay up to date</span><span>We're here to help</span></div></div>
+    </div>
+    <button class="dgm-carousel-arrow dgm-carousel-prev" type="button" aria-label="Previous featured service">‹</button>
+    <button class="dgm-carousel-arrow dgm-carousel-next" type="button" aria-label="Next featured service">›</button>
+    <div class="dgm-carousel-controls" aria-label="Choose featured service"><button class="dgm-carousel-dot" type="button" aria-label="Show data and airtime" aria-pressed="true"></button><button class="dgm-carousel-dot" type="button" aria-label="Show wallet and payments" aria-pressed="false"></button><button class="dgm-carousel-dot" type="button" aria-label="Show savings and Susu" aria-pressed="false"></button><button class="dgm-carousel-dot" type="button" aria-label="Show digital services" aria-pressed="false"></button><button class="dgm-carousel-dot" type="button" aria-label="Show orders and support" aria-pressed="false"></button></div>
   </div>
 </section>
 <section class="section" id="broadcastSection" style="display:none;margin-top:14px">
@@ -216,6 +248,35 @@ body{
 <section class="section"><div class="section-head"><h2 class="section-title">Notifications</h2><a class="section-link" href="/notifications.html">View all →</a></div><div class="activity-card" id="notifications"><div class="empty"><div>🔔</div>Loading notifications...</div></div></section>
 </main>
 <nav class="bottom-nav"><button class="active" onclick="goTo('/dashboard.html')"><span class="bottom-icon">⌂</span>Home</button><button onclick="goTo('/service.html')"><span class="bottom-icon">▦</span>Services</button><button onclick="goTo('/orders.html')"><span class="bottom-icon">◷</span>Orders</button><button onclick="goTo('/account.html')"><span class="bottom-icon">◉</span>Account</button></nav>
+<script>
+(function(){
+ const root=document.getElementById('dgmServiceCarousel');
+ if(!root)return;
+ const slides=Array.from(root.querySelectorAll('.dgm-service-slide'));
+ const dots=Array.from(root.querySelectorAll('.dgm-carousel-dot'));
+ const prev=root.querySelector('.dgm-carousel-prev');
+ const next=root.querySelector('.dgm-carousel-next');
+ if(!slides.length)return;
+ let current=0,timer=null;
+ const reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ function show(index){
+   current=(index+slides.length)%slides.length;
+   slides.forEach((slide,i)=>{slide.classList.toggle('is-active',i===current);slide.setAttribute('aria-hidden',i===current?'false':'true');});
+   dots.forEach((dot,i)=>dot.setAttribute('aria-pressed',i===current?'true':'false'));
+ }
+ function stop(){if(timer){window.clearInterval(timer);timer=null;}}
+ function start(){stop();if(!reduced&&!document.hidden)timer=window.setInterval(()=>show(current+1),4600);}
+ dots.forEach((dot,i)=>dot.addEventListener('click',()=>{show(i);start();}));
+ prev.addEventListener('click',()=>{show(current-1);start();});
+ next.addEventListener('click',()=>{show(current+1);start();});
+ root.addEventListener('mouseenter',stop);
+ root.addEventListener('mouseleave',start);
+ root.addEventListener('focusin',stop);
+ root.addEventListener('focusout',start);
+ document.addEventListener('visibilitychange',()=>document.hidden?stop():start());
+ show(0);start();
+})();
+</script>
 <script>
 function goTo(page){if(page){closeMenu();window.location.assign(page)}}function openMenu(){document.getElementById("sidebar").classList.add("open");document.getElementById("overlay").classList.add("show");document.body.style.overflow="hidden"}function closeMenu(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("show");document.body.style.overflow=""}
 async function logout(){try{await fetch("/api/logout",{method:"POST",credentials:"include",cache:"no-store"})}catch(e){}window.location.replace("/login.html")}
