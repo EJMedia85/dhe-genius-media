@@ -6051,6 +6051,11 @@ app.post(
           req.body.password || ""
         );
 
+      const confirmPassword =
+        String(
+          req.body.confirmPassword || ""
+        );
+
       if (!name) {
 
         return sendError(
@@ -6080,14 +6085,19 @@ app.post(
         );
       }
 
-      if (
-        password.length < 6
-      ) {
-
+      if (password.length < 8) {
         return sendError(
           res,
           400,
-          "Password must be at least 6 characters."
+          "Password must be at least 8 characters."
+        );
+      }
+
+      if (password !== confirmPassword) {
+        return sendError(
+          res,
+          400,
+          "Passwords do not match."
         );
       }
 
