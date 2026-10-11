@@ -18,7 +18,7 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 .page-title{margin-bottom:20px}.page-title h1{font-size:26px;margin-bottom:5px}.page-title p{color:var(--muted);font-size:13px;line-height:1.5}
 .wallet-card{background:linear-gradient(135deg,rgba(34,213,138,.13),rgba(0,140,255,.08));border:1px solid rgba(34,213,138,.18);border-radius:18px;padding:16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .wallet-card small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.wallet-card strong{font-size:22px}.wallet-refresh{border:none;background:rgba(255,255,255,.07);color:#fff;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:800}
-.section-title{font-size:16px;margin:22px 0 12px}
+.section-title{font-size:16px;margin:22px 0 12px}.catalog-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-7px 0 14px;padding:12px 14px;border:1px solid rgba(37,211,102,.18);border-radius:13px;background:linear-gradient(110deg,rgba(37,211,102,.08),rgba(0,140,255,.04));color:var(--muted);font-size:11px}.catalog-status strong{color:#a9f4cc;font-size:11px}.catalog-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:7px;box-shadow:0 0 10px rgba(34,213,138,.55)}.catalog-error{display:none;padding:12px 14px;border-radius:12px;margin:0 0 13px;font-size:12px;line-height:1.5;color:#ffaaaa;background:rgba(255,70,70,.1);border:1px solid rgba(255,70,70,.2)}.catalog-error.show{display:block}
 .networks{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}
 .network{border:1px solid var(--border);background:var(--card);color:#fff;border-radius:14px;padding:13px 8px;font-size:12px;font-weight:800;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden}
 .network.active{border-color:var(--blue);background:rgba(0,140,255,.13);box-shadow:0 0 0 1px rgba(0,140,255,.15)}
@@ -72,8 +72,10 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 <button class="network" aria-label="Telecel" onclick="selectNetwork('Telecel',this)"><span class="network-logo"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#e31b35"/><path d="M18 20 H46 M32 20 V46" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="32" r="7" fill="#fff"/></svg></span><span class="network-name">Telecel</span></button>
 </section>
 
-<h2 class="section-title">Select Bundle</h2>
-<section id="bundleGrid" class="bundle-grid"></section>
+<h2 class="section-title">Choose your data bundle</h2>
+<div class="catalog-status"><span><i class="catalog-dot"></i><strong id="catalogStatus">Loading current prices…</strong></span><span id="catalogUpdated">Prices are checked against DGM’s live catalogue</span></div>
+<div id="catalogError" class="catalog-error" role="status"></div>
+<section id="bundleGrid" class="bundle-grid" aria-label="Available data bundles"></section>
 
 <section id="purchaseFlow" class="purchase-flow">
 <div id="message" class="message"></div>
@@ -115,13 +117,18 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 </nav>
 
 <script>
-let bundles={};let selectedNetwork="MTN";let selectedBundle=null;let currentOrder=null;
+let bundles={};let selectedNetwork="MTN";let selectedBundle=null;let currentOrder=null;let catalogMeta={validity_days:90,price_checked_at:null};
 
 async function loadBundleCatalog(){
  const response=await fetch("/api/data-bundles",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}});
  const data=await response.json().catch(()=>({}));
  if(!response.ok||!data.success||!data.networks)throw new Error(data.message||"Could not load current DGM bundle prices.");
- bundles=data.networks;
+ bundles=data.networks;catalogMeta={validity_days:Number(data.validity_days)||90,price_checked_at:data.price_checked_at||null};
+ const count=Object.values(bundles).reduce((n,items)=>n+(Array.isArray(items)?items.length:0),0);
+ document.getElementById("catalogStatus").textContent=count+" bundles · live catalogue";
+ const checked=catalogMeta.price_checked_at?new Date(catalogMeta.price_checked_at):null;
+ document.getElementById("catalogUpdated").textContent=checked&&!Number.isNaN(checked.getTime())?"Prices checked "+checked.toLocaleString([],{dateStyle:"medium",timeStyle:"short"}):"Prices loaded from DGM’s current catalogue";
+ document.getElementById("catalogError").classList.remove("show");
 }
 function showMessage(message,type){const e=document.getElementById("message");e.textContent=message;e.className="message show "+type}
 function clearMessage(){const e=document.getElementById("message");e.textContent="";e.className="message"}
@@ -141,7 +148,7 @@ function renderBundles(){
   const button=document.createElement("button");button.type="button";button.className="bundle"+(available?"":" out-of-stock");button.disabled=!available;button.setAttribute("aria-disabled",String(!available));
   const brandClass=selectedNetwork==="MTN"?"mtn":selectedNetwork==="AirtelTigo"?"at":"telecel";
   const brandLogo=selectedNetwork==="MTN"?'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="#ffcb05"/><circle cx="32" cy="32" r="26" fill="none" stroke="#111" stroke-width="2"/><text x="32" y="38" text-anchor="middle" font-family="Arial" font-size="14" font-weight="900">MTN</text></svg>':selectedNetwork==="AirtelTigo"?'<svg viewBox="0 0 64 64"><rect x="2" y="2" width="60" height="60" rx="17" fill="#fff"/><path d="M15 43 C18 27 27 15 45 15" fill="none" stroke="#e21b2d" stroke-width="7" stroke-linecap="round"/><path d="M27 48 C34 42 41 36 48 27" fill="none" stroke="#1670c9" stroke-width="7" stroke-linecap="round"/><text x="32" y="38" text-anchor="middle" font-family="Arial" font-size="14" font-weight="900" fill="#e21b2d">AT</text></svg>':'<svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="29" fill="#e31b35"/><path d="M18 20 H46 M32 20 V46" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="32" r="7" fill="#fff"/></svg>';
-  button.innerHTML='<div class="bundle-brand '+brandClass+'"><span class="bundle-logo">'+brandLogo+'</span><span class="bundle-network">'+(selectedNetwork==="AirtelTigo"?"AirtelTigo / AT":selectedNetwork)+'</span></div><div class="check">✓</div><div class="bundle-content"><div class="bundle-name">'+size+'</div><div class="bundle-price">GH₵'+price.toFixed(2)+'</div><div class="bundle-validity">Validity: 90 days</div><div class="bundle-availability '+(available?"available":"unavailable")+'">'+(available?"✓ Available":"✕ Out of stock")+'</div></div>';
+  button.innerHTML='<div class="bundle-brand '+brandClass+'"><span class="bundle-logo">'+brandLogo+'</span><span class="bundle-network">'+(selectedNetwork==="AirtelTigo"?"AirtelTigo / AT":selectedNetwork)+'</span></div><div class="check">✓</div><div class="bundle-content"><div class="bundle-name">'+size+'</div><div class="bundle-price">GH₵'+price.toFixed(2)+'</div><div class="bundle-validity">Validity: '+catalogMeta.validity_days+' days</div><div class="bundle-availability '+(available?"available":"unavailable")+'">'+(available?"✓ Available":"✕ Out of stock")+'</div></div>';
   if(available)button.onclick=()=>selectBundle(size,price,button);
   grid.appendChild(button);
  });
@@ -208,7 +215,7 @@ async function payWithPaystack(){
   window.location.href=data.authorization_url;
  }catch(error){console.error("Paystack error:",error);showMessage(error.message||"Unable to open Paystack.","error");button.disabled=false;walletButton.disabled=false;button.textContent="🔵 Pay with Paystack"}
 }
-(async function startDataPage(){try{await loadBundleCatalog();renderBundles();await loadWallet()}catch(error){console.error("DGM data catalog error:",error);showMessage(error.message||"Could not load current bundle prices.","error")}})();
+(async function startDataPage(){try{await loadBundleCatalog();renderBundles();await loadWallet()}catch(error){console.error("DGM data catalog error:",error);const notice=document.getElementById("catalogError");notice.textContent=error.message||"Could not load current bundle prices. Please refresh to try again.";notice.classList.add("show");document.getElementById("catalogStatus").textContent="Prices temporarily unavailable";document.getElementById("catalogUpdated").textContent="We won’t show guessed prices";document.getElementById("bundleGrid").innerHTML="";}})();
 </script>
 <script>
 (function(){function enableDgmBrandNavigation(){document.querySelectorAll('.brand,.logo,.brand-name,header b,header strong').forEach(function(el){if(el.dataset.dgmNavBound==='1')return;var text=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();if(!text.includes('dgm')&&!text.includes('dhe genius media')&&!text.includes('stay connected. stay genius'))return;el.dataset.dgmNavBound='1';el.style.cursor='pointer';el.setAttribute('role','link');el.setAttribute('aria-label','Go to DGM Dashboard');el.addEventListener('click',function(event){if(event.target.closest('a')&&event.target.closest('a')!==el)return;window.location.href='/dashboard.html'})})}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enableDgmBrandNavigation);else enableDgmBrandNavigation()})();
