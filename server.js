@@ -7611,6 +7611,79 @@ app.post("/api/guest-payments/initialize", async (req, res) => {
   }
 });
 
+app.post("/api/guest-orders/verify", async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Payment verification is not configured.");
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    const reference = String(req.body?.reference || "").trim();
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef) || !/^[a-f0-9]{64}$/i.test(guestToken) || !reference) {
+      return sendError(res, 400, "Guest order verification details are incomplete.");
+    }
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const found = await pool.query(
+      "SELECT * FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1",
+      [orderRef, tokenHash]
+    );
+    const order = found.rows[0];
+    if (!order) return sendError(res, 404, "Guest order not found.");
+    if (String(order.payment_status || "").toLowerCase() === "paid") {
+      return res.json({ success: true, verified: true, order: { order_ref: order.order_ref, status: order.status, payment_status: order.payment_status } });
+    }
+    if (!order.paystack_reference || reference !== order.paystack_reference) {
+      return sendError(res, 403, "This Paystack reference does not belong to the guest order.");
+    }
+    const response = await fetch("https://api.paystack.co/transaction/verify/" + encodeURIComponent(reference), {
+      method: "GET",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, Accept: "application/json" }
+    });
+    const raw = await response.text();
+    let verified = {};
+    try { verified = JSON.parse(raw); } catch {}
+    if (!response.ok || !verified.status || !verified.data) {
+      console.error("Guest Paystack verification failed:", response.status, verified?.message || "Invalid verification response");
+      return sendError(res, 502, "Paystack could not verify this payment yet. We will keep checking your order.");
+    }
+    const transaction = verified.data;
+    if (String(transaction.reference || "") !== reference) return sendError(res, 400, "Paystack reference mismatch.");
+    if (String(transaction.status || "").toLowerCase() !== "success") {
+      return res.status(202).json({ success: true, verified: false, order: { order_ref: order.order_ref, status: order.status, payment_status: order.payment_status } });
+    }
+    if (String(transaction.currency || "").toUpperCase() !== "GHS" ||
+        Math.round(Number(transaction.amount || 0)) !== Math.round(Number(order.amount || 0) * 100)) {
+      console.error("Guest Paystack verification amount/currency mismatch:", order.order_ref, reference);
+      return sendError(res, 400, "The payment amount or currency did not match this order. Contact DGM support.");
+    }
+    const marked = await pool.query(
+      `UPDATE orders SET payment_status='Paid', paid_at=COALESCE(paid_at,NOW()),
+        status=CASE WHEN status='Pending Payment' THEN 'Processing' ELSE status END
+       WHERE id=$1 AND customer_id IS NULL AND LOWER(COALESCE(payment_status,'pending')) <> 'paid'
+       RETURNING id`,
+      [order.id]
+    );
+    if (marked.rowCount === 1) {
+      const updated = (await pool.query("SELECT * FROM orders WHERE id=$1 LIMIT 1", [order.id])).rows[0];
+      try {
+        const fulfillment = await fulfillDataOrder(updated);
+        if (!fulfillment.success || fulfillment.status === "Failed") {
+          await refundFailedCustomerOrder(order.id, fulfillment.error || "Data bundle could not be placed.");
+        }
+      } catch (error) {
+        console.error("Guest data fulfillment failed after verified payment:", order.order_ref, error.message);
+        await refundFailedCustomerOrder(order.id, error.message || "Data bundle could not be placed.");
+      }
+    }
+    const latest = await pool.query(
+      "SELECT order_ref, service, network, phone, amount, status, capacity, payment_status, paid_at, provider_status, provider_message, created_at, completed_at FROM orders WHERE id=$1",
+      [order.id]
+    );
+    return res.json({ success: true, verified: true, order: latest.rows[0] });
+  } catch (error) {
+    console.error("Guest payment verification error:", error.message);
+    return sendError(res, 500, "Could not verify this payment yet. Your order status will keep updating.");
+  }
+});
+
 app.post("/api/guest-orders/status", async (req, res) => {
   try {
     const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
