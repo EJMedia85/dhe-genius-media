@@ -9406,6 +9406,131 @@ app.post("/api/susu/v2/invitations/:id/respond", requireLogin, async (req,res)=>
   } catch(e){ console.error("Respond Susu invitation:",e.message); res.status(500).json({success:false,message:e.message||"Could not process invitation."}); }
 });
 
+// Recover a successful Paystack checkout when the webhook was delayed or not delivered.
+// The server verifies the transaction directly with Paystack before marking the order paid.
+app.get("/api/payments/verify", requireLogin, async (req, res) => {
+  const reference = String(req.query?.reference || "").trim();
+  if (!reference || reference.length > 120) {
+    return sendError(res, 400, "A valid payment reference is required.");
+  }
+
+  try {
+    const found = await pool.query(
+      "SELECT * FROM orders WHERE paystack_reference = $1 AND customer_id = $2 LIMIT 1",
+      [reference, req.session.customerId]
+    );
+    if (!found.rows.length) {
+      return sendError(res, 404, "No matching order was found for this account.");
+    }
+
+    let order = found.rows[0];
+    if (!isDataService(order.service)) {
+      return sendError(res, 400, "This payment reference is not for a data order.");
+    }
+
+    // Never run fulfilment a second time through this fallback if another handler
+    // has already claimed the payment.
+    if (String(order.payment_status || "").toLowerCase() === "paid") {
+      return res.json({
+        success: true,
+        paymentStatus: order.payment_status,
+        orderStatus: order.status,
+        message: "Payment is already recorded. Order status has been refreshed."
+      });
+    }
+    if (String(order.payment_status || "").toLowerCase() !== "pending" ||
+        String(order.status || "").toLowerCase() !== "pending payment") {
+      return sendError(res, 409, "This order is no longer awaiting payment confirmation.");
+    }
+
+    const verificationResponse = await fetch(
+      "https://api.paystack.co/transaction/verify/" + encodeURIComponent(reference),
+      {
+        method: "GET",
+        headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY }
+      }
+    );
+    const verification = await verificationResponse.json().catch(() => ({}));
+    const payment = verification?.data || {};
+    const verifiedAmount = Number(payment.amount);
+    const expectedAmount = Math.round(Number(order.amount) * 100);
+
+    if (!verificationResponse.ok || verification?.status !== true ||
+        String(payment.status || "").toLowerCase() !== "success" ||
+        String(payment.reference || "") !== reference ||
+        String(payment.currency || "").toUpperCase() !== "GHS" ||
+        !Number.isFinite(verifiedAmount) || verifiedAmount !== expectedAmount) {
+      console.warn("Paystack return verification did not match the pending DGM order:", order.order_ref);
+      return sendError(res, 409, "Paystack has not confirmed a matching successful payment for this order yet.");
+    }
+
+    const claimed = await pool.query(
+      `
+      UPDATE orders
+      SET payment_status = 'Paid',
+          paid_at = COALESCE(paid_at, NOW()),
+          status = 'Processing'
+      WHERE id = $1
+        AND customer_id = $2
+        AND payment_status = 'Pending'
+        AND status = 'Pending Payment'
+      RETURNING *
+      `,
+      [order.id, req.session.customerId]
+    );
+    if (!claimed.rows.length) {
+      const latest = (await pool.query(
+        "SELECT payment_status, status FROM orders WHERE id = $1 AND customer_id = $2",
+        [order.id, req.session.customerId]
+      )).rows[0];
+      return res.json({
+        success: true,
+        paymentStatus: latest?.payment_status || "Pending",
+        orderStatus: latest?.status || "Pending",
+        message: "Payment confirmation is already being handled."
+      });
+    }
+
+    order = claimed.rows[0];
+    let fulfillment;
+    try {
+      fulfillment = await fulfillDataOrder(order);
+    } catch (error) {
+      fulfillment = { success: false, status: "Failed", error: error.message };
+    }
+
+    if (!fulfillment?.success || fulfillment.status === "Failed") {
+      const reason = String(fulfillment?.error || "Data bundle could not be placed.").slice(0, 1000);
+      console.error("Data fulfillment failed after verified Paystack return:", order.order_ref, reason);
+      await refundFailedCustomerOrder(order.id, reason);
+      const latest = (await pool.query(
+        "SELECT payment_status, status FROM orders WHERE id = $1",
+        [order.id]
+      )).rows[0];
+      return res.json({
+        success: true,
+        paymentStatus: latest?.payment_status || "Refunded",
+        orderStatus: latest?.status || "Refunded",
+        message: "Payment was confirmed, but the bundle could not be placed. DGM has initiated its refund handling."
+      });
+    }
+
+    const latest = (await pool.query(
+      "SELECT payment_status, status FROM orders WHERE id = $1",
+      [order.id]
+    )).rows[0];
+    return res.json({
+      success: true,
+      paymentStatus: latest?.payment_status || "Paid",
+      orderStatus: latest?.status || fulfillment.status || "Processing",
+      message: "Payment verified. Your order has been sent for fulfilment."
+    });
+  } catch (error) {
+    console.error("Paystack return verification error:", error.message);
+    return sendError(res, 500, "Could not verify the payment right now. Please refresh your orders shortly.");
+  }
+});
+
 // DGM Agent System
 installAgent(app, {
   pool,
