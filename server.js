@@ -5599,18 +5599,11 @@ app.post("/api/payments/initialize", requireLogin, async (req, res) => {
       return sendError(res, 400, "Add a valid email address to your DGM account before paying with Paystack.");
     }
 
-    // Reuse an existing pending reference if one was created previously.
-    const reference = String(order.paystack_reference || (
-      "DGM-DATA-" + Date.now().toString(36).toUpperCase() + "-" +
-      crypto.randomBytes(5).toString("hex").toUpperCase()
-    ));
-
-    if (!order.paystack_reference) {
-      await pool.query(
-        "UPDATE orders SET paystack_reference = $1 WHERE id = $2 AND customer_id = $3 AND LOWER(COALESCE(payment_status, 'pending')) <> 'paid'",
-        [reference, order.id, req.session.customerId]
-      );
-    }
+    // Use a fresh reference for every initialization attempt. Persist it only
+    // after Paystack accepts the initialization request, so a failed attempt
+    // does not leave an unusable reference on the order.
+    const reference = "DGM-DATA-" + Date.now().toString(36).toUpperCase() + "-" +
+      crypto.randomBytes(5).toString("hex").toUpperCase();
 
     const callbackUrl = BASE_URL.replace(/\/$/, "") +
       "/orders.html?payment=returned&reference=" + encodeURIComponent(reference);
@@ -5641,6 +5634,14 @@ app.post("/api/payments/initialize", requireLogin, async (req, res) => {
     if (!paystackResponse.ok || !paymentData.status || !paymentData.data?.authorization_url) {
       console.error("Paystack data-order initialization failed:", paystackResponse.status, paymentData?.message || "No authorization URL");
       return sendError(res, 502, paymentData?.message || "Paystack could not initialize this data payment.");
+    }
+
+    const savedReference = await pool.query(
+      "UPDATE orders SET paystack_reference = $1 WHERE id = $2 AND customer_id = $3 AND LOWER(COALESCE(payment_status, 'pending')) <> 'paid'",
+      [reference, order.id, req.session.customerId]
+    );
+    if (savedReference.rowCount !== 1) {
+      return sendError(res, 409, "Order status changed. Refresh your orders before trying again.");
     }
 
     console.log("PAYSTACK DATA ORDER INITIALIZED:", order.order_ref, "|", reference, "| GH₵" + amount.toFixed(2));
