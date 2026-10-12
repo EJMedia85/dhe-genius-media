@@ -5402,11 +5402,48 @@ app.post(
         return res.sendStatus(400);
       }
 
+      // Paystack refund lifecycle events use this same signed webhook endpoint.
+      // A refund request is only considered complete after Paystack reports processed.
+      const refundEvent = String(event?.event || "");
+      const refundStates = {
+        "refund.pending": { status: "pending", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack refund is pending." },
+        "refund.processing": { status: "pending", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack is processing the refund." },
+        "refund.needs-attention": { status: "needs_review", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack needs additional information to complete the refund. DGM support must review this payment." },
+        "refund.failed": { status: "needs_review", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack reports that the refund failed. DGM support must review this payment." },
+        "refund.processed": { status: "processed", orderStatus: "Refunded", paymentStatus: "Refunded", message: "Paystack confirms that the refund was processed." }
+      };
+      if (refundStates[refundEvent]) {
+        const data = event?.data || {};
+        const transactionReference = String(
+          data.transaction_reference || data.transaction?.reference || ""
+        ).trim();
+        if (!transactionReference) return res.sendStatus(200);
+        const state = refundStates[refundEvent];
+        const saved = await pool.query(
+          `UPDATE orders
+             SET guest_refund_status=$1,
+                 guest_refund_reference=COALESCE(NULLIF($2,''),guest_refund_reference),
+                 status=$3,
+                 payment_status=$4,
+                 provider_message=$5,
+                 provider_updated_at=NOW()
+           WHERE customer_id IS NULL
+             AND paystack_reference=$6
+             AND guest_refund_status IS NOT NULL
+           RETURNING order_ref`,
+          [state.status, String(data.refund_reference || data.id || ""), state.orderStatus,
+           state.paymentStatus, state.message, transactionReference]
+        );
+        if (saved.rowCount) {
+          console.log("Paystack guest refund webhook processed:", refundEvent, saved.rows.map(row => row.order_ref));
+        }
+        return res.sendStatus(200);
+      }
+
       if (
         event.event !==
         "charge.success"
       ) {
-
         return res.sendStatus(200);
       }
 
