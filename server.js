@@ -1256,7 +1256,7 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
       order_ref TEXT UNIQUE NOT NULL,
-      customer_id INTEGER NOT NULL
+      customer_id INTEGER
         REFERENCES customers(id)
         ON DELETE CASCADE,
       service TEXT NOT NULL,
@@ -1720,6 +1720,12 @@ async function initDatabase() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS base_amount NUMERIC(12,2);`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS campaign_id INTEGER REFERENCES marketing_campaigns(id) ON DELETE SET NULL;`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS promo_discount NUMERIC(12,2) NOT NULL DEFAULT 0;`);
+  // Guest data orders have no customer account. Keep a hashed, high-entropy
+  // tracking token so an order reference alone never exposes order details.
+  await pool.query(`ALTER TABLE orders ALTER COLUMN customer_id DROP NOT NULL;`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_email TEXT;`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_token_hash TEXT;`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS orders_guest_tracking_idx ON orders(order_ref) WHERE customer_id IS NULL;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS customer_promo_uses (
@@ -3965,7 +3971,8 @@ async function processCompletedOrderRewards(orderId){
   const client=await pool.connect();
   try{await client.query("BEGIN");
     const o=(await client.query("SELECT id,customer_id,order_ref,amount,status FROM orders WHERE id=$1 FOR UPDATE",[orderId])).rows[0];
-    if(!o||o.status!=="Completed"){await client.query("ROLLBACK");return;}
+    // Guest purchases are not eligible for account loyalty/referral rewards.
+    if(!o||!o.customer_id||o.status!=="Completed"){await client.query("ROLLBACK");return;}
     const points=Math.max(1,Math.floor(Number(o.amount||0)*10));
     const existing=await client.query("SELECT id FROM loyalty_transactions WHERE reference=$1 LIMIT 1",["ORDER:"+o.id]);
     if(!existing.rows.length){
@@ -3990,6 +3997,11 @@ async function refundFailedCustomerOrder(orderId,reason){
   try{await client.query("BEGIN");
     const o=(await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE",[orderId])).rows[0];
     if(!o||String(o.payment_status||"").toLowerCase()==="refunded"){await client.query("ROLLBACK");return;}
+    if(!o.customer_id){
+      await client.query("UPDATE orders SET status='Failed',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[("Guest order could not be fulfilled. Contact DGM support for payment assistance. "+String(reason||"")).slice(0,1000),orderId]);
+      await client.query("COMMIT");
+      return;
+    }
     const cust=(await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[o.customer_id])).rows[0];
     if(!cust) throw new Error("Customer not found");
     const before=Number(cust.balance||0), amount=Number(o.amount||0), after=Math.round((before+amount)*100)/100, ref="DGM-REFUND-"+o.order_ref;
@@ -7503,6 +7515,121 @@ app.get(
 // =====================================================
 // CREATE DATA ORDER
 // =====================================================
+
+// =====================================================
+// GUEST DATA ORDERS (NO ACCOUNT REQUIRED)
+// =====================================================
+app.post("/api/guest-orders", async (req, res) => {
+  try {
+    const network = String(req.body?.network || "").trim();
+    const phone = normalizeGhanaPhone(req.body?.phone);
+    const capacity = normalizeCapacity(req.body?.capacity);
+    if (!["MTN", "AirtelTigo", "Telecel"].includes(network)) return sendError(res, 400, "Please select a valid network.");
+    if (!validGhanaPhone(phone)) return sendError(res, 400, "Enter a valid Ghana phone number.");
+    if (!capacity) return sendError(res, 400, "Please select a data bundle.");
+    const networkPrices = DGM_PRICES[network];
+    const baseAmount = networkPrices?.[capacity];
+    if (typeof baseAmount !== "number") return sendError(res, 400, "This data bundle is unavailable.");
+    const availability = await refreshDataMartBundleAvailability();
+    if (availability?.[network]?.[capacity] === false) return sendError(res, 409, "This data bundle is currently unavailable.");
+    const campaign = await getAutomaticCampaign(network, capacity, baseAmount, null);
+    const amount = campaign ? campaign.sale_amount : baseAmount;
+    const orderRef = createOrderReference();
+    const guestToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const result = await pool.query(
+      `INSERT INTO orders
+        (order_ref, customer_id, service, network, phone, amount, status, capacity,
+         payment_status, base_amount, campaign_id, promo_discount, guest_token_hash)
+       VALUES ($1, NULL, 'Data Bundle', $2, $3, $4, 'Pending Payment', $5,
+         'Pending', $6, $7, $8, $9)
+       RETURNING id, order_ref, service, network, phone, amount, status, capacity,
+         payment_status, base_amount, promo_discount, created_at`,
+      [orderRef, network, phone, amount, String(capacity), baseAmount,
+       campaign ? campaign.id : null, campaign ? campaign.discount : 0, tokenHash]
+    );
+    if (campaign) await pool.query("UPDATE marketing_campaigns SET uses=uses+1,updated_at=NOW() WHERE id=$1", [campaign.id]);
+    return res.json({
+      success: true,
+      guest: true,
+      guest_token: guestToken,
+      promotion: campaign ? { id: campaign.id, title: campaign.title, discount: campaign.discount } : null,
+      order: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Guest data order creation error:", error.message);
+    return sendError(res, 500, "Could not create your guest order. Please try again.");
+  }
+});
+
+app.post("/api/guest-payments/initialize", async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Paystack payments are not configured.");
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)) return sendError(res, 400, "Order reference is invalid.");
+    if (!/^[a-f0-9]{64}$/i.test(guestToken)) return sendError(res, 403, "Guest tracking session is invalid. Recreate the order.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendError(res, 400, "Enter a valid email address for your Paystack receipt.");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const found = await pool.query(
+      "SELECT * FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1",
+      [orderRef, tokenHash]
+    );
+    const order = found.rows[0];
+    if (!order) return sendError(res, 404, "Guest order not found. Please create your order again.");
+    if (!isDataService(order.service)) return sendError(res, 400, "Paystack payment is only available for data orders.");
+    if (String(order.payment_status || "").toLowerCase() === "paid") return res.json({ success: true, alreadyPaid: true, order });
+    const amount = Number(order.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return sendError(res, 400, "Order amount is invalid.");
+    const reference = "DGM-GUEST-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+    const callbackUrl = BASE_URL.replace(/\/$/, "") + "/guest-order.html#ref=" + encodeURIComponent(order.order_ref) + "&token=" + encodeURIComponent(guestToken);
+    const response = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        email, amount: String(Math.round(amount * 100)), currency: "GHS", reference, callback_url: callbackUrl,
+        metadata: { type: "guest_data_order", order_ref: order.order_ref, network: order.network, capacity: order.capacity }
+      })
+    });
+    const raw = await response.text();
+    let paymentData = {};
+    try { paymentData = JSON.parse(raw); } catch {}
+    if (!response.ok || !paymentData.status || !paymentData.data?.authorization_url) {
+      console.error("Guest Paystack initialization failed:", response.status, paymentData?.message || "No authorization URL");
+      return sendError(res, 502, paymentData?.message || "Paystack could not initialize this payment.");
+    }
+    const saved = await pool.query(
+      "UPDATE orders SET paystack_reference=$1, guest_email=$2 WHERE id=$3 AND customer_id IS NULL AND guest_token_hash=$4 AND LOWER(COALESCE(payment_status,'pending')) <> 'paid'",
+      [reference, email, order.id, tokenHash]
+    );
+    if (saved.rowCount !== 1) return sendError(res, 409, "Order status changed. Refresh your order before paying.");
+    return res.json({ success: true, reference, amount, authorization_url: paymentData.data.authorization_url });
+  } catch (error) {
+    console.error("Guest Paystack initialization error:", error.message);
+    return sendError(res, 500, "Could not start Paystack payment.");
+  }
+});
+
+app.post("/api/guest-orders/status", async (req, res) => {
+  try {
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef) || !/^[a-f0-9]{64}$/i.test(guestToken)) return sendError(res, 400, "Guest order details are invalid.");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const result = await pool.query(
+      `SELECT order_ref, service, network, phone, amount, status, capacity, payment_status,
+        paid_at, provider_status, provider_message, created_at, completed_at
+       FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1`,
+      [orderRef, tokenHash]
+    );
+    if (!result.rows.length) return sendError(res, 404, "Order not found. Check the tracking link.");
+    return res.json({ success: true, order: result.rows[0] });
+  } catch (error) {
+    console.error("Guest order status error:", error.message);
+    return sendError(res, 500, "Could not load guest order status.");
+  }
+});
 
 app.post(
   "/api/orders",
