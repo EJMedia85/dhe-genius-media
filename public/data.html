@@ -218,7 +218,7 @@ async function payWithPaystack(){
   const data=await response.json().catch(()=>({}));
   if(response.status===401&&!guestMode){window.location.href="/login.html";return}
   if(!response.ok)throw new Error(data.message||"Unable to initialize Paystack.");
-  if(data.alreadyPaid){showMessage("This order has already been paid.","success");setTimeout(()=>window.location.href="/orders.html",1000);return}
+  if(data.alreadyPaid){showMessage("This order has already been paid.","success");if(guestMode&&currentOrder.guest_token){window.location.href="/guest-order.html#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token);return}setTimeout(()=>window.location.href="/orders.html",1000);return}
   if(!data.authorization_url)throw new Error("Paystack did not return a payment link.");
   if(guestMode){try{sessionStorage.setItem("dgm_guest_order",JSON.stringify({orderRef:currentOrder.order_ref,token:currentOrder.guest_token}))}catch{}}
   window.location.href=data.authorization_url;
