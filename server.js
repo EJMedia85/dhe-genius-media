@@ -5474,36 +5474,25 @@ app.post(
         return res.sendStatus(400);
       }
 
-      await pool.query(
+      const paymentUpdate = await pool.query(
         `
         UPDATE orders
         SET
           payment_status = 'Paid',
-          paid_at =
-            COALESCE(
-              paid_at,
-              NOW()
-            ),
-          status =
-            CASE
-              WHEN status =
-                'Pending Payment'
-              THEN 'Processing'
-              ELSE status
-            END,
-          paystack_reference =
-            COALESCE(
-              paystack_reference,
-              $1
-            )
+          paid_at = COALESCE(paid_at, NOW()),
+          status = CASE WHEN status = 'Pending Payment' THEN 'Processing' ELSE status END,
+          paystack_reference = COALESCE(paystack_reference, $1)
         WHERE id = $2
+          ${order.customer_id == null ? "AND LOWER(COALESCE(payment_status, 'pending')) <> 'paid'" : ""}
+        RETURNING id
         `,
-        [
-          reference,
-
-          order.id
-        ]
+        [reference, order.id]
       );
+      // Guest callback verification and webhook delivery may race. Only the
+      // request that transitions a guest order to Paid may begin fulfillment.
+      if (order.customer_id == null && paymentUpdate.rowCount !== 1) {
+        return res.sendStatus(200);
+      }
 
       const updatedResult =
         await pool.query(
