@@ -1918,11 +1918,42 @@
     }
 
 
+    async function reconcileReturnedPayment() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("payment") !== "returned") return;
+      const reference = (params.get("reference") || "").trim();
+      const result = document.getElementById("dgmCodeResult");
+      if (!reference) {
+        result.hidden = false;
+        result.className = "code-result error";
+        result.textContent = "Payment return detected, but the reference is missing. Refresh your orders or contact DGM Support.";
+        return;
+      }
+      result.hidden = false;
+      result.className = "code-result";
+      result.textContent = "Verifying your Paystack payment securely…";
+      try {
+        const response = await fetch("/api/payments/verify?reference=" + encodeURIComponent(reference), {
+          method: "GET",
+          credentials: "same-origin",
+          headers: { "Accept": "application/json" }
+        });
+        const data = await response.json().catch(() => ({}));
+        result.className = response.ok && data.success ? "code-result" : "code-result error";
+        result.textContent = data.message || "Payment verification is not complete yet. Refresh your orders shortly.";
+        await loadOrders(true);
+      } catch (error) {
+        result.className = "code-result error";
+        result.textContent = "Could not verify the payment right now. Refresh your orders shortly.";
+      }
+    }
+
     /* =========================
        START
     ========================= */
 
     loadOrders();
+    reconcileReturnedPayment();
 
     // Keep the customer page synchronized with the server/DataMart status.
     setInterval(() => loadOrders(false), 15000);
