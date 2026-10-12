@@ -1577,6 +1577,8 @@ async function initDatabase() {
     ["datamart_status", "TEXT"],
     ["capacity", "TEXT"],
     ["paystack_reference", "TEXT"],
+    ["guest_refund_status", "TEXT"],
+    ["guest_refund_reference", "TEXT"],
     ["payment_status", "TEXT DEFAULT 'Pending'"],
     ["paid_at", "TIMESTAMPTZ"],
     ["provider_reference", "TEXT"],
@@ -3992,25 +3994,106 @@ async function processCompletedOrderRewards(orderId){
   }catch(e){try{await client.query("ROLLBACK")}catch{};console.error("Reward processing error:",e.message)}finally{client.release()}
 }
 
+// Guest orders were paid directly through Paystack, not from the DGM wallet.
+// Claim the refund in the database before calling Paystack so callback/webhook races
+// cannot submit the same refund twice. A failed/ambiguous API call is left visible
+// for support reconciliation rather than blindly resubmitted.
+async function initiateGuestPaystackRefund(orderId, reason) {
+  if (!PAYSTACK_SECRET_KEY) {
+    await pool.query(
+      "UPDATE orders SET status='Refund Pending',guest_refund_status='needs_review',provider_message=$1,provider_updated_at=NOW() WHERE id=$2 AND customer_id IS NULL AND LOWER(COALESCE(payment_status,''))='paid' AND COALESCE(guest_refund_status,'')=''",
+      [("Delivery failed after payment. Paystack refund needs manual review because the refund API is not configured. Contact DGM support. "+String(reason||"")).slice(0,1000), orderId]
+    );
+    return;
+  }
+  const client = await pool.connect();
+  let order;
+  try {
+    await client.query("BEGIN");
+    order = (await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE", [orderId])).rows[0];
+    if (!order || order.customer_id || String(order.payment_status||"").toLowerCase() !== "paid" ||
+        !order.paystack_reference || String(order.guest_refund_status||"") !== "") {
+      await client.query("ROLLBACK");
+      return;
+    }
+    await client.query(
+      "UPDATE orders SET status='Refund Pending',guest_refund_status='processing',guest_refund_reference=$1,provider_message=$2,provider_updated_at=NOW() WHERE id=$3",
+      ["DGM-GUEST-REFUND-"+order.order_ref, ("Data delivery failed. Requesting Paystack refund; "+String(reason||"")).slice(0,1000), orderId]
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch {}
+    console.error("Guest Paystack refund claim failed:", error.message);
+    return;
+  } finally {
+    client.release();
+  }
+  try {
+    const response = await fetch("https://api.paystack.co/refund", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        transaction: order.paystack_reference,
+        customer_note: "DGM data order could not be delivered.",
+        merchant_note: "Automatic refund for failed guest order " + order.order_ref
+      })
+    });
+    const bodyText = await response.text();
+    let payload = {};
+    try { payload = JSON.parse(bodyText); } catch {}
+    if (!response.ok || !payload.status || !payload.data) {
+      const msg = ("Paystack refund request could not be confirmed. DGM support must review this payment. "+String(payload.message||("HTTP "+response.status))).slice(0,1000);
+      await pool.query("UPDATE orders SET status='Refund Pending',guest_refund_status='needs_review',provider_message=$1,provider_updated_at=NOW() WHERE id=$2 AND guest_refund_status='processing'", [msg, orderId]);
+      console.error("Guest Paystack refund requires review:", order.order_ref, response.status, payload.message||"No refund confirmation");
+      return;
+    }
+    const refundStatus = String(payload.data.status||"pending").toLowerCase();
+    const processed = refundStatus === "processed" || refundStatus === "completed" || refundStatus === "success";
+    const failed = refundStatus === "failed" || refundStatus === "rejected";
+    const savedStatus = processed ? "processed" : failed ? "needs_review" : "pending";
+    const orderStatus = processed ? "Refunded" : "Refund Pending";
+    const message = (processed
+      ? "Paystack confirms the refund was processed after data delivery failed."
+      : failed
+        ? "Paystack did not complete the refund. DGM support must review the payment."
+        : "Paystack refund request was accepted and is pending. DGM will update this order when the refund is processed.") + " " + String(reason||"");
+    await pool.query(
+      "UPDATE orders SET status=$1,guest_refund_status=$2,provider_message=$3,provider_updated_at=NOW() WHERE id=$4 AND guest_refund_status='processing'",
+      [orderStatus, savedStatus, message.slice(0,1000), orderId]
+    );
+  } catch (error) {
+    // Keep the claim in 'processing': network failures can be ambiguous (Paystack
+    // may have accepted the request). Do not auto-retry and risk a duplicate refund.
+    console.error("Guest Paystack refund outcome is ambiguous; manual reconciliation required:", order.order_ref, error.message);
+    await pool.query(
+      "UPDATE orders SET status='Refund Pending',provider_message=$1,provider_updated_at=NOW() WHERE id=$2 AND guest_refund_status='processing'",
+      [("Paystack refund outcome could not be confirmed. DGM support must reconcile this payment before retrying. "+String(error.message||"")).slice(0,1000), orderId]
+    ).catch(e => console.error("Could not persist guest refund review status:", e.message));
+  }
+}
+
 async function refundFailedCustomerOrder(orderId,reason){
   const client=await pool.connect();
+  let guestOrderId=null;
   try{await client.query("BEGIN");
     const o=(await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE",[orderId])).rows[0];
     if(!o||String(o.payment_status||"").toLowerCase()==="refunded"){await client.query("ROLLBACK");return;}
     if(!o.customer_id){
-      await client.query("UPDATE orders SET status='Failed',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[("Guest order could not be fulfilled. Contact DGM support for payment assistance. "+String(reason||"")).slice(0,1000),orderId]);
+      await client.query("UPDATE orders SET status='Refund Pending',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[("Guest order could not be fulfilled. Paystack refund handling is starting. "+String(reason||"")).slice(0,1000),orderId]);
+      guestOrderId=orderId;
       await client.query("COMMIT");
-      return;
+    } else {
+      const cust=(await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[o.customer_id])).rows[0];
+      if(!cust) throw new Error("Customer not found");
+      const before=Number(cust.balance||0), amount=Number(o.amount||0), after=Math.round((before+amount)*100)/100, ref="DGM-REFUND-"+o.order_ref;
+      await client.query("UPDATE customers SET balance=$1 WHERE id=$2",[after,o.customer_id]);
+      await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'Credit',$2,$3,$4,$5,$6,'Completed',$7)",[o.customer_id,amount,before,after,"Automatic failed-order refund - "+o.order_ref,ref,ref]);
+      await client.query("UPDATE orders SET status='Refunded',payment_status='Refunded',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[String(reason||"Provider reported a failed transaction.").slice(0,1000),orderId]);
+      await client.query("COMMIT");
+      await createCustomerNotification(o.customer_id,"Order refunded","GH₵"+amount.toFixed(2)+" was refunded for "+o.order_ref+" because the order failed.","refund");
     }
-    const cust=(await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[o.customer_id])).rows[0];
-    if(!cust) throw new Error("Customer not found");
-    const before=Number(cust.balance||0), amount=Number(o.amount||0), after=Math.round((before+amount)*100)/100, ref="DGM-REFUND-"+o.order_ref;
-    await client.query("UPDATE customers SET balance=$1 WHERE id=$2",[after,o.customer_id]);
-    await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'Credit',$2,$3,$4,$5,$6,'Completed',$7)",[o.customer_id,amount,before,after,"Automatic failed-order refund - "+o.order_ref,ref,ref]);
-    await client.query("UPDATE orders SET status='Refunded',payment_status='Refunded',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[String(reason||"Provider reported a failed transaction.").slice(0,1000),orderId]);
-    await client.query("COMMIT");
-    await createCustomerNotification(o.customer_id,"Order refunded","GH₵"+amount.toFixed(2)+" was refunded for "+o.order_ref+" because the order failed.","refund");
   }catch(e){try{await client.query("ROLLBACK")}catch{};console.error("Automatic refund error:",e.message)}finally{client.release()}
+  if(guestOrderId!==null) await initiateGuestPaystackRefund(guestOrderId,reason);
 }
 
 // =====================================================
