@@ -5557,6 +5557,107 @@ app.use(
 );
 
 // =====================================================
+// DATA ORDER PAYSTACK INITIALIZATION
+// Matches the customer data page's POST /api/payments/initialize.
+// The signed Paystack webhook remains the source of truth for payment
+// confirmation and bundle fulfillment.
+// =====================================================
+app.post("/api/payments/initialize", requireLogin, async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) {
+      return sendError(res, 503, "Paystack payments are not configured.");
+    }
+
+    const orderRef = String(req.body?.orderRef || "").trim();
+    if (!orderRef) {
+      return sendError(res, 400, "Order reference is required.");
+    }
+
+    const result = await pool.query(
+      "SELECT * FROM orders WHERE order_ref = $1 AND customer_id = $2 LIMIT 1",
+      [orderRef, req.session.customerId]
+    );
+    const order = result.rows[0];
+    if (!order) {
+      return sendError(res, 404, "Order not found.");
+    }
+    if (!isDataService(order.service)) {
+      return sendError(res, 400, "Paystack payment is only available for data orders.");
+    }
+    if (String(order.payment_status || "").toLowerCase() === "paid") {
+      return res.json({ success: true, alreadyPaid: true, order });
+    }
+
+    const amount = Number(order.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return sendError(res, 400, "Order amount is invalid.");
+    }
+
+    const customer = await getCustomer(req.session.customerId);
+    const email = String(customer?.email || "").trim();
+    if (!email) {
+      return sendError(res, 400, "Add a valid email address to your DGM account before paying with Paystack.");
+    }
+
+    // Reuse an existing pending reference if one was created previously.
+    const reference = String(order.paystack_reference || (
+      "DGM-DATA-" + Date.now().toString(36).toUpperCase() + "-" +
+      crypto.randomBytes(5).toString("hex").toUpperCase()
+    ));
+
+    if (!order.paystack_reference) {
+      await pool.query(
+        "UPDATE orders SET paystack_reference = $1 WHERE id = $2 AND customer_id = $3 AND LOWER(COALESCE(payment_status, 'pending')) <> 'paid'",
+        [reference, order.id, req.session.customerId]
+      );
+    }
+
+    const callbackUrl = BASE_URL.replace(/\/$/, "") +
+      "/orders.html?payment=returned&reference=" + encodeURIComponent(reference);
+    const paystackResponse = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + PAYSTACK_SECRET_KEY,
+        "Content-Type": "application/json",
+        Accept: "application/json"
+      },
+      body: JSON.stringify({
+        email,
+        amount: String(Math.round(amount * 100)),
+        currency: "GHS",
+        reference,
+        callback_url: callbackUrl,
+        metadata: {
+          type: "data_order",
+          customer_id: req.session.customerId,
+          order_ref: order.order_ref
+        }
+      })
+    });
+
+    const raw = await paystackResponse.text();
+    let paymentData = {};
+    try { paymentData = JSON.parse(raw); } catch {}
+    if (!paystackResponse.ok || !paymentData.status || !paymentData.data?.authorization_url) {
+      console.error("Paystack data-order initialization failed:", paystackResponse.status, paymentData?.message || "No authorization URL");
+      return sendError(res, 502, paymentData?.message || "Paystack could not initialize this data payment.");
+    }
+
+    console.log("PAYSTACK DATA ORDER INITIALIZED:", order.order_ref, "|", reference, "| GH₵" + amount.toFixed(2));
+    return res.json({
+      success: true,
+      reference,
+      amount,
+      authorization_url: paymentData.data.authorization_url,
+      access_code: paymentData.data.access_code || null
+    });
+  } catch (error) {
+    console.error("Data order Paystack initialization error:", error.message);
+    return sendError(res, 500, "Could not start Paystack payment.");
+  }
+});
+
+// =====================================================
 // WALLET DEPOSIT / PAYSTACK INITIALIZATION
 // =====================================================
 
