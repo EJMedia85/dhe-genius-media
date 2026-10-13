@@ -3146,6 +3146,12 @@ app.post("/api/companion/messages",requireCompanion,async(req,res)=>{
     const clientId=String(req.body?.client_id||"").trim().slice(0,120)||null;
     const metadata=req.body?.metadata && typeof req.body.metadata==="object"?req.body.metadata:{};
     if(!channel||!body)return sendError(res,400,"Message channel and body are required.");
+    // Enrollment can exist before the phone is linked to a DGM customer.
+    // Do not repeatedly attempt inserts that violate the message ownership
+    // constraint; return an actionable response until Admin links the device.
+    if(!req.companionDevice.customer_id) {
+      return sendError(res,409,"This Companion device is not linked to a DGM customer account. Ask DGM Admin to link the device to the customer account registered with this phone number.");
+    }
     const result=await pool.query(
       `INSERT INTO companion_messages(device_id,customer_id,channel,sender,body,direction,status,client_id,metadata)
        VALUES($1,$2,$3,$4,$5,'incoming','received',$6,$7)
