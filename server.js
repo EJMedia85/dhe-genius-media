@@ -7720,6 +7720,88 @@ app.post("/api/guest-payments/initialize", async (req, res) => {
   }
 });
 
+app.post("/api/guest-payments/mobile-money", async (req, res) => {
+  let order = null;
+  let reference = "";
+  try {
+    if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Mobile Money payments are not configured.");
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    const phone = normalizeGhanaPhone(req.body?.phone);
+    const provider = String(req.body?.provider || "").trim().toLowerCase();
+    const providers = new Set(["mtn", "atl", "vod"]);
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)) return sendError(res, 400, "Order reference is invalid.");
+    if (!/^[a-f0-9]{64}$/i.test(guestToken)) return sendError(res, 403, "Guest tracking session is invalid. Recreate the order.");
+    if (!validGhanaPhone(phone)) return sendError(res, 400, "Enter a valid Ghana Mobile Money phone number.");
+    if (!providers.has(provider)) return sendError(res, 400, "Choose MTN MoMo, AT Money, or Telecel Cash.");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const found = await pool.query(
+      "SELECT * FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1",
+      [orderRef, tokenHash]
+    );
+    order = found.rows[0];
+    if (!order) return sendError(res, 404, "Guest order not found. Please create your order again.");
+    if (!isDataService(order.service)) return sendError(res, 400, "Mobile Money payment is only available for data orders.");
+    if (String(order.payment_status || "").toLowerCase() === "paid") {
+      return res.json({ success: true, alreadyPaid: true, order });
+    }
+    if (String(order.status || "").toLowerCase() !== "pending payment") {
+      return sendError(res, 409, "This order is no longer awaiting payment.");
+    }
+    if (order.paystack_reference) {
+      return sendError(res, 409, "A payment attempt already exists for this order. Open its tracking link before starting another payment.");
+    }
+    const amount = Number(order.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return sendError(res, 400, "Order amount is invalid.");
+    reference = "DGM-MOMO-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+    // Paystack requires an email even for Mobile Money. Generate a non-deliverable
+    // account alias from the payment phone so customers never need to enter an email.
+    const paymentEmail = "guest-" + phone.replace(/\D/g, "") + "@dhegeniusmedia.com";
+    const saved = await pool.query(
+      "UPDATE orders SET paystack_reference=$1, guest_email=$2 WHERE id=$3 AND customer_id IS NULL AND guest_token_hash=$4 AND LOWER(COALESCE(payment_status,'pending')) <> 'paid' AND paystack_reference IS NULL AND status='Pending Payment'",
+      [reference, paymentEmail, order.id, tokenHash]
+    );
+    if (saved.rowCount !== 1) return sendError(res, 409, "Order status changed. Refresh your order before paying.");
+    const response = await fetch("https://api.paystack.co/charge", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        email: paymentEmail,
+        amount: String(Math.round(amount * 100)),
+        currency: "GHS",
+        reference,
+        mobile_money: { phone, provider },
+        metadata: { type: "guest_data_order", order_ref: order.order_ref, network: order.network, capacity: order.capacity }
+      })
+    });
+    const raw = await response.text();
+    let paymentData = {};
+    try { paymentData = JSON.parse(raw); } catch {}
+    if (!response.ok || !paymentData.status || !paymentData.data?.reference) {
+      await pool.query(
+        "UPDATE orders SET paystack_reference=NULL, guest_email=NULL WHERE id=$1 AND paystack_reference=$2 AND LOWER(COALESCE(payment_status,'pending')) <> 'paid'",
+        [order.id, reference]
+      );
+      console.error("Guest Mobile Money initialization failed:", response.status, paymentData?.message || "No charge reference");
+      return sendError(res, 502, paymentData?.message || "Paystack could not start the Mobile Money request. Please try again.");
+    }
+    return res.json({
+      success: true,
+      reference: paymentData.data.reference,
+      status: paymentData.data.status || "pending",
+      display_text: paymentData.data.display_text || paymentData.message || "Approve the Mobile Money request on your phone to complete payment.",
+      message: "Mobile Money payment request started. Approve it on your phone."
+    });
+  } catch (error) {
+    console.error("Guest Mobile Money initialization error:", error.message);
+    // Keep the reference after a network timeout: Paystack may have accepted the
+    // charge even if DGM did not receive its response. The tracking link can verify it.
+    return sendError(res, 500, reference
+      ? "We could not confirm the payment prompt response. Do not retry yet; open your secure tracking link or contact DGM support."
+      : "Could not start Mobile Money payment. Please try again.");
+  }
+});
+
 app.post("/api/guest-orders/verify", async (req, res) => {
   try {
     if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Payment verification is not configured.");
