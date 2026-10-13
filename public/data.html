@@ -61,7 +61,8 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 <main>
 <section class="page-title"><h1>Buy Data 📶</h1><p>Select a network and bundle first. Then enter the recipient and review the order before confirming.</p></section>
 
-<section class="wallet-card"><div><small>Available Wallet Balance</small><strong id="walletBalance">GH₵0.00</strong></div><button class="wallet-refresh" onclick="loadWallet()">Refresh</button></section>
+<section class="wallet-card" id="walletCard"><div><small>Available Wallet Balance</small><strong id="walletBalance">GH₵0.00</strong></div><button class="wallet-refresh" onclick="loadWallet()">Refresh</button></section>
+<div id="guestNotice" class="info" style="display:none;margin:-5px 0 18px">Buy data without creating an account. Guest checkout uses Paystack only; you can optionally create a DGM account later.</div>
 
 <a href="/mashup.html" style="display:block;margin:0 0 18px;padding:14px 16px;border:1px solid rgba(37,211,102,.25);border-radius:16px;background:linear-gradient(135deg,rgba(37,211,102,.10),rgba(0,140,255,.08));color:#fff;text-decoration:none"><strong>🔥 MTN MashUp</strong><span style="display:block;color:#8ea7b9;font-size:11px;margin-top:4px">Data + MTN minutes + other-network minutes + SMS • 30 days</span></a>
 
@@ -97,11 +98,13 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 
 <div id="paymentBox" class="payment-box">
 <div class="payment-title">Choose Payment Method</div>
-<div class="payment-subtitle">Your order is ready. Choose Wallet or Paystack. Data delivery starts only after payment is confirmed.</div>
+<div class="payment-subtitle">Pay securely with Paystack. Data delivery starts only after DGM verifies your payment.</div>
+<div id="guestEmailWrap" style="display:none;margin:0 0 12px"><label for="guestEmail" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin-bottom:8px">Email for Paystack receipt</label><input id="guestEmail" type="email" autocomplete="email" placeholder="you@example.com" style="width:100%;background:rgba(255,255,255,.045);border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><small style="display:block;color:var(--muted);font-size:10px;margin-top:6px">Paystack requires an email for checkout. This does not create a DGM account.</small></div>
 <div class="payment-buttons">
 <button id="walletButton" class="payment-button wallet-button" onclick="payFromWallet()">🟢 Pay from Wallet</button>
 <button id="paystackButton" class="payment-button paystack-button" onclick="payWithPaystack()">🔵 Pay with Paystack</button>
 </div>
+<div id="guestTracking" style="display:none;margin-top:12px;font-size:11px;line-height:1.5;color:#a8f0cb"></div>
 </div>
 </section>
 
@@ -117,7 +120,7 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 </nav>
 
 <script>
-let bundles={};let selectedNetwork="MTN";let selectedBundle=null;let currentOrder=null;let catalogMeta={validity_days:90,price_checked_at:null};
+let bundles={};let selectedNetwork="MTN";let selectedBundle=null;let currentOrder=null;let guestMode=false;let catalogMeta={validity_days:90,price_checked_at:null};
 
 async function loadBundleCatalog(){
  const response=await fetch("/api/data-bundles",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}});
@@ -135,8 +138,9 @@ function clearMessage(){const e=document.getElementById("message");e.textContent
 async function loadWallet(){
  try{
   const response=await fetch("/api/wallet",{credentials:"include",cache:"no-store"});
-  if(response.status===401){window.location.href="/login.html";return}
+  if(response.status===401){guestMode=true;document.getElementById("walletCard").style.display="none";document.getElementById("guestNotice").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestEmailWrap").style.display="block";return}
   const data=await response.json();if(!response.ok)throw new Error(data.message||"Could not load wallet.");
+  guestMode=false;document.getElementById("walletCard").style.display="flex";document.getElementById("walletButton").style.display="block";document.getElementById("guestEmailWrap").style.display="none";
   document.getElementById("walletBalance").textContent="GH₵"+Number(data.balance||0).toFixed(2);
  }catch(error){console.error("Wallet load error:",error)}
 }
@@ -180,12 +184,12 @@ async function createOrder(){
  if(!selectedBundle){showMessage("Please select a data bundle.","error");return}
  const button=document.getElementById("confirmButton");button.disabled=true;button.textContent="Creating order...";
  try{
-  const response=await fetch("/api/orders",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({service:"Data Bundle",network:selectedNetwork,phone,capacity:selectedBundle.size})});
-  const data=await response.json().catch(()=>({}));
-  if(response.status===401){window.location.href="/login.html";return}
+  let response=await fetch(guestMode?"/api/guest-orders":"/api/orders",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({service:"Data Bundle",network:selectedNetwork,phone,capacity:selectedBundle.size})});
+  let data=await response.json().catch(()=>({}));
+  if(response.status===401&&!guestMode){guestMode=true;document.getElementById("walletCard").style.display="none";document.getElementById("guestNotice").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestEmailWrap").style.display="block";response=await fetch("/api/guest-orders",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({service:"Data Bundle",network:selectedNetwork,phone,capacity:selectedBundle.size})});data=await response.json().catch(()=>({}))}
   if(!response.ok)throw new Error(data.message||"Could not create order.");
   if(!data.order||!data.order.order_ref)throw new Error("Order reference was not returned.");
-  currentOrder=data.order;const promo=data.promotion||null;const sale=Number(data.order.amount||selectedBundle.price);const base=Number(data.order.base_amount||selectedBundle.price);const discount=Number(data.order.promo_discount||Math.max(0,base-sale));document.getElementById("promotionSummary").textContent=promo?.title||"No promotion";document.getElementById("discountSummary").textContent="GH₵"+discount.toFixed(2);document.getElementById("selectedPrice").textContent="GH₵"+sale.toFixed(2);document.getElementById("paymentBox").classList.add("show");showMessage(promo?"Promotion applied: "+promo.title+". You save GH₵"+discount.toFixed(2)+".":"Order created successfully. Choose your payment method.","success");button.textContent="Order Created ✓";
+  currentOrder=data.order;if(data.guest&&data.guest_token){currentOrder.guest_token=data.guest_token;document.getElementById("guestEmailWrap").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestTracking").style.display="block";document.getElementById("guestTracking").innerHTML="Order reference: <strong>"+String(data.order.order_ref).replace(/[&<>"]/g,"")+"</strong><br><a style='color:#a8f0cb' href='/guest-order.html#ref="+encodeURIComponent(data.order.order_ref)+"&token="+encodeURIComponent(data.guest_token)+"'>Save your secure order-tracking link</a>";}const promo=data.promotion||null;const sale=Number(data.order.amount||selectedBundle.price);const base=Number(data.order.base_amount||selectedBundle.price);const discount=Number(data.order.promo_discount||Math.max(0,base-sale));document.getElementById("promotionSummary").textContent=promo?.title||"No promotion";document.getElementById("discountSummary").textContent="GH₵"+discount.toFixed(2);document.getElementById("selectedPrice").textContent="GH₵"+sale.toFixed(2);document.getElementById("paymentBox").classList.add("show");showMessage(promo?"Promotion applied: "+promo.title+". You save GH₵"+discount.toFixed(2)+".":"Order created successfully. Choose your payment method.","success");button.textContent="Order Created ✓";
  }catch(error){console.error("Create order error:",error);showMessage(error.message||"Could not create order.","error");button.disabled=false;button.textContent="Confirm Order"}
 }
 async function payFromWallet(){
@@ -206,12 +210,17 @@ async function payWithPaystack(){
  clearMessage();if(!currentOrder||!currentOrder.order_ref){showMessage("Please confirm your order first.","error");return}
  const button=document.getElementById("paystackButton"),walletButton=document.getElementById("walletButton");button.disabled=true;walletButton.disabled=true;button.textContent="Opening Paystack...";
  try{
-  const response=await fetch("/api/payments/initialize",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({orderRef:currentOrder.order_ref})});
+  const email=document.getElementById("guestEmail").value.trim();
+  if(guestMode&&(!email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))){showMessage("Enter a valid email address for your Paystack receipt. This does not create an account.","error");button.disabled=false;walletButton.disabled=false;button.textContent="🔵 Pay with Paystack";return}
+  const endpoint=guestMode?"/api/guest-payments/initialize":"/api/payments/initialize";
+  const payload=guestMode?{orderRef:currentOrder.order_ref,guestToken:currentOrder.guest_token,email}:{orderRef:currentOrder.order_ref};
+  const response=await fetch(endpoint,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(payload)});
   const data=await response.json().catch(()=>({}));
-  if(response.status===401){window.location.href="/login.html";return}
+  if(response.status===401&&!guestMode){window.location.href="/login.html";return}
   if(!response.ok)throw new Error(data.message||"Unable to initialize Paystack.");
-  if(data.alreadyPaid){showMessage("This order has already been paid.","success");setTimeout(()=>window.location.href="/orders.html",1000);return}
+  if(data.alreadyPaid){showMessage("This order has already been paid.","success");if(guestMode&&currentOrder.guest_token){window.location.href="/guest-order.html#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token);return}setTimeout(()=>window.location.href="/orders.html",1000);return}
   if(!data.authorization_url)throw new Error("Paystack did not return a payment link.");
+  if(guestMode){try{sessionStorage.setItem("dgm_guest_order",JSON.stringify({orderRef:currentOrder.order_ref,token:currentOrder.guest_token}))}catch{}}
   window.location.href=data.authorization_url;
  }catch(error){console.error("Paystack error:",error);showMessage(error.message||"Unable to open Paystack.","error");button.disabled=false;walletButton.disabled=false;button.textContent="🔵 Pay with Paystack"}
 }
