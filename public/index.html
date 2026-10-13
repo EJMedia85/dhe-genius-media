@@ -138,7 +138,7 @@ section.block{padding:78px 0 20px}.sectionhead{max-width:660px;margin-bottom:29p
 <div class="float-note">✦ <b>Stay connected.</b> Stay Genius.</div>
 </div>
 </section>
-<section class="price-preview" aria-labelledby="price-preview-title"><div class="price-preview-head"><div><div class="kicker">START WITH DATA</div><h2 id="price-preview-title">See the price before you buy.</h2><p>Choose a network to view bundles and complete your order. Guest checkout uses Paystack only.</p></div><a class="btn quiet" href="/data.html">View all bundles ↗</a></div><div class="price-cards"><article class="price-card"><div class="price-brand mtn-brand">MTN <span>Y’ello</span></div><div class="price-list"><span>1 GB <b>GH₵5</b></span><span>5 GB <b>GH₵24</b></span><span>10 GB <b>GH₵45</b></span></div><a href="/data.html">Choose MTN →</a></article><article class="price-card"><div class="price-brand at-brand">AirtelTigo <span>AT</span></div><div class="price-list"><span>1 GB <b>GH₵5</b></span><span>5 GB <b>GH₵24</b></span><span>10 GB <b>GH₵45</b></span></div><a href="/data.html">Choose AirtelTigo →</a></article><article class="price-card"><div class="price-brand telecel-brand">Telecel <span>DATA</span></div><div class="price-list"><span>10 GB <b>GH₵45</b></span><span>15 GB <b>GH₵60</b></span><span>20 GB <b>GH₵76</b></span></div><a href="/data.html">Choose Telecel →</a></article></div><p class="price-footnote">Prices shown are in Ghana cedis. Confirm the selected bundle and current price on the order page before payment.</p></section>
+<section class="price-preview" aria-labelledby="price-preview-title"><div class="price-preview-head"><div><div class="kicker">START WITH DATA</div><h2 id="price-preview-title">See the price before you buy.</h2><p>Choose a network to view bundles and complete your order. Guest checkout uses Paystack only.</p></div><a class="btn quiet" href="/data.html">View all bundles ↗</a></div><div class="price-cards" id="homepagePriceCards"><article class="price-card" data-network="MTN"><div class="price-brand mtn-brand">MTN <span>Y’ello</span></div><div class="price-list"><span data-price-size="1GB">1 GB <b>Loading…</b></span><span data-price-size="5GB">5 GB <b>Loading…</b></span><span data-price-size="10GB">10 GB <b>Loading…</b></span></div><a href="/data.html">Choose MTN →</a></article><article class="price-card" data-network="AirtelTigo"><div class="price-brand at-brand">AirtelTigo <span>AT</span></div><div class="price-list"><span data-price-size="1GB">1 GB <b>Loading…</b></span><span data-price-size="5GB">5 GB <b>Loading…</b></span><span data-price-size="10GB">10 GB <b>Loading…</b></span></div><a href="/data.html">Choose AirtelTigo →</a></article><article class="price-card" data-network="Telecel"><div class="price-brand telecel-brand">Telecel <span>DATA</span></div><div class="price-list"><span data-price-size="10GB">10 GB <b>Loading…</b></span><span data-price-size="15GB">15 GB <b>Loading…</b></span><span data-price-size="20GB">20 GB <b>Loading…</b></span></div><a href="/data.html">Choose Telecel →</a></article></div><p class="price-footnote" id="homepagePriceFootnote" aria-live="polite">Loading current prices from DGM’s live bundle catalogue. Prices are shown in Ghana cedis.</p></section>
 <div class="trustbar" aria-label="DGM service benefits"><div class="trustitem"><span class="trusticon">↗</span><div><strong>Easy to use</strong><small>Clear, simple steps</small></div></div><div class="trustitem"><span class="trusticon">◈</span><div><strong>One DGM account</strong><small>Keep activity together</small></div></div><div class="trustitem"><span class="trusticon">✓</span><div><strong>Order visibility</strong><small>Check purchase status</small></div></div><div class="trustitem"><span class="trusticon">☏</span><div><strong>Human support</strong><small>Contact our team</small></div></div></div>
 <section id="services" class="block"><div class="sectionhead"><div class="kicker">THE DGM PLATFORM</div><h2>Your everyday digital needs, in one place.</h2><p>Start with the essentials and explore more services from DHE GENIUS MEDIA. Available options may vary by service.</p></div>
 <div class="services">
@@ -202,5 +202,36 @@ section.block{padding:78px 0 20px}.sectionhead{max-width:660px;margin-bottom:29p
 </script>
 
 <script src="/pwa.js" defer></script>
+<script>
+(async function loadHomepagePrices(){
+ const footnote=document.getElementById("homepagePriceFootnote");
+ const cards=document.querySelectorAll("#homepagePriceCards .price-card[data-network]");
+ const formatPrice=value=>"GH₵"+Number(value).toFixed(2);
+ try{
+  const response=await fetch("/api/data-bundles",{credentials:"omit",cache:"no-store",headers:{Accept:"application/json"}});
+  const data=await response.json();
+  if(!response.ok||!data.success||!data.networks)throw new Error("Live catalogue unavailable");
+  cards.forEach(card=>{
+   const network=card.dataset.network;
+   const items=Array.isArray(data.networks[network])?data.networks[network]:[];
+   const bySize=new Map(items.map(item=>[String(item.size||"").replace(/\s/g,"").toUpperCase(),item]));
+   card.querySelectorAll("[data-price-size]").forEach(row=>{
+    const item=bySize.get(row.dataset.priceSize.toUpperCase());
+    const price=row.querySelector("b");
+    if(!item||!Number.isFinite(Number(item.price))||Number(item.price)<=0){
+     row.hidden=true;
+     return;
+    }
+    row.hidden=false;
+    price.textContent=formatPrice(item.price);
+   });
+  });
+  footnote.textContent="Prices are loaded from DGM’s current bundle catalogue. Confirm your selected bundle and total before payment.";
+ }catch(error){
+  cards.forEach(card=>card.querySelectorAll(".price-list b").forEach(price=>price.textContent="View live prices"));
+  footnote.textContent="Could not load live prices just now. Open Buy Data to check current prices before ordering.";
+ }
+})();
+</script>
 <script src="/funnel-analytics.js" defer></script>
 </body></html>
