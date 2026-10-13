@@ -437,8 +437,14 @@ function installMarket(app) {
   app.post("/api/admin/market/products",requireAdmin,async(req,res)=>{
     try {
       await ensureMarketDatabase();
-      const b=req.body||{}, name=String(b.name||"").trim(), slug=safeSlug(b.slug||name);
+      const b=req.body||{}, name=String(b.name||"").trim();
+      let slug=safeSlug(b.slug||name);
       if(!name||!slug||!Number.isFinite(Number(b.price))) return sendError(res,400,"Product name and valid price are required.");
+      // A repeated product name should not fail solely because its generated
+      // slug already exists. Keep the original readable slug where possible,
+      // then generate a unique suffix; the SKU constraint remains enforced.
+      const slugExists=await pool.query("SELECT 1 FROM market_products WHERE slug=$1 LIMIT 1",[slug]);
+      if(slugExists.rows.length) slug=slug.slice(0,88)+"-"+crypto.randomBytes(4).toString("hex");
       const cat=Number(b.category_id)||null, price=Number(b.price), sale=b.sale_price===""||b.sale_price==null?null:Number(b.sale_price), stock=Math.max(0,Number(b.stock)||0);
       const supplierId=Number(b.supplier_id)||null;
       if(supplierId){const supplier=await pool.query("SELECT id FROM market_suppliers WHERE id=$1 AND active=TRUE",[supplierId]);if(!supplier.rows.length)return sendError(res,400,"Choose an active supplier.");}
