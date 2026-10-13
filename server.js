@@ -3485,44 +3485,51 @@ function normalizePublicStoreText(html) {
 }
 
 function parseDataMartCatalogue(text, referencePrices = DGM_PRICES) {
-  const lower = String(text || "").toLowerCase();
+  // Parse the public product cards in reading order. The old parser looked
+  // backwards from each size label, which could accidentally pick the prior
+  // card's price (e.g. show 1GB pricing for 5GB). Only accept a price that
+  // appears after the matching size and before the next bundle-size label.
+  const plain = normalizePublicStoreText(text).toLowerCase();
   const result = {};
-  const aliases = {
-    MTN: ["mtn up2u", "mtn data", "mtn"],
-    AirtelTigo: ["airteltigo", "airtel tigo", "airteligo", "ishare"],
-    Telecel: ["telecel"]
-  };
+  const allSizes = [...plain.matchAll(/\\b(\\d+(?:\\.\\d+)?)\\s*gb\\b/gi)];
 
   for (const [network, prices] of Object.entries(referencePrices)) {
     result[network] = {};
-    const labels = aliases[network] || [network];
-    const positions = labels.map(x => lower.indexOf(x)).filter(x => x >= 0).sort((a,b) => a-b);
-    if (!positions.length) {
-      for (const gb of Object.keys(prices)) result[network][gb] = null;
-      continue;
-    }
-    const startPos = positions[0];
-    const nextNetworkPositions = Object.entries(aliases)
-      .filter(([n]) => n !== network)
-      .flatMap(([, ls]) => ls.map(x => lower.indexOf(x)).filter(x => x > startPos));
-    const endPos = nextNetworkPositions.length ? Math.min(...nextNetworkPositions) : lower.length;
-    const section = lower.slice(startPos, endPos);
+    const aliases = {
+      MTN: ["mtn up2u", "mtn data", "mtn"],
+      AirtelTigo: ["airteltigo", "airtel tigo", "airteligo", "ishare", "at - ishare"],
+      Telecel: ["telecel"]
+    };
+    const labels = aliases[network] || [network.toLowerCase()];
+    const networkPositions = labels.map(label => plain.indexOf(label)).filter(pos => pos >= 0);
+    let startPos = networkPositions.length ? Math.min(...networkPositions) : -1;
 
-    for (const gb of Object.keys(prices)) {
-      const sizeRe = new RegExp("\\b" + String(gb).replace(".", "\\.") + "\\s*gb\\b", "i");
-      const match = sizeRe.exec(section);
-      if (!match) { result[network][gb] = null; continue; }
-      const card = section.slice(Math.max(0, match.index - 300), match.index + 700);
-      const currency = [...card.matchAll(/(?:gh\s*)?₵\s*([0-9]+(?:\.[0-9]{1,2})?)/gi)]
-        .map(m => Number(m[1]))
-        .filter(Number.isFinite);
-      const numeric = [...card.matchAll(/\b([0-9]+\.[0-9]{2})\b/g)]
-        .map(m => Number(m[1]))
-        .filter(Number.isFinite);
-      const candidates = [...currency, ...numeric];
-      const price = candidates.length ? candidates[0] : null;
-      result[network][gb] = Number.isFinite(price) && price > 0 ? Number(price.toFixed(2)) : null;
+    // On a network-specific catalogue route, the product cards may follow a
+    // generic header. If another network heading appears before the first
+    // matching card, use the complete page but still only parse known sizes.
+    let endPos = plain.length;
+    if (startPos >= 0) {
+      const nextHeadings = Object.entries(aliases)
+        .filter(([other]) => other !== network)
+        .flatMap(([, otherLabels]) => otherLabels.map(label => plain.indexOf(label)).filter(pos => pos > startPos));
+      if (nextHeadings.length) endPos = Math.min(...nextHeadings);
     }
+
+    const sectionCards = allSizes.filter(match => match.index >= Math.max(0, startPos) && match.index < endPos);
+    const cards = sectionCards.length ? sectionCards : allSizes;
+    const bySize = {};
+    for (let i = 0; i < cards.length; i++) {
+      const match = cards[i];
+      const gb = String(Number(match[1]));
+      if (!Object.prototype.hasOwnProperty.call(prices, gb)) continue;
+      const next = cards[i + 1];
+      const cardEnd = next ? next.index : Math.min(plain.length, match.index + 500);
+      const cardText = plain.slice(match.index + match[0].length, Math.min(cardEnd, match.index + 500));
+      const priceMatch = cardText.match(/(?:gh\\s*)?₵\\s*([0-9]+(?:\\.[0-9]{1,2})?)|\\bghs?\\s*([0-9]+(?:\\.[0-9]{1,2})?)\\b/i);
+      const rawPrice = priceMatch ? Number(priceMatch[1] || priceMatch[2]) : NaN;
+      if (Number.isFinite(rawPrice) && rawPrice > 0) bySize[gb] = Number(rawPrice.toFixed(2));
+    }
+    for (const gb of Object.keys(prices)) result[network][gb] = bySize[gb] ?? null;
   }
   return result;
 }
