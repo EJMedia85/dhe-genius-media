@@ -3455,7 +3455,7 @@ const DGM_PRICES = {
   // Verified DGM customer-facing prices; used as the safe fallback when the
   // provider's public catalogue cannot be read. Keep this aligned with the
   // prices shown on the DGM website and checkout.
-  MTN: {1:5,2:10,3:15,4:20,5:24,6:28,8:36,10:45,15:64,20:84,25:100,30:128,40:168,50:207},
+  MTN: {1:4.20,2:8.80,3:12.80,4:17.80,5:22.30,6:25.00,8:33.00,10:41.00,15:59.50,20:79.00,25:99.00,30:121.00,40:158.00,50:200.00},
   AirtelTigo: {1:5,2:10,3:15,4:20,5:24,6:26,8:35,10:45,12:48,15:65,25:100,30:120,40:160,50:200},
   Telecel: {10:45,15:60,20:76,25:100,30:115,35:136,40:150,45:165,50:185,100:407}
 };
