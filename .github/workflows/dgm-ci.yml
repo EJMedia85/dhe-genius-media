@@ -14,8 +14,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: node --check server.js
-      - run: node --check bridge-routes.js
+      - run: npm test
       - run: |
           test -f public/movies.html
           test -f public/data.html

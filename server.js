@@ -1256,7 +1256,7 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
       order_ref TEXT UNIQUE NOT NULL,
-      customer_id INTEGER NOT NULL
+      customer_id INTEGER
         REFERENCES customers(id)
         ON DELETE CASCADE,
       service TEXT NOT NULL,
@@ -1577,6 +1577,8 @@ async function initDatabase() {
     ["datamart_status", "TEXT"],
     ["capacity", "TEXT"],
     ["paystack_reference", "TEXT"],
+    ["guest_refund_status", "TEXT"],
+    ["guest_refund_reference", "TEXT"],
     ["payment_status", "TEXT DEFAULT 'Pending'"],
     ["paid_at", "TIMESTAMPTZ"],
     ["provider_reference", "TEXT"],
@@ -1720,6 +1722,12 @@ async function initDatabase() {
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS base_amount NUMERIC(12,2);`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS campaign_id INTEGER REFERENCES marketing_campaigns(id) ON DELETE SET NULL;`);
   await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS promo_discount NUMERIC(12,2) NOT NULL DEFAULT 0;`);
+  // Guest data orders have no customer account. Keep a hashed, high-entropy
+  // tracking token so an order reference alone never exposes order details.
+  await pool.query(`ALTER TABLE orders ALTER COLUMN customer_id DROP NOT NULL;`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_email TEXT;`);
+  await pool.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_token_hash TEXT;`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS orders_guest_tracking_idx ON orders(order_ref) WHERE customer_id IS NULL;`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS customer_promo_uses (
@@ -3965,7 +3973,8 @@ async function processCompletedOrderRewards(orderId){
   const client=await pool.connect();
   try{await client.query("BEGIN");
     const o=(await client.query("SELECT id,customer_id,order_ref,amount,status FROM orders WHERE id=$1 FOR UPDATE",[orderId])).rows[0];
-    if(!o||o.status!=="Completed"){await client.query("ROLLBACK");return;}
+    // Guest purchases are not eligible for account loyalty/referral rewards.
+    if(!o||!o.customer_id||o.status!=="Completed"){await client.query("ROLLBACK");return;}
     const points=Math.max(1,Math.floor(Number(o.amount||0)*10));
     const existing=await client.query("SELECT id FROM loyalty_transactions WHERE reference=$1 LIMIT 1",["ORDER:"+o.id]);
     if(!existing.rows.length){
@@ -3985,20 +3994,106 @@ async function processCompletedOrderRewards(orderId){
   }catch(e){try{await client.query("ROLLBACK")}catch{};console.error("Reward processing error:",e.message)}finally{client.release()}
 }
 
+// Guest orders were paid directly through Paystack, not from the DGM wallet.
+// Claim the refund in the database before calling Paystack so callback/webhook races
+// cannot submit the same refund twice. A failed/ambiguous API call is left visible
+// for support reconciliation rather than blindly resubmitted.
+async function initiateGuestPaystackRefund(orderId, reason) {
+  if (!PAYSTACK_SECRET_KEY) {
+    await pool.query(
+      "UPDATE orders SET status='Refund Pending',guest_refund_status='needs_review',provider_message=$1,provider_updated_at=NOW() WHERE id=$2 AND customer_id IS NULL AND LOWER(COALESCE(payment_status,''))='paid' AND COALESCE(guest_refund_status,'')=''",
+      [("Delivery failed after payment. Paystack refund needs manual review because the refund API is not configured. Contact DGM support. "+String(reason||"")).slice(0,1000), orderId]
+    );
+    return;
+  }
+  const client = await pool.connect();
+  let order;
+  try {
+    await client.query("BEGIN");
+    order = (await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE", [orderId])).rows[0];
+    if (!order || order.customer_id || String(order.payment_status||"").toLowerCase() !== "paid" ||
+        !order.paystack_reference || String(order.guest_refund_status||"") !== "") {
+      await client.query("ROLLBACK");
+      return;
+    }
+    await client.query(
+      "UPDATE orders SET status='Refund Pending',guest_refund_status='processing',guest_refund_reference=$1,provider_message=$2,provider_updated_at=NOW() WHERE id=$3",
+      ["DGM-GUEST-REFUND-"+order.order_ref, ("Data delivery failed. Requesting Paystack refund; "+String(reason||"")).slice(0,1000), orderId]
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch {}
+    console.error("Guest Paystack refund claim failed:", error.message);
+    return;
+  } finally {
+    client.release();
+  }
+  try {
+    const response = await fetch("https://api.paystack.co/refund", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        transaction: order.paystack_reference,
+        customer_note: "DGM data order could not be delivered.",
+        merchant_note: "Automatic refund for failed guest order " + order.order_ref
+      })
+    });
+    const bodyText = await response.text();
+    let payload = {};
+    try { payload = JSON.parse(bodyText); } catch {}
+    if (!response.ok || !payload.status || !payload.data) {
+      const msg = ("Paystack refund request could not be confirmed. DGM support must review this payment. "+String(payload.message||("HTTP "+response.status))).slice(0,1000);
+      await pool.query("UPDATE orders SET status='Refund Pending',guest_refund_status='needs_review',provider_message=$1,provider_updated_at=NOW() WHERE id=$2 AND guest_refund_status='processing'", [msg, orderId]);
+      console.error("Guest Paystack refund requires review:", order.order_ref, response.status, payload.message||"No refund confirmation");
+      return;
+    }
+    const refundStatus = String(payload.data.status||"pending").toLowerCase();
+    const processed = refundStatus === "processed" || refundStatus === "completed" || refundStatus === "success";
+    const failed = refundStatus === "failed" || refundStatus === "rejected";
+    const savedStatus = processed ? "processed" : failed ? "needs_review" : "pending";
+    const orderStatus = processed ? "Refunded" : "Refund Pending";
+    const message = (processed
+      ? "Paystack confirms the refund was processed after data delivery failed."
+      : failed
+        ? "Paystack did not complete the refund. DGM support must review the payment."
+        : "Paystack refund request was accepted and is pending. DGM will update this order when the refund is processed.") + " " + String(reason||"");
+    await pool.query(
+      "UPDATE orders SET status=$1,guest_refund_status=$2,provider_message=$3,provider_updated_at=NOW() WHERE id=$4 AND guest_refund_status='processing'",
+      [orderStatus, savedStatus, message.slice(0,1000), orderId]
+    );
+  } catch (error) {
+    // Keep the claim in 'processing': network failures can be ambiguous (Paystack
+    // may have accepted the request). Do not auto-retry and risk a duplicate refund.
+    console.error("Guest Paystack refund outcome is ambiguous; manual reconciliation required:", order.order_ref, error.message);
+    await pool.query(
+      "UPDATE orders SET status='Refund Pending',provider_message=$1,provider_updated_at=NOW() WHERE id=$2 AND guest_refund_status='processing'",
+      [("Paystack refund outcome could not be confirmed. DGM support must reconcile this payment before retrying. "+String(error.message||"")).slice(0,1000), orderId]
+    ).catch(e => console.error("Could not persist guest refund review status:", e.message));
+  }
+}
+
 async function refundFailedCustomerOrder(orderId,reason){
   const client=await pool.connect();
+  let guestOrderId=null;
   try{await client.query("BEGIN");
     const o=(await client.query("SELECT * FROM orders WHERE id=$1 FOR UPDATE",[orderId])).rows[0];
     if(!o||String(o.payment_status||"").toLowerCase()==="refunded"){await client.query("ROLLBACK");return;}
-    const cust=(await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[o.customer_id])).rows[0];
-    if(!cust) throw new Error("Customer not found");
-    const before=Number(cust.balance||0), amount=Number(o.amount||0), after=Math.round((before+amount)*100)/100, ref="DGM-REFUND-"+o.order_ref;
-    await client.query("UPDATE customers SET balance=$1 WHERE id=$2",[after,o.customer_id]);
-    await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'Credit',$2,$3,$4,$5,$6,'Completed',$7)",[o.customer_id,amount,before,after,"Automatic failed-order refund - "+o.order_ref,ref,ref]);
-    await client.query("UPDATE orders SET status='Refunded',payment_status='Refunded',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[String(reason||"Provider reported a failed transaction.").slice(0,1000),orderId]);
-    await client.query("COMMIT");
-    await createCustomerNotification(o.customer_id,"Order refunded","GH₵"+amount.toFixed(2)+" was refunded for "+o.order_ref+" because the order failed.","refund");
+    if(!o.customer_id){
+      await client.query("UPDATE orders SET status='Refund Pending',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[("Guest order could not be fulfilled. Paystack refund handling is starting. "+String(reason||"")).slice(0,1000),orderId]);
+      guestOrderId=orderId;
+      await client.query("COMMIT");
+    } else {
+      const cust=(await client.query("SELECT id,balance FROM customers WHERE id=$1 FOR UPDATE",[o.customer_id])).rows[0];
+      if(!cust) throw new Error("Customer not found");
+      const before=Number(cust.balance||0), amount=Number(o.amount||0), after=Math.round((before+amount)*100)/100, ref="DGM-REFUND-"+o.order_ref;
+      await client.query("UPDATE customers SET balance=$1 WHERE id=$2",[after,o.customer_id]);
+      await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'Credit',$2,$3,$4,$5,$6,'Completed',$7)",[o.customer_id,amount,before,after,"Automatic failed-order refund - "+o.order_ref,ref,ref]);
+      await client.query("UPDATE orders SET status='Refunded',payment_status='Refunded',provider_message=$1,provider_updated_at=NOW() WHERE id=$2",[String(reason||"Provider reported a failed transaction.").slice(0,1000),orderId]);
+      await client.query("COMMIT");
+      await createCustomerNotification(o.customer_id,"Order refunded","GH₵"+amount.toFixed(2)+" was refunded for "+o.order_ref+" because the order failed.","refund");
+    }
   }catch(e){try{await client.query("ROLLBACK")}catch{};console.error("Automatic refund error:",e.message)}finally{client.release()}
+  if(guestOrderId!==null) await initiateGuestPaystackRefund(guestOrderId,reason);
 }
 
 // =====================================================
@@ -5307,11 +5402,48 @@ app.post(
         return res.sendStatus(400);
       }
 
+      // Paystack refund lifecycle events use this same signed webhook endpoint.
+      // A refund request is only considered complete after Paystack reports processed.
+      const refundEvent = String(event?.event || "");
+      const refundStates = {
+        "refund.pending": { status: "pending", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack refund is pending." },
+        "refund.processing": { status: "pending", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack is processing the refund." },
+        "refund.needs-attention": { status: "needs_review", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack needs additional information to complete the refund. DGM support must review this payment." },
+        "refund.failed": { status: "needs_review", orderStatus: "Refund Pending", paymentStatus: "Paid", message: "Paystack reports that the refund failed. DGM support must review this payment." },
+        "refund.processed": { status: "processed", orderStatus: "Refunded", paymentStatus: "Refunded", message: "Paystack confirms that the refund was processed." }
+      };
+      if (refundStates[refundEvent]) {
+        const data = event?.data || {};
+        const transactionReference = String(
+          data.transaction_reference || data.transaction?.reference || ""
+        ).trim();
+        if (!transactionReference) return res.sendStatus(200);
+        const state = refundStates[refundEvent];
+        const saved = await pool.query(
+          `UPDATE orders
+             SET guest_refund_status=$1,
+                 guest_refund_reference=COALESCE(NULLIF($2,''),guest_refund_reference),
+                 status=$3,
+                 payment_status=$4,
+                 provider_message=$5,
+                 provider_updated_at=NOW()
+           WHERE customer_id IS NULL
+             AND paystack_reference=$6
+             AND guest_refund_status IS NOT NULL
+           RETURNING order_ref`,
+          [state.status, String(data.refund_reference || data.id || ""), state.orderStatus,
+           state.paymentStatus, state.message, transactionReference]
+        );
+        if (saved.rowCount) {
+          console.log("Paystack guest refund webhook processed:", refundEvent, saved.rows.map(row => row.order_ref));
+        }
+        return res.sendStatus(200);
+      }
+
       if (
         event.event !==
         "charge.success"
       ) {
-
         return res.sendStatus(200);
       }
 
@@ -5462,36 +5594,25 @@ app.post(
         return res.sendStatus(400);
       }
 
-      await pool.query(
+      const paymentUpdate = await pool.query(
         `
         UPDATE orders
         SET
           payment_status = 'Paid',
-          paid_at =
-            COALESCE(
-              paid_at,
-              NOW()
-            ),
-          status =
-            CASE
-              WHEN status =
-                'Pending Payment'
-              THEN 'Processing'
-              ELSE status
-            END,
-          paystack_reference =
-            COALESCE(
-              paystack_reference,
-              $1
-            )
+          paid_at = COALESCE(paid_at, NOW()),
+          status = CASE WHEN status = 'Pending Payment' THEN 'Processing' ELSE status END,
+          paystack_reference = COALESCE(paystack_reference, $1)
         WHERE id = $2
+          ${order.customer_id == null ? "AND LOWER(COALESCE(payment_status, 'pending')) <> 'paid'" : ""}
+        RETURNING id
         `,
-        [
-          reference,
-
-          order.id
-        ]
+        [reference, order.id]
       );
+      // Guest callback verification and webhook delivery may race. Only the
+      // request that transitions a guest order to Paid may begin fulfillment.
+      if (order.customer_id == null && paymentUpdate.rowCount !== 1) {
+        return res.sendStatus(200);
+      }
 
       const updatedResult =
         await pool.query(
@@ -7503,6 +7624,194 @@ app.get(
 // =====================================================
 // CREATE DATA ORDER
 // =====================================================
+
+// =====================================================
+// GUEST DATA ORDERS (NO ACCOUNT REQUIRED)
+// =====================================================
+app.post("/api/guest-orders", async (req, res) => {
+  try {
+    const network = String(req.body?.network || "").trim();
+    const phone = normalizeGhanaPhone(req.body?.phone);
+    const capacity = normalizeCapacity(req.body?.capacity);
+    if (!["MTN", "AirtelTigo", "Telecel"].includes(network)) return sendError(res, 400, "Please select a valid network.");
+    if (!validGhanaPhone(phone)) return sendError(res, 400, "Enter a valid Ghana phone number.");
+    if (!capacity) return sendError(res, 400, "Please select a data bundle.");
+    const networkPrices = DGM_PRICES[network];
+    const baseAmount = networkPrices?.[capacity];
+    if (typeof baseAmount !== "number") return sendError(res, 400, "This data bundle is unavailable.");
+    const availability = await refreshDataMartBundleAvailability();
+    if (availability?.[network]?.[capacity] === false) return sendError(res, 409, "This data bundle is currently unavailable.");
+    const campaign = await getAutomaticCampaign(network, capacity, baseAmount, null);
+    const amount = campaign ? campaign.sale_amount : baseAmount;
+    const orderRef = createOrderReference();
+    const guestToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const result = await pool.query(
+      `INSERT INTO orders
+        (order_ref, customer_id, service, network, phone, amount, status, capacity,
+         payment_status, base_amount, campaign_id, promo_discount, guest_token_hash)
+       VALUES ($1, NULL, 'Data Bundle', $2, $3, $4, 'Pending Payment', $5,
+         'Pending', $6, $7, $8, $9)
+       RETURNING id, order_ref, service, network, phone, amount, status, capacity,
+         payment_status, base_amount, promo_discount, created_at`,
+      [orderRef, network, phone, amount, String(capacity), baseAmount,
+       campaign ? campaign.id : null, campaign ? campaign.discount : 0, tokenHash]
+    );
+    if (campaign) await pool.query("UPDATE marketing_campaigns SET uses=uses+1,updated_at=NOW() WHERE id=$1", [campaign.id]);
+    return res.json({
+      success: true,
+      guest: true,
+      guest_token: guestToken,
+      promotion: campaign ? { id: campaign.id, title: campaign.title, discount: campaign.discount } : null,
+      order: result.rows[0]
+    });
+  } catch (error) {
+    console.error("Guest data order creation error:", error.message);
+    return sendError(res, 500, "Could not create your guest order. Please try again.");
+  }
+});
+
+app.post("/api/guest-payments/initialize", async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Paystack payments are not configured.");
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)) return sendError(res, 400, "Order reference is invalid.");
+    if (!/^[a-f0-9]{64}$/i.test(guestToken)) return sendError(res, 403, "Guest tracking session is invalid. Recreate the order.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendError(res, 400, "Enter a valid email address for your Paystack receipt.");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const found = await pool.query(
+      "SELECT * FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1",
+      [orderRef, tokenHash]
+    );
+    const order = found.rows[0];
+    if (!order) return sendError(res, 404, "Guest order not found. Please create your order again.");
+    if (!isDataService(order.service)) return sendError(res, 400, "Paystack payment is only available for data orders.");
+    if (String(order.payment_status || "").toLowerCase() === "paid") return res.json({ success: true, alreadyPaid: true, order });
+    const amount = Number(order.amount);
+    if (!Number.isFinite(amount) || amount <= 0) return sendError(res, 400, "Order amount is invalid.");
+    const reference = "DGM-GUEST-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(5).toString("hex").toUpperCase();
+    const callbackUrl = BASE_URL.replace(/\/$/, "") + "/guest-order.html#ref=" + encodeURIComponent(order.order_ref) + "&token=" + encodeURIComponent(guestToken);
+    const response = await fetch("https://api.paystack.co/transaction/initialize", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        email, amount: String(Math.round(amount * 100)), currency: "GHS", reference, callback_url: callbackUrl,
+        metadata: { type: "guest_data_order", order_ref: order.order_ref, network: order.network, capacity: order.capacity }
+      })
+    });
+    const raw = await response.text();
+    let paymentData = {};
+    try { paymentData = JSON.parse(raw); } catch {}
+    if (!response.ok || !paymentData.status || !paymentData.data?.authorization_url) {
+      console.error("Guest Paystack initialization failed:", response.status, paymentData?.message || "No authorization URL");
+      return sendError(res, 502, paymentData?.message || "Paystack could not initialize this payment.");
+    }
+    const saved = await pool.query(
+      "UPDATE orders SET paystack_reference=$1, guest_email=$2 WHERE id=$3 AND customer_id IS NULL AND guest_token_hash=$4 AND LOWER(COALESCE(payment_status,'pending')) <> 'paid' AND (paystack_reference IS NULL OR paystack_reference=$1)",
+      [reference, email, order.id, tokenHash]
+    );
+    if (saved.rowCount !== 1) return sendError(res, 409, "Order status changed. Refresh your order before paying.");
+    return res.json({ success: true, reference, amount, authorization_url: paymentData.data.authorization_url });
+  } catch (error) {
+    console.error("Guest Paystack initialization error:", error.message);
+    return sendError(res, 500, "Could not start Paystack payment.");
+  }
+});
+
+app.post("/api/guest-orders/verify", async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Payment verification is not configured.");
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    const reference = String(req.body?.reference || "").trim();
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef) || !/^[a-f0-9]{64}$/i.test(guestToken) || !reference) {
+      return sendError(res, 400, "Guest order verification details are incomplete.");
+    }
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const found = await pool.query(
+      "SELECT * FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1",
+      [orderRef, tokenHash]
+    );
+    const order = found.rows[0];
+    if (!order) return sendError(res, 404, "Guest order not found.");
+    if (String(order.payment_status || "").toLowerCase() === "paid") {
+      return res.json({ success: true, verified: true, order: { order_ref: order.order_ref, status: order.status, payment_status: order.payment_status } });
+    }
+    if (!order.paystack_reference || reference !== order.paystack_reference) {
+      return sendError(res, 403, "This Paystack reference does not belong to the guest order.");
+    }
+    const response = await fetch("https://api.paystack.co/transaction/verify/" + encodeURIComponent(reference), {
+      method: "GET",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, Accept: "application/json" }
+    });
+    const raw = await response.text();
+    let verified = {};
+    try { verified = JSON.parse(raw); } catch {}
+    if (!response.ok || !verified.status || !verified.data) {
+      console.error("Guest Paystack verification failed:", response.status, verified?.message || "Invalid verification response");
+      return sendError(res, 502, "Paystack could not verify this payment yet. We will keep checking your order.");
+    }
+    const transaction = verified.data;
+    if (String(transaction.reference || "") !== reference) return sendError(res, 400, "Paystack reference mismatch.");
+    if (String(transaction.status || "").toLowerCase() !== "success") {
+      return res.status(202).json({ success: true, verified: false, order: { order_ref: order.order_ref, status: order.status, payment_status: order.payment_status } });
+    }
+    if (String(transaction.currency || "").toUpperCase() !== "GHS" ||
+        Math.round(Number(transaction.amount || 0)) !== Math.round(Number(order.amount || 0) * 100)) {
+      console.error("Guest Paystack verification amount/currency mismatch:", order.order_ref, reference);
+      return sendError(res, 400, "The payment amount or currency did not match this order. Contact DGM support.");
+    }
+    const marked = await pool.query(
+      `UPDATE orders SET payment_status='Paid', paid_at=COALESCE(paid_at,NOW()),
+        status=CASE WHEN status='Pending Payment' THEN 'Processing' ELSE status END
+       WHERE id=$1 AND customer_id IS NULL AND LOWER(COALESCE(payment_status,'pending')) <> 'paid'
+       RETURNING id`,
+      [order.id]
+    );
+    if (marked.rowCount === 1) {
+      const updated = (await pool.query("SELECT * FROM orders WHERE id=$1 LIMIT 1", [order.id])).rows[0];
+      try {
+        const fulfillment = await fulfillDataOrder(updated);
+        if (!fulfillment.success || fulfillment.status === "Failed") {
+          await refundFailedCustomerOrder(order.id, fulfillment.error || "Data bundle could not be placed.");
+        }
+      } catch (error) {
+        console.error("Guest data fulfillment failed after verified payment:", order.order_ref, error.message);
+        await refundFailedCustomerOrder(order.id, error.message || "Data bundle could not be placed.");
+      }
+    }
+    const latest = await pool.query(
+      "SELECT order_ref, service, network, phone, amount, status, capacity, payment_status, paid_at, provider_status, provider_message, created_at, completed_at FROM orders WHERE id=$1",
+      [order.id]
+    );
+    return res.json({ success: true, verified: true, order: latest.rows[0] });
+  } catch (error) {
+    console.error("Guest payment verification error:", error.message);
+    return sendError(res, 500, "Could not verify this payment yet. Your order status will keep updating.");
+  }
+});
+
+app.post("/api/guest-orders/status", async (req, res) => {
+  try {
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef) || !/^[a-f0-9]{64}$/i.test(guestToken)) return sendError(res, 400, "Guest order details are invalid.");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const result = await pool.query(
+      `SELECT order_ref, service, network, phone, amount, status, capacity, payment_status,
+        paid_at, provider_status, provider_message, created_at, completed_at
+       FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1`,
+      [orderRef, tokenHash]
+    );
+    if (!result.rows.length) return sendError(res, 404, "Order not found. Check the tracking link.");
+    return res.json({ success: true, order: result.rows[0] });
+  } catch (error) {
+    console.error("Guest order status error:", error.message);
+    return sendError(res, 500, "Could not load guest order status.");
+  }
+});
 
 app.post(
   "/api/orders",
