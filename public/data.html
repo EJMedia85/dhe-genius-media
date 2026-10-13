@@ -99,10 +99,11 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 <div id="paymentBox" class="payment-box">
 <div class="payment-title">Choose Payment Method</div>
 <div class="payment-subtitle">Pay securely with Paystack. Data delivery starts only after DGM verifies your payment.</div>
-<div id="guestEmailWrap" style="display:none;margin:0 0 12px"><label for="guestEmail" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin-bottom:8px">Email for Paystack receipt</label><input id="guestEmail" type="email" autocomplete="email" placeholder="you@example.com" style="width:100%;background:rgba(255,255,255,.045);border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><small style="display:block;color:var(--muted);font-size:10px;margin-top:6px">Paystack requires an email for checkout. This does not create a DGM account.</small></div>
+<div id="guestMomoWrap" style="display:none;margin:0 0 12px"><label for="guestMomoPhone" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin-bottom:8px">Mobile Money Phone Number</label><input id="guestMomoPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0241234567" style="width:100%;background:rgba(255,255,255,.045);border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><label for="guestMomoProvider" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin:12px 0 8px">Mobile Money Network</label><select id="guestMomoProvider" style="width:100%;background:#10251c;border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><option value="mtn">MTN MoMo</option><option value="atl">AT Money (AirtelTigo)</option><option value="vod">Telecel Cash</option></select><small style="display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:7px">We’ll send a payment approval request to this phone. Approve it on your phone to pay. No email or DGM account required.</small></div>
 <div class="payment-buttons">
 <button id="walletButton" class="payment-button wallet-button" onclick="payFromWallet()">🟢 Pay from Wallet</button>
 <button id="paystackButton" class="payment-button paystack-button" onclick="payWithPaystack()">🔵 Pay with Paystack</button>
+<button id="guestMomoButton" class="payment-button wallet-button" style="display:none" onclick="payWithMobileMoney()">📲 Pay with Mobile Money</button>
 </div>
 <div id="guestTracking" style="display:none;margin-top:12px;font-size:11px;line-height:1.5;color:#a8f0cb"></div>
 </div>
@@ -138,9 +139,9 @@ function clearMessage(){const e=document.getElementById("message");e.textContent
 async function loadWallet(){
  try{
   const response=await fetch("/api/wallet",{credentials:"include",cache:"no-store"});
-  if(response.status===401){guestMode=true;document.getElementById("walletCard").style.display="none";document.getElementById("guestNotice").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestEmailWrap").style.display="block";return}
+  if(response.status===401){guestMode=true;document.getElementById("walletCard").style.display="none";document.getElementById("guestNotice").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestMomoWrap").style.display="block";document.getElementById("paystackButton").style.display="none";document.getElementById("guestMomoButton").style.display="block";return}
   const data=await response.json();if(!response.ok)throw new Error(data.message||"Could not load wallet.");
-  guestMode=false;document.getElementById("walletCard").style.display="flex";document.getElementById("walletButton").style.display="block";document.getElementById("guestEmailWrap").style.display="none";
+  guestMode=false;document.getElementById("walletCard").style.display="flex";document.getElementById("walletButton").style.display="block";document.getElementById("guestMomoWrap").style.display="none";document.getElementById("paystackButton").style.display="block";document.getElementById("guestMomoButton").style.display="none";
   document.getElementById("walletBalance").textContent="GH₵"+Number(data.balance||0).toFixed(2);
  }catch(error){console.error("Wallet load error:",error)}
 }
@@ -186,10 +187,10 @@ async function createOrder(){
  try{
   let response=await fetch(guestMode?"/api/guest-orders":"/api/orders",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({service:"Data Bundle",network:selectedNetwork,phone,capacity:selectedBundle.size})});
   let data=await response.json().catch(()=>({}));
-  if(response.status===401&&!guestMode){guestMode=true;document.getElementById("walletCard").style.display="none";document.getElementById("guestNotice").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestEmailWrap").style.display="block";response=await fetch("/api/guest-orders",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({service:"Data Bundle",network:selectedNetwork,phone,capacity:selectedBundle.size})});data=await response.json().catch(()=>({}))}
+  if(response.status===401&&!guestMode){guestMode=true;document.getElementById("walletCard").style.display="none";document.getElementById("guestNotice").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestMomoWrap").style.display="block";document.getElementById("paystackButton").style.display="none";document.getElementById("guestMomoButton").style.display="block";response=await fetch("/api/guest-orders",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({service:"Data Bundle",network:selectedNetwork,phone,capacity:selectedBundle.size})});data=await response.json().catch(()=>({}))}
   if(!response.ok)throw new Error(data.message||"Could not create order.");
   if(!data.order||!data.order.order_ref)throw new Error("Order reference was not returned.");
-  currentOrder=data.order;if(data.guest&&data.guest_token){currentOrder.guest_token=data.guest_token;document.getElementById("guestEmailWrap").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestTracking").style.display="block";document.getElementById("guestTracking").innerHTML="Order reference: <strong>"+String(data.order.order_ref).replace(/[&<>"]/g,"")+"</strong><br><a style='color:#a8f0cb' href='/guest-order.html#ref="+encodeURIComponent(data.order.order_ref)+"&token="+encodeURIComponent(data.guest_token)+"'>Save your secure order-tracking link</a>";}const promo=data.promotion||null;const sale=Number(data.order.amount||selectedBundle.price);const base=Number(data.order.base_amount||selectedBundle.price);const discount=Number(data.order.promo_discount||Math.max(0,base-sale));document.getElementById("promotionSummary").textContent=promo?.title||"No promotion";document.getElementById("discountSummary").textContent="GH₵"+discount.toFixed(2);document.getElementById("selectedPrice").textContent="GH₵"+sale.toFixed(2);document.getElementById("paymentBox").classList.add("show");showMessage(promo?"Promotion applied: "+promo.title+". You save GH₵"+discount.toFixed(2)+".":"Order created successfully. Choose your payment method.","success");button.textContent="Order Created ✓";
+  currentOrder=data.order;if(data.guest&&data.guest_token){currentOrder.guest_token=data.guest_token;document.getElementById("guestMomoWrap").style.display="block";document.getElementById("guestMomoPhone").value=phone;document.getElementById("walletButton").style.display="none";document.getElementById("paystackButton").style.display="none";document.getElementById("guestMomoButton").style.display="block";document.getElementById("guestTracking").style.display="block";document.getElementById("guestTracking").innerHTML="Order reference: <strong>"+String(data.order.order_ref).replace(/[&<>"]/g,"")+"</strong><br><a style='color:#a8f0cb' href='/guest-order.html#ref="+encodeURIComponent(data.order.order_ref)+"&token="+encodeURIComponent(data.guest_token)+"'>Save your secure order-tracking link</a>";}const promo=data.promotion||null;const sale=Number(data.order.amount||selectedBundle.price);const base=Number(data.order.base_amount||selectedBundle.price);const discount=Number(data.order.promo_discount||Math.max(0,base-sale));document.getElementById("promotionSummary").textContent=promo?.title||"No promotion";document.getElementById("discountSummary").textContent="GH₵"+discount.toFixed(2);document.getElementById("selectedPrice").textContent="GH₵"+sale.toFixed(2);document.getElementById("paymentBox").classList.add("show");showMessage(promo?"Promotion applied: "+promo.title+". You save GH₵"+discount.toFixed(2)+".":"Order created successfully. Choose your payment method.","success");button.textContent="Order Created ✓";
  }catch(error){console.error("Create order error:",error);showMessage(error.message||"Could not create order.","error");button.disabled=false;button.textContent="Confirm Order"}
 }
 async function payFromWallet(){
@@ -206,14 +207,30 @@ async function payFromWallet(){
   button.textContent="Payment Confirmed ✓";await loadWallet();setTimeout(()=>window.location.href="/orders.html",1200);
  }catch(error){console.error("Wallet payment error:",error);showMessage(error.message||"Wallet payment failed.","error");button.disabled=false;paystackButton.disabled=false;button.textContent="🟢 Pay from Wallet"}
 }
+async function payWithMobileMoney(){
+ clearMessage();
+ if(!guestMode||!currentOrder||!currentOrder.order_ref||!currentOrder.guest_token){showMessage("Please create a guest order first.","error");return}
+ const phone=document.getElementById("guestMomoPhone").value.trim().replace(/\\s+/g,"");
+ const provider=document.getElementById("guestMomoProvider").value;
+ if(!validGhanaPhone(phone)){showMessage("Enter a valid Ghana Mobile Money number.","error");document.getElementById("guestMomoPhone").focus();return}
+ const button=document.getElementById("guestMomoButton");button.disabled=true;button.textContent="Sending payment request...";
+ try{
+  const response=await fetch("/api/guest-payments/mobile-money",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({orderRef:currentOrder.order_ref,guestToken:currentOrder.guest_token,phone,provider})});
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(data.message||"Could not start Mobile Money payment.");
+  if(data.alreadyPaid){window.location.href="/guest-order.html#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token);return}
+  if(!data.reference)throw new Error("Paystack did not return a Mobile Money reference.");
+  showMessage(data.display_text||"Payment request sent. Approve it on your phone.","success");
+  const tracking="/guest-order.html?reference="+encodeURIComponent(data.reference)+"#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token);
+  window.location.href=tracking;
+ }catch(error){console.error("Guest Mobile Money error:",error);showMessage(error.message||"Could not start Mobile Money payment.","error");button.disabled=false;button.textContent="📲 Pay with Mobile Money"}
+}
 async function payWithPaystack(){
- clearMessage();if(!currentOrder||!currentOrder.order_ref){showMessage("Please confirm your order first.","error");return}
+ clearMessage();if(guestMode){showMessage("Choose Pay with Mobile Money for guest checkout. No email is needed.","error");return}if(!currentOrder||!currentOrder.order_ref){showMessage("Please confirm your order first.","error");return}
  const button=document.getElementById("paystackButton"),walletButton=document.getElementById("walletButton");button.disabled=true;walletButton.disabled=true;button.textContent="Opening Paystack...";
  try{
-  const email=document.getElementById("guestEmail").value.trim();
-  if(guestMode&&(!email||!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email))){showMessage("Enter a valid email address for your Paystack receipt. This does not create an account.","error");button.disabled=false;walletButton.disabled=false;button.textContent="🔵 Pay with Paystack";return}
-  const endpoint=guestMode?"/api/guest-payments/initialize":"/api/payments/initialize";
-  const payload=guestMode?{orderRef:currentOrder.order_ref,guestToken:currentOrder.guest_token,email}:{orderRef:currentOrder.order_ref};
+  const endpoint="/api/payments/initialize";
+  const payload={orderRef:currentOrder.order_ref};
   const response=await fetch(endpoint,{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify(payload)});
   const data=await response.json().catch(()=>({}));
   if(response.status===401&&!guestMode){window.location.href="/login.html";return}
