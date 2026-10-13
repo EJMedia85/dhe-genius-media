@@ -210,7 +210,7 @@ async function payFromWallet(){
 async function payWithMobileMoney(){
  clearMessage();
  if(!guestMode||!currentOrder||!currentOrder.order_ref||!currentOrder.guest_token){showMessage("Please create a guest order first.","error");return}
- const phone=document.getElementById("guestMomoPhone").value.trim().replace(/\\s+/g,"");
+ const phone=document.getElementById("guestMomoPhone").value.trim().replace(/\s+/g,"");
  const provider=document.getElementById("guestMomoProvider").value;
  if(!validGhanaPhone(phone)){showMessage("Enter a valid Ghana Mobile Money number.","error");document.getElementById("guestMomoPhone").focus();return}
  const button=document.getElementById("guestMomoButton");button.disabled=true;button.textContent="Sending payment request...";
