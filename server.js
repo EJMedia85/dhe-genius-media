@@ -7709,7 +7709,7 @@ app.post("/api/guest-payments/initialize", async (req, res) => {
       return sendError(res, 502, paymentData?.message || "Paystack could not initialize this payment.");
     }
     const saved = await pool.query(
-      "UPDATE orders SET paystack_reference=$1, guest_email=$2 WHERE id=$3 AND customer_id IS NULL AND guest_token_hash=$4 AND LOWER(COALESCE(payment_status,'pending')) <> 'paid'",
+      "UPDATE orders SET paystack_reference=$1, guest_email=$2 WHERE id=$3 AND customer_id IS NULL AND guest_token_hash=$4 AND LOWER(COALESCE(payment_status,'pending')) <> 'paid' AND (paystack_reference IS NULL OR paystack_reference=$1)",
       [reference, email, order.id, tokenHash]
     );
     if (saved.rowCount !== 1) return sendError(res, 409, "Order status changed. Refresh your order before paying.");
