@@ -14,7 +14,8 @@
 - Authenticated status lookup: `GET /api/virtual-card/funding/:reference`.
 - Deposit records are isolated in `dgm_virtual_card_deposits`. They store only the phone's last four digits, and a verified sandbox payment is marked `sandbox_paid` without crediting the DGM Wallet.
 - The module is deliberately registered before Bridge's JSON parser so the webhook can validate the original raw request body; the charge route has its own bounded JSON parser.
-- Static syntax parsing has passed for `server.js` and `virtual-card-routes.js`. Full integration tests still need to run in a controlled sandbox environment before enabling the flag.
+- Added `test/virtual-card-routes.test.js` to assert default-disabled behavior, auth-before-database ordering, dedicated raw-body webhook registration, and approved Ghana MoMo provider codes.
+- Static syntax parsing has passed for `server.js` and `virtual-card-routes.js`. Automated repository checks and the new Node.js safety tests have passed in GitHub Actions (DGM Virtual Card Development Checks, DGM Server Checks, and DGM backend syntax checks). Real provider sandbox integration tests still require a separate Paystack test secret and must run in a controlled sandbox environment before enabling the flag.
 
 These routes are not proof of issuer approval, card issuance, or a live settlement path. Do not enable the sandbox flag in production until a separate test key and the sandbox webhook configuration are available.
 
