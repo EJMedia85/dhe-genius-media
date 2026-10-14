@@ -177,7 +177,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
     }
   );
 
-  app.post("/api/virtual-card/funding/initialize", require("express").json({ limit: "32kb" }), ready, requireLogin, async (req, res) => {
+  app.post("/api/virtual-card/funding/initialize", require("express").json({ limit: "32kb" }), requireLogin, ready, async (req, res) => {
     try {
       const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
       const provider = String(req.body?.provider || "").trim().toLowerCase();
@@ -270,7 +270,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
     }
   });
 
-  app.get("/api/virtual-card/funding/:reference", ready, requireLogin, async (req, res) => {
+  app.get("/api/virtual-card/funding/:reference", requireLogin, ready, async (req, res) => {
     try {
       const reference = String(req.params.reference || "").trim();
       const result = await pool.query(
