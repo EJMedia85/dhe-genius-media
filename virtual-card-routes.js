@@ -47,6 +47,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    await pool.query("ALTER TABLE dgm_virtual_card_deposits ADD COLUMN IF NOT EXISTS provider_reference TEXT UNIQUE");
     await pool.query(`
       CREATE INDEX IF NOT EXISTS dgm_virtual_card_deposits_customer_created_idx
       ON dgm_virtual_card_deposits(customer_id, created_at DESC)
