@@ -177,7 +177,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
     }
   );
 
-  app.post("/api/virtual-card/funding/initialize", ready, requireLogin, async (req, res) => {
+  app.post("/api/virtual-card/funding/initialize", require("express").json({ limit: "32kb" }), ready, requireLogin, async (req, res) => {
     try {
       const amount = Math.round(Number(req.body?.amount || 0) * 100) / 100;
       const provider = String(req.body?.provider || "").trim().toLowerCase();
