@@ -2065,13 +2065,14 @@ app.use(
   })
 );
 
+// Register the virtual-card raw-body webhook before Bridge installs its JSON
+// parser. The sandbox webhook must validate the original Paystack signature.
+// This module is disabled unless a separate sk_test_ key and explicit flag exist.
+installVirtualCard(app, { pool, requireLogin });
+
 // DGM Bridge routes are registered after the session middleware so the
 // protected /api/admin/bridge/* endpoints can see req.session.
 installBridge(app);
-
-// DGM Virtual Card is sandbox-only and uses a separate Paystack test key.
-// It never credits the live wallet or issues real cards.
-installVirtualCard(app, { pool, requireLogin });
 
 // DGM Staff & Permissions authorization is registered before admin endpoints.
 // Super Admin remains the environment-backed ADMIN_EMAIL/ADMIN_PASSWORD account.
