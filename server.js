@@ -2070,6 +2070,14 @@ app.use(
 // This module is disabled unless a separate sk_test_ key and explicit flag exist.
 installVirtualCard(app, { pool, requireLogin });
 
+// Serve the standalone Virtual Card page from the repository root. The main
+// static middleware serves only /public, so without this explicit route the
+// preview file would return 404 after deployment. Keep it behind customer login.
+app.get("/dgm-virtual-card.html", requireLogin, (req, res) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  return res.sendFile(path.join(__dirname, "dgm-virtual-card.html"));
+});
+
 // DGM Bridge routes are registered after the session middleware so the
 // protected /api/admin/bridge/* endpoints can see req.session.
 installBridge(app);
