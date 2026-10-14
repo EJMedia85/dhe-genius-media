@@ -104,7 +104,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
         [
           String(payment.status || payload.message || "verification_failed").slice(0, 80),
           String(payment.gateway_response || payload.message || "Payment not verified.").slice(0, 500),
-          reference
+          expected.reference
         ]
       );
       return false;
