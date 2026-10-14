@@ -1,7 +1,22 @@
 # DGM Virtual Card — Sandbox Integration Test Plan
 
-**Current mode:** planning only. This document does not activate payments or card issuance.
+**Current mode:** sandbox-only routes have been added on the development branch; they are disabled by default and have not been deployed to the live DGM service. No real card issuance or wallet credit is implemented.
 **Rule:** Never use live credentials or real customer money in sandbox testing.
+
+## Current development implementation
+
+- New module: `virtual-card-routes.js`, registered in `server.js` on the development branch.
+- Sandbox flag: `DGM_VIRTUAL_CARD_SANDBOX_ENABLED=true`.
+- Separate credential: `PAYSTACK_SANDBOX_SECRET_KEY`; the module refuses to run unless it begins with `sk_test_`. Never reuse `PAYSTACK_SECRET_KEY` for this flow.
+- Public status endpoint: `GET /api/virtual-card/sandbox-status`.
+- Authenticated sandbox charge endpoint: `POST /api/virtual-card/funding/initialize` with `amount`, `provider` (`mtn`, `vod`, or `atl`) and `phone`.
+- Dedicated sandbox webhook: `POST /api/virtual-card/paystack-sandbox-webhook`; it validates the raw-body HMAC-SHA512 signature and re-verifies the charge with Paystack.
+- Authenticated status lookup: `GET /api/virtual-card/funding/:reference`.
+- Deposit records are isolated in `dgm_virtual_card_deposits`. They store only the phone's last four digits, and a verified sandbox payment is marked `sandbox_paid` without crediting the DGM Wallet.
+- The module is deliberately registered before Bridge's JSON parser so the webhook can validate the original raw request body; the charge route has its own bounded JSON parser.
+- Static syntax parsing has passed for `server.js` and `virtual-card-routes.js`. Full integration tests still need to run in a controlled sandbox environment before enabling the flag.
+
+These routes are not proof of issuer approval, card issuance, or a live settlement path. Do not enable the sandbox flag in production until a separate test key and the sandbox webhook configuration are available.
 
 ## Provider facts to confirm before coding against production
 
