@@ -274,19 +274,41 @@ function installVirtualCard(app, { pool, requireLogin }) {
     try {
       const reference = String(req.params.reference || "").trim();
       const result = await pool.query(
-        `SELECT reference, amount, currency, provider, phone_last4, status, payment_status,
-                provider_status, provider_message, paid_at, created_at
+        `SELECT reference, provider_reference, amount, currency, provider, phone_last4,
+                status, payment_status, provider_status, provider_message, paid_at, created_at
          FROM dgm_virtual_card_deposits
          WHERE reference=$1 AND customer_id=$2 LIMIT 1`,
         [reference, req.session.customerId]
       );
       if (!result.rows.length) return sendError(res, 404, "Sandbox funding record not found.");
+
+      // Polling also reconciles a pending charge in case the provider webhook
+      // arrived before its local reference was stored or was temporarily missed.
+      let deposit = result.rows[0];
+      if (deposit.payment_status !== "paid" && deposit.provider_reference) {
+        try {
+          await verifyCharge(deposit.provider_reference, deposit);
+          const refreshed = await pool.query(
+            `SELECT reference, amount, currency, provider, phone_last4, status, payment_status,
+                    provider_status, provider_message, paid_at, created_at
+             FROM dgm_virtual_card_deposits
+             WHERE reference=$1 AND customer_id=$2 LIMIT 1`,
+            [reference, req.session.customerId]
+          );
+          if (refreshed.rows.length) deposit = refreshed.rows[0];
+        } catch (verificationError) {
+          console.error("DGM Virtual Card sandbox reconciliation error:", verificationError.message);
+          // Keep the recorded state; transient verification errors must not be
+          // interpreted as payment failure or success.
+        }
+      }
+
       return res.json({
         success: true,
         sandbox_only: true,
         real_card_issuance_enabled: false,
         real_wallet_credit_enabled: false,
-        deposit: result.rows[0]
+        deposit
       });
     } catch (error) {
       console.error("DGM Virtual Card sandbox status lookup error:", error.message);
