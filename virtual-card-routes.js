@@ -33,6 +33,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
         id BIGSERIAL PRIMARY KEY,
         customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
         reference TEXT NOT NULL UNIQUE,
+        provider_reference TEXT UNIQUE,
         amount NUMERIC(12,2) NOT NULL CHECK (amount > 0),
         currency TEXT NOT NULL DEFAULT 'GHS' CHECK (currency = 'GHS'),
         provider TEXT NOT NULL CHECK (provider IN ('mtn','vod','atl')),
@@ -83,9 +84,9 @@ function installVirtualCard(app, { pool, requireLogin }) {
     return { response, payload };
   }
 
-  async function verifyCharge(reference, expected) {
+  async function verifyCharge(providerReference, expected) {
     const { response, payload } = await paystackRequest(
-      "/transaction/verify/" + encodeURIComponent(reference)
+      "/transaction/verify/" + encodeURIComponent(providerReference)
     );
     const payment = payload?.data || {};
     const valid = response.ok &&
@@ -93,7 +94,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
       String(payment.status || "").toLowerCase() === "success" &&
       String(payment.currency || "").toUpperCase() === "GHS" &&
       Math.round(Number(payment.amount || 0)) === Math.round(Number(expected.amount) * 100) &&
-      String(payment.reference || "") === reference;
+      String(payment.reference || "") === providerReference;
 
     if (!valid) {
       await pool.query(
@@ -117,7 +118,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
            provider_status='success', provider_message='Sandbox payment verified',
            paid_at=COALESCE(paid_at,NOW()), updated_at=NOW()
        WHERE reference=$1 AND amount=$2 AND currency='GHS'`,
-      [reference, expected.amount]
+      [expected.reference, expected.amount]
     );
     return true;
   }
@@ -159,7 +160,7 @@ function installVirtualCard(app, { pool, requireLogin }) {
         if (!reference) return res.sendStatus(200);
 
         const found = await pool.query(
-          "SELECT reference, amount, currency FROM dgm_virtual_card_deposits WHERE reference=$1 LIMIT 1",
+          "SELECT reference, provider_reference, amount, currency FROM dgm_virtual_card_deposits WHERE provider_reference=$1 LIMIT 1",
           [reference]
         );
         if (!found.rows.length) return res.sendStatus(200);
@@ -242,9 +243,9 @@ function installVirtualCard(app, { pool, requireLogin }) {
 
       await pool.query(
         `UPDATE dgm_virtual_card_deposits
-         SET status='pending', provider_status=$1, provider_message=$2, updated_at=NOW()
-         WHERE reference=$3`,
-        [String(charge.status || "pending").slice(0, 80),
+         SET status='pending', provider_reference=$1, provider_status=$2, provider_message=$3, updated_at=NOW()
+         WHERE reference=$4`,
+        [String(charge.reference).slice(0, 120), String(charge.status || "pending").slice(0, 80),
          String(charge.display_text || payload.message || "Approve the payment prompt on your phone.").slice(0, 500),
          reference]
       );
