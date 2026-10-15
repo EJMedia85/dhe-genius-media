@@ -6153,7 +6153,7 @@ app.get("/api/admin/stats", requireAdmin, async (req, res) => {
 
 app.get("/api/admin/orders", requireAdmin, async (req, res) => {
   try {
-    const result = await pool.query("SELECT o.order_ref, o.service, o.network, o.phone, o.amount, o.status, o.created_at, c.name AS customer_name, c.email AS customer_email FROM orders o LEFT JOIN customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT o.order_ref, o.service, o.network, o.phone, o.amount, o.status, o.capacity, o.created_at, c.name AS customer_name, c.email AS customer_email FROM orders o LEFT JOIN customers c ON c.id = o.customer_id ORDER BY o.created_at DESC LIMIT 100");
     return res.json({ success: true, orders: result.rows });
   } catch (error) { console.error("Admin orders error:", error); return sendError(res, 500, "Could not load orders."); }
 });
@@ -6172,7 +6172,7 @@ app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
 
     const [orders, transactions, topups, support] = await Promise.all([
       pool.query(
-        "SELECT id, order_ref, service, network, phone, amount, status, payment_status, provider_status, datamart_reference, created_at, paid_at FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200",
+        "SELECT id, order_ref, service, network, phone, amount, status, capacity, payment_status, provider_status, datamart_reference, created_at, paid_at FROM orders WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 200",
         [customerId]
       ),
       pool.query(
@@ -9178,7 +9178,7 @@ app.get("/api/transactions", requireCustomer, async (req,res) => {
       pool.query(`SELECT id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference,created_at FROM wallet_transactions WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
       pool.query(`SELECT id,reference,amount,status,payment_status,paid_at,created_at FROM wallet_topups WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
       pool.query(`SELECT id,reference,amount,momo_network,momo_phone,momo_name,status,admin_note,created_at,updated_at FROM wallet_withdrawals WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId]),
-      pool.query(`SELECT id,order_ref,service,network,phone,amount,status,payment_status,provider_reference,created_at,completed_at FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId])
+      pool.query(`SELECT id,order_ref,service,network,phone,amount,status,capacity,payment_status,provider_reference,created_at,completed_at FROM orders WHERE customer_id=$1 ORDER BY created_at DESC LIMIT 100`,[req.session.customerId])
     ]);
     return res.json({success:true,wallet_transactions:wallet.rows,wallet_topups:topups.rows,withdrawals:withdrawals.rows,orders:orders.rows});
   } catch(error) {
@@ -9190,7 +9190,7 @@ app.get("/api/transactions", requireCustomer, async (req,res) => {
 app.get("/api/receipts/order/:id", requireCustomer, async (req,res) => {
   try {
     const result=await pool.query(
-      `SELECT id,order_ref,service,network,phone,amount,status,payment_status,provider_reference,created_at,completed_at FROM orders WHERE id=$1 AND customer_id=$2 LIMIT 1`,
+      `SELECT id,order_ref,service,network,phone,amount,status,capacity,payment_status,provider_reference,created_at,completed_at FROM orders WHERE id=$1 AND customer_id=$2 LIMIT 1`,
       [Number(req.params.id),req.session.customerId]
     );
     if(!result.rows.length) return res.status(404).json({success:false,message:"Order not found."});
