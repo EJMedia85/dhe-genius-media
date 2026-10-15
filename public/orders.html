@@ -976,6 +976,7 @@
         result.innerHTML = "<strong>" + escapeHtml(order.service || "DGM Order") + "</strong> · " +
           escapeHtml(capitalize(status)) + "<br>Reference: <strong>" + escapeHtml(order.order_ref) +
           "</strong> · Amount: <strong>GH₵" + Number(order.amount || 0).toFixed(2) + "</strong><br>" +
+          (order.network ? "Network: " + escapeHtml(order.network + (order.capacity ? " · " + String(order.capacity).replace(/\s*GB$/i, "") + " GB" : "")) + "<br>" : "") +
           (order.phone ? "Recipient: " + escapeHtml(order.phone) + "<br>" : "") +
           "Date: " + escapeHtml(formatDate(order.created_at));
         result.hidden = false;
@@ -1387,6 +1388,9 @@
         order.network ||
         "";
 
+      const capacity = String(order.capacity || "").trim().replace(/\s*GB$/i, "");
+      const networkLabel = network + (capacity ? " · " + capacity + " GB" : "");
+
 
       const phone =
         order.phone ||
@@ -1458,7 +1462,7 @@
                 </div>
 
                 <div class="service-network">
-                  ${escapeHtml(network || "DGM Service")}
+                  ${escapeHtml(networkLabel || "DGM Service")}
                 </div>
 
               </div>
