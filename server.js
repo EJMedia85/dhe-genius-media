@@ -6191,7 +6191,7 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
 app.get("/api/admin/guest-settlements", requireAdmin, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT order_ref, network, capacity, amount AS customer_paid,
+      `SELECT order_ref, network, capacity, amount AS customer_paid, payment_status,
               supplier_cost, dgm_gross_profit, supplier_settlement_status,
               supplier_settlement_reference, supplier_settled_at, paid_at, created_at
          FROM orders
