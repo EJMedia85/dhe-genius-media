@@ -3499,6 +3499,81 @@ function getConfiguredDataMartCost(network, capacity) {
   }
 }
 
+// When enabled, settle DataMart's verified agent cost from the DGM Paystack
+// merchant balance after a guest bundle is accepted for fulfilment. This requires
+// a verified Paystack transfer recipient and transfer capability on the account.
+// If configuration is missing, the amount remains visible in the admin settlement
+// ledger and no money is moved.
+async function initiateGuestSupplierTransfer(order) {
+  const recipient = String(process.env.PAYSTACK_DATAMART_RECIPIENT_CODE || "").trim();
+  if (!recipient || !PAYSTACK_SECRET_KEY || !order || order.customer_id != null ||
+      String(order.payment_status || "").toLowerCase() !== "paid" ||
+      order.supplier_cost == null || !Number.isFinite(Number(order.supplier_cost)) ||
+      Number(order.supplier_cost) <= 0) {
+    return { submitted: false, reason: "Supplier transfer is not configured or order cost is unavailable." };
+  }
+
+  const cost = Number(Number(order.supplier_cost).toFixed(2));
+  const transferReference = ("DGM-SUP-" + String(order.order_ref).replace(/[^A-Z0-9]/gi, "")).slice(0, 50);
+  const claimed = await pool.query(
+    `UPDATE orders
+        SET supplier_settlement_status='transfer_initiating',
+            supplier_settlement_reference=$1
+      WHERE id=$2 AND customer_id IS NULL
+        AND LOWER(COALESCE(payment_status,''))='paid'
+        AND supplier_cost=$3
+        AND supplier_settlement_status='awaiting_settlement'
+      RETURNING id`,
+    [transferReference, order.id, cost]
+  );
+  if (!claimed.rowCount) return { submitted: false, reason: "Settlement was already claimed or is not eligible." };
+
+  try {
+    const response = await fetch("https://api.paystack.co/transfer", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        source: "balance",
+        amount: String(Math.round(cost * 100)),
+        recipient,
+        reference: transferReference,
+        reason: "DataMart supplier cost for DGM guest order " + order.order_ref
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    const raw = await response.text();
+    let payload = {};
+    try { payload = JSON.parse(raw); } catch {}
+    if (!response.ok || !payload.status || !payload.data) {
+      // A rejected response is surfaced for reconciliation; do not auto-retry an
+      // ambiguous transfer because the provider may have received the request.
+      const status = response.status >= 500 ? "transfer_review" : "awaiting_settlement";
+      await pool.query(
+        "UPDATE orders SET supplier_settlement_status=$1 WHERE id=$2 AND supplier_settlement_status='transfer_initiating'",
+        [status, order.id]
+      );
+      console.error("DGM supplier transfer requires review:", order.order_ref, response.status, payload.message || "No transfer confirmation");
+      return { submitted: false, reason: payload.message || "Paystack did not confirm the supplier transfer." };
+    }
+    const providerStatus = String(payload.data.status || "pending").toLowerCase();
+    await pool.query(
+      "UPDATE orders SET supplier_settlement_status='transfer_submitted' WHERE id=$1 AND supplier_settlement_status='transfer_initiating'",
+      [order.id]
+    );
+    console.log("DGM supplier transfer submitted:", order.order_ref, transferReference, providerStatus);
+    return { submitted: true, reference: transferReference, status: providerStatus };
+  } catch (error) {
+    // Keep ambiguous network outcomes for admin reconciliation; never blindly retry.
+    await pool.query(
+      "UPDATE orders SET supplier_settlement_status='transfer_review' WHERE id=$1 AND supplier_settlement_status='transfer_initiating'",
+      [order.id]
+    );
+    console.error("DGM supplier transfer outcome ambiguous:", order.order_ref, error.message);
+    return { submitted: false, reason: "Transfer outcome needs reconciliation." };
+  }
+}
+
+
 
 // DataMart public prices are the source of truth for the DGM customer catalogue.
 // The last successful values remain in memory if DataMart is temporarily unavailable.
@@ -5496,6 +5571,25 @@ app.post(
         return res.sendStatus(200);
       }
 
+      const transferEvent = String(event.event || "").toLowerCase();
+      if (transferEvent === "transfer.success" || transferEvent === "transfer.failed" ||
+          transferEvent === "transfer.reversed") {
+        const transferRef = String(event?.data?.reference || "").trim();
+        if (!transferRef) return res.sendStatus(200);
+        if (transferEvent === "transfer.success") {
+          await pool.query(
+            "UPDATE orders SET supplier_settlement_status='settled',supplier_settled_at=COALESCE(supplier_settled_at,NOW()) WHERE supplier_settlement_reference=$1 AND supplier_settlement_status IN ('transfer_submitted','transfer_initiating')",
+            [transferRef]
+          );
+        } else {
+          await pool.query(
+            "UPDATE orders SET supplier_settlement_status='awaiting_settlement',supplier_settlement_reference=NULL WHERE supplier_settlement_reference=$1 AND supplier_settlement_status IN ('transfer_submitted','transfer_initiating')",
+            [transferRef]
+          );
+        }
+        return res.sendStatus(200);
+      }
+
       if (
         event.event !==
         "charge.success"
@@ -5700,6 +5794,9 @@ app.post(
           order.id,
           fulfillmentResult.error || "Data bundle could not be placed."
         );
+      } else if (order.customer_id == null) {
+        const settledOrder = (await pool.query("SELECT * FROM orders WHERE id=$1", [order.id])).rows[0];
+        await initiateGuestSupplierTransfer(settledOrder);
       }
 
       return res.sendStatus(200);
@@ -6232,7 +6329,7 @@ app.post("/api/admin/guest-settlements/:orderRef/mark-paid", requireAdmin, async
         WHERE UPPER(order_ref)=$2 AND customer_id IS NULL
           AND LOWER(COALESCE(payment_status,''))='paid'
           AND supplier_cost IS NOT NULL
-          AND COALESCE(supplier_settlement_status,'')='awaiting_settlement'
+          AND COALESCE(supplier_settlement_status,'') IN ('awaiting_settlement','transfer_submitted','transfer_review')
         RETURNING order_ref, supplier_cost, dgm_gross_profit,
                   supplier_settlement_status, supplier_settlement_reference, supplier_settled_at`,
       [settlementReference, orderRef]
@@ -7980,6 +8077,9 @@ app.post("/api/guest-orders/verify", async (req, res) => {
         const fulfillment = await fulfillDataOrder(updated);
         if (!fulfillment.success || fulfillment.status === "Failed") {
           await refundFailedCustomerOrder(order.id, fulfillment.error || "Data bundle could not be placed.");
+        } else {
+          const settledOrder = (await pool.query("SELECT * FROM orders WHERE id=$1", [order.id])).rows[0];
+          await initiateGuestSupplierTransfer(settledOrder);
         }
       } catch (error) {
         console.error("Guest data fulfillment failed after verified payment:", order.order_ref, error.message);
