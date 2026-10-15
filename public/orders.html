@@ -346,8 +346,23 @@
 
     .service-network {
       color: var(--muted);
-      font-size: 11px;
-      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-top: 5px;
+    }
+
+    .bundle-capacity {
+      display: inline-block;
+      margin-left: 4px;
+      padding: 3px 8px;
+      border-radius: 7px;
+      background: rgba(37,211,102,.15);
+      border: 1px solid rgba(37,211,102,.4);
+      color: #25d366;
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      line-height: 1.2;
     }
 
     /* =========================
@@ -1389,7 +1404,8 @@
         "";
 
       const capacity = String(order.capacity || "").trim().replace(/\s*GB$/i, "");
-      const networkLabel = network + (capacity ? " · " + capacity + " GB" : "");
+      const networkLabel = escapeHtml(network);
+      const capacityLabel = capacity ? '<span class="bundle-capacity">' + escapeHtml(capacity + " GB") + '</span>' : "";
 
 
       const phone =
@@ -1462,7 +1478,7 @@
                 </div>
 
                 <div class="service-network">
-                  ${escapeHtml(networkLabel || "DGM Service")}
+                  ${networkLabel || "DGM Service"}${capacityLabel}
                 </div>
 
               </div>
