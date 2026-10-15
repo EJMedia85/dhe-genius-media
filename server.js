@@ -1577,6 +1577,11 @@ async function initDatabase() {
     ["datamart_transaction_reference", "TEXT"],
     ["datamart_status", "TEXT"],
     ["capacity", "TEXT"],
+    ["supplier_cost", "NUMERIC(12,2)"],
+    ["dgm_gross_profit", "NUMERIC(12,2)"],
+    ["supplier_settlement_status", "TEXT DEFAULT 'cost_unconfigured'"],
+    ["supplier_settlement_reference", "TEXT"],
+    ["supplier_settled_at", "TIMESTAMPTZ"],
     ["paystack_reference", "TEXT"],
     ["guest_refund_status", "TEXT"],
     ["guest_refund_reference", "TEXT"],
@@ -3473,6 +3478,27 @@ const DGM_PRICES = {
   AirtelTigo: {1:5,2:10,3:15,4:20,5:24,6:26,8:35,10:45,12:48,15:65,25:100,30:120,40:160,50:200},
   Telecel: {10:45,15:60,20:76,25:100,30:115,35:136,40:150,45:165,50:185,100:407}
 };
+
+// Supplier cost is deliberately configured separately from DGM selling prices.
+// Set DATAMART_BUNDLE_COSTS_JSON to a JSON object such as
+// {"MTN":{"1":4.00,"5":19.00},"AirtelTigo":{"1":4.00},"Telecel":{"10":40.00}}
+// using verified DataMart agent costs in GHS. Never infer supplier costs from
+// public prices. Each guest order snapshots the cost and gross margin at checkout.
+function getConfiguredDataMartCost(network, capacity) {
+  try {
+    const raw = String(process.env.DATAMART_BUNDLE_COSTS_JSON || "").trim();
+    if (!raw) return null;
+    const costs = JSON.parse(raw);
+    const value = costs?.[network]?.[String(capacity)];
+    if (value === undefined || value === null || value === "") return null;
+    const amount = Number(value);
+    return Number.isFinite(amount) && amount >= 0 ? Number(amount.toFixed(2)) : null;
+  } catch (error) {
+    console.error("DATAMART_BUNDLE_COSTS_JSON is invalid JSON; supplier cost tracking is disabled:", error.message);
+    return null;
+  }
+}
+
 
 // DataMart public prices are the source of truth for the DGM customer catalogue.
 // The last successful values remain in memory if DataMart is temporarily unavailable.
@@ -6159,6 +6185,66 @@ app.get("/api/admin/orders", requireAdmin, async (req, res) => {
 });
 
 
+// Guest supplier settlement ledger. This records amounts owed; it does not
+// initiate bank/MoMo transfers. Mark an item settled only after the supplier payment
+// has actually been completed and its reference is available.
+app.get("/api/admin/guest-settlements", requireAdmin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT order_ref, network, capacity, amount AS customer_paid,
+              supplier_cost, dgm_gross_profit, supplier_settlement_status,
+              supplier_settlement_reference, supplier_settled_at, paid_at, created_at
+         FROM orders
+        WHERE customer_id IS NULL AND service = 'Data Bundle'
+        ORDER BY created_at DESC
+        LIMIT 200`
+    );
+    const summary = result.rows.reduce((acc, row) => {
+      if (String(row.supplier_settlement_status || "") === "awaiting_settlement" &&
+          row.supplier_cost !== null && row.supplier_cost !== undefined &&
+          String(row.payment_status || "Paid").toLowerCase() === "paid") {
+        acc.supplier_payable += Number(row.supplier_cost || 0);
+        acc.dgm_gross_profit += Number(row.dgm_gross_profit || 0);
+        acc.count += 1;
+      }
+      return acc;
+    }, { supplier_payable: 0, dgm_gross_profit: 0, count: 0 });
+    summary.supplier_payable = Number(summary.supplier_payable.toFixed(2));
+    summary.dgm_gross_profit = Number(summary.dgm_gross_profit.toFixed(2));
+    return res.json({ success: true, summary, settlements: result.rows });
+  } catch (error) {
+    console.error("Guest supplier settlement ledger error:", error.message);
+    return sendError(res, 500, "Could not load guest supplier settlement ledger.");
+  }
+});
+
+app.post("/api/admin/guest-settlements/:orderRef/mark-paid", requireAdmin, async (req, res) => {
+  const orderRef = String(req.params.orderRef || "").trim().toUpperCase();
+  const settlementReference = String(req.body?.settlementReference || "").trim();
+  if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)) return sendError(res, 400, "Invalid order reference.");
+  if (settlementReference.length < 4 || settlementReference.length > 180) return sendError(res, 400, "Enter the completed supplier payment reference.");
+  try {
+    const result = await pool.query(
+      `UPDATE orders
+          SET supplier_settlement_status='settled',
+              supplier_settlement_reference=$1,
+              supplier_settled_at=NOW()
+        WHERE UPPER(order_ref)=$2 AND customer_id IS NULL
+          AND LOWER(COALESCE(payment_status,''))='paid'
+          AND supplier_cost IS NOT NULL
+          AND COALESCE(supplier_settlement_status,'')='awaiting_settlement'
+        RETURNING order_ref, supplier_cost, dgm_gross_profit,
+                  supplier_settlement_status, supplier_settlement_reference, supplier_settled_at`,
+      [settlementReference, orderRef]
+    );
+    if (!result.rows.length) return sendError(res, 409, "Settlement was not changed. Check that the guest order is paid, has a configured supplier cost, and is not already settled.");
+    return res.json({ success: true, settlement: result.rows[0] });
+  } catch (error) {
+    console.error("Mark guest supplier settlement error:", error.message);
+    return sendError(res, 500, "Could not update supplier settlement status.");
+  }
+});
+
 app.get("/api/admin/customers/:id/details", requireAdmin, async (req, res) => {
   const customerId = Number(req.params.id);
   if (!Number.isInteger(customerId) || customerId <= 0) return sendError(res, 400, "Invalid customer ID.");
@@ -7679,13 +7765,19 @@ app.post("/api/guest-orders", async (req, res) => {
     const result = await pool.query(
       `INSERT INTO orders
         (order_ref, customer_id, service, network, phone, amount, status, capacity,
-         payment_status, base_amount, campaign_id, promo_discount, guest_token_hash)
+         payment_status, base_amount, campaign_id, promo_discount, guest_token_hash,
+         supplier_cost, dgm_gross_profit, supplier_settlement_status)
        VALUES ($1, NULL, 'Data Bundle', $2, $3, $4, 'Pending Payment', $5,
-         'Pending', $6, $7, $8, $9)
+         'Pending', $6, $7, $8, $9, $10, $11, $12)
        RETURNING id, order_ref, service, network, phone, amount, status, capacity,
-         payment_status, base_amount, promo_discount, created_at`,
+         payment_status, base_amount, promo_discount, created_at,
+         supplier_cost, dgm_gross_profit, supplier_settlement_status`,
       [orderRef, network, phone, amount, String(capacity), baseAmount,
-       campaign ? campaign.id : null, campaign ? campaign.discount : 0, tokenHash]
+       campaign ? campaign.id : null, campaign ? campaign.discount : 0, tokenHash,
+       getConfiguredDataMartCost(network, capacity),
+       getConfiguredDataMartCost(network, capacity) == null ? null :
+         Number((amount - getConfiguredDataMartCost(network, capacity)).toFixed(2)),
+       getConfiguredDataMartCost(network, capacity) == null ? "cost_unconfigured" : "awaiting_settlement"]
     );
     if (campaign) await pool.query("UPDATE marketing_campaigns SET uses=uses+1,updated_at=NOW() WHERE id=$1", [campaign.id]);
     return res.json({
