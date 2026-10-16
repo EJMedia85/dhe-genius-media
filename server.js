@@ -3471,12 +3471,12 @@ function isDataService(
 // =====================================================
 
 const DGM_PRICES = {
-  // Verified DGM customer-facing prices; used as the safe fallback when the
-  // provider's public catalogue cannot be read. Keep this aligned with the
-  // prices shown on the DGM website and checkout.
-  MTN: {1:4.20,2:8.80,3:12.80,4:17.80,5:22.30,6:25.00,8:33.00,10:41.00,15:59.50,20:79.00,25:99.00,30:121.00,40:158.00,50:200.00},
-  AirtelTigo: {1:5,2:10,3:15,4:20,5:24,6:26,8:35,10:45,12:48,15:65,25:100,30:120,40:160,50:200},
-  Telecel: {10:45,15:60,20:76,25:100,30:115,35:136,40:150,45:165,50:185,100:407}
+  // DGM's approved retail prices. These prices are authoritative for guest
+  // checkout, customer checkout, the public catalogue and the homepage.
+  // Provider catalogue prices must never overwrite DGM retail prices.
+  MTN: {1:4.80,2:9.89,3:14.90,4:19.90,5:26.50,6:29.99,8:39.60,10:49.70,15:71.50,20:95.50,25:120.00,30:145.00,40:187.70,50:247.00},
+  AirtelTigo: {1:4.50,2:10.00,3:15.00,4:19.50,5:23.50,6:30.60,8:38.50,10:45.50,12:56.00,15:65.50,25:106.00,30:128.50,40:165.00,50:215.00},
+  Telecel: {10:47.70,15:69.90,20:92.00,25:101.00,30:121.00,35:142.00,40:154.00,45:169.00,50:201.00,100:425.00}
 };
 
 // Supplier cost is deliberately configured separately from DGM selling prices.
@@ -3700,12 +3700,12 @@ async function refreshDataMartPrices(force = false) {
         }
       }
 
+      // The public supplier catalogue is used for stock/availability checks,
+      // not for setting DGM's retail prices. Keep the approved DGM price list
+      // consistent across guest checkout, logged-in checkout and catalogue UI.
       customer[network] = {};
       for (const gb of Object.keys(fallback)) {
-        const livePrice = Number(parsed?.[network]?.[gb]);
-        customer[network][gb] = Number.isFinite(livePrice) && livePrice > 0
-          ? Number(livePrice.toFixed(2))
-          : Number(fallback[gb]);
+        customer[network][gb] = Number(fallback[gb]);
       }
 
       if (!parsed && networkError) {
@@ -3738,11 +3738,8 @@ async function refreshDataMartPrices(force = false) {
     }
 
     dataMartPriceCache = { checked_at: now, customer, agent };
-    for (const [network, prices] of Object.entries(customer)) {
-      for (const [gb, price] of Object.entries(prices)) {
-        if (Number(price) > 0) DGM_PRICES[network][gb] = Number(price);
-      }
-    }
+    // Do not mutate DGM_PRICES from provider catalogue data. Retail prices are
+    // intentionally controlled by the approved DGM price list above.
   } catch (error) {
     console.error("DataMart price sync failed:", error.message);
   }
