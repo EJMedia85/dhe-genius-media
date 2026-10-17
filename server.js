@@ -3506,7 +3506,10 @@ function getConfiguredDataMartCost(network, capacity) {
 // ledger and no money is moved.
 async function initiateGuestSupplierTransfer(order) {
   const recipient = String(process.env.PAYSTACK_DATAMART_RECIPIENT_CODE || "").trim();
-  if (!recipient || !PAYSTACK_SECRET_KEY || !order || order.customer_id != null ||
+  // Safety switch: supplier transfers remain disabled until recipient and Paystack
+  // transfer capability have been verified and an operator explicitly enables them.
+  const autoSettlementEnabled = String(process.env.ENABLE_DATAMART_AUTO_SETTLEMENT || "").trim().toLowerCase() === "true";
+  if (!autoSettlementEnabled || !recipient || !PAYSTACK_SECRET_KEY || !order || order.customer_id != null ||
       String(order.payment_status || "").toLowerCase() !== "paid" ||
       order.supplier_cost == null || !Number.isFinite(Number(order.supplier_cost)) ||
       Number(order.supplier_cost) <= 0) {
