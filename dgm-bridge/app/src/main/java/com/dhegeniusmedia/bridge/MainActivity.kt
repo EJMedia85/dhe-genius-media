@@ -184,10 +184,19 @@ class MainActivity : Activity() {
     }
 
     private fun awaitAuthorization() {
+        val pin = if (currentMode() == BridgeVpnService.MODE_CLIENT) clientPin else null
         while (true) {
-            val result = api.registrationStatus(deviceIdValue, if (currentMode() == BridgeVpnService.MODE_CLIENT) clientPin else null)
+            val result = api.registrationStatus(deviceIdValue, pin)
             val state = result.optString("approval_status", "pending")
-            if (state == "approved") return
+            if (state == "approved") {
+                // Fetch a fresh device session only once, after approval. Routine
+                // status refreshes must not invalidate an active relay session.
+                val authorized = api.registrationStatus(deviceIdValue, pin, issueToken = true)
+                if (authorized.optString("token").isBlank()) {
+                    throw IllegalStateException("Authorization succeeded but no Bridge session token was issued.")
+                }
+                return
+            }
             if (state == "denied") throw IllegalStateException("Registration denied by DGM Admin.")
             Thread.sleep(3000)
         }
