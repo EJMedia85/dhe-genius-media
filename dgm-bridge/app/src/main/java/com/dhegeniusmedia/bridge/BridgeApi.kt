@@ -68,10 +68,17 @@ class BridgeApi(private val baseUrl: String = "https://dhe-genius-media.onrender
         return result
     }
 
-    fun registrationStatus(deviceId: String, pin: String? = null): JSONObject {
+    fun registrationStatus(
+        deviceId: String,
+        pin: String? = null,
+        issueToken: Boolean = false
+    ): JSONObject {
         val encoded = URLEncoder.encode(deviceId, "UTF-8")
         val encodedPin = URLEncoder.encode(pin.orEmpty(), "UTF-8")
-        val suffix = if (pin.isNullOrBlank()) "" else "&pin=$encodedPin"
+        val suffix = buildString {
+            if (!pin.isNullOrBlank()) append("&pin=$encodedPin")
+            if (issueToken) append("&issue_token=true")
+        }
         val result = get("/api/bridge/registration-status?device_id=$encoded$suffix")
         result.optString("token")
             .takeIf { it.isNotBlank() }
