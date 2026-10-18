@@ -100,6 +100,40 @@ async function installMusic(app, { pool, requireLogin }) {
     }
   });
 
+  app.get("/api/admin/music/submissions", requireAdmin, async (req, res) => {
+    try {
+      await ensureTables();
+      const result = await pool.query(
+        "SELECT id, title, artist, genre, audio_url, artwork_url, rights_confirmed, submitted_by, created_at FROM dgm_music_tracks WHERE status = 'pending' ORDER BY created_at ASC LIMIT 100"
+      );
+      return res.json({ success: true, submissions: result.rows });
+    } catch (error) {
+      console.error("DGM Music admin list error:", error.message);
+      return res.status(503).json({ success: false, message: "Could not load music submissions." });
+    }
+  });
+
+  app.post("/api/admin/music/tracks/:id/review", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    const status = String(req.body?.status || "").toLowerCase();
+    const downloadAllowed = req.body?.downloadAllowed === true;
+    if (!Number.isSafeInteger(id) || id <= 0 || !["approved", "rejected"].includes(status)) {
+      return res.status(400).json({ success: false, message: "Provide a valid track ID and approved/rejected status." });
+    }
+    try {
+      await ensureTables();
+      const result = await pool.query(
+        "UPDATE dgm_music_tracks SET status = $1, download_allowed = $2, reviewed_at = NOW() WHERE id = $3 AND status = 'pending' RETURNING id, title, artist, status, download_allowed",
+        [status, status === "approved" && downloadAllowed, id]
+      );
+      if (!result.rows.length) return res.status(404).json({ success: false, message: "Pending music submission not found." });
+      return res.json({ success: true, track: result.rows[0] });
+    } catch (error) {
+      console.error("DGM Music review error:", error.message);
+      return res.status(503).json({ success: false, message: "Could not review this submission right now." });
+    }
+  });
+
   app.get("/auth/spotify/start", (req, res) => {
     if (!spotifyReady()) return res.redirect("/music.html?spotify=not-configured");
     const state = crypto.randomBytes(24).toString("hex");
