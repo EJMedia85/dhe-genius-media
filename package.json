@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node -r ./bridge-routes.js server.js",
-    "check": "node --check server.js && node --check bridge-routes.js && node --check virtual-card-routes.js && node --check staff-routes.js && node --check susu-enhancements.js && node --check market-routes.js && node --check mashup-routes.js && node --check bwm-xmd-routes.js && node --check agent-routes.js",
+    "check": "node --check server.js && node --check bridge-routes.js && node --check virtual-card-routes.js && node --check staff-routes.js && node --check susu-enhancements.js && node --check market-routes.js && node --check mashup-routes.js && node --check bwm-xmd-routes.js && node --check agent-routes.js && node --check music-routes.js",
     "test": "npm run check && node --test test/*.test.js"
   },
   "engines": {
