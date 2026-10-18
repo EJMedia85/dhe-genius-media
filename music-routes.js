@@ -1,0 +1,175 @@
+const crypto = require("crypto");
+
+const SPOTIFY_AUTHORIZE = "https://accounts.spotify.com/authorize";
+const SPOTIFY_TOKEN = "https://accounts.spotify.com/api/token";
+const SPOTIFY_API = "https://api.spotify.com/v1";
+
+function cleanText(value, max = 160) {
+  return String(value || "").trim().replace(/[\u0000-\u001f\u007f]/g, "").slice(0, max);
+}
+function validHttpsUrl(value) {
+  try { const u = new URL(String(value)); return u.protocol === "https:" && !u.username && !u.password; }
+  catch { return false; }
+}
+function spotifyConfig() {
+  return {
+    clientId: String(process.env.SPOTIFY_CLIENT_ID || "").trim(),
+    clientSecret: String(process.env.SPOTIFY_CLIENT_SECRET || "").trim(),
+    redirectUri: String(process.env.SPOTIFY_REDIRECT_URI || "").trim()
+  };
+}
+function spotifyReady() {
+  const c = spotifyConfig();
+  return Boolean(c.clientId && c.clientSecret && c.redirectUri && validHttpsUrl(c.redirectUri));
+}
+
+async function installMusic(app, { pool, requireLogin }) {
+  const ensureTables = async () => {
+    if (!pool) throw new Error("Database is not configured.");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS dgm_music_tracks (
+        id BIGSERIAL PRIMARY KEY,
+        title VARCHAR(160) NOT NULL,
+        artist VARCHAR(120) NOT NULL,
+        genre VARCHAR(80) NOT NULL DEFAULT '',
+        audio_url TEXT NOT NULL,
+        artwork_url TEXT,
+        download_allowed BOOLEAN NOT NULL DEFAULT FALSE,
+        rights_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+        status VARCHAR(24) NOT NULL DEFAULT 'pending',
+        submitted_by BIGINT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        reviewed_at TIMESTAMPTZ
+      )
+    `);
+  };
+
+  app.get("/music.html", (req, res) => res.sendFile(require("path").join(__dirname, "public", "music.html")));
+
+  app.get("/api/music/status", (req, res) => {
+    const c = spotifyConfig();
+    res.json({ success: true, spotifyConfigured: spotifyReady(), artistSubmissions: Boolean(pool), streaming: "rights-cleared tracks only" });
+  });
+
+  app.get("/api/music/tracks", async (req, res) => {
+    try {
+      await ensureTables();
+      const q = cleanText(req.query.q, 100);
+      const result = await pool.query(
+        `SELECT id, title, artist, genre, audio_url, artwork_url, download_allowed
+         FROM dgm_music_tracks
+         WHERE status = 'approved'
+           AND ($1 = '' OR title ILIKE '%' || $1 || '%' OR artist ILIKE '%' || $1 || '%' OR genre ILIKE '%' || $1 || '%')
+         ORDER BY created_at DESC LIMIT 100`, [q]
+      );
+      res.set("Cache-Control", "no-store");
+      return res.json({ success: true, tracks: result.rows.map(t => ({
+        id: t.id, title: t.title, artist: t.artist, genre: t.genre,
+        audioUrl: t.audio_url, artworkUrl: t.artwork_url, downloadAllowed: t.download_allowed
+      })) });
+    } catch (error) {
+      console.error("DGM Music catalog error:", error.message);
+      return res.status(503).json({ success: false, message: "Music catalog is not available yet. Please try again later." });
+    }
+  });
+
+  app.post("/api/music/artist-submissions", requireLogin, async (req, res) => {
+    try {
+      const title = cleanText(req.body?.title, 160);
+      const artist = cleanText(req.body?.artist, 120);
+      const genre = cleanText(req.body?.genre, 80);
+      const audioUrl = String(req.body?.audioUrl || "").trim();
+      const artworkUrl = String(req.body?.artworkUrl || "").trim();
+      if (!title || !artist || !validHttpsUrl(audioUrl) || (artworkUrl && !validHttpsUrl(artworkUrl))) {
+        return res.status(400).json({ success: false, message: "Enter a title, artist, and valid HTTPS audio URL; artwork URL must also use HTTPS." });
+      }
+      if (req.body?.rightsConfirmed !== true && req.body?.rightsConfirmed !== "true" && req.body?.rightsConfirmed !== "on") {
+        return res.status(400).json({ success: false, message: "Confirm that you have the rights to distribute this recording." });
+      }
+      await ensureTables();
+      const customerId = req.session?.customerId;
+      const result = await pool.query(
+        `INSERT INTO dgm_music_tracks (title, artist, genre, audio_url, artwork_url, rights_confirmed, status, submitted_by)
+         VALUES ($1,$2,$3,$4,$5,TRUE,'pending',$6) RETURNING id`,
+        [title, artist, genre, audioUrl, artworkUrl || null, customerId || null]
+      );
+      return res.status(201).json({ success: true, trackId: result.rows[0].id, message: "Track submitted for DGM review. It will appear in the catalog only after approval." });
+    } catch (error) {
+      console.error("DGM Music artist submission error:", error.message);
+      return res.status(503).json({ success: false, message: "Could not save the submission right now." });
+    }
+  });
+
+  app.get("/auth/spotify/start", (req, res) => {
+    if (!spotifyReady()) return res.redirect("/music.html?spotify=not-configured");
+    const state = crypto.randomBytes(24).toString("hex");
+    req.session.spotifyOAuthState = state;
+    const returnTo = String(req.query.returnTo || "/music.html");
+    req.session.spotifyReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/music.html";
+    const url = new URL(SPOTIFY_AUTHORIZE);
+    url.searchParams.set("client_id", spotifyConfig().clientId);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("redirect_uri", spotifyConfig().redirectUri);
+    url.searchParams.set("scope", "user-read-private user-read-email playlist-read-private playlist-read-collaborative user-library-read");
+    url.searchParams.set("state", state);
+    return res.redirect(url.toString());
+  });
+
+  app.get("/auth/spotify/callback", async (req, res) => {
+    const expected = String(req.session?.spotifyOAuthState || "");
+    const supplied = String(req.query.state || "");
+    delete req.session.spotifyOAuthState;
+    const returnTo = String(req.session?.spotifyReturnTo || "/music.html");
+    delete req.session.spotifyReturnTo;
+    if (!expected || !supplied || expected.length !== supplied.length ||
+        !crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(supplied))) {
+      return res.redirect("/music.html?spotify=error");
+    }
+    if (req.query.error || !req.query.code || !spotifyReady()) {
+      return res.redirect("/music.html?spotify=error");
+    }
+    try {
+      const c = spotifyConfig();
+      const response = await fetch(SPOTIFY_TOKEN, {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + Buffer.from(c.clientId + ":" + c.clientSecret).toString("base64"),
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json"
+        },
+        body: new URLSearchParams({ grant_type: "authorization_code", code: String(req.query.code), redirect_uri: c.redirectUri }),
+        signal: AbortSignal.timeout(10000)
+      });
+      const token = await response.json().catch(() => ({}));
+      if (!response.ok || !token.access_token) {
+        console.warn("Spotify OAuth token exchange failed with status", response.status);
+        return res.redirect("/music.html?spotify=error");
+      }
+      // Keep Spotify tokens server-side in the DGM session; never expose client secret/token to browser JS.
+      req.session.spotify = {
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token || null,
+        expiresAt: Date.now() + Math.max(0, Number(token.expires_in) || 0) * 1000
+      };
+      const profileResponse = await fetch(SPOTIFY_API + "/me", {
+        headers: { Authorization: "Bearer " + token.access_token, Accept: "application/json" },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (profileResponse.ok) {
+        const profile = await profileResponse.json();
+        req.session.spotify.profile = { id: profile.id, displayName: profile.display_name || "", email: profile.email || null, image: profile.images?.[0]?.url || null };
+      }
+      return res.redirect((returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/music.html") + "?spotify=connected");
+    } catch (error) {
+      console.error("Spotify OAuth callback error:", error.message);
+      return res.redirect("/music.html?spotify=error");
+    }
+  });
+
+  app.get("/api/music/spotify/me", async (req, res) => {
+    if (!req.session?.spotify?.accessToken) return res.status(401).json({ success: false, connected: false, message: "Spotify is not connected." });
+    return res.json({ success: true, connected: true, profile: req.session.spotify.profile || null });
+  });
+}
+
+module.exports = { installMusic };
