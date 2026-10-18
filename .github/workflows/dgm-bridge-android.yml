@@ -1,0 +1,52 @@
+name: DGM Bridge Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "dgm-bridge/**"
+      - ".github/workflows/dgm-bridge-android.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-release-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Fetch pinned Hev tun-to-SOCKS Android AAR
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dgm-bridge/app/libs
+          curl --fail --location --retry 3 --retry-all-errors \
+            "https://github.com/heiher/hev-socks5-tunnel/releases/download/2.19.0/hev-socks5-tunnel.aar" \
+            --output dgm-bridge/app/libs/hev-socks5-tunnel.aar
+          test -s dgm-bridge/app/libs/hev-socks5-tunnel.aar
+          unzip -t dgm-bridge/app/libs/hev-socks5-tunnel.aar
+
+      - name: Build release APK
+        run: gradle --no-daemon -p dgm-bridge :app:assembleRelease
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dgm-bridge-release-apk
+          path: dgm-bridge/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
