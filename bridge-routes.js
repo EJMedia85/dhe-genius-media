@@ -500,9 +500,15 @@ function installBridge(app) {
       if (!row) return res.status(404).json({success:false,message:"Pairing code expired or not found."});
       if (row.claimed_by) return res.status(409).json({success:false,message:"Pairing code has already been used."});
       if (!crypto.timingSafeEqual(Buffer.from(row.secret_hash),Buffer.from(hmac("pair:"+secret)))) return res.status(403).json({success:false,message:"Pairing secret is invalid."});
-      await pool.query("UPDATE dgm_bridge_pairings SET claimed_by=$1,claimed_at=NOW() WHERE code=$2",[auth.sub,code]);
-      const sessionToken=token({sid:auth.sid,relay_sid:row.session_id,host:row.host_device_id,client:auth.sub,device:auth.sub,exp:Date.now()+12*60*60*1000});
-      res.json({success:true,session_id:row.session_id,session_token:sessionToken,host_device_id:row.host_device_id});
+      // Claim atomically so two clients cannot both pass the earlier read
+      // and attach themselves to the same short-lived pairing code.
+      const claimed=(await pool.query(
+        "UPDATE dgm_bridge_pairings SET claimed_by=$1,claimed_at=NOW() WHERE code=$2 AND claimed_by IS NULL AND expires_at>NOW() RETURNING session_id,host_device_id",
+        [auth.sub,code]
+      )).rows[0];
+      if(!claimed) return res.status(409).json({success:false,message:"Pairing code has already been used or expired."});
+      const sessionToken=token({sid:auth.sid,relay_sid:claimed.session_id,host:claimed.host_device_id,client:auth.sub,device:auth.sub,exp:Date.now()+12*60*60*1000});
+      res.json({success:true,session_id:claimed.session_id,session_token:sessionToken,host_device_id:claimed.host_device_id});
     } catch(e) {
       console.error("Bridge pair claim:",e.message);
       res.status(500).json({success:false,message:"Could not claim pairing."});
