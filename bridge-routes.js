@@ -176,6 +176,21 @@ function installBridge(app) {
       }
       if(row.approval_status==="approved" && !["revoked","suspended"].includes(row.status)){
         const minimum=await bridgeConfig("minimum_version",String(process.env.DGM_BRIDGE_MIN_VERSION || "1.1.0"));
+        const updateRequired=bridgeVersionNeedsUpdate(row.app_version,minimum);
+        // Status polling and dashboard refreshes are read-only. Issuing a new
+        // device token on every poll replaced active_session_id and disconnected
+        // an already-paired relay. Only the explicit issue_token request creates
+        // a new session.
+        if(String(req.query.issue_token||"").toLowerCase()!=="true"){
+          return res.json({
+            success:true,
+            device_id:row.device_id,
+            role:row.role,
+            approval_status:"approved",
+            status:"authorized",
+            update_required:updateRequired
+          });
+        }
         const session = issueBridgeSession(row.device_id, row.role);
         await pool.query(
           "UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL,active_session_id=$2,active_token_hash=$3 WHERE device_id=$1",
@@ -188,7 +203,7 @@ function installBridge(app) {
           approval_status:"approved",
           status:"authorized",
           token:session.issued,
-          update_required:bridgeVersionNeedsUpdate(row.app_version,minimum)
+          update_required:updateRequired
         });
       }
       return res.json({success:true,device_id:row.device_id,role:row.role,approval_status:row.approval_status,status:row.status,approved_at:row.approved_at||null,message:row.approval_status==="denied"?"Registration denied by DGM Admin.":"Waiting for DGM Admin authorization."});
