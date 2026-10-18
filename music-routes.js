@@ -23,7 +23,7 @@ function spotifyReady() {
   return Boolean(c.clientId && c.clientSecret && c.redirectUri && validHttpsUrl(c.redirectUri));
 }
 
-async function installMusic(app, { pool, requireLogin }) {
+async function installMusic(app, { pool, requireLogin, requireAdmin }) {
   const ensureTables = async () => {
     if (!pool) throw new Error("Database is not configured.");
     await pool.query(`
