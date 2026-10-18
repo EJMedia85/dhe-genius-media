@@ -514,10 +514,15 @@ function installBridge(app) {
       const rawToken=req.get("authorization")?.replace(/^Bearer\s+/i,"");
       const auth=verifyToken(rawToken);
       if (!auth) return res.status(401).json({success:false,message:"Authentication required."});
-      const row=pool ? (await pool.query("SELECT approval_status,status,active_session_id,active_token_hash FROM dgm_bridge_devices WHERE device_id=$1",[auth.sub])).rows[0] : null;
-      if(!row || row.active_session_id!==auth.sid || row.active_token_hash!==hmac("session:"+rawToken)) return res.status(401).json({success:false,message:"Bridge session is no longer active on this device."});
-      if(!row || row.approval_status!=="approved" || ["revoked","suspended"].includes(row.status)) return res.status(403).json({success:false,message:"Device is not authorized."});
-      if (pool) await pool.query("UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL WHERE device_id=$1",[auth.sub]);
+      // Relay credentials carry the device ID in "device" and reuse the
+      // already-authorized device session ID. Standard device credentials
+      // carry "sub" and must also match the stored token hash.
+      const deviceId=String(auth.sub || auth.device || "").trim();
+      if(!deviceId || !auth.sid) return res.status(401).json({success:false,message:"Invalid Bridge device session."});
+      const row=pool ? (await pool.query("SELECT approval_status,status,active_session_id,active_token_hash FROM dgm_bridge_devices WHERE device_id=$1",[deviceId])).rows[0] : null;
+      if(!row || row.active_session_id!==auth.sid || (auth.sub && row.active_token_hash!==hmac("session:"+rawToken))) return res.status(401).json({success:false,message:"Bridge session is no longer active on this device."});
+      if(row.approval_status!=="approved" || ["revoked","suspended"].includes(row.status)) return res.status(403).json({success:false,message:"Device is not authorized."});
+      if (pool) await pool.query("UPDATE dgm_bridge_devices SET status='online',last_seen=NOW(),last_error=NULL WHERE device_id=$1",[deviceId]);
       res.json({success:true,online:true,timestamp:new Date().toISOString()});
     } catch(e) { res.status(500).json({success:false,message:"Heartbeat failed."}); }
   });
