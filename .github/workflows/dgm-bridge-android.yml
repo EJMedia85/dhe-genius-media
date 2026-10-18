@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  build-release-apk:
+  build-android-apks:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -39,6 +39,17 @@ jobs:
             --output dgm-bridge/app/libs/hev-socks5-tunnel.aar
           test -s dgm-bridge/app/libs/hev-socks5-tunnel.aar
           unzip -t dgm-bridge/app/libs/hev-socks5-tunnel.aar
+
+      - name: Build installable debug APK
+        run: gradle --no-daemon -p dgm-bridge :app:assembleDebug
+
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: dgm-bridge-debug-apk
+          path: dgm-bridge/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Build release APK
         run: gradle --no-daemon -p dgm-bridge :app:assembleRelease
