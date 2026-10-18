@@ -15,6 +15,7 @@ function installMashup(app){startReconciliation();
  app.get("/api/mashup/packages",async(req,res)=>{
   try{
     const data=await dm("/mashup/packages");
+    console.info("MashUp catalogue response:", JSON.stringify({open:data?.open??null, status:data?.status||null, code:data?.code||null, pricingTier:data?.pricingTier||null, packageCount:Array.isArray(data?.data)?data.data.length:0}));
     const providerMessage=String(data?.message||data?.error||data?.code||"").trim();
     const accessDenied=/mashup.*not enabled|not enabled.*mashup|request access|access.*mashup/i.test(providerMessage)
       || data?.code==="MASHUP_NOT_ENABLED"
@@ -31,6 +32,7 @@ function installMashup(app){startReconciliation();
     }
     return res.json({...data,success:true,enabled:true,access_required:false});
   }catch(e){
+    console.warn("MashUp catalogue request failed:", JSON.stringify({httpStatus:e?.status||null, providerCode:e?.data?.code||null}));
     const providerMessage=String(e?.message||"").trim();
     const accessDenied=e?.status===401 || e?.status===403
       ? /mashup|access|enabled|permission|support/i.test(providerMessage)
