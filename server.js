@@ -2077,7 +2077,7 @@ app.use(
 installVirtualCard(app, { pool, requireLogin });
 
 // DGM Music: authorized catalog, artist submissions, and optional Spotify account connection.
-installMusic(app, { pool, requireLogin });
+installMusic(app, { pool, requireLogin, requireAdmin });
 
 // Serve the standalone Virtual Card page from the repository root. The main
 // static middleware serves only /public, so without this explicit route the
