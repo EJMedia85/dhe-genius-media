@@ -401,6 +401,79 @@ button#loginButton{height:68px!important;min-height:68px!important;margin-top:10
  .forgot a,.register a{font-size:12px!important}
 }
 
+
+/* FINAL reference layout override — intentionally overrides earlier legacy styles */
+html,body{width:100%;min-height:100%;margin:0!important;padding:0!important;background:#050b15!important}
+body{display:block!important;overflow-x:hidden!important;color:#f7f9fc!important;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif!important}
+.scene-panel{
+ position:relative!important;isolation:isolate!important;display:grid!important;
+ grid-template-columns:minmax(300px,.92fr) minmax(440px,1.08fr)!important;
+ grid-template-rows:auto 1fr!important;align-items:center!important;justify-content:stretch!important;
+ gap:0!important;width:100%!important;min-height:100vh!important;min-height:100svh!important;
+ padding:36px clamp(22px,4.5vw,64px)!important;overflow:hidden!important;
+ background:radial-gradient(ellipse at 25% 54%,rgba(255,174,0,.24),transparent 32%),radial-gradient(ellipse at 57% 0%,rgba(77,113,157,.16),transparent 40%),linear-gradient(110deg,#030811 0%,#0a1728 54%,#020711 100%)!important
+}
+.scene-panel:before{content:"";position:absolute;z-index:-1;inset:0;background:linear-gradient(180deg,transparent 0 78%,rgba(255,180,15,.07) 79%,transparent 100%);pointer-events:none}
+.scene-panel:after{content:"";position:absolute;z-index:0;left:0;right:0;bottom:17%;height:2px;background:linear-gradient(90deg,transparent,rgba(255,190,22,.55),rgba(255,225,130,.28),transparent);box-shadow:0 0 24px rgba(255,179,0,.25);pointer-events:none}
+.orb{z-index:0!important;width:9px!important;height:9px!important;background:#ffd331!important;border-radius:50%!important;box-shadow:0 0 7px 3px rgba(255,196,0,.58),0 0 24px 8px rgba(255,181,0,.18)!important;filter:none!important}
+.orb-a{left:7%!important;top:28%!important}.orb-b{left:35%!important;bottom:30%!important}.orb-c{right:14%!important;top:10%!important}.orb-d{right:5%!important;bottom:31%!important}.orb-e{right:39%!important;bottom:7%!important}.orb-f{left:35%!important;top:20%!important}
+.brand{grid-column:1!important;grid-row:1!important;justify-self:start!important;align-self:start!important;position:relative!important;z-index:3!important;display:block!important;text-align:left!important;margin:16px 0 0!important;padding:0 0 0 4px!important}
+.brand .logo{display:none!important}
+.brand:before{content:"Bright Ideas"!important;display:block!important;color:#dce4f0!important;font-style:italic!important;font-size:clamp(16px,1.8vw,22px)!important;letter-spacing:1px!important;margin-bottom:7px!important}
+.brand:after{content:"Start Here"!important;display:block!important;color:#ffd21f!important;font-weight:800!important;font-style:italic!important;font-size:clamp(21px,2.2vw,29px)!important;margin-top:4px!important}
+.brand h1{display:none!important}.brand p{display:none!important}
+.lamp-scene{grid-column:1!important;grid-row:2!important;position:relative!important;z-index:1!important;align-self:center!important;min-height:0!important;height:min(76vh,760px)!important;margin:0!important;display:flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important}
+.lamp-art{display:block!important;width:min(100%,520px)!important;height:auto!important;max-height:82vh!important;overflow:visible!important;filter:drop-shadow(0 18px 28px rgba(0,0,0,.36))!important}
+.card{grid-column:2!important;grid-row:1 / span 2!important;justify-self:center!important;align-self:center!important;position:relative!important;z-index:2!important;width:min(100%,650px)!important;min-width:0!important;height:auto!important;max-height:none!important;margin:0!important;padding:clamp(28px,4vw,54px)!important;border-radius:38px!important;background:linear-gradient(145deg,rgba(16,31,50,.84),rgba(4,14,28,.92))!important;border:1.5px solid rgba(211,228,249,.62)!important;box-shadow:0 28px 85px rgba(0,0,0,.48),0 0 35px rgba(255,192,28,.09),inset 0 1px 0 rgba(255,255,255,.17)!important;backdrop-filter:blur(28px) saturate(140%)!important;-webkit-backdrop-filter:blur(28px) saturate(140%)!important}
+.card:before{content:""!important;position:absolute!important;left:14%!important;right:14%!important;top:-2px!important;height:3px!important;border-radius:50%!important;background:#ffd633!important;box-shadow:0 0 12px 4px rgba(255,199,20,.7),0 0 40px 10px rgba(255,177,0,.22)!important}
+.card h2{display:block!important;text-align:left!important;font-size:clamp(35px,4.6vw,56px)!important;line-height:1.02!important;font-weight:850!important;letter-spacing:-1.6px!important;margin:0 0 14px!important;color:#fff!important}
+.card h2 .gold-word{display:block!important;color:#ffd21f!important}
+.subtitle{display:block!important;font-size:clamp(14px,1.5vw,18px)!important;color:#c1ccdc!important;line-height:1.5!important;margin:0 0 30px!important}
+.message{padding:10px 12px!important;margin-bottom:14px!important;font-size:13px!important}
+.field{margin-bottom:19px!important}
+label{display:block!important;position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+input{display:block!important;width:100%!important;height:64px!important;min-height:64px!important;padding:0 22px!important;border-radius:25px!important;border:1.5px solid rgba(183,204,230,.4)!important;background:rgba(4,14,27,.5)!important;color:#fff!important;font-size:17px!important;box-shadow:none!important}
+input::placeholder{color:#aab8ca!important;opacity:1!important}
+input:focus{border-color:#ffd21f!important;box-shadow:0 0 0 3px rgba(255,213,31,.13)!important;background:rgba(3,12,24,.85)!important}
+.password-wrap{position:relative!important}.password-wrap input{padding-right:72px!important}
+.password-toggle{position:absolute!important;right:10px!important;top:50%!important;transform:translateY(-50%)!important;width:48px!important;height:38px!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;border-radius:8px!important;background:transparent!important;color:#e7eef9!important;font-size:11px!important;box-shadow:none!important}
+button#loginButton{display:block!important;width:100%!important;height:68px!important;min-height:68px!important;margin:10px 0 0!important;padding:0 18px!important;border:0!important;border-radius:25px!important;background:linear-gradient(110deg,#ffe22c,#ffc400)!important;color:#07111e!important;font-size:20px!important;font-weight:850!important;box-shadow:0 10px 35px rgba(255,195,0,.25)!important}
+button:disabled{opacity:.65!important;cursor:wait!important}
+.register-wrap{display:flex!important;justify-content:space-between!important;align-items:center!important;gap:10px!important;margin-top:22px!important;font-size:14px!important}
+.forgot{margin:0!important;text-align:left!important}.forgot a{color:#dce5f3!important;text-decoration:none!important;font-size:14px!important}
+.register{display:block!important;margin:0!important;color:#ffd21f!important;font-size:14px!important;text-align:right!important}.register a{color:#ffd21f!important;font-weight:800!important;text-decoration:none!important}
+.security-note{grid-column:2!important;grid-row:3!important;justify-self:center!important;max-width:600px!important;margin:14px 0 0!important;color:#8d9db2!important;font-size:11px!important;text-align:center!important}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid #ffd21f!important;outline-offset:3px!important}
+@media(max-width:900px){
+ .scene-panel{grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto minmax(0,1fr)!important;gap:0!important;padding:18px 14px 24px!important;min-height:100svh!important;overflow:hidden!important}
+ .brand{grid-column:1!important;grid-row:1!important;justify-self:start!important;align-self:start!important;margin:8px 0 0 8px!important}
+ .lamp-scene{grid-column:1!important;grid-row:2!important;position:absolute!important;left:-12%!important;top:10%!important;width:54%!important;height:58vh!important;min-height:0!important;opacity:.92!important;pointer-events:none!important;z-index:0!important}
+ .lamp-art{width:100%!important;max-height:58vh!important}
+ .card{grid-column:1!important;grid-row:2!important;justify-self:end!important;align-self:center!important;width:min(76%,540px)!important;margin-top:20px!important;padding:clamp(20px,4vw,34px)!important;border-radius:28px!important;background:linear-gradient(145deg,rgba(15,30,49,.91),rgba(4,13,26,.95))!important}
+ .card h2{font-size:clamp(32px,7vw,46px)!important}
+ .subtitle{font-size:14px!important;margin-bottom:22px!important}
+ input{height:56px!important;min-height:56px!important;padding:0 14px!important;font-size:14px!important}
+ .password-wrap input{padding-right:58px!important}
+ .field{margin-bottom:14px!important}
+ button#loginButton{height:58px!important;min-height:58px!important;font-size:17px!important}
+ .register-wrap{flex-wrap:wrap!important;margin-top:16px!important}
+ .forgot a,.register a{font-size:12px!important}
+ .security-note{grid-column:1!important;grid-row:3!important;align-self:end!important;position:relative!important;z-index:3!important;margin-top:12px!important}
+}
+@media(max-width:480px){
+ .scene-panel{padding:14px 10px 18px!important}
+ .brand{margin:8px 0 0 8px!important}
+ .brand:before{font-size:15px!important}.brand:after{font-size:22px!important}
+ .lamp-scene{left:-21%!important;top:11%!important;width:67%!important;height:48vh!important;opacity:.8!important}
+ .card{width:min(83%,430px)!important;padding:22px 17px!important;border-radius:24px!important;margin-top:8px!important}
+ .card h2{font-size:34px!important}
+ .subtitle{font-size:12px!important;margin-bottom:18px!important}
+ input{height:49px!important;min-height:49px!important;font-size:13px!important;border-radius:18px!important}
+ .field{margin-bottom:12px!important}
+ button#loginButton{height:52px!important;min-height:52px!important;border-radius:18px!important;font-size:16px!important}
+ .security-note{font-size:9px!important}
+}
+
 </style>
 </head>
 
@@ -466,9 +539,9 @@ button#loginButton{height:68px!important;min-height:68px!important;margin-top:10
 
   <section class="card">
 
-    <h2>LOGIN</h2>
+    <h2>Welcome<span class="gold-word">Back</span></h2>
 
-    <p class="subtitle">Stay Connected. Stay Genius.</p>
+    <p class="subtitle">Enter your details to access your account</p>
 
 
     <div
@@ -487,7 +560,7 @@ button#loginButton{height:68px!important;min-height:68px!important;margin-top:10
           type="text"
           id="identifier"
           name="identifier"
-          placeholder="Enter your email or phone"
+          placeholder="Username / Email Address"
           autocomplete="username"
           required
         >
