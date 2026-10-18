@@ -13,6 +13,7 @@ const { installMashup } = require("./mashup-routes");
 const { initAgentDatabase, installAgent } = require("./agent-routes");
 const { installStaff } = require("./staff-routes");
 const { installVirtualCard } = require("./virtual-card-routes");
+const { installMusic } = require("./music-routes");
 
 const app = express();
 
@@ -2074,6 +2075,9 @@ app.use(
 // parser. The sandbox webhook must validate the original Paystack signature.
 // This module is disabled unless a separate sk_test_ key and explicit flag exist.
 installVirtualCard(app, { pool, requireLogin });
+
+// DGM Music: authorized catalog, artist submissions, and optional Spotify account connection.
+installMusic(app, { pool, requireLogin });
 
 // Serve the standalone Virtual Card page from the repository root. The main
 // static middleware serves only /public, so without this explicit route the
