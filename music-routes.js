@@ -141,7 +141,7 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
 
   app.get("/api/music/audio/:filename", async (req, res) => {
     const filename = String(req.params.filename || "");
-    if (!/^[a-f0-9-]{36}\\.(mp3|m4a|aac|ogg|wav|flac|webm|audio)$/i.test(filename) || !MUSIC_UPLOAD_DIR) {
+    if (!/^[a-f0-9-]{36}\.(mp3|m4a|aac|ogg|wav|flac|webm)$/i.test(filename) || !MUSIC_UPLOAD_DIR) {
       return res.status(404).end();
     }
     try {
