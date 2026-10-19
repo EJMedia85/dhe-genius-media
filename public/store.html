@@ -105,7 +105,7 @@ body{padding-bottom:0!important}
 <script>
 const $=id=>document.getElementById(id);const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));const money=v=>"GH₵"+Number(v||0).toFixed(2);let store=null,selected=null,currentNetwork="MTN",currentOrder=null;const slug=new URLSearchParams(location.search).get("slug")||"";
 async function api(url,o={}){const r=await fetch(url,{credentials:"same-origin",cache:"no-store",headers:{"Content-Type":"application/json",...(o.headers||{})},...o});let d={};try{d=await r.json()}catch{}if(!r.ok)throw Object.assign(new Error(d.message||"Request failed"),{status:r.status,data:d});return d}
-function networks(){return [...new Set((store?.pricing||[]).map(x=>x.network))]}
+function networks(){const rank=v=>({"mtn":0,"airteltigo":1,"atl":1,"telecel":2,"vod":2})[String(v||"").trim().toLowerCase().replace(/[\\s_-]/g,"")]??99;return [...new Set((store?.pricing||[]).map(x=>x.network))].sort((a,b)=>rank(a)-rank(b)||String(a).localeCompare(String(b)))}
 function render(){
  const brandName=$("brandStoreName");if(brandName)brandName.textContent=store?.name||"DGM Agent Store";
  const ps=(store?.pricing||[]).filter(x=>x.network===currentNetwork);const topSales=Math.max(0,...ps.map(p=>Number(p.completed_sales||0)));
