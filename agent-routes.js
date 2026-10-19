@@ -516,6 +516,99 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     }catch(e){console.error("Agent Store OTP:",e.message);return res.status(500).json({success:false,message:"Could not submit the authorization code."})}
   });
 
+
+  // ADMIN-ONLY RECOVERY FOR A VERIFIED, PAID AGENT STORE ORDER.
+  // This does not charge the customer or automatically issue a refund.
+  app.post("/api/admin/agent-store/orders/:orderRef/recover-delivery", requireAdmin, async (req,res) => {
+    const orderRef=String(req.params.orderRef||"").trim().toUpperCase();
+    const newPhone=String(req.body?.phone||"").trim();
+    if(!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)) return res.status(400).json({success:false,message:"Invalid order reference."});
+    if(!/^0\\d{9}$/.test(newPhone)) return res.status(400).json({success:false,message:"Enter a valid Ghana phone number."});
+    if(!paystackSecretKey) return res.status(503).json({success:false,message:"Paystack verification is not configured."});
+
+    const c=await pool.connect();
+    let order=null;
+    try {
+      // Verify against Paystack before touching the order.
+      const initial=(await c.query(
+        `SELECT o.*, s.id AS agent_sale_id, s.status AS agent_sale_status
+         FROM orders o LEFT JOIN agent_sales s ON s.order_id=o.id
+         WHERE o.order_ref=$1 AND o.customer_id IS NULL LIMIT 1`,[orderRef]
+      )).rows[0];
+      if(!initial) return res.status(404).json({success:false,message:"Agent Store order not found."});
+      if(String(initial.payment_status||"").toLowerCase()!=="paid" || !initial.paystack_reference)
+        return res.status(409).json({success:false,message:"The original order is not recorded as paid."});
+
+      const response=await fetch("https://api.paystack.co/transaction/verify/"+encodeURIComponent(initial.paystack_reference),{
+        headers:{Authorization:"Bearer "+paystackSecretKey,Accept:"application/json"}
+      });
+      const raw=await response.text();let payload={};try{payload=JSON.parse(raw)}catch{}
+      if(!response.ok||!payload.status||!payload.data)
+        return res.status(502).json({success:false,message:"Paystack could not verify the original payment. No changes were made."});
+      const tx=payload.data;
+      if(String(tx.reference||"")!==String(initial.paystack_reference) ||
+         String(tx.status||"").toLowerCase()!=="success" ||
+         String(tx.currency||"").toUpperCase()!=="GHS" ||
+         Math.round(Number(tx.amount||0))!==Math.round(Number(initial.amount||0)*100))
+        return res.status(409).json({success:false,message:"Paystack payment details do not match this order. No changes were made."});
+
+      await c.query("BEGIN");
+      const locked=(await c.query(
+        `SELECT o.*, s.id AS agent_sale_id, s.status AS agent_sale_status
+         FROM orders o LEFT JOIN agent_sales s ON s.order_id=o.id
+         WHERE o.id=$1 FOR UPDATE OF o`,[initial.id]
+      )).rows[0];
+      if(!locked) throw new Error("Order no longer exists.");
+      if(String(locked.payment_status||"").toLowerCase()!=="paid") throw new Error("Order is no longer marked paid.");
+      if(locked.datamart_purchase_id || locked.datamart_reference) throw new Error("A DataMart purchase/reference already exists. Automatic retry is blocked to prevent duplicate delivery; reconcile the existing purchase instead.");
+      if(String(locked.status||"").toLowerCase()==="recovery in progress") throw new Error("Recovery is already in progress.");
+      if(["completed","delivered","success","successful"].includes(String(locked.status||"").toLowerCase())) throw new Error("Order is already marked delivered.");
+      if(String(locked.guest_refund_status||"").toLowerCase()==="refunded" || locked.customer_refunded===true) throw new Error("This order appears refunded; manual review is required before delivery.");
+
+      await c.query(
+        `UPDATE orders SET phone=$1,status='Recovery In Progress',
+          provider_message='Admin recovery: original Paystack payment re-verified; delivery retry in progress. No new customer charge.',
+          guest_refund_status='delivery_recovery'
+         WHERE id=$2`,[newPhone,locked.id]
+      );
+      if(locked.agent_sale_id) {
+        await c.query("UPDATE agent_sales SET phone=$1,status='Processing' WHERE id=$2 AND status<>'Completed'",[newPhone,locked.agent_sale_id]);
+      }
+      await c.query("COMMIT");
+      order=(await pool.query("SELECT * FROM orders WHERE id=$1",[locked.id])).rows[0];
+    } catch(e) {
+      try{await c.query("ROLLBACK")}catch{}
+      return res.status(409).json({success:false,message:e.message||"Could not safely prepare this order for recovery."});
+    } finally { c.release(); }
+
+    try {
+      const fulfillment=await fulfillDataOrder(order);
+      const finalStatus=String(fulfillment?.status||"").toLowerCase();
+      if(!fulfillment?.success || finalStatus==="failed") {
+        await pool.query(
+          `UPDATE orders SET status='Refund Pending',guest_refund_status='needs_review',
+            provider_message=$1 WHERE id=$2 AND status='Recovery In Progress'`,
+          ["Delivery recovery did not confirm success. No automatic refund or additional charge was initiated; DGM support must review.",order.id]
+        );
+        return res.status(502).json({success:false,delivery:"not_confirmed",order_ref:order.order_ref,message:"Delivery was not confirmed. No refund was attempted and no new payment was taken. DGM support must review before another retry."});
+      }
+      const latest=(await pool.query("SELECT * FROM orders WHERE id=$1",[order.id])).rows[0];
+      try { await initiateGuestSupplierTransfer(latest); }
+      catch(e) { console.error("Agent Store recovery supplier transfer:",order.order_ref,e.message); }
+      if(["completed","success","successful","delivered"].includes(finalStatus) && order.agent_sale_id) await completeAgentSale(order.agent_sale_id);
+      const safe=(await pool.query("SELECT order_ref,service,network,phone,amount,status,capacity,payment_status,paid_at,provider_status,provider_message,datamart_purchase_id,datamart_reference,datamart_status FROM orders WHERE id=$1",[order.id])).rows[0];
+      return res.json({success:true,delivery:finalStatus||"processing",message:"Recovery submitted using the original verified payment. No additional customer payment was taken.",order:safe});
+    } catch(e) {
+      console.error("Agent Store admin delivery recovery:",order?.order_ref,e.message);
+      await pool.query(
+        `UPDATE orders SET status='Refund Pending',guest_refund_status='needs_review',
+          provider_message=$1 WHERE id=$2 AND status='Recovery In Progress'`,
+        ["Delivery recovery failed before success could be confirmed. No automatic refund or additional charge was initiated; DGM support must review.",order.id]
+      ).catch(()=>{});
+      return res.status(502).json({success:false,delivery:"not_confirmed",message:"Delivery could not be confirmed. No refund was attempted and no new payment was taken; DGM support must review before another retry."});
+    }
+  });
+
   app.post("/api/public/agent-store/:slug/checkout/verify", async (req,res) => {
     try {
       if(!paystackSecretKey)return res.status(503).json({success:false,message:"Agent Store payment verification is not configured."});
