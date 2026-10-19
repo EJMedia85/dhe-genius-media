@@ -166,6 +166,58 @@ body{
 .dgm-image-cta{display:inline-flex;margin-top:14px;padding:10px 14px;border-radius:11px;background:linear-gradient(135deg,#49ef88,#16a879);color:#031008;font-size:11px;font-weight:900;box-shadow:0 8px 22px rgba(37,211,102,.15)}
 </style>
 
+
+<style id="dgm-customer-dashboard-upgrade">
+/* Customer dashboard hierarchy and usability polish */
+.topline{align-items:flex-start;margin-bottom:22px}
+.welcome{min-width:0}
+.welcome small{display:inline-flex;align-items:center;gap:7px;color:#7ceca6;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.15);border-radius:999px;padding:7px 10px;letter-spacing:.11em}
+.welcome h1{line-height:1.15;margin-top:12px}
+.top-actions{flex-shrink:0}
+.dgm-image-hero{padding:2px 0 8px;margin-bottom:14px;position:relative}
+.dgm-image-kicker{display:inline-flex;align-items:center;gap:8px}
+.dgm-image-kicker:before{content:"";display:inline-block;width:22px;height:2px;border-radius:2px;background:#49ef88;box-shadow:0 0 12px rgba(73,239,136,.6)}
+.dgm-image-copy h2{max-width:660px;font-size:clamp(29px,4.6vw,43px);line-height:1.04;margin:13px 0}
+.dgm-image-copy p{font-size:14px;max-width:570px;color:#b4c9c0}
+.dgm-image-cta{border:1px solid rgba(255,255,255,.22);box-shadow:0 10px 26px rgba(37,211,102,.13),inset 0 1px 0 rgba(255,255,255,.38)}
+.wallet{padding:23px 24px}
+.wallet-topline{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative;z-index:2}
+.balance-toggle{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.1);color:#fff;border-radius:999px;padding:7px 10px;font-size:10px;font-weight:800;white-space:nowrap}
+.wallet-balance{font-variant-numeric:tabular-nums;line-height:1.1;margin:12px 0 19px;overflow-wrap:anywhere}
+.wallet-meta{font-size:11px;line-height:1.5}
+.section{margin-top:29px}
+.section-head{margin-bottom:13px}
+.section-title{font-size:18px}
+.primary-card{min-height:128px;padding:17px}
+.primary-card strong{font-size:14px}
+.primary-card span{font-size:11px}
+.services-grid .service-card{min-height:91px}
+.activity-card{border-radius:18px}
+.activity-row{min-height:64px}
+.activity-main{min-width:0}
+.activity-main strong,.activity-main small{overflow-wrap:anywhere}
+@media(max-width:760px){
+ .main{padding:18px 14px 96px}
+ .topline{margin-bottom:18px;gap:8px}
+ .welcome h1{font-size:25px}
+ .top-actions{gap:6px}
+ .icon-btn{width:39px;height:39px}
+ .dgm-image-copy h2{font-size:31px;max-width:420px}
+ .dgm-image-copy p{font-size:13px}
+ .wallet{padding:19px;border-radius:21px}
+ .wallet-balance{font-size:34px;margin:13px 0 18px}
+ .wallet-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .wallet-btn{min-height:40px;padding:9px 10px}
+ .wallet-btn:last-child{grid-column:1/-1}
+ .primary-card{min-height:116px;padding:13px}
+ .section{margin-top:25px}
+ .services-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+ .services-grid .service-card{min-height:82px}
+ .activity-layout{gap:10px}
+}
+@media(min-width:800px){.main{padding-top:35px}.dgm-image-hero{margin-bottom:18px}.wallet{padding:27px 29px}}
+</style>
+
 </head>
 <body>
 <header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()" aria-label="Open menu">☰</button></header>
@@ -196,7 +248,7 @@ body{
 <section class="section" id="broadcastSection" style="display:none;margin-top:14px">
 <div class="activity-card" id="broadcastBanner" style="border-color:rgba(37,211,102,.35);background:linear-gradient(135deg,rgba(37,211,102,.10),rgba(11,21,21,.98));padding:16px"></div>
 </section>
-<section class="wallet"><div class="eyebrow">DGM Wallet • Available Balance</div><div class="wallet-balance" id="walletBalance">GH₵0.00</div><div class="wallet-actions"><button class="wallet-btn primary" onclick="goTo('/account.html#wallet')">＋ Add Money</button><button class="wallet-btn" onclick="goTo('/account.html#withdrawWalletAction')">↗ Withdraw</button><button class="wallet-btn" onclick="goTo('/account.html#transactionsSection')">Transactions</button></div><div class="wallet-meta">Use your DGM Wallet for data, airtime, social boosting, savings and DGM Market purchases.</div></section>
+<section class="wallet" aria-label="DGM wallet"><div class="wallet-topline"><div class="eyebrow">DGM Wallet <span aria-hidden="true">•</span> Available Balance</div><button type="button" class="balance-toggle" id="balanceToggle" aria-label="Hide wallet balance" aria-pressed="false" onclick="toggleWalletBalance()">Hide balance <span aria-hidden="true">◉</span></button></div><div class="wallet-balance" id="walletBalance" data-balance="GH₵0.00">GH₵0.00</div><div class="wallet-actions"><button class="wallet-btn primary" onclick="goTo('/account.html#wallet')">＋ Add Money</button><button class="wallet-btn" onclick="goTo('/account.html#withdrawWalletAction')">↗ Withdraw</button><button class="wallet-btn" onclick="goTo('/account.html#transactionsSection')">Transactions</button></div><div class="wallet-meta">One wallet for your DGM purchases, services and savings.</div></section>
 <section class="section"><div class="section-head"><h2 class="section-title">What do you need today?</h2></div><div class="primary-grid">
 <button class="primary-card" onclick="goTo('/data.html')"><div class="primary-icon">📶</div><strong>Buy Data</strong><span>MTN • Telecel • AirtelTigo</span></button><button class="primary-card" onclick="goTo('/airtime.html')"><div class="primary-icon">📱</div><strong>Buy Airtime</strong><span>Top up instantly</span></button><button class="primary-card" onclick="goTo('/social-boosting.html')"><div class="primary-icon">🚀</div><strong>Social Boost</strong><span>Instagram • TikTok • YouTube</span></button><button class="primary-card" onclick="goTo('/market.html')"><div class="primary-icon">🛒</div><strong>DGM Market</strong><span>Shop products & deals</span></button>
 </div></section>
@@ -218,7 +270,7 @@ body{
 <nav class="bottom-nav"><button class="active" onclick="goTo('/dashboard.html')"><span class="bottom-icon">⌂</span>Home</button><button onclick="goTo('/service.html')"><span class="bottom-icon">▦</span>Services</button><button onclick="goTo('/orders.html')"><span class="bottom-icon">◷</span>Orders</button><button onclick="goTo('/account.html')"><span class="bottom-icon">◉</span>Account</button></nav>
 
 <script>
-function goTo(page){if(page){closeMenu();window.location.assign(page)}}function openMenu(){document.getElementById("sidebar").classList.add("open");document.getElementById("overlay").classList.add("show");document.body.style.overflow="hidden"}function closeMenu(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("show");document.body.style.overflow=""}
+function toggleWalletBalance(){const wallet=document.getElementById("walletBalance"),button=document.getElementById("balanceToggle");if(!wallet||!button)return;const hidden=wallet.dataset.hidden!=="true";wallet.dataset.hidden=hidden?"true":"false";wallet.textContent=hidden?"••••••":(wallet.dataset.balance||wallet.textContent);button.innerHTML=hidden?'Show balance <span aria-hidden="true">◉</span>':'Hide balance <span aria-hidden="true">◉</span>';button.setAttribute("aria-label",hidden?"Show wallet balance":"Hide wallet balance");button.setAttribute("aria-pressed",String(hidden))}\nfunction goTo(page){if(page){closeMenu();window.location.assign(page)}}function openMenu(){document.getElementById("sidebar").classList.add("open");document.getElementById("overlay").classList.add("show");document.body.style.overflow="hidden"}function closeMenu(){document.getElementById("sidebar").classList.remove("open");document.getElementById("overlay").classList.remove("show");document.body.style.overflow=""}
 async function logout(){try{await fetch("/api/logout",{method:"POST",credentials:"include",cache:"no-store"})}catch(e){}window.location.replace("/login.html")}
 function escapeHTML(v){return String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#039;")}function fetchWithTimeout(url,options={},timeoutMs=10000){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);return fetch(url,{...options,signal:controller.signal}).finally(()=>clearTimeout(timer))}
 function statusClass(s){const l=String(s||"").toLowerCase();return l.includes("complete")||l.includes("success")||l.includes("deliver")?"completed":l.includes("fail")||l.includes("refund")||l.includes("cancel")?"failed":""}function isActive(s){return ["processing","pending","initiated","queued","in progress","in-progress"].includes(String(s||"").toLowerCase())}
@@ -237,7 +289,7 @@ async function loadCampaigns(){
 async function openCampaign(id,url){fetch("/api/marketing/campaigns/"+encodeURIComponent(id)+"/click",{method:"POST",credentials:"include",cache:"no-store"}).catch(()=>{});goTo(url)}
 async function loadRewards(){try{const r=await fetchWithTimeout("/api/rewards",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return;if(!r.ok)throw Error("Rewards unavailable");const j=await r.json();document.getElementById("referralCode").textContent=j.referral_code||"Not available"}catch(e){document.getElementById("referralCode").textContent="Not available"}}
 async function copyReferralCode(){const el=document.getElementById("referralCode"),code=el.textContent;if(!code||code==="Loading…"||code==="Not available")return;try{await navigator.clipboard.writeText(code);const b=document.querySelector(".reward-code button");const old=b.textContent;b.textContent="Copied ✓";setTimeout(()=>b.textContent=old,1400)}catch(e){}}
-async function loadCustomer(){try{const r=await fetchWithTimeout("/api/me",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load account");const j=await r.json();if(!j.success||!j.customer)return window.location.replace("/login.html");document.getElementById("customerName").textContent=j.customer.name||"DGM Customer";document.getElementById("walletBalance").textContent="GH₵"+Number(j.customer.balance||0).toFixed(2)}catch(e){console.error("Customer loading error:",e)}}
+async function loadCustomer(){try{const r=await fetchWithTimeout("/api/me",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load account");const j=await r.json();if(!j.success||!j.customer)return window.location.replace("/login.html");document.getElementById("customerName").textContent=j.customer.name||"DGM Customer";const balance="GH₵"+Number(j.customer.balance||0).toFixed(2);const wallet=document.getElementById("walletBalance");wallet.dataset.balance=balance;wallet.textContent=wallet.dataset.hidden==="true"?"••••••":balance}catch(e){console.error("Customer loading error:",e)}}
 async function loadOrders(){const c=document.getElementById("orders");try{const r=await fetchWithTimeout("/api/orders",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}},10000);if(r.status===401)return window.location.replace("/login.html");if(!r.ok)throw Error("Could not load orders");const j=await r.json();const list=Array.isArray(j.orders)?j.orders:[];const processing=["processing","pending","initiated","queued","in progress","in-progress"],completed=["completed","complete","success","successful","delivered"];document.getElementById("totalOrders").textContent=list.length;document.getElementById("processingOrders").textContent=list.filter(o=>processing.includes(String(o.status||"").toLowerCase())).length;document.getElementById("completedOrders").textContent=list.filter(o=>completed.includes(String(o.status||"").toLowerCase())).length;const active=list.find(o=>isActive(o.status));if(active){document.getElementById("activeSection").style.display="block";document.getElementById("activeOrder").innerHTML=renderOrder(active)}else document.getElementById("activeSection").style.display="none";const recent=active?list.filter(o=>o!==active):list;if(!recent.length){c.innerHTML='<div class="empty"><div>📦</div>No other recent activity.</div>';return}c.innerHTML=recent.slice(0,5).map(renderOrder).join("")}catch(e){console.error("Orders loading error:",e);c.innerHTML='<div class="empty"><div>📦</div>Unable to load recent activity.<br>Please refresh and try again.</div>'}}
 function renderBroadcast(n){const section=document.getElementById("broadcastSection"),out=document.getElementById("broadcastBanner");if(!n){section.style.display="none";return}section.style.display="block";const type=String(n.type||"info").toUpperCase();out.innerHTML='<div style="font-size:10px;letter-spacing:1px;font-weight:900;color:var(--green);margin-bottom:7px">DGM ANNOUNCEMENT • '+escapeHTML(type)+'</div><strong style="display:block;font-size:17px;margin-bottom:6px">'+escapeHTML(n.title||"DGM Update")+'</strong><div style="color:var(--muted);line-height:1.5">'+escapeHTML(n.message||"")+'</div><div style="margin-top:12px"><button class="wallet-btn primary" onclick="markBroadcastRead('+Number(n.id)+')">Mark as read</button><a class="section-link" style="margin-left:12px" href="/notifications.html">View notifications →</a></div>'}
 async function markBroadcastRead(id){try{await fetch("/api/notifications/"+encodeURIComponent(id)+"/read",{method:"POST",credentials:"include",cache:"no-store"});loadNotifications()}catch(e){}}
