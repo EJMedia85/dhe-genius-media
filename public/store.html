@@ -37,6 +37,37 @@
   .gb{font-size:22px}
   .price{font-size:17px}
 }
+
+/* Hero/header spacing polish: clearer hierarchy on desktop and mobile */
+.hero>div:first-child{min-width:0}
+.hero-side{min-width:190px;padding:18px;border:1px solid rgba(37,211,102,.16);border-radius:20px;background:rgba(3,12,8,.34);overflow-wrap:anywhere}
+.hero-side .tag{white-space:normal;line-height:1.4}
+.hero-side h2{overflow-wrap:anywhere;letter-spacing:.015em}
+.hero-side .sub{font-size:11px;line-height:1.6;margin-top:6px}
+.help,.share-row{align-items:stretch}
+.help .btn,.share-row .btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;text-align:center;line-height:1.35}
+@media(max-width:760px){
+  .top{align-items:center;flex-wrap:wrap;padding-bottom:14px}
+  .brand{min-width:0;flex:1;font-size:13px;line-height:1.35;letter-spacing:.035em}
+  .brand small{font-size:9px;line-height:1.4}
+  .toplinks{flex-wrap:wrap;justify-content:flex-end}
+  .hero{grid-template-columns:minmax(0,1fr);gap:18px;margin-top:16px;padding:20px 16px;border-radius:22px}
+  .hero h1{margin-top:12px;font-size:clamp(27px,7vw,34px);line-height:1.12}
+  .hero .muted{margin:0 0 15px}
+  .help{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+  .help .btn{width:100%}
+  .share-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .share-row .btn{width:100%;padding:11px 8px;font-size:12px}
+  .hero-side{width:100%;min-width:0;padding:15px;border-radius:16px;text-align:left}
+  .hero-side h2{font-size:20px!important;margin:9px 0 5px!important}
+  .hero-side .store-logo{display:block}
+}
+@media(max-width:380px){
+  .toplinks{width:100%;justify-content:flex-start}
+  .hero{padding:17px 13px}
+  .share-row{grid-template-columns:minmax(0,1fr)}
+  .hero-side{padding:13px}
+}
 </style></head>
 <body><div class="wrap"><div class="top"><div class="brand" onclick="location.href='/dashboard.html'"><span id="brandStoreName">DGM Agent Store</span><small>STAY CONNECTED. STAY GENIUS.</small></div></div><div id="app"><div class="section empty">Loading store…</div></div></div>
 <script>
