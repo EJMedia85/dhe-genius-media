@@ -174,6 +174,23 @@
   <div id="funnelNotice" class="notice" style="margin-top:12px">Loading customer journey events…</div>
   <div class="cards" id="funnelCards" style="margin-top:12px"></div>
 </div>
+<div class="panel" style="margin-top:16px">
+   <div class="kpi" style="align-items:flex-end;flex-wrap:wrap">
+     <div><h2>Financial Intelligence</h2><div class="muted">Paid orders, supplier costs and recorded gross profit. Unknown supplier costs are flagged, never assumed to be zero.</div></div>
+     <div class="toolbar" style="margin:0;align-items:flex-end">
+       <label class="muted">From<input class="input" type="date" id="financeFrom" style="margin-top:5px"></label>
+       <label class="muted">To<input class="input" type="date" id="financeTo" style="margin-top:5px"></label>
+       <button class="btn green" type="button" onclick="loadFinancialOverview()">Run report</button>
+     </div>
+   </div>
+   <div id="financeNotice" class="notice" style="margin-top:12px">Loading financial report…</div>
+   <div class="cards" id="financeCards" style="margin-top:12px"></div>
+   <div class="grid2">
+     <div class="panel"><h3>Revenue by Network</h3><div class="tablebox"><table class="table"><thead><tr><th>Network</th><th>Orders</th><th>Paid</th><th>Paid Revenue</th></tr></thead><tbody id="financeNetworksBody"></tbody></table></div></div>
+     <div class="panel"><h3>Daily Revenue</h3><div class="tablebox"><table class="table"><thead><tr><th>Date</th><th>Orders</th><th>Paid Orders</th><th>Revenue</th></tr></thead><tbody id="financeDailyBody"></tbody></table></div></div>
+   </div>
+   <div class="panel" style="margin-top:14px"><h3>Recent Orders — Financial Status</h3><div class="tablebox"><table class="table"><thead><tr><th>Order</th><th>Service / Bundle</th><th>Network</th><th>Amount</th><th>Supplier Cost</th><th>Recorded Gross Profit</th><th>Payment</th><th>Fulfillment</th><th>Date</th></tr></thead><tbody id="financeRecentBody"></tbody></table></div></div>
+ </div>
 </section>
 
 <section id="notifications" class="section">
@@ -642,7 +659,40 @@ async function loadAnalyticsPage(){
   $('#analyticsPageCards').innerHTML=[['30-Day Completed Sales',money(a.completed_sales)],['30-Day Order Value',money(a.total_order_value)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',c.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
   $('#topServicesBody').innerHTML=(d.top_services||[]).map(x=>'<tr><td>'+esc(x.service||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No service data.</td></tr>';
   $('#topNetworksBody').innerHTML=(d.top_networks||[]).map(x=>'<tr><td>'+esc(x.network||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No network data.</td></tr>';
-  await loadFunnelAnalytics();
+  await Promise.all([loadFunnelAnalytics(),loadFinancialOverview()]);
+}
+function financeDate(value){return value instanceof Date?value.toISOString().slice(0,10):String(value||'').slice(0,10)}
+function initFinanceDates(){
+  const to=$('#financeTo'),from=$('#financeFrom');
+  if(!to||!from)return;
+  const now=new Date(),start=new Date(now);start.setDate(start.getDate()-29);
+  if(!to.value)to.value=financeDate(now);
+  if(!from.value)from.value=financeDate(start);
+}
+async function loadFinancialOverview(){
+  const notice=$('#financeNotice');
+  if(!notice)return;
+  initFinanceDates();
+  const from=String($('#financeFrom')?.value||''),to=String($('#financeTo')?.value||'');
+  if(!from||!to||from>to){notice.textContent='Choose a valid date range. The start date must not be after the end date.';return;}
+  notice.textContent='Loading financial report…';
+  try{
+    const d=await api('/api/admin/overview?from='+encodeURIComponent(from)+'&to='+encodeURIComponent(to));
+    const s=d.summary||{};
+    const cards=[['Orders',Number(s.totalOrders||0).toLocaleString()],['Paid Orders',Number(s.paidOrders||0).toLocaleString()],['Unpaid Orders',Number(s.unpaidOrders||0).toLocaleString()],['Paid Revenue',money(s.paidRevenueGhs)],['Known Supplier Cost',money(s.knownSupplierCostGhs)],['Recorded Gross Profit',money(s.recordedGrossProfitGhs)],['Completed Orders',Number(s.completedOrders||0).toLocaleString()],['Failed / Refund',Number(s.failedOrRefundOrders||0).toLocaleString()],['Paid Orders Missing Cost',Number(s.paidOrdersMissingSupplierCost||0).toLocaleString()]];
+    $('#financeCards').innerHTML=cards.map(x=>'<div class="card"><div class="label">'+esc(x[0])+'</div><div class="value" style="font-size:20px">'+esc(x[1])+'</div></div>').join('');
+    notice.textContent=s.financialDataWarning||('Report covers '+d.range.from+' to '+d.range.to+' (UTC). Profit is recorded profit only; totals can be incomplete where costs are not recorded. Generated '+new Date(d.generatedAt).toLocaleString()+'.');
+    notice.style.borderColor=s.financialDataWarning?'#8d6a2a':'var(--line)';
+    $('#financeNetworksBody').innerHTML=(d.byNetwork||[]).map(x=>'<tr><td>'+esc(x.network)+'</td><td>'+Number(x.totalOrders||0).toLocaleString()+'</td><td>'+Number(x.paidOrders||0).toLocaleString()+'</td><td>'+money(x.paidRevenueGhs)+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No network data for this period.</td></tr>';
+    $('#financeDailyBody').innerHTML=(d.daily||[]).slice().reverse().map(x=>'<tr><td>'+esc(financeDate(x.date))+'</td><td>'+Number(x.totalOrders||0).toLocaleString()+'</td><td>'+Number(x.paidOrders||0).toLocaleString()+'</td><td>'+money(x.paidRevenueGhs)+'</td></tr>').join('')||'<tr><td colspan="4" class="empty">No daily data for this period.</td></tr>';
+    $('#financeRecentBody').innerHTML=(d.recentOrders||[]).map(x=>'<tr><td><b>'+esc(x.orderRef||'—')+'</b></td><td>'+esc(x.service||'—')+(x.capacity?' <br><span class="muted">'+esc(x.capacity)+'</span>':'')+'</td><td>'+esc(x.network||'—')+'</td><td>'+money(x.amountGhs)+'</td><td>'+(x.supplierCostGhs==null?'<span class="danger">Unknown</span>':money(x.supplierCostGhs))+'</td><td>'+(x.recordedGrossProfitGhs==null?'<span class="muted">Not recorded</span>':money(x.recordedGrossProfitGhs))+'</td><td><span class="badge">'+esc(x.paymentStatus||'pending')+'</span></td><td>'+esc(x.status||'—')+'</td><td>'+esc(x.createdAt?new Date(x.createdAt).toLocaleString():'—')+'</td></tr>').join('')||'<tr><td colspan="9" class="empty">No orders found for this period.</td></tr>';
+  }catch(error){
+    notice.textContent=error.message||'Could not load financial report. Confirm administrator access and retry.';
+    $('#financeCards').innerHTML='';
+    $('#financeNetworksBody').innerHTML='<tr><td colspan="4" class="empty">Report unavailable.</td></tr>';
+    $('#financeDailyBody').innerHTML='<tr><td colspan="4" class="empty">Report unavailable.</td></tr>';
+    $('#financeRecentBody').innerHTML='<tr><td colspan="9" class="empty">Report unavailable.</td></tr>';
+  }
 }
 async function loadFunnelAnalytics(){
   const notice=$('#funnelNotice'), cards=$('#funnelCards');
