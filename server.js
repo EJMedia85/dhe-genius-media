@@ -11,6 +11,7 @@ const { installMarket } = require("./market-routes");
 const { installBwmXmd } = require("./bwm-xmd-routes");
 const { installMashup } = require("./mashup-routes");
 const { initAgentDatabase, installAgent } = require("./agent-routes");
+const { installDgmAnalytics } = require("./dgm-analytics-routes");
 const { installStaff } = require("./staff-routes");
 const { installVirtualCard } = require("./virtual-card-routes");
 const { installMusic } = require("./music-routes");
@@ -10194,6 +10195,8 @@ installAgent(app, {
   },
   fulfillDataOrder
 });
+
+installDgmAnalytics(app, { pool, requireAdmin });
 
 // START SERVER
 // =====================================================
