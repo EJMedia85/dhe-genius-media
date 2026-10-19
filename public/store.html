@@ -69,17 +69,38 @@
   .hero-side{padding:13px}
 }
 
-/* Agent Store is a standalone shopping experience: hide the main DGM app navigation */
+/* Agent Store must not show the shared app's Home/Data/Wallet/Orders/Account bar */
+body nav,
+body [role="navigation"],
 body .bottom-nav,
-body nav.bottom-nav,
 body .mobile-bottom-nav,
 body #bottomNav,
 body #bottom-nav,
 body [data-bottom-navigation],
 body .app-bottom-navigation{display:none!important;visibility:hidden!important;pointer-events:none!important}
 body{padding-bottom:0!important}
-
-</style></head>
+</style><script>
+/* Some shared layouts inject mobile navigation after page load; remove only the five-item DGM bar. */
+(function(){
+  const labels=["home","data","wallet","orders","account"];
+  function hideDgmBottomNav(){
+    document.querySelectorAll("body *").forEach(el=>{
+      if(!el || el===document.body || el.children.length>8) return;
+      const text=(el.innerText||el.textContent||"").replace(/\\s+/g," ").trim().toLowerCase();
+      if(!text || text.length>180 || !labels.every(label=>new RegExp("\\b"+label+"\\b").test(text))) return;
+      const r=el.getBoundingClientRect(), s=getComputedStyle(el);
+      if((s.position==="fixed"||s.position==="sticky"||r.bottom>=innerHeight-12) && r.height<180 && r.width>innerWidth*.45){
+        el.style.setProperty("display","none","important");
+        el.style.setProperty("visibility","hidden","important");
+        el.style.setProperty("pointer-events","none","important");
+      }
+    });
+  }
+  hideDgmBottomNav();
+  new MutationObserver(hideDgmBottomNav).observe(document.documentElement,{childList:true,subtree:true});
+  window.addEventListener("resize",hideDgmBottomNav,{passive:true});
+})();
+</script></head>
 <body><div class="wrap"><div class="top"><div class="brand" onclick="location.href='/dashboard.html'"><span id="brandStoreName">DGM Agent Store</span><small>STAY CONNECTED. STAY GENIUS.</small></div></div><div id="app"><div class="section empty">Loading store…</div></div></div>
 <script>
 const $=id=>document.getElementById(id);const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));const money=v=>"GH₵"+Number(v||0).toFixed(2);let store=null,selected=null,currentNetwork="MTN";const slug=new URLSearchParams(location.search).get("slug")||"";
