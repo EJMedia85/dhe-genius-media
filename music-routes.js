@@ -23,7 +23,7 @@ const musicUpload = multer({
 
 
 
-const AUDIOMACK_API_BASE = String(process.env.AUDIOMACK_API_BASE || "https://api.audiomack.com/v1").trim().replace(/\\/$/, "");
+const AUDIOMACK_API_BASE = String(process.env.AUDIOMACK_API_BASE || "https://api.audiomack.com/v1").trim().replace(/\/$/, "");
 function audiomackConfig() {
   return {
     consumerKey: String(process.env.AUDIOMACK_CONSUMER_KEY || "").trim(),
@@ -43,7 +43,7 @@ function oauthEncode(value) {
 async function audiomackRequest(pathname, query = {}, method = "GET") {
   if (!audiomackReady()) throw Object.assign(new Error("Audiomack API credentials are not configured yet."), { code: "NOT_CONFIGURED" });
   const c = audiomackConfig();
-  const url = new URL(pathname.replace(/^\\//, ""), AUDIOMACK_API_BASE + "/");
+  const url = new URL(pathname.replace(/^\//, ""), AUDIOMACK_API_BASE + "/");
   for (const [key, value] of Object.entries(query)) {
     if (value !== undefined && value !== null && String(value) !== "") url.searchParams.set(key, String(value));
   }
@@ -94,11 +94,12 @@ function normalizeAudiomackTrack(track) {
     title: cleanText(title, 160),
     artist: cleanText(typeof artist === "string" ? artist : artist?.name || "", 120),
     artworkUrl: validHttpsUrl(artwork) ? artwork : null,
-    audiomackUrl: validHttpsUrl(link) ? link : (typeof track?.slug === "string" ? "https://audiomack.com/" + track.slug.replace(/^\\/+/, "") : "https://audiomack.com"),
+    audiomackUrl: validHttpsUrl(link) ? link : (typeof track?.slug === "string" ? "https://audiomack.com/" + track.slug.replace(/^\/+/, "") : "https://audiomack.com"),
     duration: Number(track?.duration || 0) || null
   };
 }
-\nconst SPOTIFY_AUTHORIZE = "https://accounts.spotify.com/authorize";
+
+const SPOTIFY_AUTHORIZE = "https://accounts.spotify.com/authorize";
 const SPOTIFY_TOKEN = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API = "https://api.spotify.com/v1";
 
@@ -196,7 +197,8 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
       return res.status(error.code === "NOT_CONFIGURED" ? 503 : 502).json({ success: false, message: error.code === "NOT_CONFIGURED" ? "Audiomack access is waiting for approved API credentials." : error.message || "Audiomack playback is not available for this track." });
     }
   });
-\n  app.get("/api/music/status", (req, res) => {
+
+  app.get("/api/music/status", (req, res) => {
     const c = spotifyConfig();
     res.json({ success: true, spotifyConfigured: spotifyReady(), artistSubmissions: Boolean(pool), fileUploadsConfigured: Boolean(MUSIC_UPLOAD_DIR), maxUploadBytes: 25 * 1024 * 1024, streaming: "rights-cleared tracks only" });
   });
