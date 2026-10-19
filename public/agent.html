@@ -44,6 +44,7 @@ button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{positio
       <div class="kpi"><span class="label">FAILED SALES</span><b id="failedSales">0</b><span class="sub">Failed orders</span></div>
       <div class="kpi"><span class="label">REFUNDED SALES</span><b id="refundedSales">0</b><span class="sub">Not counted as completed</span></div>
     </div>
+    <section id="overview" class="section active">
     <section id="financeCenter" class="panel" style="margin-bottom:16px">
       <div class="panelHead"><div><div class="eyebrow">Financial command center</div><h2>Business cashflow</h2><div class="muted">Live totals from completed sales and recorded withdrawal requests.</div></div><button class="btn secondary" type="button" onclick="loadFinance()">↻ Refresh</button></div>
       <div class="kpis" style="margin-bottom:0">
@@ -55,7 +56,6 @@ button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{positio
         <div class="kpi"><span class="label">WITHDRAWALS PAID</span><b id="financePaidWithdrawals">GH₵0.00</b><span class="sub">Recorded as paid</span></div>
       </div><div id="financeMsg" class="muted" style="margin-top:10px">Loading financial summary…</div>
     </section>
-    <section id="overview" class="section active">
       <div class="hero">
         <div class="panel walletBox"><div class="panelHead"><div><div class="eyebrow">Business wallet</div><h2>Fund & operate</h2></div><span class="status">DGM Wallet → Agent Wallet</span></div><div class="big" id="walletHero">GH₵0.00</div><div class="muted">Move money from your main DGM Wallet into your Agent Wallet to pay the wholesale cost of customer orders.</div><div style="display:flex;gap:8px;margin-top:14px"><input id="fundAmount" type="number" min="5" step=".01" placeholder="Amount to fund"><button class="btn" onclick="fund()">Fund</button></div><div id="fundMsg" class="msg"></div></div>
         <div class="panel"><div class="panelHead"><div><div class="eyebrow">Quick actions</div><h2>Run your business</h2></div></div><div class="quick"><button onclick="showTab('store')"><b>My Store</b><span>Manage your storefront</span></button><button onclick="showTab('pricing')"><b>Set Pricing</b><span>Control your margin</span></button><button onclick="showTab('withdrawals')"><b>Withdraw</b><span>Cash out your profit</span></button></div></div>
