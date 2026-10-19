@@ -182,13 +182,14 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       if (!a) return res.json({success:true, enrolled:false});
       const [sales, withdrawals] = await Promise.all([
         pool.query(`SELECT
-          COUNT(*) FILTER (WHERE status='Completed')::int AS count,
-          COALESCE(SUM(sale_price) FILTER (WHERE status='Completed'),0) AS sales,
-          COALESCE(SUM(profit) FILTER (WHERE status='Completed'),0) AS profit,
-          COUNT(*) FILTER (WHERE status='Processing')::int AS pending,
-          COUNT(*) FILTER (WHERE status='Failed')::int AS failed,
-          COUNT(*) FILTER (WHERE status='Refunded')::int AS refunded
-          FROM agent_sales WHERE agent_id=$1`, [a.id]),
+          COUNT(*) FILTER (WHERE s.status='Completed')::int AS count,
+          COALESCE(SUM(s.sale_price) FILTER (WHERE s.status='Completed'),0) AS sales,
+          COALESCE(SUM(s.profit) FILTER (WHERE s.status='Completed'),0) AS profit,
+          COUNT(*) FILTER (WHERE s.status='Processing' AND LOWER(COALESCE(o.payment_status,''))='paid' AND LOWER(COALESCE(o.status,''))<>'pending payment')::int AS pending,
+          COUNT(*) FILTER (WHERE s.status='Processing' AND (LOWER(COALESCE(o.payment_status,''))<>'paid' OR LOWER(COALESCE(o.status,''))='pending payment'))::int AS awaiting_payment,
+          COUNT(*) FILTER (WHERE s.status='Failed')::int AS failed,
+          COUNT(*) FILTER (WHERE s.status='Refunded')::int AS refunded
+          FROM agent_sales s LEFT JOIN orders o ON o.id=s.order_id WHERE s.agent_id=$1`, [a.id]),
         pool.query(`SELECT id,reference,amount,momo_network,momo_phone,momo_name,status,created_at,updated_at
           FROM agent_withdrawals WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 20`, [a.id])
       ]);
@@ -202,6 +203,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
           total_sales:money(sales.rows[0].sales),
           total_profit:money(sales.rows[0].profit),
           pending_sales:sales.rows[0].pending,
+          awaiting_payment_sales:sales.rows[0].awaiting_payment,
           failed_sales:sales.rows[0].failed,
           refunded_sales:sales.rows[0].refunded
         },
@@ -256,8 +258,9 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     try {
       const a=await getAgent(req.session.customerId);
       if(!a) return res.status(404).json({success:false,message:"Agent account not found."});
-      const rows=await pool.query(`SELECT id,order_ref,service,network,phone,capacity,base_cost,sale_price,profit,status,created_at,completed_at
-        FROM agent_sales WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 100`,[a.id]);
+      const rows=await pool.query(`SELECT s.id,s.order_ref,s.service,s.network,s.phone,s.capacity,s.base_cost,s.sale_price,s.profit,s.status,s.created_at,s.completed_at,
+        o.status AS order_status,o.payment_status, s.customer_payment_mode
+        FROM agent_sales s LEFT JOIN orders o ON o.id=s.order_id WHERE s.agent_id=$1 ORDER BY s.created_at DESC LIMIT 100`,[a.id]);
       return res.json({success:true,sales:rows.rows});
     } catch(e){return res.status(500).json({success:false,message:"Could not load agent sales."});}
   });
