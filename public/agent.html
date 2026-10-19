@@ -50,7 +50,7 @@ button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{positio
         <div class="panel sellform"><div class="panelHead"><div><div class="eyebrow">New sale</div><h2>Sell Data</h2><div class="muted">Create a customer order in seconds.</div></div><span class="status">Live catalogue</span></div>
           <div class="formgrid"><div class="field"><label>NETWORK</label><select id="network"><option>MTN</option><option>AirtelTigo</option><option>Telecel</option></select></div><div class="field"><label>BUNDLE</label><select id="capacity"></select></div></div>
           <div class="field"><label>CUSTOMER PHONE</label><input id="phone" placeholder="024XXXXXXX" inputmode="tel"></div>
-          <div class="field"><label>YOUR CUSTOMER PRICE</label><input id="salePrice" type="number" step=".01" placeholder="Enter selling price"></div>
+          <div class="field"><label>YOUR CUSTOMER PRICE (MUST EXCEED DGM PRICE)</label><input id="salePrice" type="number" step=".01" placeholder="Enter selling price"></div>
           <div class="pricePreview"><div><div class="muted">Minimum base cost</div><div id="baseHint">DGM base: GH₵0.00</div></div><div style="text-align:right"><div class="muted">Customer pays</div><b id="salePreview">GH₵0.00</b></div></div>
           <button class="btn" style="width:100%;padding:13px" onclick="sell()">Confirm & Sell Data</button><div id="sellMsg" class="msg"></div>
         </div>
