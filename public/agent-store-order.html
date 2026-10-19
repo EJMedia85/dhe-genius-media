@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07100c"><title>Track Agent Store Order | DHE GENIUS MEDIA</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:22px;background:radial-gradient(circle at top,#123b2a,#070b0a 58%);color:#f5f7f6;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;display:flex;align-items:center;justify-content:center}.card{width:min(100%,520px);padding:25px;border:1px solid rgba(37,211,102,.18);border-radius:22px;background:rgba(14,23,19,.94);box-shadow:0 22px 70px #0007}.brand{color:#25d366;font-weight:900;letter-spacing:.06em;font-size:12px}.eyebrow{color:#9aaea4;font-size:11px;margin-top:24px}.title{font-size:26px;margin:7px 0 8px}.sub{color:#9aaea4;font-size:13px;line-height:1.6}.status{margin-top:20px;padding:15px;border-radius:14px;background:#ffffff08;border:1px solid #ffffff12}.status strong{display:block;font-size:16px;margin-bottom:6px}.details{margin-top:14px;display:grid;gap:0}.item{display:flex;justify-content:space-between;gap:18px;padding:12px 0;border-bottom:1px solid #ffffff10;font-size:12px}.item span{color:#9aaea4}.item strong{text-align:right;overflow-wrap:anywhere}.actions{display:grid;gap:9px;margin-top:22px}.btn{display:block;text-align:center;text-decoration:none;padding:14px;border-radius:12px;font-size:13px;font-weight:800;background:linear-gradient(135deg,#25d366,#128c7e);color:#06100b;border:0}.secondary{background:#ffffff0a;color:#f5f7f6;border:1px solid #ffffff12}.small{margin-top:16px;font-size:10px;line-height:1.6;color:#91a39a}
+
+/* Customer-only navigation must stay hidden on secure guest order tracking. */
+.bottom-nav,.mobile-bottom-nav,.mobile-nav,.bottom-navigation,#bottomNav,#mobileBottomNav,[data-customer-bottom-nav]{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style></head><body><main class="card"><div class="brand">DHE GENIUS MEDIA · STAY CONNECTED. STAY GENIUS.</div><div class="eyebrow">AGENT STORE ORDER TRACKING</div><h1 class="title">Your data order</h1><p class="sub">This secure page tracks your Agent Store purchase without requiring a DGM account. Payment is marked paid only after server-side verification.</p><div id="status" class="status"><strong>Loading order…</strong><span class="sub">Checking the latest payment and delivery status.</span></div><div id="details" class="details"></div><div class="actions"><a class="btn" href="/guest-dashboard.html">Guest dashboard</a><a class="btn" href="/data.html">Buy another bundle</a><a class="btn secondary" href="/signup.html">Create a DGM account (optional)</a></div><p class="small">Keep this secure link private. Anyone with it can view this order. If payment is confirmed but the order does not update, contact DGM support on WhatsApp 0241518385.</p></main>
+<script>
+const statusEl=document.getElementById("status"),detailsEl=document.getElementById("details");
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function showError(message){statusEl.innerHTML="<strong>Unable to load this order</strong><span class='sub'>"+esc(message)+"</span>";}
+function showOrder(o){const paid=String(o.payment_status||"").toLowerCase()==="paid";const state=String(o.status||"Pending Payment");const refundPending=state.toLowerCase()==="refund pending";const refunded=state.toLowerCase()==="refunded";const failed=state.toLowerCase()==="failed";const title=refunded?"Refund processed":refundPending?"Refund in progress":failed?"Delivery failed":paid?"Payment confirmed":state==="Pending Payment"?"Awaiting payment":state;const message=refunded?"Paystack has confirmed that your refund was processed.":refundPending?"Your data bundle could not be delivered. DGM has requested or is reviewing a Paystack refund; this page will update when the status changes. If this remains pending, contact WhatsApp support on 0241518385.":failed?"Payment may have been received, but delivery failed. Contact DGM support to review the payment.":paid?(state==="Completed"?"Your data order is completed.":"Your payment was verified by DGM. Delivery status will update here."):(new URLSearchParams(location.search).has("reference")||new URLSearchParams(location.search).has("trxref"))?"If a Mobile Money prompt arrived, approve it on your phone. This page will keep checking until DGM verifies payment.":"Your order remains unpaid until DGM verifies the payment.";statusEl.innerHTML="<strong>"+esc(title)+"</strong><span class='sub'>"+esc(message)+"</span>";detailsEl.innerHTML=[["Order reference",o.order_ref],["Network",o.network],["Bundle",o.capacity+" GB"],["Recipient",o.phone],["Total","GH₵"+Number(o.amount||0).toFixed(2)],["Payment",refunded?"Refunded":o.payment_status||"Pending"],["Delivery status",state],["Created",o.created_at?new Date(o.created_at).toLocaleString():"—"]].map(x=>"<div class='item'><span>"+esc(x[0])+"</span><strong>"+esc(x[1])+"</strong></div>").join("")}
+
+async function refresh(){const params=new URLSearchParams(location.hash.replace(/^#/,""));const orderRef=params.get("ref");const token=params.get("token");if(!orderRef||!token){showError("The secure tracking link is incomplete. Open the link you saved after creating your order.");return}try{const paymentParams=new URLSearchParams(location.search);const paymentReference=paymentParams.get("reference")||paymentParams.get("trxref");if(paymentReference){const vr=await fetch("/api/public/agent-store/"+encodeURIComponent(new URLSearchParams(location.search).get("slug")||"")+"/checkout/verify",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},cache:"no-store",body:JSON.stringify({orderRef,guestToken:token,reference:paymentReference})});const vd=await vr.json().catch(()=>({}));if(vr.ok&&vd.success&&vd.order)showOrder(vd.order)}const r=await fetch("/api/public/agent-store/"+encodeURIComponent(new URLSearchParams(location.search).get("slug")||"")+"/checkout/status",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},cache:"no-store",body:JSON.stringify({orderRef,guestToken:token})});const data=await r.json().catch(()=>({}));if(!r.ok||!data.success)throw new Error(data.message||"Order not found.");showOrder(data.order);if(String(data.order.status||"").toLowerCase()!=="completed"&&String(data.order.status||"").toLowerCase()!=="failed"&&String(data.order.status||"").toLowerCase()!=="refunded")setTimeout(refresh,8000)}catch(e){showError(e.message||"Please reopen your tracking link and try again.")}}
+refresh();
+</script>
+<script>
+/* Hide the signed-in customer bar if a shared script injects it on this guest page. */
+(function(){
+ const labels=["home","data","wallet","orders","account"];
+ function hideCustomerBar(){
+  document.querySelectorAll("nav,[role='navigation'],.bottom-nav,.mobile-bottom-nav,.mobile-nav,.bottom-navigation,#bottomNav,#mobileBottomNav").forEach(function(el){
+   const text=(el.innerText||el.textContent||"").toLowerCase().replace(/\\s+/g," ").trim();
+   const allLabels=labels.every(function(label){return new RegExp("\\\\b"+label+"\\\\b").test(text)});
+   const style=getComputedStyle(el), rect=el.getBoundingClientRect();
+   const fixedBottom=style.position==="fixed"||style.position==="sticky"||rect.bottom>=innerHeight-12;
+   const known=/bottom-nav|bottomnav|mobile-nav|bottom-navigation/i.test(String(el.className||"")+" "+(el.id||""));
+   if(allLabels&&(fixedBottom||known)){
+    el.style.setProperty("display","none","important");
+    el.style.setProperty("visibility","hidden","important");
+    el.style.setProperty("pointer-events","none","important");
+    el.setAttribute("aria-hidden","true");
+   }
+  });
+ }
+ hideCustomerBar();
+ new MutationObserver(hideCustomerBar).observe(document.documentElement,{childList:true,subtree:true});
+ window.addEventListener("resize",hideCustomerBar,{passive:true});
+})();
+</script>
+</body></html>
