@@ -612,7 +612,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       if(promo) await client.query("UPDATE agent_promo_codes SET uses=uses+1 WHERE agent_id=$1 AND UPPER(code)=UPPER($2)",[a.id,promo]);
       await client.query("COMMIT");
       let result;
-      try{result=await fulfillDataOrder({id:orderId,order_ref:orderRef,customer_id:customer.id,service:"Data",network,phone,amount:netPrice,status:"Processing",payment_status:"Paid",capacity});}
+      try{result=await fulfillDataOrder({id:orderId,order_ref:orderRef,customer_id:customer.id,service:"Data",network,phone,amount:netPrice,base_amount:base,supplier_cost:base,status:"Processing",payment_status:"Paid",capacity});}
       catch(e){result={success:false,status:"Failed",message:e.message};}
       const ps=String(result?.status||"").toLowerCase();
       if(!result?.success && ["failed","rejected","error"].includes(ps)){
