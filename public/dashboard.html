@@ -245,6 +245,34 @@ body{
 @media(max-width:760px){.active-order-card{padding:15px}.active-order-details{gap:13px 9px}.active-order-name>strong{font-size:14px}}
 </style>
 
+
+<style id="dgm-mobile-scroll-performance">
+/* Keep mobile scrolling responsive on lower-powered phones. */
+@media (max-width: 760px) {
+  html, body { scroll-behavior: auto !important; }
+  body { background-attachment: scroll !important; }
+  .mobile-header, .bottom-nav, .sidebar, .menu-btn, .icon-btn,
+  .wallet, .wallet-btn, .primary-card, .service-card, .activity-card,
+  .reward-card, .campaign-card, .overlay {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  .primary-card, .service-card, .activity-card, .reward-card, .campaign-card,
+  .wallet, .bottom-nav {
+    box-shadow: 0 4px 14px rgba(0,0,0,.14) !important;
+  }
+  .primary-card, .service-card, .wallet-btn, .nav-item,
+  .code-btn, .reward-code button, .campaign-btn {
+    transition: none !important;
+  }
+  .primary-card:hover, .service-card:hover, .wallet-btn:hover,
+  .code-btn:hover, .reward-code button:hover, .campaign-btn:hover {
+    transform: none !important;
+    filter: none !important;
+  }
+}
+</style>
+
 </head>
 <body>
 <header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()" aria-label="Open menu">☰</button></header>
