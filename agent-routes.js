@@ -132,7 +132,7 @@ async function initAgentDatabase(pool) {
     WHERE NOT EXISTS (SELECT 1 FROM agent_wallets WHERE agent_wallets.agent_id=agent_profiles.id)`);
 }
 
-function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice, fulfillDataOrder }) {
+function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice, fulfillDataOrder, paystackSecretKey, initiateGuestSupplierTransfer, initiateGuestPaystackRefund }) {
   async function getAgent(customerId, client = pool) {
     const q = await client.query(
       `SELECT a.*, c.name, c.phone, c.email, w.balance AS agent_wallet
@@ -448,6 +448,121 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       return res.status(400).json({success:false,message:e.message||"Could not create agent store order."});
     }finally{client.release();}
   });
+
+
+  // Dedicated public Agent Store Mobile Money checkout, isolated from normal guest checkout.
+  async function findPublicStoreOrder(slug, orderRef, guestToken) {
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const q = await pool.query(
+      `SELECT o.*, s.id AS agent_sale_id, s.agent_id, s.status AS agent_sale_status
+       FROM orders o
+       JOIN agent_sales s ON s.order_id=o.id AND s.customer_payment_mode='store_paystack'
+       JOIN agent_profiles a ON a.id=s.agent_id AND a.store_slug=$1
+       WHERE UPPER(o.order_ref)=$2 AND o.customer_id IS NULL AND o.guest_token_hash=$3
+       LIMIT 1`,
+      [slug, orderRef, tokenHash]
+    );
+    return q.rows[0] || null;
+  }
+
+  app.post("/api/public/agent-store/:slug/checkout/mobile-money", async (req,res) => {
+    let order = null, reference = "";
+    try {
+      if (!paystackSecretKey) return res.status(503).json({success:false,message:"Agent Store Mobile Money payments are not configured."});
+      const slug=String(req.params.slug||"").trim().toLowerCase();
+      const orderRef=String(req.body?.orderRef||"").trim().toUpperCase();
+      const guestToken=String(req.body?.guestToken||"").trim();
+      const phone=String(req.body?.phone||"").trim().replace(/\s+/g,"");
+      const provider=String(req.body?.provider||"").trim().toLowerCase();
+      if(!slug||!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)) return res.status(400).json({success:false,message:"Agent Store order details are invalid."});
+      if(!/^[a-f0-9]{64}$/i.test(guestToken)) return res.status(403).json({success:false,message:"Secure Agent Store tracking session is invalid. Recreate the order."});
+      if(!/^0\d{9}$/.test(phone)) return res.status(400).json({success:false,message:"Enter a valid Ghana Mobile Money phone number."});
+      if(!["mtn","atl","vod"].includes(provider)) return res.status(400).json({success:false,message:"Choose MTN MoMo, AT Money, or Telecel Cash."});
+      order=await findPublicStoreOrder(slug,orderRef,guestToken);
+      if(!order) return res.status(404).json({success:false,message:"Agent Store order not found."});
+      if(String(order.payment_status||"").toLowerCase()==="paid") return res.json({success:true,alreadyPaid:true,order:{order_ref:order.order_ref}});
+      if(String(order.status||"").toLowerCase()!=="pending payment") return res.status(409).json({success:false,message:"This order is no longer awaiting payment."});
+      if(order.paystack_reference) return res.status(409).json({success:false,message:"A payment attempt already exists. Open your Agent Store tracking link before trying again."});
+      const amount=Number(order.amount);
+      if(!Number.isFinite(amount)||amount<=0) return res.status(400).json({success:false,message:"Order amount is invalid."});
+      reference="DGM-STORE-MOMO-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(5).toString("hex").toUpperCase();
+      const email="store-"+phone.replace(/\D/g,"")+"@dhegeniusmedia.com";
+      const saved=await pool.query("UPDATE orders SET paystack_reference=$1,guest_email=$2 WHERE id=$3 AND customer_id IS NULL AND guest_token_hash=$4 AND paystack_reference IS NULL AND LOWER(COALESCE(payment_status,'pending'))<>'paid' AND status='Pending Payment'",[reference,email,order.id,crypto.createHash("sha256").update(guestToken).digest("hex")]);
+      if(saved.rowCount!==1) return res.status(409).json({success:false,message:"Order status changed. Refresh your tracking link."});
+      const response=await fetch("https://api.paystack.co/charge",{method:"POST",headers:{Authorization:"Bearer "+paystackSecretKey,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({email,amount:String(Math.round(amount*100)),currency:"GHS",reference,mobile_money:{phone,provider},metadata:{type:"agent_store_guest_order",order_ref:order.order_ref,agent_id:order.agent_id,network:order.network,capacity:order.capacity,store_slug:slug}})});
+      const raw=await response.text();let payload={};try{payload=JSON.parse(raw)}catch{}
+      if(!response.ok||!payload.status||!payload.data?.reference){
+        await pool.query("UPDATE orders SET paystack_reference=NULL,guest_email=NULL WHERE id=$1 AND paystack_reference=$2 AND LOWER(COALESCE(payment_status,'pending'))<>'paid'",[order.id,reference]);
+        return res.status(502).json({success:false,message:payload.message||"Paystack could not start the Agent Store Mobile Money request. Please try again."});
+      }
+      return res.json({success:true,reference:payload.data.reference,status:payload.data.status||"pending",display_text:payload.data.display_text||payload.message||"Approve the Mobile Money request on your phone."});
+    }catch(e){console.error("Agent Store Mobile Money initialization:",e.message);return res.status(500).json({success:false,message:reference?"Payment prompt response could not be confirmed. Open your Agent Store tracking link before retrying.":"Could not start Mobile Money payment."})}
+  });
+
+  app.post("/api/public/agent-store/:slug/checkout/mobile-money/otp", async (req,res) => {
+    try {
+      if(!paystackSecretKey)return res.status(503).json({success:false,message:"Agent Store payment authorization is not configured."});
+      const slug=String(req.params.slug||"").trim().toLowerCase(),orderRef=String(req.body?.orderRef||"").trim().toUpperCase(),guestToken=String(req.body?.guestToken||"").trim(),reference=String(req.body?.reference||"").trim(),otp=String(req.body?.otp||"").trim();
+      if(!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)||!/^[a-f0-9]{64}$/i.test(guestToken)||!reference)return res.status(400).json({success:false,message:"Agent Store payment details are incomplete."});
+      if(!/^\d{4,8}$/.test(otp))return res.status(400).json({success:false,message:"Enter the authorization code supplied for this payment."});
+      const order=await findPublicStoreOrder(slug,orderRef,guestToken);
+      if(!order)return res.status(404).json({success:false,message:"Agent Store order not found."});
+      if(order.paystack_reference!==reference)return res.status(403).json({success:false,message:"Payment reference does not belong to this Agent Store order."});
+      if(String(order.payment_status||"").toLowerCase()==="paid")return res.json({success:true,status:"success",message:"Payment is already confirmed."});
+      const response=await fetch("https://api.paystack.co/charge/submit_otp",{method:"POST",headers:{Authorization:"Bearer "+paystackSecretKey,"Content-Type":"application/json",Accept:"application/json"},body:JSON.stringify({reference,otp})});
+      const raw=await response.text();let payload={};try{payload=JSON.parse(raw)}catch{}
+      if(!response.ok||!payload.status||!payload.data)return res.status(502).json({success:false,message:payload.message||"Paystack could not authorize this payment."});
+      return res.json({success:true,status:String(payload.data.status||"pending").toLowerCase(),reference:payload.data.reference||reference,display_text:payload.data.display_text||payload.data.message||payload.message||"Authorization submitted. Checking payment."});
+    }catch(e){console.error("Agent Store OTP:",e.message);return res.status(500).json({success:false,message:"Could not submit the authorization code."})}
+  });
+
+  app.post("/api/public/agent-store/:slug/checkout/verify", async (req,res) => {
+    try {
+      if(!paystackSecretKey)return res.status(503).json({success:false,message:"Agent Store payment verification is not configured."});
+      const slug=String(req.params.slug||"").trim().toLowerCase(),orderRef=String(req.body?.orderRef||"").trim().toUpperCase(),guestToken=String(req.body?.guestToken||"").trim(),reference=String(req.body?.reference||"").trim();
+      if(!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)||!/^[a-f0-9]{64}$/i.test(guestToken)||!reference)return res.status(400).json({success:false,message:"Agent Store verification details are incomplete."});
+      const order=await findPublicStoreOrder(slug,orderRef,guestToken);
+      if(!order)return res.status(404).json({success:false,message:"Agent Store order not found."});
+      if(String(order.payment_status||"").toLowerCase()==="paid")return res.json({success:true,verified:true,order:{order_ref:order.order_ref,status:order.status,payment_status:order.payment_status}});
+      if(!order.paystack_reference||reference!==order.paystack_reference)return res.status(403).json({success:false,message:"Payment reference does not belong to this Agent Store order."});
+      const response=await fetch("https://api.paystack.co/transaction/verify/"+encodeURIComponent(reference),{method:"GET",headers:{Authorization:"Bearer "+paystackSecretKey,Accept:"application/json"}});
+      const raw=await response.text();let payload={};try{payload=JSON.parse(raw)}catch{}
+      if(!response.ok||!payload.status||!payload.data)return res.status(502).json({success:false,message:"Paystack could not verify this payment yet. Keep this page open."});
+      const tx=payload.data;
+      if(String(tx.reference||"")!==reference)return res.status(400).json({success:false,message:"Paystack reference mismatch."});
+      if(String(tx.status||"").toLowerCase()!=="success")return res.status(202).json({success:true,verified:false,order:{order_ref:order.order_ref,status:order.status,payment_status:order.payment_status}});
+      if(String(tx.currency||"").toUpperCase()!=="GHS"||Math.round(Number(tx.amount||0))!==Math.round(Number(order.amount||0)*100))return res.status(400).json({success:false,message:"Payment amount or currency does not match this Agent Store order. Contact DGM support."});
+      const marked=await pool.query("UPDATE orders SET payment_status='Paid',paid_at=COALESCE(paid_at,NOW()),status=CASE WHEN status='Pending Payment' THEN 'Processing' ELSE status END WHERE id=$1 AND customer_id IS NULL AND LOWER(COALESCE(payment_status,'pending'))<>'paid' AND paystack_reference=$2 RETURNING id",[order.id,reference]);
+      if(marked.rowCount===1){
+        const updated=(await pool.query("SELECT * FROM orders WHERE id=$1 LIMIT 1",[order.id])).rows[0];
+        try{
+          const fulfillment=await fulfillDataOrder(updated);
+          if(!fulfillment?.success&&String(fulfillment?.status||"").toLowerCase()==="failed"){
+            await pool.query("UPDATE agent_sales SET status='Refunded' WHERE id=$1 AND customer_payment_mode='store_paystack'",[order.agent_sale_id]);
+            await initiateGuestPaystackRefund(order.id,fulfillment.error||"Agent Store data delivery failed.");
+          }else{
+            const latest=(await pool.query("SELECT * FROM orders WHERE id=$1 LIMIT 1",[order.id])).rows[0];
+            await initiateGuestSupplierTransfer(latest);
+            if(["completed","success","successful","delivered"].includes(String(fulfillment?.status||"").toLowerCase()))await completeAgentSale(order.agent_sale_id);
+          }
+        }catch(e){console.error("Agent Store fulfillment after verified payment:",order.order_ref,e.message);await pool.query("UPDATE agent_sales SET status='Refunded' WHERE id=$1 AND customer_payment_mode='store_paystack'",[order.agent_sale_id]);await initiateGuestPaystackRefund(order.id,e.message||"Agent Store data delivery failed.");}
+      }
+      const latest=await pool.query("SELECT order_ref,service,network,phone,amount,status,capacity,payment_status,paid_at,provider_status,provider_message,created_at,completed_at FROM orders WHERE id=$1",[order.id]);
+      return res.json({success:true,verified:true,order:latest.rows[0]});
+    }catch(e){console.error("Agent Store payment verification:",e.message);return res.status(500).json({success:false,message:"Could not verify this Agent Store payment yet."})}
+  });
+
+  app.post("/api/public/agent-store/:slug/checkout/status", async (req,res) => {
+    try{
+      const slug=String(req.params.slug||"").trim().toLowerCase(),orderRef=String(req.body?.orderRef||"").trim().toUpperCase(),guestToken=String(req.body?.guestToken||"").trim();
+      if(!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)||!/^[a-f0-9]{64}$/i.test(guestToken))return res.status(400).json({success:false,message:"Agent Store order details are invalid."});
+      const order=await findPublicStoreOrder(slug,orderRef,guestToken);
+      if(!order)return res.status(404).json({success:false,message:"Agent Store order not found. Check your tracking link."});
+      const safe=(await pool.query("SELECT order_ref,service,network,phone,amount,status,capacity,payment_status,paid_at,provider_status,provider_message,created_at,completed_at FROM orders WHERE id=$1",[order.id])).rows[0];
+      return res.json({success:true,order:safe});
+    }catch(e){console.error("Agent Store status:",e.message);return res.status(500).json({success:false,message:"Could not load Agent Store order status."})}
+  });
+
 
   // CUSTOMER-FACING DGM AGENT STORE CHECKOUT
   app.post("/api/public/agent-store/:slug/order", requireCustomer, async (req,res)=>{
