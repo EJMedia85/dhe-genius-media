@@ -12,6 +12,8 @@ header{position:sticky;top:0;z-index:10;background:rgba(5,13,10,.88);border-bott
 main{padding-top:27px}.eyebrow{color:var(--green);font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}.hero{border:1px solid rgba(37,211,102,.18);border-radius:25px;padding:clamp(22px,5vw,38px);background:radial-gradient(circle at 100% 0,rgba(37,211,102,.15),transparent 38%),linear-gradient(145deg,rgba(18,42,30,.94),rgba(8,17,13,.96));box-shadow:0 20px 60px #0004}.hero h1{font-size:clamp(30px,6vw,46px);line-height:1.04;letter-spacing:-.05em;margin:12px 0}.hero p{max-width:580px;color:var(--muted);font-size:14px;line-height:1.7}.pill{display:inline-flex;margin-top:14px;padding:7px 10px;border-radius:999px;background:#25d36614;color:#a7f3c3;font-size:10px;font-weight:800;border:1px solid #25d36626}
 h2{font-size:18px;letter-spacing:-.02em;margin:27px 0 12px}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.tile{display:block;text-align:left;min-height:150px;padding:18px;border:1px solid var(--line);border-radius:19px;background:linear-gradient(150deg,rgba(255,255,255,.07),rgba(255,255,255,.02));transition:transform .18s,border-color .18s}.tile:hover{transform:translateY(-2px);border-color:#25d36666}.ico{width:43px;height:43px;border-radius:14px;display:grid;place-items:center;background:#25d36616;font-size:22px;margin-bottom:15px}.tile strong{display:block;font-size:14px}.tile p{color:var(--muted);font-size:11px;line-height:1.55;margin:6px 0 0}.tile .go{display:block;color:#81eaa8;font-size:10px;font-weight:900;margin-top:12px}.wide{grid-column:1/-1;min-height:auto}.track{border:1px solid var(--line);border-radius:19px;padding:19px;background:rgba(255,255,255,.035)}.track p{color:var(--muted);font-size:12px;line-height:1.6;margin:0 0 13px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:9px}.fields input{min-width:0;width:100%;padding:13px;border:1px solid var(--line);border-radius:11px;background:#07100c;color:#fff;outline:none}.fields input:focus{border-color:var(--green)}.track button{width:100%;border:0;border-radius:11px;background:linear-gradient(135deg,#8df7b4,#25d366,#128c7e);color:#052012;font-weight:900;padding:14px;margin-top:10px}.hint{font-size:10px;color:var(--muted);line-height:1.6;margin-top:9px}.note{margin-top:15px;padding:14px;border:1px solid var(--line);border-radius:15px;color:var(--muted);font-size:11px;line-height:1.65}footer{margin-top:25px;padding-top:17px;border-top:1px solid var(--line);color:var(--muted);font-size:10px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 @media(min-width:650px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.wide{grid-column:span 3}.tile{min-height:165px}}
+/* Customer-only mobile navigation must not appear on guest pages. */
+.bottom-nav,.mobile-bottom-nav,.mobile-nav,.bottom-navigation,#bottomNav,#mobileBottomNav,[data-customer-bottom-nav]{display:none!important;visibility:hidden!important;pointer-events:none!important}
 </style></head>
 <body>
 <header><div class="wrap head"><a class="brand" href="/guest-dashboard.html" aria-label="DGM guest dashboard"><span class="logo">DGM</span><span><strong>DHE GENIUS MEDIA</strong><small>Stay Connected. Stay Genius.</small></span></a><a class="account" href="/register.html">Create account ↗</a></div></header>
@@ -34,4 +36,28 @@ h2{font-size:18px;letter-spacing:-.02em;margin:27px 0 12px}.grid{display:grid;gr
 <script>
 document.getElementById("trackForm").addEventListener("submit",function(event){event.preventDefault();const ref=document.getElementById("orderRef").value.trim();const token=document.getElementById("guestToken").value.trim();if(!ref||!token)return;location.href="/guest-order.html#ref="+encodeURIComponent(ref)+"&token="+encodeURIComponent(token)});
 (function(){const q=new URLSearchParams(location.search);if(q.get("ref"))document.getElementById("orderRef").value=q.get("ref");if(q.get("token"))document.getElementById("guestToken").value=q.get("token")})();
+</script>
+<script>
+/* Some shared layouts inject the signed-in customer's fixed bottom bar at runtime.
+   Suppress only that customer navigation on this guest-only page. */
+(function hideSignedInNavigationOnGuestPage(){
+ const labels=['home','data','wallet','orders','account'];
+ function hideCustomerBar(){
+  document.querySelectorAll('nav, [role="navigation"], .bottom-nav, .mobile-bottom-nav, .mobile-nav, .bottom-navigation, #bottomNav, #mobileBottomNav').forEach(function(el){
+   if(el.dataset.guestNavChecked==='1')return;
+   const text=(el.innerText||el.textContent||'').toLowerCase().replace(/\s+/g,' ');
+   const hasAllLabels=labels.every(function(label){return new RegExp('\\b'+label+'\\b').test(text)});
+   const style=window.getComputedStyle(el);
+   const fixedBottom=(style.position==='fixed' && (parseInt(style.bottom||'0',10)>=0));
+   const knownCustomerBar=/bottom-nav|bottomnav|mobile-nav|bottom-navigation/i.test(String(el.className||'')+' '+(el.id||''));
+   if(hasAllLabels&&(fixedBottom||knownCustomerBar)){
+    el.style.setProperty('display','none','important');
+    el.setAttribute('aria-hidden','true');
+   }
+   el.dataset.guestNavChecked='1';
+  });
+ }
+ hideCustomerBar();
+ new MutationObserver(hideCustomerBar).observe(document.documentElement,{childList:true,subtree:true});
+})();
 </script></body></html>
