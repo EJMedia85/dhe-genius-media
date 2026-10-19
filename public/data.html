@@ -121,7 +121,18 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 </nav>
 
 <script>
-let bundles={};let selectedNetwork="MTN";let selectedBundle=null;let currentOrder=null;let guestMode=false;let catalogMeta={validity_days:90,price_checked_at:null};
+const forceGuestMode=new URLSearchParams(window.location.search).get("guest")==="1";
+let bundles={};let selectedNetwork="MTN";let selectedBundle=null;let currentOrder=null;let guestMode=forceGuestMode;let catalogMeta={validity_days:90,price_checked_at:null};
+
+function applyGuestMode(){
+ guestMode=true;
+ document.getElementById("walletCard").style.display="none";
+ document.getElementById("guestNotice").style.display="block";
+ document.getElementById("walletButton").style.display="none";
+ document.getElementById("paystackButton").style.display="none";
+ document.getElementById("guestMomoWrap").style.display="block";
+ document.getElementById("guestMomoButton").style.display="block";
+}
 
 async function loadBundleCatalog(){
  const response=await fetch("/api/data-bundles",{credentials:"include",cache:"no-store",headers:{Accept:"application/json"}});
@@ -137,9 +148,10 @@ async function loadBundleCatalog(){
 function showMessage(message,type){const e=document.getElementById("message");e.textContent=message;e.className="message show "+type}
 function clearMessage(){const e=document.getElementById("message");e.textContent="";e.className="message"}
 async function loadWallet(){
+ if(forceGuestMode){applyGuestMode();return}
  try{
   const response=await fetch("/api/wallet",{credentials:"include",cache:"no-store"});
-  if(response.status===401){guestMode=true;document.getElementById("walletCard").style.display="none";document.getElementById("guestNotice").style.display="block";document.getElementById("walletButton").style.display="none";document.getElementById("guestMomoWrap").style.display="block";document.getElementById("paystackButton").style.display="none";document.getElementById("guestMomoButton").style.display="block";return}
+  if(response.status===401){applyGuestMode();return}
   const data=await response.json();if(!response.ok)throw new Error(data.message||"Could not load wallet.");
   guestMode=false;document.getElementById("walletCard").style.display="flex";document.getElementById("walletButton").style.display="block";document.getElementById("guestMomoWrap").style.display="none";document.getElementById("paystackButton").style.display="block";document.getElementById("guestMomoButton").style.display="none";
   document.getElementById("walletBalance").textContent="GH₵"+Number(data.balance||0).toFixed(2);
