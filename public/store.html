@@ -68,6 +68,17 @@
   .share-row{grid-template-columns:minmax(0,1fr)}
   .hero-side{padding:13px}
 }
+
+/* Agent Store is a standalone shopping experience: hide the main DGM app navigation */
+body .bottom-nav,
+body nav.bottom-nav,
+body .mobile-bottom-nav,
+body #bottomNav,
+body #bottom-nav,
+body [data-bottom-navigation],
+body .app-bottom-navigation{display:none!important;visibility:hidden!important;pointer-events:none!important}
+body{padding-bottom:0!important}
+
 </style></head>
 <body><div class="wrap"><div class="top"><div class="brand" onclick="location.href='/dashboard.html'"><span id="brandStoreName">DGM Agent Store</span><small>STAY CONNECTED. STAY GENIUS.</small></div></div><div id="app"><div class="section empty">Loading store…</div></div></div>
 <script>
