@@ -9,6 +9,7 @@
 <meta property="og:title" content="DGM — Stay Connected. Stay Genius.">
 <meta property="og:description" content="Your digital life, made easier. Explore DGM data, airtime and digital services.">
 <style>
+
 :root{color-scheme:dark;--bg:#06100e;--panel:#0b1915;--green:#25d366;--mint:#7df5ad;--teal:#128c7e;--text:#f4faf6;--muted:#a0b4aa;--line:rgba(190,255,215,.13);--max:1180px}
 *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:90px}body{margin:0;background:radial-gradient(ellipse at 80% 12%,rgba(18,140,126,.2),transparent 35%),radial-gradient(ellipse at 10% 35%,rgba(37,211,102,.11),transparent 35%),var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--text);line-height:1.5}a{color:inherit;text-decoration:none}button,a{-webkit-tap-highlight-color:transparent}.wrap{width:min(var(--max),calc(100% - 40px));margin:auto}
 header{position:sticky;top:0;z-index:20;background:rgba(6,16,14,.88);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}.nav{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:24px}.brand{display:flex;align-items:center;gap:12px}.logo{width:47px;height:47px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(140deg,var(--mint),var(--green) 60%,var(--teal));color:#052115;font-weight:1000;letter-spacing:-1px;box-shadow:0 8px 28px #25d36620}.brand strong{display:block;font-size:13px;letter-spacing:.07em}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:2px}.navlinks{display:flex;align-items:center;gap:25px;color:#c3d3ca;font-size:13px}.navlinks a:hover{color:var(--mint)}.nav-actions{display:flex;gap:9px;align-items:center}.btn{min-height:44px;padding:12px 17px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;border:1px solid var(--line);transition:transform .2s,border-color .2s}.btn:hover{transform:translateY(-2px);border-color:#25d36688}.primary{background:linear-gradient(135deg,var(--mint),var(--green));color:#052115;border:0}.quiet{background:rgba(255,255,255,.035)}
@@ -88,6 +89,25 @@ section.block{padding:78px 0 20px}.sectionhead{max-width:660px;margin-bottom:29p
 /* Conversion-focused homepage data pricing */
 .guest-note{margin-top:15px;color:#b5d7c2;font-size:12px;line-height:1.65}.guest-note span{color:var(--mint);font-weight:900;margin-right:7px}.price-preview{padding:55px 0 12px}.price-preview-head{display:flex;align-items:flex-end;justify-content:space-between;gap:22px;margin-bottom:20px}.price-preview-head h2{font-size:clamp(27px,4vw,39px);letter-spacing:-.045em;line-height:1.08;margin:10px 0}.price-preview-head p{font-size:13px;line-height:1.7;color:var(--muted);max-width:620px}.price-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}.price-card{padding:19px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(150deg,#ffffff08,#ffffff02)}.price-brand{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:13px;border-bottom:1px solid var(--line);font-size:16px;font-weight:900}.price-brand span{font-size:10px;letter-spacing:.1em;opacity:.85}.mtn-brand{color:#ffd64d}.at-brand{color:#ff9dbe}.telecel-brand{color:#ff6b7b}.price-list{display:grid;gap:0;margin:6px 0 14px}.price-list span{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #ffffff0a;color:var(--muted);font-size:12px}.price-list b{color:var(--text);font-size:13px}.price-card>a{color:var(--mint);font-size:12px;font-weight:900}.price-footnote{font-size:10px;line-height:1.6;color:#8ca99a;margin-top:12px}.service-featured{border-color:#25d36650;background:linear-gradient(150deg,#25d3660d,#ffffff02)}
 @media(max-width:700px){.price-preview{padding-top:38px}.price-preview-head{align-items:flex-start;flex-direction:column}.price-preview-head .btn{width:100%}.price-cards{grid-template-columns:1fr}.price-card{padding:17px}.price-list{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.price-list span{display:flex;flex-direction:column;gap:4px;border:1px solid var(--line);border-radius:10px;padding:10px 8px}.price-list b{font-size:12px}}
+
+
+
+/* Main homepage mobile performance and accessibility */
+@media (max-width: 760px) {
+  html { scroll-behavior: auto !important; }
+  body { background-attachment: scroll !important; }
+  header { background: rgba(6,16,14,.97); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .visual, .phone, .service, .price-card, .trustbar, .cta, .wallet-visual,
+  .saving-card, .screen-tile, .support-status, .float-note {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    filter: none;
+  }
+  .visual { box-shadow: 0 12px 30px rgba(0,0,0,.22); }
+  .visual:before, .wallet-glow, .entertainment-glow { filter: none; opacity: .55; }
+  .btn, .service, .showcase-slide, .showcase-dot { transition: none !important; }
+  .btn:hover, .service:hover, .showcase-arrows button:hover { transform: none !important; }
+}
 </style>
 </head>
 <body>
@@ -139,12 +159,17 @@ section.block{padding:78px 0 20px}.sectionhead{max-width:660px;margin-bottom:29p
 </div>
 </section>
 <section class="price-preview" aria-labelledby="price-preview-title"><div class="price-preview-head"><div><div class="kicker">START WITH DATA</div><h2 id="price-preview-title">See the price before you buy.</h2><p>Choose a network to view bundles and complete your order. Guest checkout uses Paystack only.</p></div><a class="btn quiet" href="/data.html?guest=1">View all bundles ↗</a></div><div class="price-cards" id="homepagePriceCards"><article class="price-card" data-network="MTN"><div class="price-brand mtn-brand">MTN <span>Y’ello</span></div><div class="price-list"><span data-price-size="1GB">1 GB <b>Loading…</b></span><span data-price-size="5GB">5 GB <b>Loading…</b></span><span data-price-size="10GB">10 GB <b>Loading…</b></span></div><a href="/data.html?guest=1">Choose MTN →</a></article><article class="price-card" data-network="AirtelTigo"><div class="price-brand at-brand">AirtelTigo <span>AT</span></div><div class="price-list"><span data-price-size="1GB">1 GB <b>Loading…</b></span><span data-price-size="5GB">5 GB <b>Loading…</b></span><span data-price-size="10GB">10 GB <b>Loading…</b></span></div><a href="/data.html?guest=1">Choose AirtelTigo →</a></article><article class="price-card" data-network="Telecel"><div class="price-brand telecel-brand">Telecel <span>DATA</span></div><div class="price-list"><span data-price-size="10GB">10 GB <b>Loading…</b></span><span data-price-size="15GB">15 GB <b>Loading…</b></span><span data-price-size="20GB">20 GB <b>Loading…</b></span></div><a href="/data.html?guest=1">Choose Telecel →</a></article></div><p class="price-footnote" id="homepagePriceFootnote" aria-live="polite">Loading current prices from DGM’s live bundle catalogue. Prices are shown in Ghana cedis.</p></section>
-<section id="services" class="block"><div class="sectionhead"><div class="kicker">MORE FROM DGM</div><h2>More services, when you need them.</h2><p>Sign in to explore services available to your account.</p></div>
+<section id="services" class="block"><div class="sectionhead"><div class="kicker">MORE FROM DGM</div><h2>More services, when you need them.</h2><p>From everyday connectivity to entertainment and digital tools, start with the service you need. Some account features require sign-in.</p></div>
 <div class="services">
 <article class="service service-featured"><div class="ico">▥</div><h3>Data bundles</h3><p>Compare MTN, Telecel and AirtelTigo bundles, see prices before payment and track your order.</p><a href="/data.html?guest=1">Buy data now →</a></article>
 <article class="service"><div class="ico">↗</div><h3>Airtime top-up</h3><p>Access airtime services for supported networks from your DGM customer account.</p><a href="/register.html">Get started →</a></article>
 <article class="service"><div class="ico">₵</div><h3>DGM Wallet & payments</h3><p>Manage your wallet and use supported payment options for eligible DGM services.</p><a href="/login.html">Open your account →</a></article>
 <article class="service"><div class="ico">◎</div><h3>Savings & Susu</h3><p>Explore personal savings and group Susu options where enabled on the platform.</p><a href="/login.html">Explore savings →</a></article>
+<article class="service"><div class="ico">▶</div><h3>Netflix & DStv</h3><p>Get help with eligible entertainment subscriptions, renewals and account access enquiries.</p><a href="https://wa.me/233241518385?text=Hello%20DGM%2C%20I%20need%20help%20with%20Netflix%20or%20DStv" target="_blank" rel="noopener">Ask DGM on WhatsApp →</a></article>
+<article class="service"><div class="ico">♫</div><h3>Music & entertainment</h3><p>Explore music discovery and other digital entertainment services from DGM.</p><a href="/music.html">Explore DGM Music →</a></article>
+<article class="service"><div class="ico">✦</div><h3>Social media growth</h3><p>Find social media promotion services and available options for your pages and profiles.</p><a href="/social-boosting.html">Explore social boosting →</a></article>
+<article class="service"><div class="ico">▦</div><h3>More digital services</h3><p>Explore additional tools and services available through the DGM platform.</p><a href="/service.html">Browse services →</a></article>
+<article class="service"><div class="ico">💬</div><h3>Personal support</h3><p>Talk to the DGM team about orders, subscriptions, payments or finding the right service.</p><a href="https://wa.me/233241518385" target="_blank" rel="noopener">Chat with DGM →</a></article>
 
 
 </div>
