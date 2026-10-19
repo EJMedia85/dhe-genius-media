@@ -4706,7 +4706,9 @@ async function fulfillDataOrder(
     networkPrices[
       capacity
     ];
-  const chargedBaseAmount = Number(order.base_amount ?? order.amount);
+  // Agent Store customer charges can include the agent's markup. Validate the
+  // wholesale amount funded for DataMart, not the customer's retail charge.
+  const chargedBaseAmount = Number(order.supplier_cost ?? order.base_amount ?? order.amount);
 
   if (
     typeof expectedAmount !==
