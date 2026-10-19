@@ -523,7 +523,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     const orderRef=String(req.params.orderRef||"").trim().toUpperCase();
     const newPhone=String(req.body?.phone||"").trim();
     if(!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef)) return res.status(400).json({success:false,message:"Invalid order reference."});
-    if(!/^0\\d{9}$/.test(newPhone)) return res.status(400).json({success:false,message:"Enter a valid Ghana phone number."});
+    if(!/^0\d{9}$/.test(newPhone)) return res.status(400).json({success:false,message:"Enter a valid Ghana phone number."});
     if(!paystackSecretKey) return res.status(503).json({success:false,message:"Paystack verification is not configured."});
 
     const c=await pool.connect();
