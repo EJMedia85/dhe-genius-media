@@ -79,7 +79,54 @@ function hint(sel){const s=$(sel),o=s.selectedOptions[0];if(s.id==='capacity')$(
 function showTab(id){document.querySelectorAll('.nav[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===id));document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===id));if(history.replaceState)history.replaceState(null,'','#'+id)}
 function render(){document.querySelectorAll('.nav[data-tab]').forEach(b=>{b.type='button';b.onclick=e=>{e.preventDefault();showTab(b.dataset.tab)}});const initial=location.hash.replace('#','');showTab($(initial)?initial:'overview')}
 async function loadLiveCatalogue(){try{const d=await api('/api/agent/data-catalogue?_='+Date.now());applyLivePrices(d.networks);fillSelect('capacity',$('network').value);fillSelect('priceCapacity',$('priceNetwork').value)}catch(e){console.warn('Live DataMart catalogue unavailable',e)}}
-async function load(){ $('center').style.display='block'; $('status').textContent='Checking Agent account…'; try{const d=await api('/api/agent/me?_='+Date.now());if(!d.enrolled){$('center').style.display='none';$('apply').style.display='block';$('status').textContent='Not enrolled';return}const state=String(d.agent.status||'').toLowerCase();$('status').textContent=d.agent.status+' • '+d.agent.tier;$('wallet').textContent=money(d.agent.wallet);$('commission').textContent=money(d.agent.commission_balance);$('count').textContent=d.stats.completed_sales;$('salesTotal').textContent=money(d.stats.total_sales);$('profit').textContent=money(d.stats.total_profit);$('storeName').value=d.agent.store_name||d.agent.name||'';fillSelect('capacity',$('network').value);fillSelect('priceCapacity',$('priceNetwork').value);if(state!=='approved'){$('sellMsg').textContent='Agent account status: '+d.agent.status+'. Sales, wallet funding and withdrawals unlock after approval.';$('fundMsg').textContent='Agent account status: '+d.agent.status;$('wdMsg').textContent='Agent account status: '+d.agent.status}else{await Promise.all([loadSales(),loadStore(),loadCustomers(),loadPromos(),loadTeam()])}}catch(e){$('status').textContent='Agent Center error';$('sellMsg').textContent=e.message;$('fundMsg').textContent=e.message;$('wdMsg').textContent=e.message}}
+async function load(){
+  $('center').style.display='none';
+  $('apply').style.display='none';
+  $('status').textContent='Checking Agent account…';
+  try{
+    const d=await api('/api/agent/me?_='+Date.now());
+    if(!d.enrolled){
+      $('apply').style.display='block';
+      $('status').textContent='Not enrolled';
+      $('apply').querySelector('h2').textContent='Become a DGM Agent';
+      $('apply').querySelector('p').textContent='Apply to become a DGM Agent. Your Business Center dashboard unlocks after approval.';
+      $('note').style.display='';
+      $('apply').querySelector('button.btn').style.display='';
+      $('applyMsg').textContent='';
+      return;
+    }
+    const state=String(d.agent.status||'').toLowerCase();
+    $('status').textContent=d.agent.status+' • '+d.agent.tier;
+    if(state!=='approved'){
+      $('apply').style.display='block';
+      $('apply').querySelector('h2').textContent=state==='pending'?'Agent Application Pending':state==='suspended'?'Agent Account Suspended':'Agent Application';
+      $('apply').querySelector('p').textContent=state==='pending'
+        ?'Your application has been received. The Business Center dashboard will unlock after DGM approves your agent account.'
+        :state==='suspended'
+          ?'Your agent access is suspended. Please contact DGM Support for assistance.'
+          :'Your agent account is not approved yet. Please contact DGM Support if you need help.';
+      $('note').style.display='none';
+      $('apply').querySelector('button.btn').style.display='none';
+      $('applyMsg').textContent=state==='pending'?'Application submitted. Please wait for approval.':'';
+      return;
+    }
+    $('center').style.display='block';
+    $('wallet').textContent=money(d.agent.wallet);
+    $('commission').textContent=money(d.agent.commission_balance);
+    $('count').textContent=d.stats.completed_sales;
+    $('salesTotal').textContent=money(d.stats.total_sales);
+    $('profit').textContent=money(d.stats.total_profit);
+    $('storeName').value=d.agent.store_name||d.agent.name||'';
+    fillSelect('capacity',$('network').value);
+    fillSelect('priceCapacity',$('priceNetwork').value);
+    await Promise.all([loadSales(),loadStore(),loadCustomers(),loadPromos(),loadTeam()]);
+  }catch(e){
+    $('center').style.display='none';
+    $('apply').style.display='block';
+    $('status').textContent='Agent Center error';
+    $('applyMsg').textContent=e.message;
+  }
+}
 
 async function apply(){try{const d=await api('/api/agent/apply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({note:$('note').value})});$('applyMsg').textContent=d.message;load()}catch(e){$('applyMsg').textContent=e.message}}
 async function fund(){try{const d=await api('/api/agent/wallet/transfer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:$('fundAmount').value})});$('fundMsg').textContent=d.message;load()}catch(e){$('fundMsg').textContent=e.message}}
