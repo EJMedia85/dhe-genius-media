@@ -421,14 +421,19 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       const orderRef="DGM-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(5).toString("hex").toUpperCase();
       const guestToken=crypto.randomBytes(32).toString("hex");
       const tokenHash=crypto.createHash("sha256").update(guestToken).digest("hex");
-      const supplierCost=null;
+      let supplierCost=null;
+      try{
+        const configured=JSON.parse(String(process.env.DATAMART_BUNDLE_COSTS_JSON||"{}"));
+        const candidate=configured?.[network]?.[String(Number(capacity))];
+        if(candidate!==undefined&&candidate!==null&&candidate!==""&&Number.isFinite(Number(candidate))&&Number(candidate)>0) supplierCost=money(candidate);
+      }catch(e){console.error("DataMart cost config could not be read for agent store:",e.message)}
       const order=(await client.query(`INSERT INTO orders
         (order_ref,customer_id,service,network,phone,amount,status,capacity,payment_status,base_amount,promo_discount,guest_token_hash,
          supplier_cost,dgm_gross_profit,supplier_settlement_status)
         VALUES($1,NULL,'Data Bundle',$2,$3,$4,'Pending Payment',$5,'Pending',$6,$7,$8,$9,$10,$11)
         RETURNING id,order_ref,service,network,phone,amount,status,capacity,payment_status,created_at`,
         [orderRef,network,phone,netPrice,capacity,published,money(published-netPrice),tokenHash,
-         supplierCost,null,"cost_unconfigured"])).rows[0];
+         supplierCost,supplierCost===null?null:money(netPrice-supplierCost),supplierCost===null?"cost_unconfigured":"awaiting_settlement"])).rows[0];
       await client.query(`INSERT INTO agent_sales
         (agent_id,order_id,order_ref,service,network,phone,capacity,base_cost,sale_price,profit,status,customer_payment_mode,customer_charge)
         VALUES($1,$2,$3,'Data',$4,$5,$6,$7,$8,$9,'Processing','store_paystack',$10)`,
