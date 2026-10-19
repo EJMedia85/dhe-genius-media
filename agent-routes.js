@@ -397,8 +397,8 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     const phone=String(req.body?.phone||"").trim();
     const promo=String(req.body?.promo_code||"").trim().toUpperCase().slice(0,40);
     if(!slug||!["MTN","AirtelTigo","Telecel"].includes(network)) return res.status(400).json({success:false,message:"Select a valid network."});
-    if(!/^\\d+(?:\\.\\d+)?$/.test(capacity)||Number(capacity)<=0) return res.status(400).json({success:false,message:"Select a valid bundle."});
-    if(!/^0\\d{9}$/.test(phone)) return res.status(400).json({success:false,message:"Enter a valid Ghana recipient number."});
+    if(!/^\d+(?:\.\d+)?$/.test(capacity)||Number(capacity)<=0) return res.status(400).json({success:false,message:"Select a valid bundle."});
+    if(!/^0\d{9}$/.test(phone)) return res.status(400).json({success:false,message:"Enter a valid Ghana recipient number."});
     const client=await pool.connect();
     try{
       await client.query("BEGIN");
