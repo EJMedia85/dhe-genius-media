@@ -517,6 +517,61 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
   });
 
 
+  // ADMIN reconciliation for an order whose customer delivery has already been confirmed.
+  // This deliberately does NOT call DataMart or initiate another payment/refund.
+  app.post("/api/admin/agent-store/orders/:orderRef/confirm-delivered", requireAdmin, async (req,res) => {
+    const orderRef=String(req.params.orderRef||"").trim().toUpperCase();
+    const c=await pool.connect();
+    let saleId=null;
+    try {
+      await c.query("BEGIN");
+      const row=(await c.query(
+        `SELECT o.id,o.order_ref,o.status,o.payment_status,o.paystack_reference,o.customer_id,
+                s.id AS sale_id,s.status AS sale_status,s.customer_payment_mode
+         FROM orders o JOIN agent_sales s ON s.order_id=o.id
+         WHERE o.order_ref=$1 AND o.customer_id IS NULL
+         FOR UPDATE OF o,s`,[orderRef]
+      )).rows[0];
+      if(!row) throw new Error("Agent Store order or linked agent sale was not found.");
+      if(String(row.payment_status||"").toLowerCase()!=="paid" || !row.paystack_reference)
+        throw new Error("The original Agent Store payment is not recorded as paid.");
+      if(row.customer_payment_mode!=="store_paystack")
+        throw new Error("This reconciliation is only for Paystack Agent Store sales.");
+      if(["refunded","refund complete","cancelled","canceled","failed"].includes(String(row.status||"").toLowerCase()) ||
+         ["refunded","failed","cancelled","canceled"].includes(String(row.sale_status||"").toLowerCase()))
+        throw new Error("This order or sale is marked failed/refunded and cannot be completed here.");
+      if(String(row.sale_status||"").toLowerCase()==="completed") {
+        await c.query("COMMIT");
+        return res.json({success:true,already_completed:true,message:"This sale is already completed; no additional commission was credited."});
+      }
+      if(String(row.sale_status||"").toLowerCase()!=="processing")
+        throw new Error("The agent sale is not in Processing status and requires manual review.");
+      saleId=row.sale_id;
+      await c.query(
+        `UPDATE orders SET status='Completed',provider_status='delivered',
+          provider_message=$1 WHERE id=$2`,
+        ["Admin-confirmed customer delivery; reconciled without retrying fulfillment.",row.id]
+      );
+      await c.query("COMMIT");
+      const credited=await completeAgentSale(saleId);
+      const final=(await pool.query(
+        `SELECT o.order_ref,o.status,o.payment_status,o.provider_status,
+                s.status AS agent_sale_status,s.profit,
+                a.commission_balance
+         FROM orders o JOIN agent_sales s ON s.order_id=o.id
+         JOIN agent_profiles a ON a.id=s.agent_id WHERE o.order_ref=$1 LIMIT 1`,[orderRef]
+      )).rows[0];
+      if(!final || String(final.agent_sale_status).toLowerCase()!=="completed")
+        return res.status(502).json({success:false,message:"Order delivery was recorded, but commission completion did not confirm. Do not retry fulfillment; inspect the agent sale before further action."});
+      return res.json({success:true,commission_credited:credited,order:final,
+        message:credited?"Delivery reconciled; the agent sale was completed and its commission credited once.":"Sale is completed; no duplicate commission was issued."});
+    } catch(e) {
+      await c.query("ROLLBACK").catch(()=>{});
+      console.error("Agent Store delivered-order reconciliation:",orderRef,e.message);
+      return res.status(400).json({success:false,message:e.message||"Could not reconcile delivered Agent Store order."});
+    } finally { c.release(); }
+  });
+
   // ADMIN-ONLY RECOVERY FOR A VERIFIED, PAID AGENT STORE ORDER.
   // This does not charge the customer or automatically issue a refund.
   app.post("/api/admin/agent-store/orders/:orderRef/recover-delivery", requireAdmin, async (req,res) => {
