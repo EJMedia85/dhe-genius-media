@@ -10193,7 +10193,10 @@ installAgent(app, {
     const prices = DGM_PRICES[network];
     return prices ? Number(prices[capacity]) || 0 : 0;
   },
-  fulfillDataOrder
+  fulfillDataOrder,
+  paystackSecretKey: PAYSTACK_SECRET_KEY,
+  initiateGuestSupplierTransfer,
+  initiateGuestPaystackRefund
 });
 
 installDgmAnalytics(app, { pool, requireAdmin });
