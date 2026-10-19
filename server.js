@@ -4706,9 +4706,19 @@ async function fulfillDataOrder(
     networkPrices[
       capacity
     ];
-  // Agent Store customer charges can include the agent's markup. Validate the
-  // wholesale amount funded for DataMart, not the customer's retail charge.
-  const chargedBaseAmount = Number(order.supplier_cost ?? order.base_amount ?? order.amount);
+  // Agent Store Paystack orders carry an explicit supplier_cost. That is a
+  // wholesale cost, not DGM's retail catalogue price, so do not compare the
+  // two different price bases. Standard customer orders still require an
+  // exact match against the approved DGM retail price.
+  const supplierCost = Number(order.supplier_cost);
+  const hasAgentStoreSupplierCost =
+    order.customer_id == null &&
+    Boolean(order.guest_token_hash) &&
+    order.supplier_cost !== null &&
+    order.supplier_cost !== undefined &&
+    Number.isFinite(supplierCost) &&
+    supplierCost > 0;
+  const chargedBaseAmount = Number(order.base_amount ?? order.amount);
 
   if (
     typeof expectedAmount !==
@@ -4721,6 +4731,7 @@ async function fulfillDataOrder(
   }
 
   if (
+    !hasAgentStoreSupplierCost &&
     Math.round(
       chargedBaseAmount * 100
     ) !==
