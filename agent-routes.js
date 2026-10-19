@@ -259,7 +259,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     if(!/^0\d{9}$/.test(phone)) return res.status(400).json({success:false,message:"Enter a valid Ghana phone number."});
     const base=money(await getRetailPrice(network,Number(capacity)));
     if(!base) return res.status(400).json({success:false,message:"Selected bundle is unavailable."});
-    if(!Number.isFinite(salePrice)||salePrice<base) return res.status(400).json({success:false,message:`Agent sale price must be at least GH₵${base.toFixed(2)}.`});
+    if(!Number.isFinite(salePrice)||salePrice<=base) return res.status(400).json({success:false,message:`Agent selling price must be above the DGM price of GH₵${base.toFixed(2)}.`});
     const client=await pool.connect();
     let saleId=null, orderId=null, orderRef=null;
     try {
@@ -388,7 +388,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
 
   app.post("/api/agent/store", requireCustomer, async (req,res)=>{try{const a=await getAgent(req.session.customerId);if(!a||a.status!=="approved")throw new Error("Approved agent account required.");let name=String(req.body?.name||"").trim().slice(0,80),bio=String(req.body?.bio||"").trim().slice(0,300),wa=String(req.body?.whatsapp||a.phone||"").trim(),logo=String(req.body?.logo_url||"").trim().slice(0,1000),banner=String(req.body?.banner_url||"").trim().slice(0,1000);if(!name)name=a.name||"DGM Agent Store";if(!/^0[0-9]{9}$/.test(wa))throw new Error("Enter a valid Ghana WhatsApp number.");for(const [label,url] of [["Logo",logo],["Banner",banner]])if(url&&!url.toLowerCase().startsWith("https://"))throw new Error(label+" image must use a secure https:// URL.");let slug=String(req.body?.slug||a.store_slug||"").toLowerCase().replace(/[^a-z0-9-]+/g,"-").replace(/^-+|-+$/g,"").slice(0,60);if(!slug)slug="agent-"+a.agent_code.toLowerCase();const clash=await pool.query("SELECT id FROM agent_profiles WHERE store_slug=$1 AND id<>$2",[slug,a.id]);if(clash.rows.length)throw new Error("That store link is already in use.");await pool.query("UPDATE agent_profiles SET store_slug=$1,store_name=$2,store_bio=$3,whatsapp_phone=$4,store_logo_url=$5,store_banner_url=$6,updated_at=NOW() WHERE id=$7",[slug,name,bio,wa,logo||null,banner||null,a.id]);res.json({success:true,store_url:"/store.html?slug="+encodeURIComponent(slug),message:"Agent Store updated."})}catch(e){res.status(400).json({success:false,message:e.message})}});
 
-  app.post("/api/agent/pricing", requireCustomer, async (req,res)=>{try{const a=await getAgent(req.session.customerId);if(!a||a.status!=="approved")throw new Error("Approved agent account required.");const network=String(req.body?.network||"").trim(),capacity=String(req.body?.capacity||"").replace(/GB/i,"").trim(),price=money(req.body?.sale_price),base=money(await getRetailPrice(network,Number(capacity)));if(!base||price<base)throw new Error("Price must be at or above the DGM base price.");await pool.query("INSERT INTO agent_pricing_rules(agent_id,service,network,capacity,sale_price) VALUES($1,'Data',$2,$3,$4) ON CONFLICT(agent_id,service,network,capacity) DO UPDATE SET sale_price=EXCLUDED.sale_price",[a.id,network,capacity,price]);res.json({success:true,message:"Agent pricing saved."})}catch(e){res.status(400).json({success:false,message:e.message})}});
+  app.post("/api/agent/pricing", requireCustomer, async (req,res)=>{try{const a=await getAgent(req.session.customerId);if(!a||a.status!=="approved")throw new Error("Approved agent account required.");const network=String(req.body?.network||"").trim(),capacity=String(req.body?.capacity||"").replace(/GB/i,"").trim(),price=money(req.body?.sale_price),base=money(await getRetailPrice(network,Number(capacity)));if(!base||price<=base)throw new Error("Selling price must be above the DGM price.");await pool.query("INSERT INTO agent_pricing_rules(agent_id,service,network,capacity,sale_price) VALUES($1,'Data',$2,$3,$4) ON CONFLICT(agent_id,service,network,capacity) DO UPDATE SET sale_price=EXCLUDED.sale_price",[a.id,network,capacity,price]);res.json({success:true,message:"Agent pricing saved."})}catch(e){res.status(400).json({success:false,message:e.message})}});
 
   app.get("/api/public/agent-store/:slug", async (req,res)=>{try{const slug=String(req.params.slug||"").toLowerCase();const q=await pool.query("SELECT a.id,a.agent_code,a.store_name,a.store_bio,a.whatsapp_phone,a.store_logo_url,a.store_banner_url,c.name,c.phone FROM agent_profiles a JOIN customers c ON c.id=a.customer_id WHERE a.store_slug=$1 AND a.status='approved' LIMIT 1",[slug]);if(!q.rows.length)return res.status(404).json({success:false,message:"Store not found."});const a=q.rows[0],p=await pool.query("SELECT service,network,capacity,sale_price,COALESCE((SELECT COUNT(*)::int FROM agent_sales ss WHERE ss.agent_id=agent_pricing_rules.agent_id AND ss.network=agent_pricing_rules.network AND ss.capacity=agent_pricing_rules.capacity AND ss.status='Completed'),0) AS completed_sales FROM agent_pricing_rules WHERE agent_id=$1 ORDER BY network,capacity",[a.id]);res.json({success:true,store:{agent_code:a.agent_code,name:a.store_name||a.name,bio:a.store_bio||"DGM Agent Store",whatsapp:a.whatsapp_phone||a.phone,logo_url:a.store_logo_url||"",banner_url:a.store_banner_url||"",pricing:p.rows}})}catch(e){res.status(500).json({success:false,message:"Could not load store."})}});
   // PUBLIC AGENT STORE PAYSTACK CHECKOUT (GUEST / NO DGM ACCOUNT REQUIRED)
@@ -410,7 +410,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       if(!p) throw new Error("This bundle is not available in this store.");
       const base=money(await getRetailPrice(network,Number(capacity)));
       const published=money(p.sale_price);
-      if(!base||published<base) throw new Error("This bundle is temporarily unavailable.");
+      if(!base||published<=base) throw new Error("This bundle is temporarily unavailable.");
       let netPrice=published;
       let promoRow=null;
       if(promo){
@@ -585,7 +585,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       if(!p) throw new Error("This bundle is not available in this store.");
       base=money(await getRetailPrice(network,Number(capacity)));
       const published=money(p.sale_price);
-      if(!base||published<base) throw new Error("This bundle is temporarily unavailable.");
+      if(!base||published<=base) throw new Error("This bundle is temporarily unavailable.");
       netPrice=published;
       if(promo){
         const pr=(await client.query("SELECT * FROM agent_promo_codes WHERE agent_id=$1 AND UPPER(code)=UPPER($2) AND active=true AND (expires_at IS NULL OR expires_at>NOW()) AND (max_uses IS NULL OR uses<max_uses) FOR UPDATE",[a.id,promo])).rows[0];
