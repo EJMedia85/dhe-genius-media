@@ -212,6 +212,34 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     } catch(e) { console.error("Agent me:",e); return res.status(500).json({success:false,message:"Could not load agent account."}); }
   });
 
+  app.get("/api/agent/finance", requireCustomer, async (req,res) => {
+    try {
+      const a=await getAgent(req.session.customerId);
+      if(!a)return res.status(403).json({success:false,message:"DGM Agent access is required."});
+      if(String(a.status||"").toLowerCase()!=="approved")return res.status(403).json({success:false,message:"Your DGM Agent account is not approved."});
+      const [sales,withdrawals]=await Promise.all([
+        pool.query(`SELECT
+          COALESCE(SUM(s.sale_price) FILTER (WHERE s.status='Completed' AND s.completed_at >= date_trunc('day',NOW())),0) AS sales_today,
+          COALESCE(SUM(s.sale_price) FILTER (WHERE s.status='Completed' AND s.completed_at >= NOW()-INTERVAL '7 days'),0) AS sales_7_days,
+          COALESCE(SUM(s.sale_price) FILTER (WHERE s.status='Completed' AND s.completed_at >= date_trunc('month',NOW())),0) AS sales_month,
+          COALESCE(SUM(s.profit) FILTER (WHERE s.status='Completed' AND s.completed_at >= date_trunc('month',NOW())),0) AS profit_month
+          FROM agent_sales s WHERE s.agent_id=$1`,[a.id]),
+        pool.query(`SELECT
+          COALESCE(SUM(amount) FILTER (WHERE status IN ('Pending Approval','Approved')),0) AS in_review,
+          COALESCE(SUM(amount) FILTER (WHERE status='Paid'),0) AS paid
+          FROM agent_withdrawals WHERE agent_id=$1`,[a.id])
+      ]);
+      return res.json({success:true,checked_at:new Date().toISOString(),finance:{
+        sales_today:money(sales.rows[0].sales_today),sales_7_days:money(sales.rows[0].sales_7_days),
+        sales_month:money(sales.rows[0].sales_month),profit_month:money(sales.rows[0].profit_month),
+        withdrawals_in_review:money(withdrawals.rows[0].in_review),withdrawals_paid:money(withdrawals.rows[0].paid)
+      }});
+    } catch(e) {
+      console.error("Agent finance summary:",e.message);
+      return res.status(500).json({success:false,message:"Could not load the financial summary."});
+    }
+  });
+
   app.post("/api/agent/apply", requireCustomer, async (req,res) => {
     const note=String(req.body?.note||"").trim().slice(0,1000);
     try {
