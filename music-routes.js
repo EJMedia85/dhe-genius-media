@@ -40,30 +40,6 @@ function audiomackReady() {
 function oauthEncode(value) {
   return encodeURIComponent(String(value)).replace(/[!'()*]/g, ch => "%" + ch.charCodeAt(0).toString(16).toUpperCase());
 }
-function audiomackSignedUrl(pathname, query = {}) {
-  const c = audiomackConfig();
-  const url = new URL(pathname.replace(/^\\//, ""), AUDIOMACK_API_BASE + "/");
-  for (const [key, value] of Object.entries(query)) {
-    if (value !== undefined && value !== null && String(value) !== "") url.searchParams.set(key, String(value));
-  }
-  const oauth = {
-    oauth_consumer_key: c.consumerKey,
-    oauth_nonce: crypto.randomBytes(16).toString("hex"),
-    oauth_signature_method: "HMAC-SHA1",
-    oauth_timestamp: String(Math.floor(Date.now() / 1000)),
-    oauth_version: "1.0"
-  };
-  const pairs = [];
-  for (const [key, value] of url.searchParams.entries()) pairs.push([key, value]);
-  for (const [key, value] of Object.entries(oauth)) pairs.push([key, value]);
-  pairs.sort((a, b) => oauthEncode(a[0]).localeCompare(oauthEncode(b[0])) || oauthEncode(a[1]).localeCompare(oauthEncode(b[1])));
-  const normalized = pairs.map(([key, value]) => oauthEncode(key) + "=" + oauthEncode(value)).join("&");
-  const baseString = "GET&" + oauthEncode(url.origin + url.pathname) + "&" + oauthEncode(normalized);
-  const signingKey = oauthEncode(c.consumerSecret) + "&";
-  oauth.oauth_signature = crypto.createHmac("sha1", signingKey).update(baseString).digest("base64");
-  const auth = "OAuth " + Object.entries(oauth).map(([key, value]) => oauthEncode(key) + '="' + oauthEncode(value) + '"').join(", ");
-  return { url, auth };
-}
 async function audiomackRequest(pathname, query = {}, method = "GET") {
   if (!audiomackReady()) throw Object.assign(new Error("Audiomack API credentials are not configured yet."), { code: "NOT_CONFIGURED" });
   const c = audiomackConfig();
