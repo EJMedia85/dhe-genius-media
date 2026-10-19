@@ -8025,6 +8025,40 @@ app.post("/api/guest-payments/mobile-money", async (req, res) => {
   }
 });
 
+app.post("/api/guest-payments/mobile-money/otp", async (req, res) => {
+  try {
+    if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Mobile Money payment authorization is not configured.");
+    const orderRef = String(req.body?.orderRef || "").trim().toUpperCase();
+    const guestToken = String(req.body?.guestToken || "").trim();
+    const reference = String(req.body?.reference || "").trim();
+    const otp = String(req.body?.otp || "").trim();
+    if (!/^DGM-[A-Z0-9]+-[A-Z0-9]+$/.test(orderRef) || !/^[a-f0-9]{64}$/i.test(guestToken) || !reference) return sendError(res, 400, "Guest payment details are incomplete.");
+    if (!/^\d{4,8}$/.test(otp)) return sendError(res, 400, "Enter the authorization code supplied for this payment.");
+    const tokenHash = crypto.createHash("sha256").update(guestToken).digest("hex");
+    const found = await pool.query("SELECT * FROM orders WHERE UPPER(order_ref)=$1 AND customer_id IS NULL AND guest_token_hash=$2 LIMIT 1", [orderRef, tokenHash]);
+    const order = found.rows[0];
+    if (!order) return sendError(res, 404, "Guest order not found.");
+    if (!order.paystack_reference || reference !== order.paystack_reference) return sendError(res, 403, "This payment reference does not belong to the guest order.");
+    if (String(order.payment_status || "").toLowerCase() === "paid") return res.json({ success: true, status: "success", message: "Payment is already confirmed." });
+    const response = await fetch("https://api.paystack.co/charge/submit_otp", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + PAYSTACK_SECRET_KEY, "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ reference, otp })
+    });
+    const raw = await response.text();
+    let paymentData = {};
+    try { paymentData = JSON.parse(raw); } catch {}
+    if (!response.ok || !paymentData.status || !paymentData.data) {
+      console.error("Guest Mobile Money authorization failed:", response.status, paymentData?.message || "Paystack did not accept the authorization code");
+      return sendError(res, 502, paymentData?.message || "Paystack could not authorize the payment. Check the code and try again if prompted.");
+    }
+    return res.json({ success: true, status: String(paymentData.data.status || "pending").toLowerCase(), reference: paymentData.data.reference || reference, display_text: paymentData.data.display_text || paymentData.data.message || paymentData.message || "Authorization submitted. We are checking your payment." });
+  } catch (error) {
+    console.error("Guest Mobile Money OTP submission error:", error.message);
+    return sendError(res, 500, "Could not submit the authorization code. Your payment status will keep updating.");
+  }
+});
+
 app.post("/api/guest-orders/verify", async (req, res) => {
   try {
     if (!PAYSTACK_SECRET_KEY) return sendError(res, 503, "Payment verification is not configured.");
