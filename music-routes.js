@@ -1,4 +1,25 @@
 const crypto = require("crypto");
+const path = require("path");
+const fs = require("fs");
+const multer = require("multer");
+const MUSIC_UPLOAD_DIR = String(process.env.MUSIC_UPLOAD_DIR || "").trim();
+const AUDIO_TYPES = Object.freeze({
+  "audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/mp4": ".m4a",
+  "audio/aac": ".aac", "audio/ogg": ".ogg", "audio/wav": ".wav",
+  "audio/x-wav": ".wav", "audio/flac": ".flac", "audio/x-flac": ".flac",
+  "audio/webm": ".webm"
+});
+const musicUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const dir = MUSIC_UPLOAD_DIR || path.join(__dirname, "uploads", "music");
+      fs.mkdir(dir, { recursive: true }, error => cb(error, dir));
+    },
+    filename: (req, file, cb) => cb(null, crypto.randomUUID() + (AUDIO_TYPES[file.mimetype] || ".audio"))
+  }),
+  limits: { fileSize: 25 * 1024 * 1024, files: 1, fields: 8, fieldSize: 8192 },
+  fileFilter: (req, file, cb) => cb(null, Boolean(AUDIO_TYPES[file.mimetype]))
+});
 
 const SPOTIFY_AUTHORIZE = "https://accounts.spotify.com/authorize";
 const SPOTIFY_TOKEN = "https://accounts.spotify.com/api/token";
@@ -48,7 +69,7 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
 
   app.get("/api/music/status", (req, res) => {
     const c = spotifyConfig();
-    res.json({ success: true, spotifyConfigured: spotifyReady(), artistSubmissions: Boolean(pool), streaming: "rights-cleared tracks only" });
+    res.json({ success: true, spotifyConfigured: spotifyReady(), artistSubmissions: Boolean(pool), fileUploadsConfigured: Boolean(MUSIC_UPLOAD_DIR), maxUploadBytes: 25 * 1024 * 1024, streaming: "rights-cleared tracks only" });
   });
 
   app.get("/api/music/tracks", async (req, res) => {
@@ -70,6 +91,74 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
     } catch (error) {
       console.error("DGM Music catalog error:", error.message);
       return res.status(503).json({ success: false, message: "Music catalog is not available yet. Please try again later." });
+    }
+  });
+
+  app.post("/api/music/artist-uploads", requireLogin, (req, res, next) => {
+    if (!MUSIC_UPLOAD_DIR) return res.status(503).json({ success: false, message: "Secure audio storage is not configured yet. DGM must attach persistent storage and set MUSIC_UPLOAD_DIR before file uploads can be accepted." });
+    next();
+  }, (req, res, next) => musicUpload.single("audioFile")(req, res, error => {
+    if (error) {
+      const tooLarge = error.code === "LIMIT_FILE_SIZE";
+      return res.status(tooLarge ? 413 : 400).json({ success: false, message: tooLarge ? "Audio file must be 25 MB or smaller." : "Upload one supported audio file (MP3, M4A, AAC, OGG, WAV, FLAC, or WEBM)." });
+    }
+    if (req.file && !AUDIO_TYPES[req.file.mimetype]) {
+      fs.promises.unlink(req.file.path).catch(() => {});
+      return res.status(400).json({ success: false, message: "Unsupported audio format. Use MP3, M4A, AAC, OGG, WAV, FLAC, or WEBM." });
+    }
+    next();
+  }), async (req, res) => {
+    const uploaded = req.file;
+    try {
+      const title = cleanText(req.body?.title, 160);
+      const artist = cleanText(req.body?.artist, 120);
+      const genre = cleanText(req.body?.genre, 80);
+      const artworkUrl = String(req.body?.artworkUrl || "").trim();
+      const rights = req.body?.rightsConfirmed === "true" || req.body?.rightsConfirmed === "on";
+      if (!uploaded) return res.status(400).json({ success: false, message: "Choose an audio file to upload." });
+      if (!title || !artist || (artworkUrl && !validHttpsUrl(artworkUrl))) {
+        await fs.promises.unlink(uploaded.path).catch(() => {});
+        return res.status(400).json({ success: false, message: "Enter a title and artist; artwork URL must use HTTPS." });
+      }
+      if (!rights) {
+        await fs.promises.unlink(uploaded.path).catch(() => {});
+        return res.status(400).json({ success: false, message: "Confirm that you have rights to distribute this recording." });
+      }
+      await ensureTables();
+      const audioUrl = "/api/music/audio/" + encodeURIComponent(path.basename(uploaded.filename));
+      const result = await pool.query(
+        `INSERT INTO dgm_music_tracks (title, artist, genre, audio_url, artwork_url, rights_confirmed, status, submitted_by)
+         VALUES ($1,$2,$3,$4,$5,TRUE,'pending',$6) RETURNING id`,
+        [title, artist, genre, audioUrl, artworkUrl || null, req.session?.customerId || null]
+      );
+      return res.status(201).json({ success: true, trackId: result.rows[0].id, message: "Audio uploaded securely and submitted for DGM review. It will appear after approval." });
+    } catch (error) {
+      if (uploaded?.path) await fs.promises.unlink(uploaded.path).catch(() => {});
+      console.error("DGM Music audio upload error:", error.message);
+      return res.status(503).json({ success: false, message: "Could not save the audio submission. Please try again." });
+    }
+  });
+
+  app.get("/api/music/audio/:filename", async (req, res) => {
+    const filename = String(req.params.filename || "");
+    if (!/^[a-f0-9-]{36}\\.(mp3|m4a|aac|ogg|wav|flac|webm|audio)$/i.test(filename) || !MUSIC_UPLOAD_DIR) {
+      return res.status(404).end();
+    }
+    try {
+      await ensureTables();
+      const audioUrl = "/api/music/audio/" + encodeURIComponent(filename);
+      const found = await pool.query("SELECT title FROM dgm_music_tracks WHERE audio_url=$1 AND status='approved' LIMIT 1", [audioUrl]);
+      if (!found.rows.length) return res.status(404).end();
+      const fullPath = path.join(MUSIC_UPLOAD_DIR, filename);
+      await fs.promises.access(fullPath, fs.constants.R_OK);
+      res.set("Cache-Control", "public, max-age=3600");
+      res.set("X-Content-Type-Options", "nosniff");
+      return res.sendFile(fullPath, error => {
+        if (error && !res.headersSent) res.status(error.statusCode || 404).end();
+      });
+    } catch (error) {
+      if (error.code !== "ENOENT") console.error("DGM Music audio delivery error:", error.message);
+      return res.status(404).end();
     }
   });
 
