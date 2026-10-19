@@ -21,7 +21,108 @@ const musicUpload = multer({
   fileFilter: (req, file, cb) => cb(null, Boolean(AUDIO_TYPES[file.mimetype]))
 });
 
-const SPOTIFY_AUTHORIZE = "https://accounts.spotify.com/authorize";
+
+
+const AUDIOMACK_API_BASE = String(process.env.AUDIOMACK_API_BASE || "https://api.audiomack.com/v1").trim().replace(/\\/$/, "");
+function audiomackConfig() {
+  return {
+    consumerKey: String(process.env.AUDIOMACK_CONSUMER_KEY || "").trim(),
+    consumerSecret: String(process.env.AUDIOMACK_CONSUMER_SECRET || "").trim(),
+    searchPath: String(process.env.AUDIOMACK_SEARCH_PATH || "/search"),
+    trendingPath: String(process.env.AUDIOMACK_TRENDING_PATH || "/music/trending"),
+    recentPath: String(process.env.AUDIOMACK_RECENT_PATH || "/music/recent")
+  };
+}
+function audiomackReady() {
+  const c = audiomackConfig();
+  return Boolean(c.consumerKey && c.consumerSecret);
+}
+function oauthEncode(value) {
+  return encodeURIComponent(String(value)).replace(/[!'()*]/g, ch => "%" + ch.charCodeAt(0).toString(16).toUpperCase());
+}
+function audiomackSignedUrl(pathname, query = {}) {
+  const c = audiomackConfig();
+  const url = new URL(pathname.replace(/^\\//, ""), AUDIOMACK_API_BASE + "/");
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && String(value) !== "") url.searchParams.set(key, String(value));
+  }
+  const oauth = {
+    oauth_consumer_key: c.consumerKey,
+    oauth_nonce: crypto.randomBytes(16).toString("hex"),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: String(Math.floor(Date.now() / 1000)),
+    oauth_version: "1.0"
+  };
+  const pairs = [];
+  for (const [key, value] of url.searchParams.entries()) pairs.push([key, value]);
+  for (const [key, value] of Object.entries(oauth)) pairs.push([key, value]);
+  pairs.sort((a, b) => oauthEncode(a[0]).localeCompare(oauthEncode(b[0])) || oauthEncode(a[1]).localeCompare(oauthEncode(b[1])));
+  const normalized = pairs.map(([key, value]) => oauthEncode(key) + "=" + oauthEncode(value)).join("&");
+  const baseString = "GET&" + oauthEncode(url.origin + url.pathname) + "&" + oauthEncode(normalized);
+  const signingKey = oauthEncode(c.consumerSecret) + "&";
+  oauth.oauth_signature = crypto.createHmac("sha1", signingKey).update(baseString).digest("base64");
+  const auth = "OAuth " + Object.entries(oauth).map(([key, value]) => oauthEncode(key) + '="' + oauthEncode(value) + '"').join(", ");
+  return { url, auth };
+}
+async function audiomackRequest(pathname, query = {}, method = "GET") {
+  if (!audiomackReady()) throw Object.assign(new Error("Audiomack API credentials are not configured yet."), { code: "NOT_CONFIGURED" });
+  const c = audiomackConfig();
+  const url = new URL(pathname.replace(/^\\//, ""), AUDIOMACK_API_BASE + "/");
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && String(value) !== "") url.searchParams.set(key, String(value));
+  }
+  const oauth = {
+    oauth_consumer_key: c.consumerKey,
+    oauth_nonce: crypto.randomBytes(16).toString("hex"),
+    oauth_signature_method: "HMAC-SHA1",
+    oauth_timestamp: String(Math.floor(Date.now() / 1000)),
+    oauth_version: "1.0"
+  };
+  const pairs = [...url.searchParams.entries(), ...Object.entries(oauth)];
+  pairs.sort((a, b) => oauthEncode(a[0]).localeCompare(oauthEncode(b[0])) || oauthEncode(a[1]).localeCompare(oauthEncode(b[1])));
+  const normalized = pairs.map(([key, value]) => oauthEncode(key) + "=" + oauthEncode(value)).join("&");
+  const baseString = method.toUpperCase() + "&" + oauthEncode(url.origin + url.pathname) + "&" + oauthEncode(normalized);
+  oauth.oauth_signature = crypto.createHmac("sha1", oauthEncode(c.consumerSecret) + "&").update(baseString).digest("base64");
+  const authorization = "OAuth " + Object.entries(oauth).map(([key, value]) => oauthEncode(key) + '="' + oauthEncode(value) + '"').join(", ");
+  const response = await fetch(url, {
+    method,
+    headers: { Authorization: authorization, Accept: "application/json" },
+    signal: AbortSignal.timeout(10000)
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.warn("Audiomack API request failed:", response.status, pathname);
+    throw Object.assign(new Error(response.status === 401 || response.status === 403
+      ? "Audiomack has not authorized these credentials for this endpoint."
+      : "Audiomack could not complete the request right now."), { status: response.status });
+  }
+  return body;
+}
+function audiomackItems(payload) {
+  const candidates = [payload?.results, payload?.data?.results, payload?.data, payload?.tracks, payload?.items, payload?.results?.results];
+  for (const value of candidates) {
+    if (Array.isArray(value)) return value;
+    if (value && Array.isArray(value.items)) return value.items;
+    if (value && Array.isArray(value.data)) return value.data;
+  }
+  return Array.isArray(payload) ? payload : [];
+}
+function normalizeAudiomackTrack(track) {
+  const artist = track?.artist || track?.artist_name || track?.artistName || track?.user?.name || "";
+  const title = track?.title || track?.name || track?.track_title || "Untitled track";
+  const link = track?.url || track?.permalink || track?.link || track?.web_url || "";
+  const id = track?.id ?? track?.uid ?? track?.slug ?? "";
+  const artwork = track?.image || track?.cover_art || track?.cover || track?.thumbnail || track?.artwork_url || "";
+  return {
+    id: String(id),
+    title: cleanText(title, 160),
+    artist: cleanText(typeof artist === "string" ? artist : artist?.name || "", 120),
+    artworkUrl: validHttpsUrl(artwork) ? artwork : null,
+    audiomackUrl: validHttpsUrl(link) ? link : (typeof track?.slug === "string" ? "https://audiomack.com/" + track.slug.replace(/^\\/+/, "") : "https://audiomack.com"),
+    duration: Number(track?.duration || 0) || null
+  };
+}
+\nconst SPOTIFY_AUTHORIZE = "https://accounts.spotify.com/authorize";
 const SPOTIFY_TOKEN = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API = "https://api.spotify.com/v1";
 
@@ -67,7 +168,59 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
 
   app.get("/music.html", (req, res) => res.sendFile(require("path").join(__dirname, "public", "music.html")));
 
-  app.get("/api/music/status", (req, res) => {
+
+  // Audiomack API proxy: credentials and OAuth 1.0a signatures stay server-side.
+  app.get("/api/music/audiomack/status", (req, res) => {
+    res.set("Cache-Control", "no-store");
+    res.json({ success: true, configured: audiomackReady(), provider: "Audiomack", playback: "subject to Audiomack API access and streaming permissions" });
+  });
+
+  app.get("/api/music/audiomack/search", async (req, res) => {
+    const q = cleanText(req.query.q, 100);
+    if (!q) return res.status(400).json({ success: false, message: "Enter a song, artist, or genre to search." });
+    try {
+      const c = audiomackConfig();
+      const data = await audiomackRequest(c.searchPath, { q, term: q, type: "music", limit: 20 });
+      return res.set("Cache-Control", "private, max-age=60").json({ success: true, tracks: audiomackItems(data).map(normalizeAudiomackTrack).filter(t => t.title) });
+    } catch (error) {
+      const status = error.code === "NOT_CONFIGURED" ? 503 : (error.status === 401 || error.status === 403 ? 502 : 502);
+      return res.status(status).json({ success: false, message: error.code === "NOT_CONFIGURED" ? "Audiomack access is waiting for approved API credentials." : error.message || "Audiomack search is temporarily unavailable." });
+    }
+  });
+
+  app.get("/api/music/audiomack/trending", async (req, res) => {
+    try {
+      const c = audiomackConfig();
+      const data = await audiomackRequest(c.trendingPath, { limit: 20 });
+      return res.set("Cache-Control", "private, max-age=120").json({ success: true, tracks: audiomackItems(data).map(normalizeAudiomackTrack).filter(t => t.title) });
+    } catch (error) {
+      return res.status(error.code === "NOT_CONFIGURED" ? 503 : 502).json({ success: false, message: error.code === "NOT_CONFIGURED" ? "Audiomack access is waiting for approved API credentials." : error.message || "Audiomack trending music is temporarily unavailable." });
+    }
+  });
+
+  app.get("/api/music/audiomack/recent", async (req, res) => {
+    try {
+      const c = audiomackConfig();
+      const data = await audiomackRequest(c.recentPath, { limit: 20 });
+      return res.set("Cache-Control", "private, max-age=120").json({ success: true, tracks: audiomackItems(data).map(normalizeAudiomackTrack).filter(t => t.title) });
+    } catch (error) {
+      return res.status(error.code === "NOT_CONFIGURED" ? 503 : 502).json({ success: false, message: error.code === "NOT_CONFIGURED" ? "Audiomack access is waiting for approved API credentials." : error.message || "Audiomack recent music is temporarily unavailable." });
+    }
+  });
+
+  app.post("/api/music/audiomack/play/:id", async (req, res) => {
+    const id = String(req.params.id || "").trim();
+    if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) return res.status(400).json({ success: false, message: "Invalid Audiomack track ID." });
+    try {
+      const data = await audiomackRequest("/music/" + encodeURIComponent(id) + "/playsession", {}, "POST");
+      const candidate = data?.stream_url || data?.streamUrl || data?.url || data?.data?.stream_url || data?.data?.url;
+      if (!validHttpsUrl(candidate)) return res.status(502).json({ success: false, message: "Audiomack did not return an authorized playable stream for this track. Open it on Audiomack instead." });
+      return res.set("Cache-Control", "no-store").json({ success: true, streamUrl: candidate });
+    } catch (error) {
+      return res.status(error.code === "NOT_CONFIGURED" ? 503 : 502).json({ success: false, message: error.code === "NOT_CONFIGURED" ? "Audiomack access is waiting for approved API credentials." : error.message || "Audiomack playback is not available for this track." });
+    }
+  });
+\n  app.get("/api/music/status", (req, res) => {
     const c = spotifyConfig();
     res.json({ success: true, spotifyConfigured: spotifyReady(), artistSubmissions: Boolean(pool), fileUploadsConfigured: Boolean(MUSIC_UPLOAD_DIR), maxUploadBytes: 25 * 1024 * 1024, streaming: "rights-cleared tracks only" });
   });
