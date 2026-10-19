@@ -144,7 +144,7 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
     url.searchParams.set("client_id", spotifyConfig().clientId);
     url.searchParams.set("response_type", "code");
     url.searchParams.set("redirect_uri", spotifyConfig().redirectUri);
-    url.searchParams.set("scope", "user-read-private user-read-email playlist-read-private playlist-read-collaborative user-library-read");
+    url.searchParams.set("scope", "user-read-private user-read-email user-top-read playlist-read-private playlist-read-collaborative user-library-read");
     url.searchParams.set("state", state);
     return res.redirect(url.toString());
   });
@@ -197,6 +197,77 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
     } catch (error) {
       console.error("Spotify OAuth callback error:", error.message);
       return res.redirect("/music.html?spotify=error");
+    }
+  });
+
+
+  app.get("/api/music/spotify/top-tracks", async (req, res) => {
+    const spotify = req.session?.spotify;
+    if (!spotify?.accessToken) {
+      return res.status(401).json({ success: false, connected: false, message: "Connect Spotify first." });
+    }
+    try {
+      const c = spotifyConfig();
+      let accessToken = spotify.accessToken;
+      // Refresh before expiry, keeping all Spotify credentials on the server.
+      if (spotify.expiresAt && spotify.expiresAt < Date.now() + 60000) {
+        if (!spotify.refreshToken || !c.clientId || !c.clientSecret) {
+          delete req.session.spotify;
+          return res.status(401).json({ success: false, connected: false, message: "Your Spotify session expired. Connect Spotify again." });
+        }
+        const refreshResponse = await fetch(SPOTIFY_TOKEN, {
+          method: "POST",
+          headers: {
+            Authorization: "Basic " + Buffer.from(c.clientId + ":" + c.clientSecret).toString("base64"),
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json"
+          },
+          body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: spotify.refreshToken }),
+          signal: AbortSignal.timeout(10000)
+        });
+        const refreshed = await refreshResponse.json().catch(() => ({}));
+        if (!refreshResponse.ok || !refreshed.access_token) {
+          delete req.session.spotify;
+          return res.status(401).json({ success: false, connected: false, message: "Spotify session expired. Connect Spotify again." });
+        }
+        accessToken = refreshed.access_token;
+        req.session.spotify.accessToken = accessToken;
+        req.session.spotify.expiresAt = Date.now() + Math.max(0, Number(refreshed.expires_in) || 3600) * 1000;
+        if (refreshed.refresh_token) req.session.spotify.refreshToken = refreshed.refresh_token;
+      }
+      const response = await fetch(SPOTIFY_API + "/me/top/tracks?time_range=long_term&limit=5", {
+        headers: { Authorization: "Bearer " + accessToken, Accept: "application/json" },
+        signal: AbortSignal.timeout(10000)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 401) {
+        delete req.session.spotify;
+        return res.status(401).json({ success: false, connected: false, message: "Spotify session expired. Connect Spotify again." });
+      }
+      if (!response.ok) {
+        console.warn("Spotify top-tracks request failed with status", response.status);
+        return res.status(response.status === 403 ? 403 : 502).json({
+          success: false,
+          message: response.status === 403
+            ? "Spotify has not authorized top-track access for this account/app. Reconnect with the requested permission or check Spotify developer access."
+            : "Spotify could not return your top tracks right now."
+        });
+      }
+      const items = Array.isArray(data.items) ? data.items : [];
+      return res.set("Cache-Control", "no-store").json({
+        success: true,
+        tracks: items.map(track => ({
+          id: track.id,
+          title: cleanText(track.name, 160),
+          artist: (track.artists || []).map(artist => cleanText(artist.name, 120)).join(", "),
+          album: cleanText(track.album?.name, 160),
+          artworkUrl: track.album?.images?.[0]?.url || null,
+          spotifyUrl: track.external_urls?.spotify || null
+        }))
+      });
+    } catch (error) {
+      console.error("Spotify top-tracks error:", error.message);
+      return res.status(502).json({ success: false, message: "Could not contact Spotify right now. Please try again." });
     }
   });
 
