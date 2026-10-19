@@ -99,7 +99,7 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 <div id="paymentBox" class="payment-box">
 <div class="payment-title">Choose Payment Method</div>
 <div class="payment-subtitle">Pay securely with Paystack. Data delivery starts only after DGM verifies your payment.</div>
-<div id="guestMomoWrap" style="display:none;margin:0 0 12px"><label for="guestMomoPhone" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin-bottom:8px">Mobile Money Phone Number</label><input id="guestMomoPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0241234567" style="width:100%;background:rgba(255,255,255,.045);border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><label for="guestMomoProvider" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin:12px 0 8px">Mobile Money Network</label><select id="guestMomoProvider" style="width:100%;background:#10251c;border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><option value="mtn">MTN MoMo</option><option value="atl">AT Money (AirtelTigo)</option><option value="vod">Telecel Cash</option></select><small style="display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:7px">We’ll send a payment approval request to this phone. Approve it on your phone to pay. No email or DGM account required.</small></div>
+<div id="guestMomoWrap" style="display:none;margin:0 0 12px"><label for="guestMomoPhone" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin-bottom:8px">Mobile Money Phone Number</label><input id="guestMomoPhone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="0241234567" style="width:100%;background:rgba(255,255,255,.045);border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><label for="guestMomoProvider" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin:12px 0 8px">Mobile Money Network</label><select id="guestMomoProvider" style="width:100%;background:#10251c;border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><option value="mtn">MTN MoMo</option><option value="atl">AT Money (AirtelTigo)</option><option value="vod">Telecel Cash</option></select><small style="display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:7px">Paystack will guide you through the authorization required by your network. Approve the request on your phone; if Paystack asks for an OTP or voucher code, enter it below. Never share your MoMo PIN with DGM.</small><div id="guestOtpWrap" style="display:none;margin-top:12px"><label for="guestOtpInput" style="display:block;color:#d9e6ef;font-size:12px;font-weight:800;margin-bottom:8px">Paystack authorization code</label><input id="guestOtpInput" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter code" style="width:100%;background:rgba(255,255,255,.045);border:1px solid var(--border);color:#fff;padding:14px;border-radius:12px;outline:none;font-size:15px"><small id="guestOtpHelp" style="display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:7px">Only enter a code when Paystack specifically requests one.</small><button id="guestOtpButton" type="button" class="payment-button wallet-button" style="margin-top:10px" onclick="submitGuestMobileMoneyOtp()">Submit authorization code</button></div></div>
 <div class="payment-buttons">
 <button id="walletButton" class="payment-button wallet-button" onclick="payFromWallet()">🟢 Pay from Wallet</button>
 <button id="paystackButton" class="payment-button paystack-button" onclick="payWithPaystack()">🔵 Pay with Paystack</button>
@@ -219,6 +219,7 @@ async function payFromWallet(){
   button.textContent="Payment Confirmed ✓";await loadWallet();setTimeout(()=>window.location.href="/orders.html",1200);
  }catch(error){console.error("Wallet payment error:",error);showMessage(error.message||"Wallet payment failed.","error");button.disabled=false;paystackButton.disabled=false;button.textContent="🟢 Pay from Wallet"}
 }
+function guestPaymentTrackingUrl(reference){return "/guest-order.html?reference="+encodeURIComponent(reference)+"#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token)}
 async function payWithMobileMoney(){
  clearMessage();
  if(!guestMode||!currentOrder||!currentOrder.order_ref||!currentOrder.guest_token){showMessage("Please create a guest order first.","error");return}
@@ -228,14 +229,44 @@ async function payWithMobileMoney(){
  const button=document.getElementById("guestMomoButton");button.disabled=true;button.textContent="Sending payment request...";
  try{
   const response=await fetch("/api/guest-payments/mobile-money",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({orderRef:currentOrder.order_ref,guestToken:currentOrder.guest_token,phone,provider})});
-  const data=await response.json().catch(()=>({}));
-  if(!response.ok)throw new Error(data.message||"Could not start Mobile Money payment.");
-  if(data.alreadyPaid){window.location.href="/guest-order.html#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token);return}
-  if(!data.reference)throw new Error("Paystack did not return a Mobile Money reference.");
-  showMessage(data.display_text||"Payment request sent. Approve it on your phone.","success");
-  const tracking="/guest-order.html?reference="+encodeURIComponent(data.reference)+"#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token);
-  window.location.href=tracking;
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(result.message||"Could not start Mobile Money payment.");
+  if(result.alreadyPaid){window.location.href="/guest-order.html#ref="+encodeURIComponent(currentOrder.order_ref)+"&token="+encodeURIComponent(currentOrder.guest_token);return}
+  if(!result.reference)throw new Error("Paystack did not return a Mobile Money reference.");
+  currentOrder.paystack_reference=result.reference;
+  if(String(result.status||"").toLowerCase()==="send_otp"){
+   document.getElementById("guestOtpWrap").style.display="block";
+   document.getElementById("guestOtpHelp").textContent=result.display_text||"Paystack is requesting an authorization code. Enter only the code provided for this payment.";
+   document.getElementById("guestOtpInput").focus();
+   showMessage(result.display_text||"Paystack requires an authorization code to continue.","success");
+   button.textContent="Payment request sent ✓";
+   return;
+  }
+  showMessage(result.display_text||"Payment request sent. Follow the instructions from your Mobile Money network.","success");
+  window.location.href=guestPaymentTrackingUrl(result.reference);
  }catch(error){console.error("Guest Mobile Money error:",error);showMessage(error.message||"Could not start Mobile Money payment.","error");button.disabled=false;button.textContent="📲 Pay with Mobile Money"}
+}
+async function submitGuestMobileMoneyOtp(){
+ if(!currentOrder||!currentOrder.order_ref||!currentOrder.guest_token||!currentOrder.paystack_reference){showMessage("Payment reference is missing. Open your secure tracking link or contact DGM support.","error");return}
+ const input=document.getElementById("guestOtpInput"),button=document.getElementById("guestOtpButton");
+ const otp=input.value.trim();
+ if(!/^\d{4,8}$/.test(otp)){showMessage("Enter the authorization code Paystack supplied for this payment.","error");input.focus();return}
+ button.disabled=true;button.textContent="Submitting code...";
+ try{
+  const response=await fetch("/api/guest-payments/mobile-money/otp",{method:"POST",credentials:"include",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({orderRef:currentOrder.order_ref,guestToken:currentOrder.guest_token,reference:currentOrder.paystack_reference,otp})});
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw new Error(result.message||"Could not submit the authorization code.");
+  input.value="";
+  const status=String(result.status||"pending").toLowerCase();
+  if(status==="send_otp"){
+   document.getElementById("guestOtpHelp").textContent=result.display_text||"Paystack still requires an authorization code.";
+   showMessage(result.display_text||"Paystack still requires an authorization code.","success");
+   return;
+  }
+  showMessage(result.display_text||"Authorization submitted. Checking payment status...","success");
+  window.location.href=guestPaymentTrackingUrl(result.reference||currentOrder.paystack_reference);
+ }catch(error){console.error("Guest Mobile Money authorization error:",error);showMessage(error.message||"Could not submit the authorization code.","error")}
+ finally{button.disabled=false;button.textContent="Submit authorization code"}
 }
 async function payWithPaystack(){
  clearMessage();if(guestMode){showMessage("Choose Pay with Mobile Money for guest checkout. No email is needed.","error");return}if(!currentOrder||!currentOrder.order_ref){showMessage("Please confirm your order first.","error");return}
