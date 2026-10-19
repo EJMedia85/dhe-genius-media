@@ -321,6 +321,17 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       if(!locked || locked.status!=="Processing") { await c.query("ROLLBACK"); return false; }
       const a=(await c.query("SELECT * FROM agent_profiles WHERE id=$1 FOR UPDATE",[locked.agent_id])).rows[0];
       if(!a) { await c.query("ROLLBACK"); return false; }
+      // Idempotency guard: if the immutable sale commission ledger entry already exists,
+      // repair the sale status only; never add the same profit to the balance a second time.
+      const priorCredit=(await c.query(
+        "SELECT id FROM agent_commission_transactions WHERE reference=$1 FOR UPDATE",
+        ["SALE:"+locked.order_ref]
+      )).rows[0];
+      if(priorCredit) {
+        await c.query("UPDATE agent_sales SET status='Completed',completed_at=COALESCE(completed_at,NOW()) WHERE id=$1",[locked.id]);
+        await c.query("COMMIT");
+        return true;
+      }
       const profit=money(locked.profit);
       const before=money(a.commission_balance);
       const after=money(before+profit);
