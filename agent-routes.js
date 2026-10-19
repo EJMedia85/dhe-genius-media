@@ -181,8 +181,14 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       const a = await getAgent(req.session.customerId);
       if (!a) return res.json({success:true, enrolled:false});
       const [sales, withdrawals] = await Promise.all([
-        pool.query(`SELECT COUNT(*)::int AS count, COALESCE(SUM(sale_price),0) AS sales, COALESCE(SUM(profit),0) AS profit
-          FROM agent_sales WHERE agent_id=$1 AND status='Completed'`, [a.id]),
+        pool.query(`SELECT
+          COUNT(*) FILTER (WHERE status='Completed')::int AS count,
+          COALESCE(SUM(sale_price) FILTER (WHERE status='Completed'),0) AS sales,
+          COALESCE(SUM(profit) FILTER (WHERE status='Completed'),0) AS profit,
+          COUNT(*) FILTER (WHERE status='Processing')::int AS pending,
+          COUNT(*) FILTER (WHERE status='Failed')::int AS failed,
+          COUNT(*) FILTER (WHERE status='Refunded')::int AS refunded
+          FROM agent_sales WHERE agent_id=$1`, [a.id]),
         pool.query(`SELECT id,reference,amount,momo_network,momo_phone,momo_name,status,created_at,updated_at
           FROM agent_withdrawals WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 20`, [a.id])
       ]);
@@ -191,7 +197,14 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
         agent:{id:a.id,agent_code:a.agent_code,status:a.status,tier:a.tier,commission_balance:money(a.commission_balance),
           wallet:money(a.agent_wallet),name:a.name,phone:a.phone,email:a.email,application_note:a.application_note,
           store_slug:a.store_slug||"",store_name:a.store_name||"",store_bio:a.store_bio||"",whatsapp_phone:a.whatsapp_phone||""},
-        stats:{completed_sales:sales.rows[0].count,total_sales:money(sales.rows[0].sales),total_profit:money(sales.rows[0].profit)},
+        stats:{
+          completed_sales:sales.rows[0].count,
+          total_sales:money(sales.rows[0].sales),
+          total_profit:money(sales.rows[0].profit),
+          pending_sales:sales.rows[0].pending,
+          failed_sales:sales.rows[0].failed,
+          refunded_sales:sales.rows[0].refunded
+        },
         withdrawals:withdrawals.rows
       });
     } catch(e) { console.error("Agent me:",e); return res.status(500).json({success:false,message:"Could not load agent account."}); }
