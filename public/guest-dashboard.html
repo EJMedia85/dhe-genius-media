@@ -45,8 +45,8 @@ document.getElementById("trackForm").addEventListener("submit",function(event){e
  function hideCustomerBar(){
   document.querySelectorAll('nav, [role="navigation"], .bottom-nav, .mobile-bottom-nav, .mobile-nav, .bottom-navigation, #bottomNav, #mobileBottomNav').forEach(function(el){
    if(el.dataset.guestNavChecked==='1')return;
-   const text=(el.innerText||el.textContent||'').toLowerCase().replace(/\\s+/g,' ');
-   const hasAllLabels=labels.every(function(label){return new RegExp('\\\\b'+label+'\\\\b').test(text)});
+   const text=(el.innerText||el.textContent||'').toLowerCase().replace(/\s+/g,' ');
+   const hasAllLabels=labels.every(function(label){return new RegExp('\\b'+label+'\\b').test(text)});
    const style=window.getComputedStyle(el);
    const fixedBottom=(style.position==='fixed' && (parseInt(style.bottom||'0',10)>=0));
    const knownCustomerBar=/bottom-nav|bottomnav|mobile-nav|bottom-navigation/i.test(String(el.className||'')+' '+(el.id||''));
