@@ -167,7 +167,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
         }
         networks[network] = rows;
       }
-      return res.json({success:true,source:"DataMart public catalogue",checked_at:new Date().toISOString(),networks});
+      return res.json({success:true,source:"DGM configured retail price list",pricing_note:"These are DGM retail prices, not verified DataMart wholesale costs.",checked_at:new Date().toISOString(),networks});
     } catch (e) {
       console.error("Agent catalogue:",e);
       return res.status(500).json({success:false,message:"Could not load the live DataMart catalogue."});
