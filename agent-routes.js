@@ -537,7 +537,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
         const updated=(await pool.query("SELECT * FROM orders WHERE id=$1 LIMIT 1",[order.id])).rows[0];
         try{
           const fulfillment=await fulfillDataOrder(updated);
-          if(!fulfillment?.success&&String(fulfillment?.status||"").toLowerCase()==="failed"){
+          if(!fulfillment?.success||String(fulfillment?.status||"").toLowerCase()==="failed"){
             await pool.query("UPDATE agent_sales SET status='Refunded' WHERE id=$1 AND customer_payment_mode='store_paystack'",[order.agent_sale_id]);
             await initiateGuestPaystackRefund(order.id,fulfillment.error||"Agent Store data delivery failed.");
           }else{
