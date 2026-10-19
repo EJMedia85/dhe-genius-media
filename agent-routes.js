@@ -185,7 +185,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
           COUNT(*) FILTER (WHERE s.status='Completed')::int AS count,
           COALESCE(SUM(s.sale_price) FILTER (WHERE s.status='Completed'),0) AS sales,
           COALESCE(SUM(s.profit) FILTER (WHERE s.status='Completed'),0) AS profit,
-          COUNT(*) FILTER (WHERE s.status='Processing' AND LOWER(COALESCE(o.payment_status,''))='paid')::int AS pending,
+          COUNT(*) FILTER (WHERE s.status='Processing' AND LOWER(COALESCE(o.payment_status,''))='paid' AND LOWER(COALESCE(o.status,''))<>'pending payment')::int AS pending,
           COUNT(*) FILTER (WHERE s.status='Processing' AND (LOWER(COALESCE(o.payment_status,''))<>'paid' OR LOWER(COALESCE(o.status,''))='pending payment'))::int AS awaiting_payment,
           COUNT(*) FILTER (WHERE s.status='Failed')::int AS failed,
           COUNT(*) FILTER (WHERE s.status='Refunded')::int AS refunded
