@@ -25,6 +25,7 @@
 <button data-page="customers" type="button" onclick="window.__adminNav('customers');return false;">♙ Customers</button>
 <button data-page="orders" type="button" onclick="window.__adminNav('orders');return false;">▤ Orders</button>
 <button type="button" onclick="recoverPaidAgentStoreOrder()">⚠️ Recover Paid Agent Order</button>
+<button type="button" onclick="confirmDeliveredAgentStoreOrder()">✅ Reconcile Delivered Order</button>
 <button data-page="wallet" type="button" onclick="window.__adminNav('wallet');return false;">₵ Wallet & Withdrawals</button>
 <button data-page="agents" type="button" onclick="window.__adminNav('agents');return false;">🤝 Agents</button>
 <button data-page="analytics" type="button" onclick="window.__adminNav('analytics');return false;">📊 Analytics</button>
@@ -832,6 +833,20 @@ async function toggleStaff(id,active){if(!confirm((active?'Enable':'Disable')+' 
 async function changeStaffRole(id){const s=staffDirectory.find(x=>Number(x.id)===Number(id));if(!s)return;const role=prompt('Enter role: support, finance, operations, manager',s.role_key);if(!role||!['support','finance','operations','manager'].includes(role.toLowerCase()))return;try{await api('/api/admin/staff/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:role.toLowerCase()})});await loadStaff();}catch(e){alert(e.message);}}
 async function deleteStaff(id){if(!confirm('Permanently delete this staff account?'))return;try{await api('/api/admin/staff/'+id,{method:'DELETE'});await loadStaff();}catch(e){alert(e.message);}}
 
+async function confirmDeliveredAgentStoreOrder(){
+  const orderRef='DGM-MVFLT8H5-43C936291B';
+  if(!confirm('CONFIRM ALREADY-DELIVERED AGENT STORE ORDER\\n\\nMTN 1GB\\nCustomer has already received the bundle.\\nOriginal payment: GH₵4.50\\n\\nThis will NOT contact DataMart, send another bundle, charge the customer, or issue a refund. It will reconcile the existing order and credit the GH₵0.30 agent commission once. Continue only if delivery is confirmed.'))return;
+  try{
+    const result=await api('/api/admin/agent-store/orders/'+encodeURIComponent(orderRef)+'/confirm-delivered',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({confirmed:true})
+    });
+    alert((result.message||'Reconciliation response received.')+
+      (result.order?'\\nOrder: '+result.order.status+'\\nAgent sale: '+result.order.agent_sale_status+'\\nCommission balance: GH₵'+Number(result.order.commission_balance||0).toFixed(2):''));
+    if(result.order)console.log('DGM delivered-order reconciliation',result.order);
+  }catch(e){alert('Reconciliation not confirmed: '+e.message+'\\nDo not retry delivery. Check the order and agent sale status first.');}
+}
 async function recoverPaidAgentStoreOrder(){
   const orderRef='DGM-MVFLT8H5-43C936291B';
   const phone='0241518385';
