@@ -346,9 +346,13 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
         if(["completed","success","successful","delivered"].includes(status)){
           await completeAgentSale(s.id);
         } else if(["failed","refunded","cancelled","canceled"].includes(status)){
-          await refundAgentSale(s.agent_id,s.id,money(s.base_cost),s.order_ref,"Data sale failed; Agent Wallet refunded.");
-          if(s.customer_payment_mode==="store_wallet" && !s.customer_refunded){
-            await refundStoreCustomer(s.customer_id,s.id,money(s.customer_charge),s.order_ref,"Store order failed; customer DGM Wallet refunded.");
+          if(s.customer_payment_mode==="store_paystack"){
+            await pool.query("UPDATE agent_sales SET status='Refunded' WHERE id=$1 AND status='Processing'",[s.id]);
+          }else{
+            await refundAgentSale(s.agent_id,s.id,money(s.base_cost),s.order_ref,"Data sale failed; Agent Wallet refunded.");
+            if(s.customer_payment_mode==="store_wallet" && !s.customer_refunded){
+              await refundStoreCustomer(s.customer_id,s.id,money(s.customer_charge),s.order_ref,"Store order failed; customer DGM Wallet refunded.");
+            }
           }
         }
       }
@@ -385,6 +389,59 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
   app.post("/api/agent/pricing", requireCustomer, async (req,res)=>{try{const a=await getAgent(req.session.customerId);if(!a||a.status!=="approved")throw new Error("Approved agent account required.");const network=String(req.body?.network||"").trim(),capacity=String(req.body?.capacity||"").replace(/GB/i,"").trim(),price=money(req.body?.sale_price),base=money(await getRetailPrice(network,Number(capacity)));if(!base||price<base)throw new Error("Price must be at or above the DGM base price.");await pool.query("INSERT INTO agent_pricing_rules(agent_id,service,network,capacity,sale_price) VALUES($1,'Data',$2,$3,$4) ON CONFLICT(agent_id,service,network,capacity) DO UPDATE SET sale_price=EXCLUDED.sale_price",[a.id,network,capacity,price]);res.json({success:true,message:"Agent pricing saved."})}catch(e){res.status(400).json({success:false,message:e.message})}});
 
   app.get("/api/public/agent-store/:slug", async (req,res)=>{try{const slug=String(req.params.slug||"").toLowerCase();const q=await pool.query("SELECT a.id,a.agent_code,a.store_name,a.store_bio,a.whatsapp_phone,c.name,c.phone FROM agent_profiles a JOIN customers c ON c.id=a.customer_id WHERE a.store_slug=$1 AND a.status='approved' LIMIT 1",[slug]);if(!q.rows.length)return res.status(404).json({success:false,message:"Store not found."});const a=q.rows[0],p=await pool.query("SELECT service,network,capacity,sale_price FROM agent_pricing_rules WHERE agent_id=$1 ORDER BY network,capacity",[a.id]);res.json({success:true,store:{agent_code:a.agent_code,name:a.store_name||a.name,bio:a.store_bio||"DGM Agent Store",whatsapp:a.whatsapp_phone||a.phone,pricing:p.rows}})}catch(e){res.status(500).json({success:false,message:"Could not load store."})}});
+  // PUBLIC AGENT STORE PAYSTACK CHECKOUT (GUEST / NO DGM ACCOUNT REQUIRED)
+  app.post("/api/public/agent-store/:slug/guest-order", async (req,res)=>{
+    const slug=String(req.params.slug||"").trim().toLowerCase();
+    const network=String(req.body?.network||"").trim();
+    const capacity=String(req.body?.capacity||"").replace(/GB/i,"").trim();
+    const phone=String(req.body?.phone||"").trim();
+    const promo=String(req.body?.promo_code||"").trim().toUpperCase().slice(0,40);
+    if(!slug||!["MTN","AirtelTigo","Telecel"].includes(network)) return res.status(400).json({success:false,message:"Select a valid network."});
+    if(!/^\\d+(?:\\.\\d+)?$/.test(capacity)||Number(capacity)<=0) return res.status(400).json({success:false,message:"Select a valid bundle."});
+    if(!/^0\\d{9}$/.test(phone)) return res.status(400).json({success:false,message:"Enter a valid Ghana recipient number."});
+    const client=await pool.connect();
+    try{
+      await client.query("BEGIN");
+      const a=(await client.query("SELECT a.*,c.name FROM agent_profiles a JOIN customers c ON c.id=a.customer_id WHERE a.store_slug=$1 AND a.status='approved' LIMIT 1 FOR UPDATE",[slug])).rows[0];
+      if(!a) throw new Error("Store not found or unavailable.");
+      const p=(await client.query("SELECT sale_price FROM agent_pricing_rules WHERE agent_id=$1 AND service='Data' AND network=$2 AND capacity=$3 LIMIT 1",[a.id,network,capacity])).rows[0];
+      if(!p) throw new Error("This bundle is not available in this store.");
+      const base=money(await getRetailPrice(network,Number(capacity)));
+      const published=money(p.sale_price);
+      if(!base||published<base) throw new Error("This bundle is temporarily unavailable.");
+      let netPrice=published;
+      let promoRow=null;
+      if(promo){
+        promoRow=(await client.query("SELECT * FROM agent_promo_codes WHERE agent_id=$1 AND UPPER(code)=UPPER($2) AND active=true AND (expires_at IS NULL OR expires_at>NOW()) AND (max_uses IS NULL OR uses<max_uses) FOR UPDATE",[a.id,promo])).rows[0];
+        if(!promoRow) throw new Error("Promo code is invalid or expired.");
+        const discount=promoRow.discount_type==="percent" ? money(published*(Number(promoRow.discount_value)/100)) : money(promoRow.discount_value);
+        netPrice=money(Math.max(base,published-discount));
+        if(netPrice>=published) throw new Error("Promo code does not reduce this order.");
+      }
+      const orderRef="DGM-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(5).toString("hex").toUpperCase();
+      const guestToken=crypto.randomBytes(32).toString("hex");
+      const tokenHash=crypto.createHash("sha256").update(guestToken).digest("hex");
+      const supplierCost=null;
+      const order=(await client.query(`INSERT INTO orders
+        (order_ref,customer_id,service,network,phone,amount,status,capacity,payment_status,base_amount,promo_discount,guest_token_hash,
+         supplier_cost,dgm_gross_profit,supplier_settlement_status)
+        VALUES($1,NULL,'Data Bundle',$2,$3,$4,'Pending Payment',$5,'Pending',$6,$7,$8,$9,$10,$11)
+        RETURNING id,order_ref,service,network,phone,amount,status,capacity,payment_status,created_at`,
+        [orderRef,network,phone,netPrice,capacity,published,money(published-netPrice),tokenHash,
+         supplierCost,null,"cost_unconfigured"])).rows[0];
+      await client.query(`INSERT INTO agent_sales
+        (agent_id,order_id,order_ref,service,network,phone,capacity,base_cost,sale_price,profit,status,customer_payment_mode,customer_charge)
+        VALUES($1,$2,$3,'Data',$4,$5,$6,$7,$8,$9,'Processing','store_paystack',$10)`,
+        [a.id,order.id,orderRef,network,phone,capacity,base,netPrice,money(netPrice-base),netPrice]);
+      if(promoRow) await client.query("UPDATE agent_promo_codes SET uses=uses+1 WHERE id=$1",[promoRow.id]);
+      await client.query("COMMIT");
+      return res.json({success:true,guest:true,guest_token:guestToken,order,store_name:a.store_name||a.name});
+    }catch(e){
+      await client.query("ROLLBACK").catch(()=>{});
+      return res.status(400).json({success:false,message:e.message||"Could not create agent store order."});
+    }finally{client.release();}
+  });
+
   // CUSTOMER-FACING DGM AGENT STORE CHECKOUT
   app.post("/api/public/agent-store/:slug/order", requireCustomer, async (req,res)=>{
     const slug=String(req.params.slug||"").trim().toLowerCase();
