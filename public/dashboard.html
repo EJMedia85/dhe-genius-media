@@ -273,6 +273,116 @@ body{
 }
 </style>
 
+
+<style id="dgm-signature-dashboard-v2">
+/* DGM Signature: premium fintech hierarchy with restrained emerald accents.
+   Styling only: existing routes, APIs, and dashboard actions are unchanged. */
+:root{
+  --dgm-mint:#72f5a6;
+  --dgm-emerald:#25d366;
+  --dgm-edge:rgba(116,245,166,.18);
+}
+body{
+  background:
+    radial-gradient(ellipse at 4% 0%,rgba(37,211,102,.12),transparent 34%),
+    radial-gradient(ellipse at 100% 28%,rgba(18,140,126,.09),transparent 31%),
+    linear-gradient(155deg,#030807 0%,#07120f 52%,#040909 100%);
+}
+.main{max-width:1240px}
+.welcome small{
+  color:var(--dgm-mint);
+  border:1px solid rgba(114,245,166,.17);
+  background:rgba(37,211,102,.065);
+  border-radius:999px;
+  padding:7px 10px;
+}
+.welcome h1{letter-spacing:-.055em}
+.dgm-image-hero{
+  isolation:isolate;
+  overflow:hidden;
+  padding:clamp(20px,3.3vw,30px);
+  border:1px solid rgba(114,245,166,.2);
+  border-radius:24px;
+  background:
+    radial-gradient(ellipse at 100% 0%,rgba(37,211,102,.17),transparent 44%),
+    linear-gradient(130deg,rgba(15,43,30,.84),rgba(7,17,14,.92) 65%,rgba(7,20,20,.86));
+  box-shadow:0 18px 42px rgba(0,0,0,.16),inset 0 1px 0 rgba(255,255,255,.055);
+}
+.dgm-image-hero:after{
+  content:"DGM";
+  position:absolute;
+  z-index:-1;
+  right:14px;
+  bottom:-38px;
+  font-size:clamp(80px,14vw,150px);
+  line-height:1;
+  font-weight:1000;
+  letter-spacing:-.1em;
+  color:rgba(126,255,177,.035);
+  pointer-events:none;
+}
+.dgm-image-copy h2{letter-spacing:-.055em}
+.dgm-image-copy p{max-width:610px}
+.dgm-image-cta{
+  min-height:44px;
+  align-items:center;
+  justify-content:center;
+  border-radius:12px;
+  padding:12px 17px;
+}
+#agentEntryCard{
+  border-color:rgba(114,245,166,.22)!important;
+  box-shadow:0 14px 34px rgba(0,0,0,.15),inset 0 1px 0 rgba(255,255,255,.04)!important;
+  transition:border-color .18s ease,transform .18s ease;
+}
+.wallet{border-radius:23px}
+.section-title{letter-spacing:-.04em}
+.primary-card,.service-card{
+  border-radius:19px;
+  min-width:0;
+}
+.primary-card:focus-visible,.service-card:focus-visible,.wallet-btn:focus-visible,
+.icon-btn:focus-visible,.bottom-nav button:focus-visible{
+  outline:2px solid var(--dgm-mint);
+  outline-offset:3px;
+}
+.primary-card:active,.service-card:active{transform:scale(.99)}
+.bottom-nav{
+  height:70px;
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  border-top-color:rgba(114,245,166,.16);
+}
+.bottom-nav button{min-height:48px;font-weight:750}
+.bottom-nav button.active{color:var(--dgm-mint)}
+@media(min-width:800px){
+  .dgm-image-hero{padding:30px 32px}
+  .primary-grid{gap:12px}
+  .services-grid{gap:11px}
+}
+@media(max-width:760px){
+  .main{padding-top:15px;padding-left:13px;padding-right:13px;padding-bottom:calc(100px + env(safe-area-inset-bottom,0px))}
+  .dgm-image-hero{border-radius:21px;padding:21px 18px;margin-bottom:12px}
+  .dgm-image-copy h2{font-size:clamp(29px,8vw,35px)}
+  .dgm-image-cta{width:100%}
+  #agentEntryCard{padding:16px!important;gap:10px!important}
+  #agentEntryTitle{font-size:17px!important}
+  .wallet{border-radius:21px}
+  .section{margin-top:23px}
+  .primary-grid{gap:9px}
+  .primary-card{border-radius:16px}
+  .services-grid{gap:8px}
+  .services-grid .service-card{border-radius:14px}
+  .bottom-nav{
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+    background:rgba(4,11,9,.98);
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  #agentEntryCard,.primary-card,.service-card{transition:none!important}
+}
+</style>
+
 </head>
 <body>
 <header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()" aria-label="Open menu">☰</button></header>
