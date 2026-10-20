@@ -157,7 +157,7 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
     if (!q) return res.status(400).json({ success: false, message: "Enter a song, artist, or genre to search." });
     try {
       const c = audiomackConfig();
-      const data = await audiomackRequest(c.searchPath, { q, term: q, type: "music", limit: 20 });
+      const data = await audiomackRequest(c.searchPath, { q, show: "music", sort: "relevance", limit: 20 });
       return res.set("Cache-Control", "private, max-age=60").json({ success: true, tracks: audiomackItems(data).map(normalizeAudiomackTrack).filter(t => t.title) });
     } catch (error) {
       const status = error.code === "NOT_CONFIGURED" ? 503 : (error.status === 401 || error.status === 403 ? 502 : 502);
@@ -189,8 +189,10 @@ async function installMusic(app, { pool, requireLogin, requireAdmin }) {
     const id = String(req.params.id || "").trim();
     if (!/^[A-Za-z0-9_-]{1,160}$/.test(id)) return res.status(400).json({ success: false, message: "Invalid Audiomack track ID." });
     try {
-      const data = await audiomackRequest("/music/" + encodeURIComponent(id) + "/playsession", {}, "POST");
-      const candidate = data?.stream_url || data?.streamUrl || data?.url || data?.data?.stream_url || data?.data?.url;
+      const data = await audiomackRequest("/music/" + encodeURIComponent(id) + "/play", {}, "POST");
+      // Audiomack documents the play endpoint as returning the authorized stream URL
+      // directly; tolerate object-shaped responses too for API-version compatibility.
+      const candidate = (typeof data === "string" ? data.trim() : null) || data?.stream_url || data?.streamUrl || data?.url || data?.data?.stream_url || data?.data?.streamUrl || data?.data?.url || (typeof data?.results === "string" ? data.results.trim() : null);
       if (!validHttpsUrl(candidate)) return res.status(502).json({ success: false, message: "Audiomack did not return an authorized playable stream for this track. Open it on Audiomack instead." });
       return res.set("Cache-Control", "no-store").json({ success: true, streamUrl: candidate });
     } catch (error) {
