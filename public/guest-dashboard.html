@@ -14,7 +14,76 @@ h2{font-size:18px;letter-spacing:-.02em;margin:27px 0 12px}.grid{display:grid;gr
 @media(min-width:650px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.wide{grid-column:span 3}.tile{min-height:165px}}
 /* Customer-only mobile navigation must not appear on guest pages. */
 .bottom-nav,.mobile-bottom-nav,.mobile-nav,.bottom-navigation,#bottomNav,#mobileBottomNav,[data-customer-bottom-nav]{display:none!important;visibility:hidden!important;pointer-events:none!important}
-</style></head>
+</style>
+<style id="dgm-signature-guest-v2">
+/* DGM Signature styling for the guest dashboard; no routes, forms, or APIs changed. */
+:root{--dgm-mint:#7cf5ac;--dgm-edge:rgba(124,245,172,.18)}
+body{
+ background:
+  radial-gradient(ellipse at 0% 12%,rgba(37,211,102,.12),transparent 33%),
+  radial-gradient(ellipse at 100% 45%,rgba(18,140,126,.10),transparent 30%),
+  linear-gradient(155deg,#030807 0%,#07120f 55%,#040908 100%);
+ -webkit-font-smoothing:antialiased;
+}
+header{background:rgba(4,11,9,.96);backdrop-filter:none}
+.head{min-height:76px}
+.logo{border-radius:15px;box-shadow:0 0 0 4px rgba(37,211,102,.055),0 8px 24px rgba(37,211,102,.13)}
+.account{border-color:var(--dgm-edge);background:rgba(37,211,102,.06);transition:background .18s,border-color .18s}
+.account:hover{background:rgba(37,211,102,.12);border-color:rgba(124,245,172,.35)}
+main{padding-top:22px}
+.hero{
+ position:relative;isolation:isolate;overflow:hidden;
+ border-color:rgba(124,245,172,.22);border-radius:26px;
+ background:radial-gradient(ellipse at 100% 0,rgba(37,211,102,.19),transparent 43%),linear-gradient(135deg,rgba(13,42,28,.97),rgba(6,17,13,.98) 70%);
+ box-shadow:0 18px 46px rgba(0,0,0,.2),inset 0 1px 0 rgba(255,255,255,.045);
+}
+.hero:after{content:"DGM";position:absolute;z-index:-1;right:12px;bottom:-27px;font-size:clamp(82px,18vw,145px);font-weight:1000;letter-spacing:-.1em;line-height:1;color:rgba(124,245,172,.045);pointer-events:none}
+.eyebrow{color:var(--dgm-mint);letter-spacing:.14em}
+.hero h1{max-width:650px;font-size:clamp(32px,7vw,49px);letter-spacing:-.06em}
+.hero p{font-size:14px;line-height:1.75}
+.pill{background:rgba(37,211,102,.08);border-color:rgba(124,245,172,.19);color:#b7f8ce}
+h2{letter-spacing:-.04em;margin-top:29px}
+.tile{
+ position:relative;overflow:hidden;min-height:158px;padding:17px;
+ border-color:rgba(255,255,255,.085);border-radius:18px;
+ background:linear-gradient(145deg,rgba(17,34,26,.84),rgba(7,15,12,.96));
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.025);
+ transition:border-color .18s,background .18s;
+}
+.tile:hover{transform:none;border-color:rgba(124,245,172,.32);background:linear-gradient(145deg,rgba(17,43,29,.92),rgba(7,15,12,.98))}
+.tile:focus-visible,.account:focus-visible,.track button:focus-visible{outline:2px solid var(--dgm-mint);outline-offset:3px}
+.ico{border:1px solid rgba(124,245,172,.09);background:rgba(37,211,102,.09);border-radius:13px}
+.tile strong{font-size:14px;letter-spacing:-.015em}
+.tile p{font-size:11px;line-height:1.65}
+.tile .go{color:var(--dgm-mint);letter-spacing:.045em}
+.track{border-color:rgba(124,245,172,.15);border-radius:19px;background:linear-gradient(145deg,rgba(13,31,22,.86),rgba(7,15,12,.95));box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.fields input{border-color:rgba(255,255,255,.11);background:#050d09}
+.fields input:focus{border-color:var(--dgm-mint);box-shadow:0 0 0 3px rgba(37,211,102,.08)}
+.track button{background:linear-gradient(110deg,#8df7b4,#25d366 65%,#20bd8a);box-shadow:0 8px 22px rgba(37,211,102,.10);cursor:pointer}
+.track button:active{transform:translateY(1px)}
+.note{border-color:rgba(124,245,172,.12);background:rgba(255,255,255,.018)}
+footer{border-top-color:rgba(124,245,172,.13)}
+@media(max-width:520px){
+ .wrap{width:min(100% - 26px,900px)}
+ .head{min-height:68px;gap:8px}
+ .logo{width:40px;height:40px}
+ .brand{gap:9px}
+ .brand strong{font-size:11px}
+ .brand small{font-size:9px}
+ .account{font-size:10px;padding:10px}
+ main{padding-top:17px}
+ .hero{padding:22px 19px;border-radius:22px}
+ .hero h1{font-size:clamp(31px,8.3vw,39px)}
+ .grid{gap:9px}
+ .tile{padding:14px;min-height:153px;border-radius:16px}
+ .ico{width:39px;height:39px;margin-bottom:12px}
+ .fields{grid-template-columns:1fr}
+ .track{padding:15px}
+}
+@media(prefers-reduced-motion:reduce){.tile,.account,.track button{transition:none!important}}
+</style>
+
+</head>
 <body>
 <header><div class="wrap head"><a class="brand" href="/guest-dashboard.html" aria-label="DGM guest dashboard"><span class="logo">DGM</span><span><strong>DHE GENIUS MEDIA</strong><small>Stay Connected. Stay Genius.</small></span></a><a class="account" href="/register.html">Create account ↗</a></div></header>
 <main class="wrap">
