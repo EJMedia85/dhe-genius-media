@@ -18,7 +18,7 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 .page-title{margin-bottom:20px}.page-title h1{font-size:26px;margin-bottom:5px}.page-title p{color:var(--muted);font-size:13px;line-height:1.5}
 .wallet-card{background:linear-gradient(135deg,rgba(34,213,138,.13),rgba(0,140,255,.08));border:1px solid rgba(34,213,138,.18);border-radius:18px;padding:16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
 .wallet-card small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.wallet-card strong{font-size:22px}.wallet-refresh{border:none;background:rgba(255,255,255,.07);color:#fff;border-radius:10px;padding:9px 12px;font-size:11px;font-weight:800}
-.section-title{font-size:16px;margin:22px 0 12px}.catalog-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-7px 0 14px;padding:12px 14px;border:1px solid rgba(37,211,102,.18);border-radius:13px;background:linear-gradient(110deg,rgba(37,211,102,.08),rgba(0,140,255,.04));color:var(--muted);font-size:11px}.catalog-status strong{color:#a9f4cc;font-size:11px}.catalog-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:7px;box-shadow:0 0 10px rgba(34,213,138,.55)}.catalog-error{display:none;padding:12px 14px;border-radius:12px;margin:0 0 13px;font-size:12px;line-height:1.5;color:#ffaaaa;background:rgba(255,70,70,.1);border:1px solid rgba(255,70,70,.2)}.catalog-error.show{display:block}
+.section-title{font-size:16px;margin:22px 0 12px}.catalog-status{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-7px 0 14px;padding:12px 14px;border:1px solid rgba(37,211,102,.18);border-radius:13px;background:linear-gradient(110deg,rgba(37,211,102,.08),rgba(0,140,255,.04));color:var(--muted);font-size:11px}.catalog-status strong{color:#a9f4cc;font-size:11px}.catalog-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:7px;box-shadow:0 0 10px rgba(34,213,138,.55)}.catalog-error{display:none;padding:12px 14px;border-radius:12px;margin:0 0 13px;font-size:12px;line-height:1.5;color:#ffaaaa;background:rgba(255,70,70,.1);border:1px solid rgba(255,70,70,.2)}.catalog-error.show{display:block}.catalog-retry{display:none;width:100%;margin-top:9px;padding:10px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.06);color:#fff;font-size:11px;font-weight:800}.catalog-retry.show{display:block}.catalog-retry:disabled{opacity:.6}
 .networks{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:20px}
 .network{border:1px solid var(--border);background:var(--card);color:#fff;border-radius:14px;padding:13px 8px;font-size:12px;font-weight:800;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative;overflow:hidden}
 .network.active{border-color:var(--blue);background:rgba(0,140,255,.13);box-shadow:0 0 0 1px rgba(0,140,255,.15)}
@@ -106,7 +106,7 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 
 <h2 class="section-title">② Pick your bundle</h2>
 <div class="catalog-status"><span><i class="catalog-dot"></i><strong id="catalogStatus">Loading current prices…</strong></span><span id="catalogUpdated">Prices are checked against DGM’s live catalogue</span></div>
-<div id="catalogError" class="catalog-error" role="status"></div>
+<div id="catalogError" class="catalog-error" role="status"></div><button id="catalogRetry" class="catalog-retry" type="button" onclick="retryBundleCatalog()">↻ Retry loading prices</button>
 <section id="bundleGrid" class="bundle-grid" aria-label="Available data bundles"></section>
 
 <section id="purchaseFlow" class="purchase-flow">
@@ -175,6 +175,16 @@ async function loadBundleCatalog(){
  const checked=catalogMeta.price_checked_at?new Date(catalogMeta.price_checked_at):null;
  document.getElementById("catalogUpdated").textContent=checked&&!Number.isNaN(checked.getTime())?"Prices checked "+checked.toLocaleString([],{dateStyle:"medium",timeStyle:"short"}):"Prices loaded from DGM’s current catalogue";
  document.getElementById("catalogError").classList.remove("show");
+}
+async function retryBundleCatalog(){
+ const button=document.getElementById("catalogRetry");
+ const notice=document.getElementById("catalogError");
+ button.disabled=true;button.textContent="Loading current prices…";
+ document.getElementById("catalogStatus").textContent="Refreshing catalogue…";
+ notice.classList.remove("show");
+ try{await loadBundleCatalog();renderBundles();button.classList.remove("show");}
+ catch(error){console.error("DGM catalogue retry failed:",error);notice.textContent=error.message||"Could not load current bundle prices. Please try again.";notice.classList.add("show");document.getElementById("catalogStatus").textContent="Prices temporarily unavailable";document.getElementById("catalogUpdated").textContent="We won’t show guessed prices";}
+ finally{button.disabled=false;button.textContent="↻ Retry loading prices";}
 }
 function showMessage(message,type){const e=document.getElementById("message");e.textContent=message;e.className="message show "+type}
 function clearMessage(){const e=document.getElementById("message");e.textContent="";e.className="message"}
@@ -319,7 +329,7 @@ async function payWithPaystack(){
   window.location.href=data.authorization_url;
  }catch(error){console.error("Paystack error:",error);showMessage(error.message||"Unable to open Paystack.","error");button.disabled=false;walletButton.disabled=false;button.textContent="🔵 Pay with Paystack"}
 }
-(async function startDataPage(){try{await loadBundleCatalog();renderBundles();await loadWallet()}catch(error){console.error("DGM data catalog error:",error);const notice=document.getElementById("catalogError");notice.textContent=error.message||"Could not load current bundle prices. Please refresh to try again.";notice.classList.add("show");document.getElementById("catalogStatus").textContent="Prices temporarily unavailable";document.getElementById("catalogUpdated").textContent="We won’t show guessed prices";document.getElementById("bundleGrid").innerHTML="";}})();
+(async function startDataPage(){try{await loadBundleCatalog();renderBundles();await loadWallet()}catch(error){console.error("DGM data catalog error:",error);const notice=document.getElementById("catalogError");notice.textContent=error.message||"Could not load current bundle prices. Please try again.";notice.classList.add("show");document.getElementById("catalogRetry").classList.add("show");document.getElementById("catalogStatus").textContent="Prices temporarily unavailable";document.getElementById("catalogUpdated").textContent="We won’t show guessed prices";document.getElementById("bundleGrid").innerHTML="";}})();
 </script>
 <script>
 (function(){function enableDgmBrandNavigation(){document.querySelectorAll('.brand,.logo,.brand-name,header b,header strong').forEach(function(el){if(el.dataset.dgmNavBound==='1')return;var text=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();if(!text.includes('dgm')&&!text.includes('dhe genius media')&&!text.includes('stay connected. stay genius'))return;el.dataset.dgmNavBound='1';el.style.cursor='pointer';el.setAttribute('role','link');el.setAttribute('aria-label','Go to DGM Dashboard');el.addEventListener('click',function(event){if(event.target.closest('a')&&event.target.closest('a')!==el)return;window.location.href='/dashboard.html'})})}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',enableDgmBrandNavigation);else enableDgmBrandNavigation()})();
