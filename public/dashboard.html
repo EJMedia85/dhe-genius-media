@@ -383,6 +383,67 @@ body{
 }
 </style>
 
+
+<style id="dgm-dashboard-premium-visual">
+/* Premium DGM dashboard finish: visual-only CSS, existing app behavior preserved. */
+:root{--dgm-mint:#8bffc0;--dgm-glass:rgba(255,255,255,.035);--dgm-edge:rgba(139,255,192,.14)}
+html{scroll-padding-top:88px}
+body{
+ background-color:#050b0b;
+ background-image:radial-gradient(ellipse at 88% -8%,rgba(37,211,102,.16),transparent 32%),radial-gradient(ellipse at 0% 42%,rgba(18,140,126,.09),transparent 34%),linear-gradient(180deg,#050b0b 0%,#07120f 56%,#040908 100%);
+ -webkit-font-smoothing:antialiased;
+}
+.mobile-header{background:rgba(5,11,11,.94);border-bottom-color:rgba(139,255,192,.12);box-shadow:0 8px 28px rgba(0,0,0,.14)}
+.brand-logo{position:relative;border-radius:14px;box-shadow:0 0 0 1px rgba(255,255,255,.18) inset,0 8px 28px rgba(37,211,102,.22)}
+.brand-name{letter-spacing:-.04em}
+.menu-btn,.icon-btn{border-color:rgba(139,255,192,.13);background:linear-gradient(145deg,rgba(17,34,27,.96),rgba(8,17,15,.98));transition:transform .18s,border-color .18s,background .18s}
+.menu-btn:hover,.icon-btn:hover{transform:translateY(-1px);border-color:rgba(139,255,192,.35)}
+.sidebar{background:linear-gradient(180deg,#081510,#050b09);border-right-color:rgba(139,255,192,.15)}
+.nav-item{transition:background .16s,border-color .16s,color .16s}
+.nav-item:hover,.nav-item:focus-visible{background:rgba(37,211,102,.09);border-color:rgba(139,255,192,.2)}
+.main{padding-top:22px}
+.welcome h1{letter-spacing:-.055em}
+.welcome small{color:#8bb4a0}
+.wallet{
+ border-color:rgba(170,255,204,.28);
+ background:radial-gradient(ellipse at 92% 0,rgba(255,255,255,.18),transparent 32%),linear-gradient(130deg,#159e52 0%,#087a3b 55%,#064d30 100%);
+ box-shadow:0 22px 55px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.13);
+}
+.wallet:before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,rgba(255,255,255,.07),transparent 36%,transparent 78%,rgba(0,0,0,.07))}
+.wallet-actions{gap:9px}
+.wallet-btn{transition:transform .16s,background .16s,border-color .16s}
+.wallet-btn:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.38)}
+.section-title{letter-spacing:-.04em}
+.primary-card,.service-card,.activity-card{
+ border-color:rgba(255,255,255,.085);
+ background:linear-gradient(145deg,rgba(16,33,27,.96),rgba(7,17,15,.98));
+ box-shadow:0 12px 32px rgba(0,0,0,.09),inset 0 1px 0 rgba(255,255,255,.025);
+}
+.primary-card,.service-card{transition:transform .18s,border-color .18s,box-shadow .18s,background .18s}
+.primary-card:hover,.service-card:hover{transform:translateY(-3px);border-color:rgba(139,255,192,.29);box-shadow:0 17px 35px rgba(0,0,0,.18);background:linear-gradient(145deg,rgba(19,43,31,.98),rgba(7,17,15,.98))}
+.primary-icon{border-color:rgba(139,255,192,.12);background:linear-gradient(145deg,rgba(37,211,102,.16),rgba(18,140,126,.09));box-shadow:inset 0 1px 0 rgba(255,255,255,.045)}
+.activity-card{overflow:hidden}
+.activity-row{transition:background .16s}
+.activity-row:hover{background:rgba(139,255,192,.025)}
+.status{letter-spacing:.035em}
+button,input,select,textarea{font-family:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--dgm-mint);outline-offset:3px}
+@media(max-width:700px){
+ .main{padding:17px 13px 92px}
+ .topline{align-items:flex-start}
+ .welcome h1{font-size:clamp(23px,6vw,29px)}
+ .wallet{border-radius:21px;padding:19px}
+ .wallet-balance{font-size:clamp(32px,9vw,40px)}
+ .primary-grid{gap:8px}
+ .primary-card{padding:12px;min-height:112px;border-radius:16px}
+ .primary-icon{width:38px;height:38px;border-radius:12px;font-size:19px}
+ .services-grid{gap:8px}
+ .service-card{border-radius:15px;padding:11px 8px}
+ .section{margin-top:22px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}}
+</style>
+
 </head>
 <body>
 <header class="mobile-header"><a class="brand" href="/dashboard.html" aria-label="DGM Dashboard"><div class="brand-logo">DGM</div><div><div class="brand-name">DHE GENIUS MEDIA</div><div class="brand-tagline">Stay Connected. Stay Genius.</div></div></a><button class="menu-btn" type="button" onclick="openMenu()" aria-label="Open menu">☰</button></header>
