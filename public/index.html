@@ -256,20 +256,45 @@ section.block{padding:78px 0 20px}.sectionhead{max-width:660px;margin-bottom:29p
 </script>
 <script src="/funnel-analytics.js" defer></script>
 
+<style>
+/* Never show the signed-in customer tab bar on the public landing page. */
+@media (max-width: 900px) {
+  body.dgm-public-home .bottom-nav,
+  body.dgm-public-home .mobile-bottom-nav,
+  body.dgm-public-home .mobile-nav,
+  body.dgm-public-home .bottom-navigation,
+  body.dgm-public-home #bottomNav,
+  body.dgm-public-home #mobileBottomNav,
+  body.dgm-public-home [data-customer-bottom-nav] {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+</style>
 <script>
-/* Keep the public DGM homepage clear of the signed-in app's fixed bottom tab bar.
-   Only hide a fixed-bottom navigation containing all five customer tabs. */
+/* Catch customer navigation injected by shared scripts or a cached app shell. */
 (function removeInjectedCustomerBottomBar(){
+  document.body.classList.add('dgm-public-home');
   const labels = ['home','data','wallet','orders','account'];
   function inspect(){
-    document.querySelectorAll('nav,[role="navigation"],.bottom-nav,.mobile-bottom-nav,.mobile-nav,.bottom-navigation,#bottomNav,#mobileBottomNav,[data-customer-bottom-nav]').forEach(function(el){
-      const text = (el.innerText || el.textContent || '').toLowerCase().replace(/\\s+/g,' ');
-      if (!labels.every(function(label){ return new RegExp('\\\\b'+label+'\\\\b').test(text); })) return;
+    document.querySelectorAll('body *').forEach(function(el){
+      if (!el || el === document.body || el === document.documentElement) return;
       const style = window.getComputedStyle(el);
-      const bottom = parseFloat(style.bottom || 'auto');
-      const fixedAtBottom = style.position === 'fixed' && (Number.isFinite(bottom) ? bottom >= 0 : true);
-      const knownBottomBar = /bottom-nav|bottomnav|mobile-nav|bottom-navigation/i.test(String(el.className || '') + ' ' + (el.id || ''));
-      if (fixedAtBottom || knownBottomBar) {
+      const bottom = parseFloat(style.bottom);
+      const rect = el.getBoundingClientRect();
+      const isFixedBottom = style.position === 'fixed' &&
+        rect.height > 25 && rect.height < 180 &&
+        rect.bottom >= window.innerHeight - 35 &&
+        (!Number.isFinite(bottom) || bottom >= -5);
+      const classAndId = String(el.className && typeof el.className === 'string' ? el.className : '') + ' ' + (el.id || '');
+      const knownBar = /bottom.?nav|mobile.?nav|customer.?tabs/i.test(classAndId);
+      if (!isFixedBottom && !knownBar) return;
+      const text = (el.innerText || el.textContent || '').toLowerCase().replace(/\s+/g,' ').trim();
+      const hasAllLabels = labels.every(function(label){
+        return text.split(/[^a-z]+/).includes(label);
+      });
+      if (hasAllLabels || knownBar) {
         el.style.setProperty('display','none','important');
         el.style.setProperty('visibility','hidden','important');
         el.style.setProperty('pointer-events','none','important');
@@ -278,7 +303,8 @@ section.block{padding:78px 0 20px}.sectionhead{max-width:660px;margin-bottom:29p
     });
   }
   inspect();
-  new MutationObserver(inspect).observe(document.documentElement,{childList:true,subtree:true});
+  new MutationObserver(inspect).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
+  window.addEventListener('resize', inspect, {passive:true});
 })();
 </script>
 
