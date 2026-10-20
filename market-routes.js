@@ -331,7 +331,7 @@ function installMarket(app) {
       if(category){ values.push(category); where.push("c.slug=$"+n); n++; }
       const order={newest:"p.created_at DESC",price_asc:"COALESCE(p.sale_price,p.price) ASC",price_desc:"COALESCE(p.sale_price,p.price) DESC",popular:"p.rating DESC,p.review_count DESC"}[sort]||"p.created_at DESC";
       const count=await pool.query(`SELECT COUNT(*)::int count FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE ${where.join(" AND ")}`,values);
-      const rows=await pool.query(`SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE ${where.join(" AND ")} AND (p.listing_source <> 'agent' OR ap.status='approved') ORDER BY ${order} LIMIT ${limit} OFFSET ${(page-1)*limit}`,values);
+      const rows=await pool.query(`SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE ${where.join(" AND ")} AND (p.listing_source <> 'agent' OR ap.status='approved') ORDER BY ${order} LIMIT ${limit} OFFSET ${(page-1)*limit}`,values);
       res.json({success:true,page,limit,total:count.rows[0].count,products:rows.rows.map(publicProduct)});
     } catch(e){console.error("Market products:",e);sendError(res,500,"Could not load market products.");}
   });
@@ -339,7 +339,7 @@ function installMarket(app) {
   app.get("/api/market/products/:id", async (req,res) => {
     try {
       await ensureMarketDatabase();
-      const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE p.id=$1 AND p.active=TRUE",[Number(req.params.id)]);
+      const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE p.id=$1 AND p.active=TRUE AND (p.listing_source <> 'agent' OR ap.status='approved')",[Number(req.params.id)]);
       if(!r.rows.length) return sendError(res,404,"Product not found.");
       res.json({success:true,product:publicProduct(r.rows[0])});
     } catch(e){console.error("Market product:",e);sendError(res,500,"Could not load product.");}
@@ -420,7 +420,7 @@ function installMarket(app) {
         requested.set(key,{productId,quantity:combined,variant:item?.variant&&typeof item.variant==="object"?item.variant:{}});
       }
       const ids=[...new Set([...requested.values()].map(x=>x.productId))];
-      const rows=await client.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE p.id=ANY($1::int[]) AND p.active=TRUE FOR UPDATE OF p",[ids]);
+      const rows=await client.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE p.id=ANY($1::int[]) AND p.active=TRUE AND (p.listing_source <> 'agent' OR ap.status='approved') FOR UPDATE OF p",[ids]);
       const map=new Map(rows.rows.map(r=>[r.id,r]));
       let subtotal=0, deliveryFee=0, normalized=[];
       for(const item of requested.values()){
