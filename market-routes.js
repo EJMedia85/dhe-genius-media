@@ -75,7 +75,6 @@ async function ensureMarketDatabase() {
       await pool.query("ALTER TABLE market_products ADD COLUMN IF NOT EXISTS moderation_note TEXT");
       await pool.query("ALTER TABLE market_products ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ");
       await pool.query("UPDATE market_products SET moderation_status='pending' WHERE listing_source='agent' AND owner_agent_id IS NOT NULL AND active=FALSE AND moderation_status='approved' AND reviewed_at IS NULL");
-      await pool.query("ALTER TABLE market_order_items ADD COLUMN IF NOT EXISTS seller_agent_id INTEGER REFERENCES agent_profiles(id) ON DELETE SET NULL");
       await pool.query(`
         CREATE TABLE IF NOT EXISTS market_wishlists (
           customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -146,6 +145,7 @@ async function ensureMarketDatabase() {
       `);
 
       await pool.query("ALTER TABLE market_order_items ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL");
+      await pool.query("ALTER TABLE market_order_items ADD COLUMN IF NOT EXISTS seller_agent_id INTEGER REFERENCES agent_profiles(id) ON DELETE SET NULL");
 
       const categories = [
         ["Phones & Accessories","phones-accessories","📱"],
@@ -216,6 +216,7 @@ function publicProduct(row) {
     delivery_fee: Number(row.delivery_fee || 0), rating: Number(row.rating || 0),
     review_count: Number(row.review_count || 0), featured: Boolean(row.featured),
     active: Boolean(row.active),
+    moderation_status: row.moderation_status || (row.listing_source === "agent" ? "pending" : "approved"),
     supplier_id: row.supplier_id == null ? null : Number(row.supplier_id),
     supplier_name: row.supplier_name || null,
     seller_type: row.listing_source === "agent" ? "agent" : "dgm",
@@ -295,9 +296,8 @@ function installMarket(app) {
       const stock=b.stock===undefined?Number(old.stock):Number(b.stock);
       if(name.length<3||!Number.isFinite(price)||price<=0||price>10000000||!Number.isSafeInteger(stock)||stock<0||stock>1000000) return sendError(res,400,"Check the product name, price and stock quantity.");
       if(imageUrl&&!/^https:\/\//i.test(imageUrl)) return sendError(res,400,"Product image must use a secure HTTPS URL.");
-      const active=Boolean((await pool.query("SELECT active FROM market_products WHERE id=$1",[id])).rows[0].active);
-      const result=await pool.query("UPDATE market_products SET name=$1,description=$2,brand=$3,price=$4,stock=$5,image_url=$6,active=$7,updated_at=NOW() WHERE id=$8 AND owner_agent_id=$9 RETURNING id,name,price,stock,active,updated_at",[name,description,brand,price,stock,imageUrl,active,id,agent.id]);
-      res.json({success:true,product:result.rows[0]});
+      const result=await pool.query("UPDATE market_products SET name=$1,description=$2,brand=$3,price=$4,stock=$5,image_url=$6,active=FALSE,moderation_status='pending',moderation_note=NULL,reviewed_at=NULL,updated_at=NOW() WHERE id=$7 AND owner_agent_id=$8 RETURNING id,name,price,stock,active,moderation_status,updated_at",[name,description,brand,price,stock,imageUrl,id,agent.id]);
+      res.json({success:true,message:"Product changes saved and sent back for DGM review.",product:result.rows[0]});
     } catch(e){console.error("Market seller update product:",e);sendError(res,500,"Could not update your product.");}
   });
 
