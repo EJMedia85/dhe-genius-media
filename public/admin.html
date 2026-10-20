@@ -74,6 +74,11 @@
   <div class="tablebox"><table class="table"><thead><tr><th>Product</th><th>Category</th><th>Supplier</th><th>Price</th><th>Sale</th><th>Stock</th><th>Featured</th><th>Status</th><th>Action</th></tr></thead><tbody id="marketProductsBody"></tbody></table></div>
 </div>
 <div class="panel" style="margin-top:15px">
+  <div class="kpi"><div><h2>Agent Listings · Review Queue</h2><div class="muted">Agent-submitted products remain hidden until approved. Editing a listing should send it back for review.</div></div><button class="btn" onclick="loadMarketAgentListings()">Refresh Queue</button></div>
+  <div id="marketAgentListingsMsg" class="muted" style="margin:8px 0"></div>
+  <div class="tablebox"><table class="table"><thead><tr><th>Product</th><th>Agent / Store</th><th>Category</th><th>Price</th><th>Stock</th><th>Submitted</th><th>Review action</th></tr></thead><tbody id="marketAgentListingsBody"><tr><td colspan="7" class="empty">Loading review queue…</td></tr></tbody></table></div>
+</div>
+<div class="panel" style="margin-top:15px">
   <div class="kpi"><div><h2>Market Suppliers</h2><div class="muted">Register partner suppliers, then assign each supplier to their products. Assigned supplier details are available from each order.</div></div></div>
   <form id="marketSupplierForm" class="toolbar" style="margin-top:12px">
     <input class="input" id="msBusiness" placeholder="Supplier business name" required>
@@ -552,7 +557,7 @@ async function loadMarket(){
   marketProducts=p.products||[]; marketCategories=c.categories||[]; marketSuppliers=sup.suppliers||[]; renderMarketSuppliers();
   $('#marketStats').innerHTML=[['Active Products',s.products],['Market Orders',s.orders],['Total Sales',marketMoney(s.sales)]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:21px">'+x[1]+'</div></div>').join('');
   $('#marketCategoryFilter').innerHTML='<option value="">All categories</option>'+marketCategories.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.icon||'🛍️')+' '+esc(x.name)+'</option>').join('');
-  filterMarketProducts(); await loadMarketOrders();
+  filterMarketProducts(); await Promise.all([loadMarketOrders(),loadMarketAgentListings()]);
 }
 function filterMarketProducts(){
   const q=String($('#marketSearch')?.value||'').toLowerCase().trim(),cat=String($('#marketCategoryFilter')?.value||'');
@@ -561,6 +566,29 @@ function filterMarketProducts(){
     const sale=x.sale_price==null?'—':marketMoney(x.sale_price), price=marketMoney(x.price);
     return '<tr><td><b>'+esc(x.name)+'</b><br><span class="muted">'+esc(x.sku||x.slug)+'</span></td><td>'+esc(x.category||'—')+'</td><td>'+esc(x.supplier_name||'Unassigned')+'</td><td>'+price+'</td><td>'+sale+'</td><td>'+esc(x.stock)+'</td><td><span class="badge">'+(x.featured?'YES':'NO')+'</span></td><td><span class="badge">'+(x.active?'ACTIVE':'INACTIVE')+'</span></td><td><button class="btn" onclick="openMarketProduct('+Number(x.id)+')">Edit</button> <button class="btn red" onclick="removeMarketProduct('+Number(x.id)+')">Remove</button></td></tr>';
   }).join(''):'<tr><td colspan="8" class="empty">No market products found.</td></tr>';
+}
+async function loadMarketAgentListings(){
+  const body=$('#marketAgentListingsBody'),msg=$('#marketAgentListingsMsg');
+  if(!body)return;
+  try{
+    const d=await api('/api/admin/market/agent-listings'),rows=Array.isArray(d.listings)?d.listings:[];
+    msg.textContent=rows.length+' listing(s) awaiting review.';
+    body.innerHTML=rows.length?rows.map(x=>{
+      const product='<b>'+esc(x.name)+'</b><br><span class="muted">'+esc(x.brand||'')+'</span>'+(x.image_url?'<br><a href="'+esc(x.image_url)+'" target="_blank" rel="noopener">View image</a>':'')+'<br><span class="muted">'+esc(x.description||'')+'</span>';
+      const store='<b>'+esc(x.store_name||'Agent Store')+'</b><br><span class="muted">'+esc(x.agent_code||'')+' · '+esc(x.agent_name||'')+'</span><br><span class="muted">'+esc(x.agent_phone||'')+'</span>';
+      return '<tr><td>'+product+'</td><td>'+store+'</td><td>'+esc(x.category_name||'Uncategorized')+'</td><td><b>GH₵ '+marketMoney(x.price)+'</b></td><td>'+esc(x.stock)+'</td><td>'+new Date(x.created_at).toLocaleString()+'</td><td><button class="btn green" onclick="reviewMarketAgentListing('+Number(x.id)+',\'approve\')">Approve & Publish</button> <button class="btn red" onclick="reviewMarketAgentListing('+Number(x.id)+',\'reject\')">Reject</button></td></tr>';
+    }).join(''):'<tr><td colspan="7" class="empty">Review queue is clear. New agent submissions will appear here.</td></tr>';
+  }catch(e){msg.textContent=e.message;body.innerHTML='<tr><td colspan="7" class="empty">Could not load review queue.</td></tr>';}
+}
+async function reviewMarketAgentListing(id,decision){
+  let note='';
+  if(decision==='reject'){note=prompt('Reason for rejecting this product (optional):')||'';if(!confirm('Reject this agent listing and keep it unpublished?'))return;}
+  else if(!confirm('Approve this product and publish it on DGM Market?'))return;
+  try{
+    const d=await api('/api/admin/market/agent-listings/'+id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision,note})});
+    $('#marketAgentListingsMsg').textContent=d.message||'Review saved.';
+    await loadMarket();
+  }catch(e){alert(e.message);}
 }
 function renderMarketSuppliers(){
   $('#marketSuppliersBody').innerHTML=marketSuppliers.length?marketSuppliers.map(s=>'<tr><td><b>'+esc(s.business_name)+'</b><br><span class="muted">'+esc(s.email||'')+'</span></td><td>'+esc(s.contact_name||'—')+'</td><td>'+esc(s.phone)+'</td><td>'+esc(s.delivery_areas||'—')+'</td><td><span class="badge">'+(s.active?'ACTIVE':'INACTIVE')+'</span></td><td><button class="btn" onclick="toggleMarketSupplier('+Number(s.id)+','+(!s.active)+')">'+(s.active?'Deactivate':'Activate')+'</button></td></tr>').join(''):'<tr><td colspan="6" class="empty">No suppliers registered yet. Add a partner supplier above.</td></tr>';
