@@ -3801,17 +3801,23 @@ async function refreshDataMartBundleAvailability(force = false) {
 }
 
 app.get("/api/data-bundles", async (req, res) => {
-  const prices = await refreshDataMartPrices();
-  const availability = await refreshDataMartBundleAvailability();
+  let prices = null;
+  let availability = {};
+  try { prices = await refreshDataMartPrices(); } catch (error) { console.error("DGM catalogue refresh failed:", error.message); }
+  try { availability = await refreshDataMartBundleAvailability() || {}; } catch (error) { console.error("DGM availability refresh failed:", error.message); }
+  const sourcePrices = prices?.customer && Object.keys(prices.customer).length ? prices.customer : DGM_PRICES;
   const bundles = Object.fromEntries(
-    Object.entries(prices.customer).map(([network, priceMap]) => [
+    Object.entries(DGM_PRICES).map(([network, approvedPrices]) => [
       network,
-      Object.entries(priceMap).map(([gb, price]) => ({
-        size: gb + "GB",
-        price: Number(price),
-        available: availability?.[network]?.[gb] !== false,
-        availability_synced: availability?.[network]?.[gb] !== undefined
-      }))
+      Object.entries(approvedPrices).map(([gb, approvedPrice]) => {
+        const cachedPrice = Number(sourcePrices?.[network]?.[gb]);
+        return {
+          size: gb + "GB",
+          price: Number.isFinite(cachedPrice) && cachedPrice > 0 ? cachedPrice : Number(approvedPrice),
+          available: availability?.[network]?.[gb] !== false,
+          availability_synced: availability?.[network]?.[gb] !== undefined
+        };
+      })
     ])
   );
   return res.json({
