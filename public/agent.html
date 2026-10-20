@@ -9,6 +9,20 @@ button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{positio
 .section{display:none}.section.active{display:block}.workspace{display:grid;grid-template-columns:1fr;gap:14px}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:14px}table{width:100%;border-collapse:collapse;min-width:680px}th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap}tr:last-child td{border-bottom:0}th{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.profit{color:var(--green);font-weight:900}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.notice{padding:11px 13px;border:1px solid rgba(37,211,102,.14);background:rgba(37,211,102,.05);border-radius:12px;color:#b8d9cd;font-size:11px}
 #overview .sellbox{display:grid;grid-template-columns:1.1fr .9fr;gap:14px}.sellbox .sellform{background:linear-gradient(145deg,rgba(17,38,30,.98),rgba(8,18,15,.98));border:1px solid rgba(37,211,102,.18)}.pricePreview{display:flex;align-items:end;justify-content:space-between;padding:14px;border-radius:14px;background:#07130f;border:1px solid var(--line);margin:10px 0}.pricePreview b{font-size:22px}.walletBox{background:linear-gradient(135deg,rgba(37,211,102,.13),rgba(18,140,126,.08));border-color:rgba(37,211,102,.2)}.walletBox .big{font-size:30px;font-weight:950;margin:8px 0}
 .mobileNav{display:none}
+.quickMenuBtn{display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.drawerShade{position:fixed;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(4px);z-index:90;opacity:0;visibility:hidden;transition:opacity .18s ease}
+.quickDrawer{position:fixed;z-index:91;inset:0 auto 0 0;width:min(340px,88vw);padding:22px 16px;background:linear-gradient(160deg,#0d2019,#050b09);border-right:1px solid rgba(37,211,102,.2);box-shadow:24px 0 70px rgba(0,0,0,.4);transform:translateX(-105%);transition:transform .22s ease;overflow:auto}
+.drawerOpen .drawerShade{opacity:1;visibility:visible}.drawerOpen .quickDrawer{transform:translateX(0)}
+.drawerHead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 4px 18px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.drawerHead strong{font-size:16px}.drawerHead small{display:block;color:var(--muted);font-size:10px;margin-top:4px}
+.drawerClose{border:1px solid var(--line);background:#13231d;color:#fff;border-radius:10px;padding:8px 11px;cursor:pointer}
+.drawerLabel{font-size:9px;color:#638579;letter-spacing:.15em;text-transform:uppercase;padding:13px 8px 5px}
+.drawerLink{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:12px 11px;margin:3px 0;border:1px solid transparent;border-radius:12px;background:transparent;color:#e4f5ed;cursor:pointer}
+.drawerLink:hover{background:rgba(37,211,102,.09);border-color:rgba(37,211,102,.18)}
+.drawerLink span:first-child{width:22px;text-align:center;font-size:16px}
+#center.compact-dashboard #financeCenter,#center.compact-dashboard .hero,#center.compact-dashboard #overviewNotice,#center.compact-dashboard .sellbox{display:none}
+.dashboardTools{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 14px}
+@media(max-width:720px){.quickMenuBtn{padding:9px 11px}.topright{max-width:none;gap:6px}.status{max-width:95px}.dashboardTools{align-items:flex-start}.drawerLink{padding:13px 11px}}
 @media(max-width:1050px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.hero,#overview .sellbox{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar{position:fixed;top:auto;bottom:0;left:0;right:0;width:100%;height:68px;padding:7px 8px;display:flex;justify-content:flex-start;gap:4px;overflow-x:auto;overflow-y:hidden;background:rgba(5,13,11,.97);border-right:0;border-top:1px solid var(--line);scrollbar-width:thin}.logo,.navlabel,.back{display:none}.nav{flex:0 0 66px;width:auto;min-width:60px;padding:7px 6px;margin:0;display:flex;flex-direction:column;gap:3px;justify-content:center;text-align:center;font-size:9px}.nav .ico{font-size:15px}.main{margin-left:0;padding:18px 14px 90px}.topbar h1{font-size:23px}.kpis{grid-template-columns:repeat(2,1fr);gap:9px}.kpi{padding:13px}.kpi b{font-size:18px}.quick{grid-template-columns:1fr}.formgrid,.grid{grid-template-columns:1fr}.panel{padding:15px;border-radius:17px}#overview .sellbox{grid-template-columns:1fr}.topright{max-width:45%}.status{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 </style><body><div class="app">
@@ -30,9 +44,9 @@ button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{positio
   <button class="nav back" onclick="location.href='/dashboard.html'"><span class="ico">←</span>DGM Dashboard</button>
 </aside>
 <main class="main">
-  <header class="topbar"><div><div class="eyebrow">DHE GENIUS MEDIA • AGENT</div><h1>Business Center</h1><div class="muted">Sell digital services, manage your wallet and grow your profit.</div></div><div class="topright"><button id="backToDashboard" class="btn secondary" type="button" onclick="showTab('overview')" style="display:none;white-space:nowrap">← Dashboard</button><div id="status" class="status">Loading…</div></div></header>
+  <header class="topbar"><div><div class="eyebrow">DHE GENIUS MEDIA • AGENT</div><h1>Business Center</h1><div class="muted">Sell digital services, manage your wallet and grow your profit.</div></div><div class="topright"><button id="quickMenuButton" class="btn secondary quickMenuBtn" type="button" onclick="openQuickMenu()" aria-label="Open Quick Actions menu">☰ <span>Quick Actions</span></button><button id="backToDashboard" class="btn secondary" type="button" onclick="showTab('overview')" style="display:none;white-space:nowrap">← Dashboard</button><div id="status" class="status">Loading…</div></div></header>
   <div id="apply" class="panel" style="display:none;margin-bottom:14px"><h2>Become a DGM Agent</h2><p class="muted">Sell DGM services and earn profit from every successful sale.</p><textarea id="note" style="min-height:90px" placeholder="Tell DGM why you want to become an agent"></textarea><br><br><button class="btn" onclick="apply()">Apply Now</button><div id="applyMsg" class="msg"></div></div>
-  <div id="center" style="display:none">
+  <div id="center" class="compact-dashboard" style="display:none">
     <div class="kpis">
       <div class="kpi"><span class="label">AGENT WALLET</span><b id="wallet">GH₵0.00</b><span class="sub">Available for sales</span></div>
       <div class="kpi"><span class="label">AVAILABLE PROFIT</span><b id="commission">GH₵0.00</b><span class="sub">Ready to withdraw</span></div>
@@ -44,7 +58,7 @@ button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{positio
       <div class="kpi"><span class="label">FAILED SALES</span><b id="failedSales">0</b><span class="sub">Failed orders</span></div>
       <div class="kpi"><span class="label">REFUNDED SALES</span><b id="refundedSales">0</b><span class="sub">Not counted as completed</span></div>
     </div>
-    <section id="overview" class="section active">
+    <section id="overview" class="section active"><div class="dashboardTools"><div><div class="eyebrow">Your business at a glance</div><div class="muted">Keep the dashboard focused. Use Quick Actions for everything else.</div></div><button id="toolsToggle" class="btn secondary" type="button" onclick="toggleBusinessTools()">＋ Business tools</button></div>
     <section id="financeCenter" class="panel" style="margin-bottom:16px">
       <div class="panelHead"><div><div class="eyebrow">Financial command center</div><h2>Business cashflow</h2><div class="muted">Live totals from completed sales and recorded withdrawal requests.</div></div><button class="btn secondary" type="button" onclick="loadFinance()">↻ Refresh</button></div>
       <div class="kpis" style="margin-bottom:0">
@@ -89,6 +103,27 @@ button,input,select,textarea{font:inherit}.app{min-height:100vh}.sidebar{positio
   </div>
 </main>
 </div>
+<div id="quickDrawerShade" class="drawerShade" onclick="closeQuickMenu()" aria-hidden="true"></div>
+<aside id="quickDrawer" class="quickDrawer" aria-label="Agent Quick Actions" aria-hidden="true">
+  <div class="drawerHead"><div><strong>DGM Quick Actions</strong><small>Agent Business Center</small></div><button class="drawerClose" type="button" onclick="closeQuickMenu()" aria-label="Close menu">✕</button></div>
+  <div class="drawerLabel">Dashboard & selling</div>
+  <button class="drawerLink" onclick="quickGo('overview')"><span>⌂</span>Dashboard overview</button>
+  <button class="drawerLink" onclick="quickGo('sell')"><span>＋</span>Sell Data</button>
+  <button class="drawerLink" onclick="quickGo('store')"><span>▣</span>My Store</button>
+  <button class="drawerLink" onclick="quickGo('pricing')"><span>₵</span>Set Pricing</button>
+  <button class="drawerLink" onclick="quickGo('customers')"><span>♙</span>Customers</button>
+  <button class="drawerLink" onclick="quickGo('promos')"><span>%</span>Promotions</button>
+  <div class="drawerLabel">Wallet & records</div>
+  <button class="drawerLink" onclick="quickGo('fund')"><span>↗</span>Fund Agent Wallet</button>
+  <button class="drawerLink" onclick="quickGo('withdraw')"><span>⇩</span>Withdraw Profit</button>
+  <button class="drawerLink" onclick="quickGo('sales')"><span>▤</span>Agent Store Orders & Transactions</button>
+  <button class="drawerLink" onclick="quickGo('wallet')"><span>₵</span>Wallet Activity</button>
+  <button class="drawerLink" onclick="quickGo('withdrawals')"><span>◷</span>Withdrawal Requests</button>
+  <div class="drawerLabel">Business growth</div>
+  <button class="drawerLink" onclick="quickGo('team')"><span>♟</span>Team Management</button>
+  <button class="drawerLink" onclick="quickGo('finance')"><span>▥</span>Financial Reports</button>
+  <button class="drawerLink" onclick="location.href='/dashboard.html'"><span>←</span>DGM Customer Dashboard</button>
+</aside>
 <div class="mobileNav"></div>
 <script>
 const $=id=>document.getElementById(id),money=v=>'GH₵'+Number(v||0).toFixed(2),esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
@@ -97,7 +132,12 @@ let bundles={MTN:[[1,5],[2,10],[3,15],[4,20],[5,24],[6,28],[8,36],[10,45],[15,64
 function applyLivePrices(networks){for(const net of Object.keys(bundles)){const rows=Array.isArray(networks?.[net])?networks[net]:[];const map=Object.fromEntries(rows.map(x=>[String(x.capacity),Number(x.price)]));bundles[net]=bundles[net].map(x=>[x[0],Number(map[String(x[0])])>0?Number(map[String(x[0])]):x[1]]);}}
 function fillSelect(sel,net){$(sel).innerHTML=bundles[net].map(x=>'<option value="'+x[0]+'" data-base="'+x[1]+'">'+x[0]+' GB • '+money(x[1])+'</option>').join('');hint(sel)}
 function hint(sel){const s=$(sel),o=s.selectedOptions[0];if(s.id==='capacity')$('baseHint').textContent='DGM base: '+money(o?.dataset.base)+' • Your price can be higher.';if(s.id==='priceCapacity')$('priceValue').placeholder=money(o?.dataset.base)}
-function showTab(id){const target=$(id)?id:'overview';document.querySelectorAll('.nav[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===target));document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===target));const back=$('backToDashboard');if(back)back.style.display=target==='overview'?'none':'inline-flex';if(history.replaceState)history.replaceState(null,'','#'+target);window.scrollTo({top:0,behavior:'auto'});const activeNav=document.querySelector('.nav[data-tab].active');if(activeNav&&window.innerWidth<=720)activeNav.scrollIntoView({block:'nearest',inline:'nearest',behavior:'auto'});}
+function openQuickMenu(){document.body.classList.add('drawerOpen');$('quickDrawer').setAttribute('aria-hidden','false');$('quickDrawerShade').setAttribute('aria-hidden','false')}
+function closeQuickMenu(){document.body.classList.remove('drawerOpen');$('quickDrawer').setAttribute('aria-hidden','true');$('quickDrawerShade').setAttribute('aria-hidden','true')}
+function toggleBusinessTools(){const center=$('center');center.classList.toggle('compact-dashboard');const compact=center.classList.contains('compact-dashboard');$('toolsToggle').textContent=compact?'＋ Business tools':'− Hide business tools'}
+function quickGo(action){closeQuickMenu();if(action==='sell'||action==='fund'||action==='withdraw'){showTab('overview');$('center').classList.remove('compact-dashboard');$('toolsToggle').textContent='− Hide business tools';const target=action==='sell'?document.querySelector('#overview .sellbox'):action==='fund'?document.querySelector('#overview .walletBox'):document.querySelector('#overview .sellbox .panel:nth-child(2)');if(target)setTimeout(()=>target.scrollIntoView({behavior:'auto',block:'start'}),30);return}if(action==='finance'){showTab('overview');$('center').classList.remove('compact-dashboard');$('toolsToggle').textContent='− Hide business tools';setTimeout(()=>$('financeCenter').scrollIntoView({behavior:'auto',block:'start'}),30);return}showTab(action)}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeQuickMenu()});
+function showTab(id){const target=$(id)?id:'overview';document.querySelectorAll('.nav[data-tab]').forEach(x=>x.classList.toggle('active',x.dataset.tab===target));document.querySelectorAll('.section').forEach(x=>x.classList.toggle('active',x.id===target));const back=$('backToDashboard');if(back)back.style.display=target==='overview'?'none':'inline-flex';if(history.replaceState)history.replaceState(null,'','#'+target);if(target!=='overview')closeQuickMenu();window.scrollTo({top:0,behavior:'auto'});const activeNav=document.querySelector('.nav[data-tab].active');if(activeNav&&window.innerWidth<=720)activeNav.scrollIntoView({block:'nearest',inline:'nearest',behavior:'auto'});}
 function render(){document.querySelectorAll('.nav[data-tab]').forEach(b=>{b.type='button';b.onclick=e=>{e.preventDefault();showTab(b.dataset.tab)}});const initial=location.hash.replace('#','');showTab($(initial)?initial:'overview')}
 async function loadLiveCatalogue(){try{const d=await api('/api/agent/data-catalogue?_='+Date.now());applyLivePrices(d.networks);fillSelect('capacity',$('network').value);fillSelect('priceCapacity',$('priceNetwork').value)}catch(e){console.warn('Live DataMart catalogue unavailable',e)}}
 async function load(){
