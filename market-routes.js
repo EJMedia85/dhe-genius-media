@@ -57,6 +57,8 @@ async function ensureMarketDatabase() {
           variants JSONB NOT NULL DEFAULT '[]'::jsonb,
           delivery_fee NUMERIC(12,2) NOT NULL DEFAULT 0,
           supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL,
+          owner_agent_id INTEGER REFERENCES agent_profiles(id) ON DELETE SET NULL,
+          listing_source TEXT NOT NULL DEFAULT 'dgm' CHECK (listing_source IN ('dgm','agent')),
           rating NUMERIC(3,2) NOT NULL DEFAULT 0,
           review_count INTEGER NOT NULL DEFAULT 0,
           featured BOOLEAN NOT NULL DEFAULT FALSE,
@@ -66,6 +68,10 @@ async function ensureMarketDatabase() {
         );
       `);
       await pool.query("ALTER TABLE market_products ADD COLUMN IF NOT EXISTS supplier_id INTEGER REFERENCES market_suppliers(id) ON DELETE SET NULL");
+      // Multi-vendor ownership. Existing DGM catalogue items remain DGM-owned.
+      await pool.query("ALTER TABLE market_products ADD COLUMN IF NOT EXISTS owner_agent_id INTEGER REFERENCES agent_profiles(id) ON DELETE SET NULL");
+      await pool.query("ALTER TABLE market_products ADD COLUMN IF NOT EXISTS listing_source TEXT NOT NULL DEFAULT 'dgm'");
+      await pool.query("ALTER TABLE market_order_items ADD COLUMN IF NOT EXISTS seller_agent_id INTEGER REFERENCES agent_profiles(id) ON DELETE SET NULL");
       await pool.query(`
         CREATE TABLE IF NOT EXISTS market_wishlists (
           customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
@@ -207,7 +213,9 @@ function publicProduct(row) {
     review_count: Number(row.review_count || 0), featured: Boolean(row.featured),
     active: Boolean(row.active),
     supplier_id: row.supplier_id == null ? null : Number(row.supplier_id),
-    supplier_name: row.supplier_name || null
+    supplier_name: row.supplier_name || null,
+    seller_type: row.listing_source === "agent" ? "agent" : "dgm",
+    seller_name: row.agent_store_name || row.supplier_name || (row.listing_source === "agent" ? "DGM Agent Seller" : "DGM Market")
   };
 }
 
@@ -220,6 +228,89 @@ function orderRef() {
 }
 
 function installMarket(app) {
+  // Agent seller centre: only approved agents can create and manage their own listings.
+  async function approvedMarketAgent(customerId) {
+    const r = await pool.query("SELECT id,status,store_name,store_slug FROM agent_profiles WHERE customer_id=$1 AND status='approved' LIMIT 1",[customerId]);
+    return r.rows[0] || null;
+  }
+
+  app.get("/api/market/seller/products", async (req,res) => {
+    if (!req.session?.customerId) return sendError(res,401,"Please login to continue.");
+    try {
+      await ensureMarketDatabase();
+      const agent=await approvedMarketAgent(req.session.customerId);
+      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
+      const r=await pool.query("SELECT p.*,c.name category_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE p.owner_agent_id=$1 AND p.listing_source='agent' ORDER BY p.created_at DESC",[agent.id]);
+      res.json({success:true,products:r.rows.map(publicProduct),seller:{id:agent.id,store_name:agent.store_name,store_slug:agent.store_slug}});
+    } catch(e){console.error("Market seller products:",e);sendError(res,500,"Could not load your market listings.");}
+  });
+
+  app.post("/api/market/seller/products", async (req,res) => {
+    if (!req.session?.customerId) return sendError(res,401,"Please login to continue.");
+    try {
+      await ensureMarketDatabase();
+      const agent=await approvedMarketAgent(req.session.customerId);
+      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
+      const name=String(req.body?.name||"").trim().slice(0,160);
+      const description=String(req.body?.description||"").trim().slice(0,5000);
+      const brand=String(req.body?.brand||"").trim().slice(0,120);
+      const imageUrl=String(req.body?.image_url||"").trim().slice(0,1500);
+      const price=Number(req.body?.price), stock=Number(req.body?.stock);
+      const categorySlug=String(req.body?.category||"").trim().slice(0,100);
+      if(name.length<3) return sendError(res,400,"Product name must be at least 3 characters.");
+      if(!Number.isFinite(price)||price<=0||price>10000000) return sendError(res,400,"Enter a valid product price.");
+      if(!Number.isSafeInteger(stock)||stock<0||stock>1000000) return sendError(res,400,"Enter a valid whole-number stock quantity.");
+      if(imageUrl && !/^https:\/\//i.test(imageUrl)) return sendError(res,400,"Product image must use a secure HTTPS URL.");
+      const cat=categorySlug ? await pool.query("SELECT id FROM market_categories WHERE slug=$1 AND active=TRUE",[categorySlug]) : {rows:[]};
+      if(categorySlug&&!cat.rows.length) return sendError(res,400,"Choose a valid active market category.");
+      const slugBase=safeSlug(name)||"agent-product";
+      const slug=slugBase+"-"+crypto.randomBytes(4).toString("hex");
+      const sku="AG"+agent.id+"-"+crypto.randomBytes(4).toString("hex").toUpperCase();
+      const r=await pool.query(`INSERT INTO market_products(name,slug,description,category_id,brand,sku,price,stock,image_url,owner_agent_id,listing_source,active)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'agent',FALSE) RETURNING id,name,slug,price,stock,active,created_at`,
+        [name,slug,description,cat.rows[0]?.id||null,brand,sku,price,stock,imageUrl,agent.id]);
+      res.status(201).json({success:true,message:"Product submitted for DGM review. It will appear in the public market after approval.",product:r.rows[0]});
+    } catch(e){console.error("Market seller create product:",e);sendError(res,500,"Could not submit your product. Please try again.");}
+  });
+
+  app.patch("/api/market/seller/products/:id", async (req,res) => {
+    if (!req.session?.customerId) return sendError(res,401,"Please login to continue.");
+    try {
+      await ensureMarketDatabase();
+      const agent=await approvedMarketAgent(req.session.customerId);
+      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
+      const id=Number(req.params.id);
+      const existing=await pool.query("SELECT id,name,description,brand,price,stock,image_url,category_id FROM market_products WHERE id=$1 AND owner_agent_id=$2 AND listing_source='agent'",[id,agent.id]);
+      if(!existing.rows.length) return sendError(res,404,"Your product was not found.");
+      const old=existing.rows[0], b=req.body||{};
+      const name=b.name===undefined?old.name:String(b.name).trim().slice(0,160);
+      const description=b.description===undefined?old.description:String(b.description).trim().slice(0,5000);
+      const brand=b.brand===undefined?old.brand:String(b.brand).trim().slice(0,120);
+      const imageUrl=b.image_url===undefined?old.image_url:String(b.image_url).trim().slice(0,1500);
+      const price=b.price===undefined?Number(old.price):Number(b.price);
+      const stock=b.stock===undefined?Number(old.stock):Number(b.stock);
+      if(name.length<3||!Number.isFinite(price)||price<=0||price>10000000||!Number.isSafeInteger(stock)||stock<0||stock>1000000) return sendError(res,400,"Check the product name, price and stock quantity.");
+      if(imageUrl&&!/^https:\/\//i.test(imageUrl)) return sendError(res,400,"Product image must use a secure HTTPS URL.");
+      const active=Boolean((await pool.query("SELECT active FROM market_products WHERE id=$1",[id])).rows[0].active);
+      const result=await pool.query("UPDATE market_products SET name=$1,description=$2,brand=$3,price=$4,stock=$5,image_url=$6,active=$7,updated_at=NOW() WHERE id=$8 AND owner_agent_id=$9 RETURNING id,name,price,stock,active,updated_at",[name,description,brand,price,stock,imageUrl,active,id,agent.id]);
+      res.json({success:true,product:result.rows[0]});
+    } catch(e){console.error("Market seller update product:",e);sendError(res,500,"Could not update your product.");}
+  });
+
+  app.get("/api/market/seller/orders", async (req,res) => {
+    if (!req.session?.customerId) return sendError(res,401,"Please login to continue.");
+    try {
+      await ensureMarketDatabase();
+      const agent=await approvedMarketAgent(req.session.customerId);
+      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
+      const r=await pool.query(`SELECT o.id,o.order_ref,o.status,o.payment_status,o.payment_method,o.created_at,o.delivery_name,o.delivery_phone,
+        i.product_name,i.quantity,i.unit_price,i.line_total,i.variant
+        FROM market_order_items i JOIN market_orders o ON o.id=i.market_order_id
+        WHERE i.seller_agent_id=$1 ORDER BY o.created_at DESC LIMIT 200`,[agent.id]);
+      res.json({success:true,orders:r.rows});
+    } catch(e){console.error("Market seller orders:",e);sendError(res,500,"Could not load seller orders.");}
+  });
+
   app.get("/api/market/categories", async (req,res) => {
     try {
       await ensureMarketDatabase();
@@ -240,7 +331,7 @@ function installMarket(app) {
       if(category){ values.push(category); where.push("c.slug=$"+n); n++; }
       const order={newest:"p.created_at DESC",price_asc:"COALESCE(p.sale_price,p.price) ASC",price_desc:"COALESCE(p.sale_price,p.price) DESC",popular:"p.rating DESC,p.review_count DESC"}[sort]||"p.created_at DESC";
       const count=await pool.query(`SELECT COUNT(*)::int count FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id WHERE ${where.join(" AND ")}`,values);
-      const rows=await pool.query(`SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id WHERE ${where.join(" AND ")} ORDER BY ${order} LIMIT ${limit} OFFSET ${(page-1)*limit}`,values);
+      const rows=await pool.query(`SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE ${where.join(" AND ")} AND (p.listing_source <> 'agent' OR ap.status='approved') ORDER BY ${order} LIMIT ${limit} OFFSET ${(page-1)*limit}`,values);
       res.json({success:true,page,limit,total:count.rows[0].count,products:rows.rows.map(publicProduct)});
     } catch(e){console.error("Market products:",e);sendError(res,500,"Could not load market products.");}
   });
@@ -248,7 +339,7 @@ function installMarket(app) {
   app.get("/api/market/products/:id", async (req,res) => {
     try {
       await ensureMarketDatabase();
-      const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id WHERE p.id=$1 AND p.active=TRUE",[Number(req.params.id)]);
+      const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE p.id=$1 AND p.active=TRUE",[Number(req.params.id)]);
       if(!r.rows.length) return sendError(res,404,"Product not found.");
       res.json({success:true,product:publicProduct(r.rows[0])});
     } catch(e){console.error("Market product:",e);sendError(res,500,"Could not load product.");}
@@ -329,7 +420,7 @@ function installMarket(app) {
         requested.set(key,{productId,quantity:combined,variant:item?.variant&&typeof item.variant==="object"?item.variant:{}});
       }
       const ids=[...new Set([...requested.values()].map(x=>x.productId))];
-      const rows=await client.query("SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id WHERE p.id=ANY($1::int[]) AND p.active=TRUE FOR UPDATE OF p",[ids]);
+      const rows=await client.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id WHERE p.id=ANY($1::int[]) AND p.active=TRUE FOR UPDATE OF p",[ids]);
       const map=new Map(rows.rows.map(r=>[r.id,r]));
       let subtotal=0, deliveryFee=0, normalized=[];
       for(const item of requested.values()){
@@ -353,7 +444,7 @@ function installMarket(app) {
       const o=await client.query(`INSERT INTO market_orders(order_ref,customer_id,subtotal,delivery_fee,total,payment_method,payment_status,payment_reference,status,delivery_name,delivery_phone,delivery_address,notes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'Pending',$9,$10,$11,$12) RETURNING id,order_ref,total,status,created_at,payment_method,payment_status`,[ref,req.session.customerId,subtotal,deliveryFee,total,paymentMethod,paymentStatus,paymentMethod==="Paystack"?ref:null,String(delivery.name).trim(),String(delivery.phone).trim(),String(delivery.address).trim(),String(delivery.notes||"").trim()]);
       for(const x of normalized){
         await client.query("UPDATE market_products SET stock=stock-$1,updated_at=NOW() WHERE id=$2",[x.qty,x.p.id]);
-        await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant,supplier_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify(x.variant||{}),x.p.supplier_id||null]);
+        await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant,supplier_id,seller_agent_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify(x.variant||{}),x.p.supplier_id||null,x.p.owner_agent_id||null]);
       }
       if(paymentMethod==="Wallet"){
         await client.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[total,req.session.customerId]);
@@ -430,7 +521,7 @@ function installMarket(app) {
   });
 
   app.get("/api/admin/market/products",requireAdmin,async(req,res)=>{
-    try { await ensureMarketDatabase(); const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id ORDER BY p.created_at DESC"); res.json({success:true,products:r.rows.map(publicProduct)}); }
+    try { await ensureMarketDatabase(); const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id ORDER BY p.created_at DESC"); res.json({success:true,products:r.rows.map(publicProduct)}); }
     catch(e){sendError(res,500,"Could not load products.");}
   });
 
