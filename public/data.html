@@ -49,6 +49,36 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 .info{margin-top:20px;padding:15px;border-radius:15px;background:rgba(0,140,255,.06);border:1px solid rgba(0,140,255,.1);color:var(--muted);font-size:11px;line-height:1.6}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;height:68px;background:rgba(6,18,30,.98);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-around;z-index:100}.bottom-nav button{border:none;background:none;color:#70899c;font-size:10px;display:flex;flex-direction:column;align-items:center;gap:4px}.bottom-nav button.active{color:#00b7ff}.bottom-icon{font-size:19px}
 @media(min-width:650px){.bundle-grid{grid-template-columns:repeat(4,1fr)}}
+
+/* DGM Data Shop refresh */
+.page-title{position:relative;overflow:hidden;padding:23px 20px 21px;border:1px solid rgba(0,183,255,.18);border-radius:22px;background:radial-gradient(circle at 95% 0,rgba(0,183,255,.22),transparent 38%),linear-gradient(135deg,#102b40,#0a1b2a 70%);box-shadow:0 18px 40px rgba(0,0,0,.16)}
+.page-title:after{content:"";position:absolute;width:150px;height:150px;border:1px solid rgba(0,183,255,.12);border-radius:50%;right:-52px;bottom:-95px;box-shadow:0 0 0 18px rgba(0,183,255,.025),0 0 0 38px rgba(0,183,255,.02);pointer-events:none}
+.page-eyebrow{display:inline-flex;align-items:center;gap:7px;padding:6px 9px;border:1px solid rgba(34,213,138,.22);border-radius:999px;background:rgba(34,213,138,.08);color:#a9f4cc;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.page-title h1{font-size:clamp(27px,6vw,36px);letter-spacing:-.04em;margin-bottom:8px;line-height:1.08}
+.page-title p{max-width:490px;font-size:13px;line-height:1.65}
+.shop-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0 0 22px}
+.shop-benefit{min-width:0;padding:11px 8px;border:1px solid var(--border);border-radius:13px;background:rgba(255,255,255,.025);text-align:center}
+.shop-benefit b{display:block;font-size:11px;color:#eaf5fb;margin-bottom:4px}
+.shop-benefit span{display:block;font-size:9px;color:var(--muted);line-height:1.35}
+.section-title{display:flex;align-items:center;gap:8px;font-size:15px;letter-spacing:-.01em}
+.network{min-height:96px;border-radius:17px;transition:border-color .18s,background .18s,transform .18s}
+.network:active{transform:scale(.97)}
+.network.active{border-color:rgba(0,183,255,.8);background:linear-gradient(145deg,rgba(0,140,255,.18),rgba(0,140,255,.06));box-shadow:0 0 0 1px rgba(0,183,255,.13),0 10px 24px rgba(0,0,0,.12)}
+.catalog-status{border-color:rgba(34,213,138,.2);box-shadow:inset 0 1px rgba(255,255,255,.02)}
+.bundle-grid{gap:12px}
+.bundle{min-height:153px;border-radius:18px;box-shadow:0 8px 20px rgba(0,0,0,.10)}
+.bundle:hover:not(:disabled){border-color:rgba(0,183,255,.55);transform:translateY(-2px)}
+.bundle-brand{height:80px}
+.bundle-content{margin-top:62px;padding:14px}
+.bundle-name{font-size:22px;letter-spacing:-.04em}
+.bundle-price{font-size:15px;padding:5px 9px}
+.purchase-flow{border-radius:22px;box-shadow:0 18px 40px rgba(0,0,0,.15)}
+.confirm-button,.payment-button{min-height:50px;transition:transform .15s,filter .15s}
+.confirm-button:active,.payment-button:active{transform:scale(.99)}
+.info{border-radius:16px}
+@media(max-width:380px){main{padding-left:12px;padding-right:12px}.page-title{padding:20px 16px}.networks{gap:6px}.network{padding:11px 4px}.network-logo{width:39px;height:39px}.network-name{font-size:10px}.bundle-grid{gap:8px}.bundle{min-height:145px}.bundle-content{padding:11px}.bundle-name{font-size:20px}}
+@media(min-width:650px){.shop-benefits{gap:12px}.shop-benefit{padding:14px}.shop-benefit b{font-size:12px}.shop-benefit span{font-size:10px}}
+
 </style>
 </head>
 <body>
@@ -59,21 +89,22 @@ main{width:100%;max-width:800px;margin:auto;padding:24px 16px 40px}
 </div></header>
 
 <main>
-<section class="page-title"><h1>Buy Data 📶</h1><p>Select a network and bundle first. Then enter the recipient and review the order before confirming.</p></section>
+<section class="page-title"><div class="page-eyebrow"><span>●</span> DGM SECURE DATA SHOP</div><h1>Stay connected.<br>Stay Genius. 📶</h1><p>Choose your network, pick a bundle, and send data to any supported Ghana number. Review every detail before you pay.</p></section>
+<div class="shop-benefits" aria-label="Purchase benefits"><div class="shop-benefit"><b>🔒 Secure checkout</b><span>Payment verified before delivery</span></div><div class="shop-benefit"><b>📱 Any number</b><span>Buy for yourself or someone else</span></div><div class="shop-benefit"><b>🇬🇭 Ghana networks</b><span>MTN · AT · Telecel</span></div></div>
 
 <section class="wallet-card" id="walletCard"><div><small>Available Wallet Balance</small><strong id="walletBalance">GH₵0.00</strong></div><button class="wallet-refresh" onclick="loadWallet()">Refresh</button></section>
 <div id="guestNotice" class="info" style="display:none;margin:-5px 0 18px">Buy data without creating an account. Guest checkout uses Paystack only; you can optionally create a DGM account later.</div>
 
 <a href="/mashup.html" style="display:block;margin:0 0 18px;padding:14px 16px;border:1px solid rgba(37,211,102,.25);border-radius:16px;background:linear-gradient(135deg,rgba(37,211,102,.10),rgba(0,140,255,.08));color:#fff;text-decoration:none"><strong>🔥 MTN MashUp</strong><span style="display:block;color:#8ea7b9;font-size:11px;margin-top:4px">Data + MTN minutes + other-network minutes + SMS • 30 days</span></a>
 
-<h2 class="section-title">Select Network</h2>
+<h2 class="section-title">① Choose your network</h2>
 <section class="networks">
 <button class="network active" aria-label="MTN" onclick="selectNetwork('MTN',this)"><span class="network-logo"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#ffcb05"/><circle cx="32" cy="32" r="27" fill="none" stroke="#111" stroke-width="2"/><text x="32" y="38" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="#111">MTN</text></svg></span><span class="network-name">MTN</span></button>
 <button class="network" aria-label="AirtelTigo / AT" onclick="selectNetwork('AirtelTigo',this)"><span class="network-logo"><svg viewBox="0 0 64 64"><rect x="2" y="2" width="60" height="60" rx="17" fill="#fff"/><path d="M15 43 C18 27,27 15,45 15" fill="none" stroke="#e21b2d" stroke-width="7" stroke-linecap="round"/><path d="M27 48 C34 42,41 36,48 27" fill="none" stroke="#1670c9" stroke-width="7" stroke-linecap="round"/><text x="32" y="37" text-anchor="middle" font-family="Arial,sans-serif" font-size="15" font-weight="900" fill="#e21b2d">AT</text></svg></span><span class="network-name">AirtelTigo / AT</span></button>
 <button class="network" aria-label="Telecel" onclick="selectNetwork('Telecel',this)"><span class="network-logo"><svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#e31b35"/><path d="M18 20 H46 M32 20 V46" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="32" r="7" fill="#fff"/></svg></span><span class="network-name">Telecel</span></button>
 </section>
 
-<h2 class="section-title">Choose your data bundle</h2>
+<h2 class="section-title">② Pick your bundle</h2>
 <div class="catalog-status"><span><i class="catalog-dot"></i><strong id="catalogStatus">Loading current prices…</strong></span><span id="catalogUpdated">Prices are checked against DGM’s live catalogue</span></div>
 <div id="catalogError" class="catalog-error" role="status"></div>
 <section id="bundleGrid" class="bundle-grid" aria-label="Available data bundles"></section>
