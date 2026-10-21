@@ -258,20 +258,6 @@ function installMarket(app) {
     } catch(e){console.error("Market image signature:",e);return sendError(res,500,"Could not prepare the secure image upload.");}
   });
 
-  app.get("/api/market/categories", async (req,res) => {
-      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to upload product images.");
-      const cloudName=String(process.env.CLOUDINARY_CLOUD_NAME||"").trim();
-      const apiKey=String(process.env.CLOUDINARY_API_KEY||"").trim();
-      const apiSecret=String(process.env.CLOUDINARY_API_SECRET||"").trim();
-      if(!cloudName||!apiKey||!apiSecret) return sendError(res,503,"Product image uploads are not configured yet. Please contact DGM support.");
-      const timestamp=Math.floor(Date.now()/1000);
-      const folder="dgm-market/products";
-      const signature=crypto.createHash("sha1").update("folder="+folder+"&timestamp="+timestamp+apiSecret).digest("hex");
-      res.set("Cache-Control","no-store");
-      return res.json({success:true,cloud_name:cloudName,api_key:apiKey,timestamp,folder,signature});
-    } catch(e){console.error("Market image signature:",e);return sendError(res,500,"Could not prepare the secure image upload.");}
-  });
-
   app.get("/api/market/seller/products", async (req,res) => {
     if (!req.session?.customerId) return sendError(res,401,"Please login to continue.");
     try {
