@@ -1,4 +1,5 @@
 const crypto = require("crypto");
+const { sendAdminSms } = require("./admin-sms");
 
 function money(value) {
   return Math.round(Number(value || 0) * 100) / 100;
@@ -248,12 +249,16 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       if(existing && existing.status==="approved") return res.status(400).json({success:false,message:"You are already an approved DGM Agent."});
       if(existing && existing.status==="pending") return res.status(400).json({success:false,message:"Your agent application is already pending."});
       if(existing && existing.status==="suspended") return res.status(400).json({success:false,message:"Your agent account is suspended. Contact DGM Support."});
+      let agentId = existing?.id;
       if(existing) {
         await pool.query(`UPDATE agent_profiles SET status='pending',application_note=$1,updated_at=NOW() WHERE id=$2`,[note,existing.id]);
       } else {
         const p=await pool.query(`INSERT INTO agent_profiles(customer_id,status,application_note) VALUES($1,'pending',$2) RETURNING id`,[req.session.customerId,note]);
-        await pool.query(`INSERT INTO agent_wallets(agent_id,balance) VALUES($1,0)`,[p.rows[0].id]);
+        agentId=p.rows[0].id;
+        await pool.query(`INSERT INTO agent_wallets(agent_id,balance) VALUES($1,0)`,[agentId]);
       }
+      const applicant = await getAgent(req.session.customerId);
+      void sendAdminSms("New agent approval request", `Applicant: ${applicant?.name || "DGM customer"}; phone: ${applicant?.phone || "not provided"}; agent application ID: ${agentId}. Review the Admin Dashboard.`);
       return res.json({success:true,message:"Agent application submitted. DGM will review it shortly."});
     } catch(e) { console.error("Agent apply:",e); return res.status(500).json({success:false,message:"Could not submit agent application."}); }
   });
@@ -447,6 +452,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       await c.query(`INSERT INTO agent_withdrawals(agent_id,reference,amount,momo_network,momo_phone,momo_name,source)
         VALUES($1,$2,$3,$4,$5,$6,$7)`,[a.id,ref,amount,network,phone,name,source]);
       await c.query("COMMIT");
+      void sendAdminSms("New MoMo withdrawal approval request", `Agent: ${a.name || a.agent_code || ("ID " + a.id)}; amount GH₵${amount.toFixed(2)}; source: ${source}; network: ${network}; reference: ${ref}. Review payout details in the Admin Dashboard.`);
       res.json({success:true,message:(source==="wallet"?"Agent Wallet":"Available Profit")+" withdrawal requested. DGM admin approval is required before MoMo payment.",reference:ref,source});
     }catch(e){await c.query("ROLLBACK");res.status(400).json({success:false,message:e.message||"Could not request withdrawal."});}finally{c.release();}
   });
