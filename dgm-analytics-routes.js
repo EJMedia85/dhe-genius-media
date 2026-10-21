@@ -109,6 +109,65 @@ function installDgmAnalytics(app, { pool, requireAdmin }) {
       return res.status(500).json({ success: false, message: "Could not load DGM analytics right now." });
     }
   });
+
+
+  // Read-only queue for orders that may need delivery/refund reconciliation.
+  // This endpoint never retries a supplier request, issues a refund, or changes balances.
+  app.get("/api/admin/recovery-queue", requireAdmin, async (req, res) => {
+    try {
+      const result = await pool.query(`
+        SELECT o.order_ref, o.service, o.network, o.phone, o.amount, o.status,
+               o.payment_status, o.datamart_status, o.provider_status,
+               o.guest_refund_status, o.created_at,
+               CASE
+                 WHEN LOWER(COALESCE(o.status, '')) IN ('failed','delivery failed','failure')
+                   THEN 'Order marked failed'
+                 WHEN LOWER(COALESCE(o.status, '')) IN ('refund pending','refund_pending')
+                   OR LOWER(COALESCE(o.guest_refund_status, '')) IN ('pending','pending refund','refund pending','refund_pending')
+                   THEN 'Refund needs reconciliation'
+                 WHEN LOWER(COALESCE(o.datamart_status, '')) IN ('failed','failure','error','rejected')
+                   THEN 'Supplier delivery failure reported'
+                 WHEN LOWER(COALESCE(o.provider_status, '')) IN ('failed','failure','error','rejected')
+                   THEN 'Provider failure reported'
+                 ELSE 'Paid order awaiting completion'
+               END AS review_reason
+          FROM orders o
+         WHERE LOWER(COALESCE(o.status, '')) IN ('failed','delivery failed','failure','refund pending','refund_pending')
+            OR LOWER(COALESCE(o.guest_refund_status, '')) IN ('pending','pending refund','refund pending','refund_pending')
+            OR LOWER(COALESCE(o.datamart_status, '')) IN ('failed','failure','error','rejected')
+            OR LOWER(COALESCE(o.provider_status, '')) IN ('failed','failure','error','rejected')
+            OR (
+              LOWER(COALESCE(o.payment_status, '')) = 'paid'
+              AND LOWER(COALESCE(o.status, '')) IN ('processing','pending delivery','delivery pending')
+              AND o.created_at < NOW() - INTERVAL '5 minutes'
+            )
+         ORDER BY
+           CASE WHEN LOWER(COALESCE(o.status, '')) IN ('failed','delivery failed','failure','refund pending','refund_pending')
+                  OR LOWER(COALESCE(o.guest_refund_status, '')) IN ('pending','pending refund','refund pending','refund_pending')
+                  OR LOWER(COALESCE(o.datamart_status, '')) IN ('failed','failure','error','rejected')
+                  OR LOWER(COALESCE(o.provider_status, '')) IN ('failed','failure','error','rejected')
+                THEN 0 ELSE 1 END,
+           o.created_at DESC
+         LIMIT 100
+      `);
+      return res.json({
+        success: true,
+        readOnly: true,
+        count: result.rows.length,
+        orders: result.rows.map(row => ({
+          orderRef: row.order_ref, service: row.service, network: row.network,
+          phone: row.phone, amountGhs: Number(row.amount || 0), status: row.status,
+          paymentStatus: row.payment_status, supplierStatus: row.datamart_status,
+          providerStatus: row.provider_status, refundStatus: row.guest_refund_status,
+          reviewReason: row.review_reason, createdAt: row.created_at
+        })),
+        generatedAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("DGM recovery queue query failed:", error.message);
+      return res.status(500).json({ success: false, message: "Could not load the recovery queue right now." });
+    }
+  });
 }
 
 module.exports = { installDgmAnalytics };
