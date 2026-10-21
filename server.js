@@ -9615,18 +9615,32 @@ app.get("/api/admin/savings", requireAdmin, async (req,res) => {
 });
 
 app.post("/api/admin/notifications/broadcast", requireAdmin, async (req,res) => {
+  const title=String(req.body?.title||"").trim().slice(0,160);
+  const message=String(req.body?.message||"").trim().slice(0,2000);
+  const type=String(req.body?.type||"info").trim().slice(0,40);
+  if(title.length<2||message.length<2) return sendError(res,400,"Enter a title and message.");
+  const client = await pool.connect();
   try {
-    const title=String(req.body?.title||"").trim().slice(0,160);
-    const message=String(req.body?.message||"").trim().slice(0,2000);
-    const type=String(req.body?.type||"info").trim().slice(0,40);
-    if(title.length<2||message.length<2) return sendError(res,400,"Enter a title and message.");
-    const result=await pool.query(`INSERT INTO customer_notifications(customer_id,title,message,type,is_broadcast)
+    await client.query("BEGIN");
+    const result=await client.query(`INSERT INTO customer_notifications(customer_id,title,message,type,is_broadcast)
       SELECT id,$1,$2,$3,TRUE FROM customers RETURNING id`,[title,message,type]);
-    await writeAdminAudit(req,"notification_broadcast","customers","all",{title,type,sent:result.rowCount});
-    return res.json({success:true,sent:result.rowCount,message:"Notification sent to"});
+    const ids=result.rows.map(row=>Number(row.id)).filter(Number.isInteger);
+    const verification=ids.length ? await client.query(
+      "SELECT COUNT(*)::int AS stored FROM customer_notifications WHERE id = ANY($1::int[]) AND is_broadcast=TRUE",
+      [ids]
+    ) : {rows:[{stored:0}]};
+    const stored=Number(verification.rows[0]?.stored||0);
+    if(result.rowCount!==stored) throw new Error("Broadcast verification failed: inserted "+result.rowCount+", verified "+stored);
+    await client.query("COMMIT");
+    await writeAdminAudit(req,"notification_broadcast","customers","all",{title,type,recipients:result.rowCount,verified:stored});
+    if(result.rowCount===0) return res.json({success:true,sent:0,verified:0,message:"No registered customer accounts were found. No notifications were sent."});
+    return res.json({success:true,sent:result.rowCount,verified:stored,message:"Broadcast saved and verified for"});
   } catch(error) {
+    try { await client.query("ROLLBACK"); } catch {}
     console.error("Admin notification broadcast error:",error);
-    return sendError(res,500,"Could not send notification.");
+    return sendError(res,500,"Broadcast was not confirmed. Please check the broadcast history before retrying.");
+  } finally {
+    client.release();
   }
 });
 
