@@ -1009,63 +1009,91 @@ async function recoverPaidAgentStoreOrder(){
 </script><div id="marketProductModal" class="modal" hidden><div class="modal-card" style="max-width:760px"><div class="kpi"><div><h2 id="marketProductTitle">Add Product</h2><div class="muted">Catalog details, pricing and inventory</div></div><button class="btn" onclick="closeMarketProduct()">Close</button></div><form id="marketProductForm"><div class="detail"><div><label class="label">Name</label><input class="input" id="mpName" required></div><div><label class="label">Slug</label><input class="input" id="mpSlug"></div><div><label class="label">Brand</label><input class="input" id="mpBrand"></div><div><label class="label">SKU</label><input class="input" id="mpSku"></div><div><label class="label">Category</label><select class="select" id="mpCategory"></select></div><div><label class="label">Price</label><input class="input" id="mpPrice" type="number" min="0" step="0.01" required></div><div><label class="label">Sale price</label><input class="input" id="mpSale" type="number" min="0" step="0.01"></div><div><label class="label">Stock</label><input class="input" id="mpStock" type="number" min="0" step="1" required></div><div><label class="label">Delivery fee</label><input class="input" id="mpDelivery" type="number" min="0" step="0.01"></div><div><label class="label">Supplier / fulfilment partner</label><select class="select" id="mpSupplier"><option value="">No supplier assigned</option></select></div><div><label class="label">Product photos</label><input class="input" id="mpImageFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple><div id="mpImageUploadHint" class="muted" style="margin:6px 0">Choose photos from your phone gallery (JPG, PNG or WebP, max 5 MB each). The first photo becomes the main product image.</div><label class="label" style="margin-top:10px">Main image URL (optional)</label><input class="input" id="mpImage" placeholder="Uploaded photo URL appears here"></div></div><div class="detail"><div><label class="label">Gallery URLs</label><textarea class="textarea" id="mpGallery" rows="4" placeholder="One image URL per line"></textarea></div><div><label class="label">Variants JSON</label><textarea class="textarea" id="mpVariants" rows="4" placeholder='[{"name":"Color","options":["Black","Blue"]}]'></textarea></div></div><label class="label">Description</label><textarea class="textarea" id="mpDescription" rows="5"></textarea><div class="toolbar" style="margin-top:12px"><label><input type="checkbox" id="mpFeatured"> Featured</label><label><input type="checkbox" id="mpActive" checked> Active</label></div><div id="marketProductMsg" class="danger" style="margin:8px 0"></div><button class="btn green" style="width:100%">Save Product</button></form></div></div>
 <script>
 (function(){
-  // Zero-cost browser notifications for critical order recovery items.
-  // This intentionally does not send WhatsApp messages or use a paid provider.
+  // Free browser alerts for admin events. Read-only polling; no paid provider or business data mutation.
   if(location.pathname === '/staff.html' || !('Notification' in window)) return;
   const button=document.getElementById('adminPhoneAlertsButton');
-  const status=document.getElementById('adminPhoneAlertsStatus');
   if(!button) return;
   button.hidden=false;
   const enabledKey='dgm.admin.phoneAlerts.enabled.v1';
-  const seenKey='dgm.admin.phoneAlerts.seenRefs.v1';
+  const seenKey='dgm.admin.phoneAlerts.seenEvents.v2';
+  const statusNode=()=>document.getElementById('adminPhoneAlertsStatus');
   let seen=new Set();
   let baselineReady=false;
   let pollBusy=false;
-  let pollTimer=null;
   try{seen=new Set(JSON.parse(localStorage.getItem(seenKey)||'[]'));}catch(_){seen=new Set();}
-  function setStatus(text){const node=document.getElementById('adminPhoneAlertsStatus');if(node)node.textContent=text;}
+  function setStatus(text){const node=statusNode();if(node)node.textContent=text;}
+  function enabled(){return localStorage.getItem(enabledKey)==='1' && Notification.permission==='granted';}
   function updateButton(){
-    const enabled=localStorage.getItem(enabledKey)==='1' && Notification.permission==='granted';
-    button.innerHTML=(enabled?'🔔 Phone alerts enabled':'🔔 Enable phone alerts')+' <span class="alert-status" id="adminPhoneAlertsStatus">'+(enabled?'Free browser alerts active':Notification.permission==='denied'?'Allow notifications in Chrome settings':'Free browser alerts')+'</span>';
-    button.classList.toggle('green',enabled);
+    const on=enabled();
+    button.innerHTML=(on?'🔔 Phone alerts enabled':'🔔 Enable phone alerts')+' <span class="alert-status" id="adminPhoneAlertsStatus">'+(on?'Monitoring admin events':Notification.permission==='denied'?'Allow notifications in Chrome settings':'Free browser alerts')+'</span>';
+    button.classList.toggle('green',on);
   }
-  async function checkRecoveryQueue(){
-    if(pollBusy || document.hidden && !baselineReady) return;
+  function navTo(page){if(typeof window.__adminNav==='function')window.__adminNav(page);}
+  function notify(event){
+    if(!baselineReady || !enabled() || seen.has(event.key)) return;
+    try{
+      const n=new Notification(event.title,{body:event.body,tag:'dgm-admin-'+event.key,icon:'/icons/dgm-192.svg'});
+      n.onclick=()=>{window.focus();navTo(event.page||'overview');n.close();};
+    }catch(_){}
+  }
+  async function getJson(url){
+    const r=await fetch(url,{credentials:'same-origin',cache:'no-store'});
+    if(r.status===401) throw new Error('Admin session expired');
+    if(!r.ok) throw new Error('Admin endpoint unavailable: '+url);
+    return r.json();
+  }
+  async function checkAdminEvents(){
+    if(pollBusy) return;
     pollBusy=true;
     try{
-      const response=await fetch('/api/admin/recovery-queue',{credentials:'same-origin',cache:'no-store'});
-      if(response.status===401) return;
-      if(!response.ok) throw new Error('Recovery queue unavailable');
-      const data=await response.json();
-      if(data.success!==true || !Array.isArray(data.orders)) throw new Error('Invalid recovery queue response');
-      const rows=data.orders;
-      const current=new Set(rows.map(row=>String(row.orderRef||'')).filter(Boolean));
-      if(baselineReady && localStorage.getItem(enabledKey)==='1' && Notification.permission==='granted'){
-        rows.forEach(row=>{
-          const ref=String(row.orderRef||'');
-          if(!ref || seen.has(ref)) return;
-          const title='DGM admin alert: order needs attention';
-          const body=(row.reviewReason||'Order requires review')+' · '+ref;
-          try{
-            const n=new Notification(title,{body,tag:'dgm-recovery-'+ref,icon:'/icons/dgm-192.svg',silent:false});
-            n.onclick=()=>{window.focus();if(typeof window.__adminNav==='function')window.__adminNav('analytics');n.close();};
-          }catch(_){}
-        });
+      const [recovery,agents,withdrawals,market,orders,system]=await Promise.allSettled([
+        getJson('/api/admin/recovery-queue'),
+        getJson('/api/admin/agents'),
+        getJson('/api/admin/withdrawals'),
+        getJson('/api/admin/market/orders'),
+        getJson('/api/admin/orders'),
+        getJson('/api/admin/system')
+      ]);
+      const events=[];
+      const add=(key,title,body,page)=>events.push({key,title,body,page});
+      if(recovery.status==='fulfilled' && Array.isArray(recovery.value.orders)){
+        recovery.value.orders.forEach(x=>add('recovery:'+String(x.orderRef||x.id), 'DGM: Delivery/refund needs attention', (x.reviewReason||'Order requires review')+' · '+(x.orderRef||x.id), 'analytics'));
+      }
+      if(agents.status==='fulfilled'){
+        const d=agents.value;
+        (Array.isArray(d.agents)?d.agents:[]).filter(x=>String(x.status||'').toLowerCase()==='pending').forEach(x=>add('agent:'+x.id,'DGM: Agent approval request',(x.name||'New agent')+' · '+(x.phone||x.agent_code||('ID '+x.id)),'agents'));
+        (Array.isArray(d.withdrawals)?d.withdrawals:[]).filter(x=>String(x.status||'').toLowerCase()==='pending approval').forEach(x=>add('agent-withdrawal:'+x.id,'DGM: Agent withdrawal request',(x.name||x.agent_code||'Agent')+' · GH₵'+Number(x.amount||0).toFixed(2),'agents'));
+      }
+      if(withdrawals.status==='fulfilled'){
+        (Array.isArray(withdrawals.value.withdrawals)?withdrawals.value.withdrawals:[]).filter(x=>String(x.status||'').toLowerCase()==='pending approval').forEach(x=>add('withdrawal:'+x.id,'DGM: Customer withdrawal request',(x.customer_name||'Customer')+' · GH₵'+Number(x.amount||0).toFixed(2),'wallet'));
+      }
+      if(market.status==='fulfilled'){
+        (Array.isArray(market.value.orders)?market.value.orders:[]).forEach(x=>add('market-order:'+x.id,'DGM Market: New order',(x.order_ref||('Order #'+x.id))+' · GH₵'+Number(x.total||0).toFixed(2),'market'));
+      }
+      if(orders.status==='fulfilled'){
+        (Array.isArray(orders.value.orders)?orders.value.orders:[]).filter(x=>/fail|declin|error/i.test(String(x.payment_status||'')+' '+String(x.status||''))).forEach(x=>add('payment-issue:'+String(x.id||x.order_ref),'DGM: Payment/order issue',(x.order_ref||('Order #'+x.id))+' · '+(x.payment_status||x.status||'Requires review'),'orders'));
+      }
+      if(system.status==='fulfilled'){
+        const checks=system.value.checks||{};
+        Object.entries(checks).filter(([,v])=>!['online','configured','healthy','ok'].includes(String(v?.status||'').toLowerCase())).forEach(([name,v])=>add('system:'+name+':'+String(v?.status||'unknown'),'DGM: System health warning',name+' · '+String(v?.status||'unknown'),'system'));
+      }
+      const current=new Set(events.map(e=>e.key));
+      if(baselineReady){
+        events.forEach(e=>{if(!seen.has(e.key))notify(e);});
       }
       seen=current;
-      localStorage.setItem(seenKey,JSON.stringify(Array.from(seen).slice(-150)));
+      localStorage.setItem(seenKey,JSON.stringify(Array.from(seen).slice(-500)));
       baselineReady=true;
-      setStatus(localStorage.getItem(enabledKey)==='1'?'Monitoring order recovery':'Free browser alerts');
+      setStatus(enabled()?'Monitoring approvals, orders & system':'Free browser alerts');
       updateButton();
-    }catch(_){
-      setStatus('Waiting for admin connection');
+      const failed=[recovery,agents,withdrawals,market,orders,system].filter(x=>x.status==='rejected').length;
+      if(failed===6) setStatus('Admin data unavailable; check session');
+    }catch(e){
+      setStatus(e.message==='Admin session expired'?'Session expired — sign in again':'Waiting for admin connection');
     }finally{pollBusy=false;}
   }
   button.addEventListener('click',async()=>{
-    if(Notification.permission==='denied'){
-      setStatus('Allow notifications in Chrome site settings');
-      return;
-    }
+    if(Notification.permission==='denied'){setStatus('Allow notifications in Chrome site settings');return;}
     if(Notification.permission!=='granted'){
       const permission=await Notification.requestPermission();
       if(permission!=='granted'){setStatus('Permission not granted');updateButton();return;}
@@ -1073,14 +1101,14 @@ async function recoverPaidAgentStoreOrder(){
     localStorage.setItem(enabledKey,'1');
     baselineReady=false;
     updateButton();
-    await checkRecoveryQueue();
+    await checkAdminEvents();
     setStatus('Monitoring while admin page is open');
   });
   updateButton();
-  checkRecoveryQueue();
-  pollTimer=setInterval(checkRecoveryQueue,60000);
-  window.addEventListener('focus',checkRecoveryQueue);
-  window.addEventListener('pageshow',checkRecoveryQueue);
+  checkAdminEvents();
+  setInterval(checkAdminEvents,60000);
+  window.addEventListener('focus',checkAdminEvents);
+  window.addEventListener('pageshow',checkAdminEvents);
 })();
 </script>
 </body></html>
