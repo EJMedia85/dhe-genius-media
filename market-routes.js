@@ -245,6 +245,25 @@ function installMarket(app) {
     try {
       await ensureMarketDatabase();
       const agent=await approvedMarketAgent(req.session.customerId);
+      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
+      const reconcileClient=await pool.connect();
+      try {
+        await reconcileClient.query("BEGIN");
+        await creditPaidMarketSellerItems(reconcileClient, null, agent.id);
+        await reconcileClient.query("COMMIT");
+      } catch (creditError) {
+        try { await reconcileClient.query("ROLLBACK"); } catch {}
+        throw creditError;
+      } finally { reconcileClient.release(); }
+      const r=await pool.query(`SELECT o.id,o.order_ref,o.status,o.payment_status,o.payment_method,o.created_at,o.delivery_name,o.delivery_phone,
+        i.product_name,i.quantity,i.unit_price,i.line_total,i.variant
+        FROM market_order_items i JOIN market_orders o ON o.id=i.market_order_id
+        WHERE i.seller_agent_id=$1 ORDER BY o.created_at DESC LIMIT 200`,[agent.id]);
+      return res.json({success:true,orders:r.rows});
+    } catch(e){console.error("Market seller orders:",e);sendError(res,500,"Could not load seller orders.");}
+  });
+
+  app.get("/api/market/categories", async (req,res) => {
       if(!agent) return sendError(res,403,"An approved DGM Agent account is required to upload product images.");
       const cloudName=String(process.env.CLOUDINARY_CLOUD_NAME||"").trim();
       const apiKey=String(process.env.CLOUDINARY_API_KEY||"").trim();
@@ -320,20 +339,66 @@ function installMarket(app) {
     } catch(e){console.error("Market seller update product:",e);sendError(res,500,"Could not update your product.");}
   });
 
+  // Credit each paid DGM Market item to its owning agent exactly once.
+  // Uses the existing Agent Wallet ledger and keeps DGM-owned items excluded.
+  async function creditPaidMarketSellerItems(client, orderId = null, agentId = null) {
+    const params = [];
+    let filter = "o.payment_status='Paid' AND o.status NOT IN ('Cancelled','Refunded','Failed') AND i.seller_agent_id IS NOT NULL";
+    if (orderId !== null) { params.push(orderId); filter += " AND o.id=$" + params.length; }
+    if (agentId !== null) { params.push(agentId); filter += " AND i.seller_agent_id=$" + params.length; }
+    const items = await client.query(`
+      SELECT i.id AS item_id, i.market_order_id, i.seller_agent_id, i.product_name,
+             i.quantity, i.line_total, o.order_ref
+      FROM market_order_items i
+      JOIN market_orders o ON o.id=i.market_order_id
+      WHERE ${filter}
+      ORDER BY i.id
+      FOR UPDATE OF o, i
+    `, params);
+    let credited = 0;
+    for (const item of items.rows) {
+      const amount = Math.round(Number(item.line_total || 0) * 100) / 100;
+      if (!(amount > 0)) continue;
+      const reference = "DGM-MARKET-SALE-ITEM-" + item.item_id;
+      await client.query(
+        "INSERT INTO agent_wallets(agent_id,balance) VALUES($1,0) ON CONFLICT(agent_id) DO NOTHING",
+        [item.seller_agent_id]
+      );
+      const wallet = await client.query(
+        "SELECT balance FROM agent_wallets WHERE agent_id=$1 FOR UPDATE",
+        [item.seller_agent_id]
+      );
+      const exists = await client.query(
+        "SELECT 1 FROM agent_wallet_transactions WHERE reference=$1 LIMIT 1",
+        [reference]
+      );
+      if (exists.rows.length) continue;
+      const before = Math.round(Number(wallet.rows[0]?.balance || 0) * 100) / 100;
+      const after = Math.round((before + amount) * 100) / 100;
+      await client.query(
+        "UPDATE agent_wallets SET balance=$1,updated_at=NOW() WHERE agent_id=$2",
+        [after, item.seller_agent_id]
+      );
+      await client.query(`
+        INSERT INTO agent_wallet_transactions
+          (agent_id,type,amount,balance_before,balance_after,description,reference)
+        VALUES($1,'Credit',$2,$3,$4,$5,$6)
+      `, [
+        item.seller_agent_id, amount, before, after,
+        "DGM Market sale: " + item.product_name + " (" + item.order_ref + ")",
+        reference
+      ]);
+      credited++;
+    }
+    return credited;
+  }
+
   app.get("/api/market/seller/orders", async (req,res) => {
     if (!req.session?.customerId) return sendError(res,401,"Please login to continue.");
     try {
       await ensureMarketDatabase();
       const agent=await approvedMarketAgent(req.session.customerId);
       if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
-      const r=await pool.query(`SELECT o.id,o.order_ref,o.status,o.payment_status,o.payment_method,o.created_at,o.delivery_name,o.delivery_phone,
-        i.product_name,i.quantity,i.unit_price,i.line_total,i.variant
-        FROM market_order_items i JOIN market_orders o ON o.id=i.market_order_id
-        WHERE i.seller_agent_id=$1 ORDER BY o.created_at DESC LIMIT 200`,[agent.id]);
-      res.json({success:true,orders:r.rows});
-    } catch(e){console.error("Market seller orders:",e);sendError(res,500,"Could not load seller orders.");}
-  });
-
   app.get("/api/market/categories", async (req,res) => {
     try {
       await ensureMarketDatabase();
@@ -470,6 +535,7 @@ function installMarket(app) {
         await client.query("INSERT INTO market_order_items(market_order_id,product_id,product_name,quantity,unit_price,line_total,variant,supplier_id,seller_agent_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",[o.rows[0].id,x.p.id,x.p.name,x.qty,x.unit,x.unit*x.qty,JSON.stringify(x.variant||{}),x.p.supplier_id||null,x.p.owner_agent_id||null]);
       }
       if(paymentMethod==="Wallet"){
+        await creditPaidMarketSellerItems(client, o.rows[0].id);
         await client.query("UPDATE customers SET balance=balance-$1 WHERE id=$2",[total,req.session.customerId]);
         await client.query("INSERT INTO market_wallet_transactions(market_order_id,customer_id,amount,balance_before,balance_after,transaction_ref) VALUES($1,$2,$3,$4,$5,$6)",[o.rows[0].id,req.session.customerId,total,before,after,txref]);
         await client.query("INSERT INTO wallet_transactions(customer_id,type,amount,balance_before,balance_after,description,transaction_ref,status,reference) VALUES($1,'debit',$2,$3,$4,$5,$6,'Completed',$7)",[req.session.customerId,total,before,after,"DGM Market order "+ref,txref,ref]);
@@ -532,6 +598,7 @@ function installMarket(app) {
         await client.query("COMMIT");return res.redirect("/market-orders.html?payment=failed");
       }
       await client.query("UPDATE market_orders SET payment_status='Paid',status='Confirmed',updated_at=NOW() WHERE id=$1 AND payment_status='Pending'",[order.id]);
+      await creditPaidMarketSellerItems(client, order.id);
       await client.query("COMMIT");
       return res.redirect("/market-orders.html?payment=success&order="+encodeURIComponent(order.order_ref));
     }catch(e){try{await client.query("ROLLBACK")}catch{}console.error("DGM Market Paystack callback:",e.message);return res.redirect("/market-orders.html?payment=failed");}
