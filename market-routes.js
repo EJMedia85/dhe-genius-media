@@ -571,7 +571,23 @@ function installMarket(app) {
     } catch(e){console.error("Admin market agent listing review:",e);sendError(res,500,"Could not review this listing.");}
   });
 
-  app.post("/api/admin/market/image-signature",requireAdmin,async(req,res)=>{\n    try {\n      await ensureMarketDatabase();\n      const cloudName=String(process.env.CLOUDINARY_CLOUD_NAME||"").trim();\n      const apiKey=String(process.env.CLOUDINARY_API_KEY||"").trim();\n      const apiSecret=String(process.env.CLOUDINARY_API_SECRET||"").trim();\n      if(!cloudName||!apiKey||!apiSecret)return sendError(res,503,"Product image uploads are not configured. Check the Cloudinary environment variables in Render.");\n      const timestamp=Math.floor(Date.now()/1000),folder="dgm-market/products";\n      const signature=crypto.createHash("sha1").update("folder="+folder+"&timestamp="+timestamp+apiSecret).digest("hex");\n      res.set("Cache-Control","no-store");return res.json({success:true,cloud_name:cloudName,api_key:apiKey,timestamp,folder,signature});\n    } catch(e){console.error("Admin market image signature:",e);return sendError(res,500,"Could not prepare secure product photo upload.");}\n  });\n\n  app.get("/api/admin/market/products",requireAdmin,async(req,res)=>{
+  app.post("/api/admin/market/image-signature",requireAdmin,async(req,res)=>{
+    try {
+      const cloudName=String(process.env.CLOUDINARY_CLOUD_NAME||"").trim();
+      const apiKey=String(process.env.CLOUDINARY_API_KEY||"").trim();
+      const apiSecret=String(process.env.CLOUDINARY_API_SECRET||"").trim();
+      if(!cloudName||!apiKey||!apiSecret)return sendError(res,503,"Product image uploads are not configured. Check the Cloudinary environment variables in Render.");
+      const timestamp=Math.floor(Date.now()/1000),folder="dgm-market/products";
+      const signature=crypto.createHash("sha1").update("folder="+folder+"&timestamp="+timestamp+apiSecret).digest("hex");
+      res.set("Cache-Control","no-store");
+      return res.json({success:true,cloud_name:cloudName,api_key:apiKey,timestamp,folder,signature});
+    } catch(e) {
+      console.error("Admin market image signature:",e);
+      return sendError(res,500,"Could not prepare secure product photo upload.");
+    }
+  });
+
+  app.get("/api/admin/market/products",requireAdmin,async(req,res)=>{
     try { await ensureMarketDatabase(); const r=await pool.query("SELECT p.*,c.name category_name,s.business_name supplier_name,COALESCE(NULLIF(ap.store_name,''),NULLIF(ac.name,''),'DGM Agent Seller') AS agent_store_name FROM market_products p LEFT JOIN market_categories c ON c.id=p.category_id LEFT JOIN market_suppliers s ON s.id=p.supplier_id LEFT JOIN agent_profiles ap ON ap.id=p.owner_agent_id LEFT JOIN customers ac ON ac.id=ap.customer_id ORDER BY p.created_at DESC"); res.json({success:true,products:r.rows.map(publicProduct)}); }
     catch(e){sendError(res,500,"Could not load products.");}
   });
