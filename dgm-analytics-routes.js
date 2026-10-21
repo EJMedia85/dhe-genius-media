@@ -109,7 +109,6 @@ function installDgmAnalytics(app, { pool, requireAdmin }) {
       return res.status(500).json({ success: false, message: "Could not load DGM analytics right now." });
     }
   });
-}
 
 
   // Read-only queue for orders that may need delivery/refund reconciliation.
@@ -169,5 +168,6 @@ function installDgmAnalytics(app, { pool, requireAdmin }) {
       return res.status(500).json({ success: false, message: "Could not load the recovery queue right now." });
     }
   });
+}
 
 module.exports = { installDgmAnalytics };
