@@ -146,7 +146,7 @@ async function load(){
   $('apply').style.display='none';
   $('status').textContent='Checking Agent account…';
   try{
-    const d=await api('/api/agent/me?_='+Date.now());
+    let d=await api('/api/agent/me?_='+Date.now());
     if(!d.enrolled){
       $('apply').style.display='block';
       $('status').textContent='Not enrolled';
@@ -156,6 +156,10 @@ async function load(){
       $('apply').querySelector('button.btn').style.display='';
       $('applyMsg').textContent='';
       return;
+    }
+    if(String(d.agent.status||'').toLowerCase()==='approved'){
+      try { await api('/api/market/seller/orders?_='+Date.now()); d=await api('/api/agent/me?_='+Date.now()); }
+      catch(e) { console.warn('DGM Market seller earnings reconciliation unavailable:',e); }
     }
     const state=String(d.agent.status||'').toLowerCase();
     $('status').textContent=d.agent.status+' • '+d.agent.tier;
