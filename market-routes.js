@@ -291,9 +291,9 @@ function installMarket(app) {
       const slug=slugBase+"-"+crypto.randomBytes(4).toString("hex");
       const sku="AG"+agent.id+"-"+crypto.randomBytes(4).toString("hex").toUpperCase();
       const r=await pool.query(`INSERT INTO market_products(name,slug,description,category_id,brand,sku,price,stock,image_url,owner_agent_id,listing_source,active,moderation_status)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'agent',FALSE,'pending') RETURNING id,name,slug,price,stock,active,moderation_status,created_at`,
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'agent',TRUE,'approved') RETURNING id,name,slug,price,stock,active,moderation_status,created_at`,
         [name,slug,description,cat.rows[0]?.id||null,brand,sku,price,stock,imageUrl,agent.id]);
-      res.status(201).json({success:true,message:"Product submitted for DGM review. It will appear in the public market after approval.",product:r.rows[0]});
+      res.status(201).json({success:true,message:"Product published successfully. It is now visible on DGM Market.",product:r.rows[0]});
     } catch(e){console.error("Market seller create product:",e);sendError(res,500,"Could not submit your product. Please try again.");}
   });
 
@@ -315,8 +315,8 @@ function installMarket(app) {
       const stock=b.stock===undefined?Number(old.stock):Number(b.stock);
       if(name.length<3||!Number.isFinite(price)||price<=0||price>10000000||!Number.isSafeInteger(stock)||stock<0||stock>1000000) return sendError(res,400,"Check the product name, price and stock quantity.");
       if(imageUrl&&!/^https:\/\//i.test(imageUrl)) return sendError(res,400,"Product image must use a secure HTTPS URL.");
-      const result=await pool.query("UPDATE market_products SET name=$1,description=$2,brand=$3,price=$4,stock=$5,image_url=$6,active=FALSE,moderation_status='pending',moderation_note=NULL,reviewed_at=NULL,updated_at=NOW() WHERE id=$7 AND owner_agent_id=$8 RETURNING id,name,price,stock,active,moderation_status,updated_at",[name,description,brand,price,stock,imageUrl,id,agent.id]);
-      res.json({success:true,message:"Product changes saved and sent back for DGM review.",product:result.rows[0]});
+      const result=await pool.query("UPDATE market_products SET name=$1,description=$2,brand=$3,price=$4,stock=$5,image_url=$6,active=TRUE,moderation_status='approved',moderation_note=NULL,reviewed_at=NOW(),updated_at=NOW() WHERE id=$7 AND owner_agent_id=$8 RETURNING id,name,price,stock,active,moderation_status,updated_at",[name,description,brand,price,stock,imageUrl,id,agent.id]);
+      res.json({success:true,message:"Product changes saved and published on DGM Market.",product:result.rows[0]});
     } catch(e){console.error("Market seller update product:",e);sendError(res,500,"Could not update your product.");}
   });
 
