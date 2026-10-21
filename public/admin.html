@@ -846,7 +846,7 @@ $('#broadcastForm').onsubmit=async e=>{
   const msg=$('#broadcastMsg'); msg.textContent='Sending…';
   try{
     const d=await api('/api/admin/notifications/broadcast',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:$('#broadcastTitle').value,message:$('#broadcastMessage').value,type:$('#broadcastType').value})});
-    msg.textContent=d.message+' '+d.sent+' customers notified.';
+    msg.textContent=d.verified!==undefined?(d.sent>0?d.message+' '+d.verified+' of '+d.sent+' customer notification records verified.':'No notifications delivered: '+d.message):d.message+' '+d.sent+' customers notified.';
     e.target.reset();
     await loadBroadcastHistory();
   }catch(err){msg.textContent=err.message;}
