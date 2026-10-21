@@ -9615,21 +9615,20 @@ app.get("/api/admin/savings", requireAdmin, async (req,res) => {
 });
 
 app.post("/api/admin/notifications/broadcast", requireAdmin, async (req,res) => {
+  const title=String(req.body?.title||"").trim().slice(0,160);
+  const message=String(req.body?.message||"").trim().slice(0,2000);
+  const type=String(req.body?.type||"info").trim().slice(0,40);
+  if(title.length<2||message.length<2) return sendError(res,400,"Enter a title and message.");
   const client = await pool.connect();
   try {
-    const title=String(req.body?.title||"").trim().slice(0,160);
-    const message=String(req.body?.message||"").trim().slice(0,2000);
-    const type=String(req.body?.type||"info").trim().slice(0,40);
-    if(title.length<2||message.length<2) return sendError(res,400,"Enter a title and message.");
     await client.query("BEGIN");
     const result=await client.query(`INSERT INTO customer_notifications(customer_id,title,message,type,is_broadcast)
       SELECT id,$1,$2,$3,TRUE FROM customers RETURNING id`,[title,message,type]);
-    const verification=await client.query(
-      `SELECT COUNT(*)::int AS stored FROM customer_notifications
-       WHERE is_broadcast=TRUE AND title=$1 AND message=$2 AND type=$3
-         AND created_at >= NOW() - INTERVAL '2 minutes'`,
-      [title,message,type]
-    );
+    const ids=result.rows.map(row=>Number(row.id)).filter(Number.isInteger);
+    const verification=ids.length ? await client.query(
+      "SELECT COUNT(*)::int AS stored FROM customer_notifications WHERE id = ANY($1::int[]) AND is_broadcast=TRUE",
+      [ids]
+    ) : {rows:[{stored:0}]};
     const stored=Number(verification.rows[0]?.stored||0);
     if(result.rowCount!==stored) throw new Error("Broadcast verification failed: inserted "+result.rowCount+", verified "+stored);
     await client.query("COMMIT");
