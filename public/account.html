@@ -1641,7 +1641,7 @@
         return;
       }
 
-      if (!confirm("Request GH₵" + amount.toFixed(2) + " withdrawal to " + network + " " + phone + "?")) return;
+      // Submit directly without the browser confirmation popup; show the result inline on the account page.
 
       button.disabled = true;
       button.textContent = "Submitting...";
