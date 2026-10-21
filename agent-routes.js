@@ -100,6 +100,7 @@ async function initAgentDatabase(pool) {
     );
     CREATE INDEX IF NOT EXISTS agent_withdrawals_status_idx ON agent_withdrawals(status);
   `);
+  await pool.query("ALTER TABLE agent_withdrawals ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'commission'");
   await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS store_slug TEXT UNIQUE`);
   await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS store_name TEXT`);
   await pool.query(`ALTER TABLE agent_profiles ADD COLUMN IF NOT EXISTS store_bio TEXT`);
@@ -190,7 +191,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
           COUNT(*) FILTER (WHERE s.status='Failed')::int AS failed,
           COUNT(*) FILTER (WHERE s.status='Refunded')::int AS refunded
           FROM agent_sales s LEFT JOIN orders o ON o.id=s.order_id WHERE s.agent_id=$1`, [a.id]),
-        pool.query(`SELECT id,reference,amount,momo_network,momo_phone,momo_name,status,created_at,updated_at
+        pool.query(`SELECT id,reference,amount,momo_network,momo_phone,momo_name,status,source,created_at,updated_at
           FROM agent_withdrawals WHERE agent_id=$1 ORDER BY created_at DESC LIMIT 20`, [a.id])
       ]);
       return res.json({
@@ -417,8 +418,9 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
   }
 
   app.post("/api/agent/withdraw", requireCustomer, async (req,res) => {
-    const amount=money(req.body?.amount), network=String(req.body?.momo_network||"").trim(), phone=String(req.body?.momo_phone||"").trim(), name=String(req.body?.momo_name||"").trim().slice(0,120);
-    if(!Number.isFinite(amount)||amount<5)return res.status(400).json({success:false,message:"Minimum commission withdrawal is GH₵5.00."});
+    const amount=money(req.body?.amount), source=String(req.body?.source||"wallet").trim().toLowerCase(), network=String(req.body?.momo_network||"").trim(), phone=String(req.body?.momo_phone||"").trim(), name=String(req.body?.momo_name||"").trim().slice(0,120);
+    if(!["wallet","commission"].includes(source))return res.status(400).json({success:false,message:"Choose Agent Wallet or Available Profit."});
+    if(!Number.isFinite(amount)||amount<5)return res.status(400).json({success:false,message:"Minimum withdrawal is GH₵5.00."});
     if(!["MTN","Telecel","AirtelTigo","Vodafone"].includes(network))return res.status(400).json({success:false,message:"Select a valid MoMo network."});
     if(!/^0\d{9}$/.test(phone))return res.status(400).json({success:false,message:"Enter a valid Ghana MoMo number."});
     const c=await pool.connect();
@@ -426,16 +428,26 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
       await c.query("BEGIN");
       const a=await getAgent(req.session.customerId,c);
       if(!a||a.status!=="approved")throw new Error("Approved agent account required.");
-      const p=money(a.commission_balance); if(p<amount)throw new Error("Insufficient commission balance.");
-      const after=money(p-amount);
-      await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);
       const ref="DGM-AG-WD-"+Date.now().toString(36).toUpperCase()+"-"+crypto.randomBytes(3).toString("hex").toUpperCase();
-      await c.query(`INSERT INTO agent_withdrawals(agent_id,reference,amount,momo_network,momo_phone,momo_name)
-        VALUES($1,$2,$3,$4,$5,$6)`,[a.id,ref,amount,network,phone,name]);
-      await c.query(`INSERT INTO agent_commission_transactions(agent_id,type,amount,balance_before,balance_after,description,reference)
-        VALUES($1,'Debit',$2,$3,$4,'Commission withdrawal request',$5)`,[a.id,amount,p,after,ref]);
+      if(source==="wallet"){
+        const w=(await c.query("SELECT balance FROM agent_wallets WHERE agent_id=$1 FOR UPDATE",[a.id])).rows[0];
+        if(!w)throw new Error("Agent Wallet not found.");
+        const before=money(w.balance); if(before<amount)throw new Error("Insufficient Agent Wallet balance.");
+        const after=money(before-amount);
+        await c.query("UPDATE agent_wallets SET balance=$1,updated_at=NOW() WHERE agent_id=$2",[after,a.id]);
+        await c.query(`INSERT INTO agent_wallet_transactions(agent_id,type,amount,balance_before,balance_after,description,reference)
+          VALUES($1,'Debit',$2,$3,$4,'MoMo withdrawal request',$5)`,[a.id,amount,before,after,ref]);
+      }else{
+        const before=money(a.commission_balance); if(before<amount)throw new Error("Insufficient Available Profit balance.");
+        const after=money(before-amount);
+        await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);
+        await c.query(`INSERT INTO agent_commission_transactions(agent_id,type,amount,balance_before,balance_after,description,reference)
+          VALUES($1,'Debit',$2,$3,$4,'Commission withdrawal request',$5)`,[a.id,amount,before,after,ref]);
+      }
+      await c.query(`INSERT INTO agent_withdrawals(agent_id,reference,amount,momo_network,momo_phone,momo_name,source)
+        VALUES($1,$2,$3,$4,$5,$6,$7)`,[a.id,ref,amount,network,phone,name,source]);
       await c.query("COMMIT");
-      res.json({success:true,message:"Commission withdrawal requested.",reference:ref,balance:after});
+      res.json({success:true,message:(source==="wallet"?"Agent Wallet":"Available Profit")+" withdrawal requested. DGM admin approval is required before MoMo payment.",reference:ref,source});
     }catch(e){await c.query("ROLLBACK");res.status(400).json({success:false,message:e.message||"Could not request withdrawal."});}finally{c.release();}
   });
 
@@ -965,7 +977,7 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
           COALESCE((SELECT COUNT(*) FROM agent_sales s WHERE s.agent_id=a.id AND s.status='Completed'),0)::int AS completed_sales,
           COALESCE((SELECT SUM(profit) FROM agent_sales s WHERE s.agent_id=a.id AND s.status='Completed'),0) AS total_profit
           FROM agent_profiles a JOIN customers c ON c.id=a.customer_id LEFT JOIN agent_wallets w ON w.agent_id=a.id ORDER BY a.created_at DESC`),
-        pool.query(`SELECT w.id,w.reference,w.amount,w.momo_network,w.momo_phone,w.momo_name,w.status,w.created_at,a.agent_code,c.name,c.phone
+        pool.query(`SELECT w.id,w.reference,w.amount,w.momo_network,w.momo_phone,w.momo_name,w.status,w.source,w.created_at,a.agent_code,c.name,c.phone
           FROM agent_withdrawals w JOIN agent_profiles a ON a.id=w.agent_id JOIN customers c ON c.id=a.customer_id ORDER BY w.created_at DESC LIMIT 100`)
       ]);
       res.json({success:true,agents:agents.rows,withdrawals:withdrawals.rows});
@@ -1072,7 +1084,30 @@ function installAgent(app, { pool, requireCustomer, requireAdmin, getRetailPrice
     }catch(e){res.status(400).json({success:false,message:e.message});}
   });
   app.post("/api/admin/agent-withdrawals/:id/reject", requireAdmin, async (req,res)=>{
-    const c=await pool.connect();try{await c.query("BEGIN");const w=(await c.query("SELECT * FROM agent_withdrawals WHERE id=$1 FOR UPDATE",[Number(req.params.id)])).rows[0];if(!w||w.status!=="Pending Approval")throw new Error("Withdrawal is no longer pending.");const a=(await c.query("SELECT * FROM agent_profiles WHERE id=$1 FOR UPDATE",[w.agent_id])).rows[0];const before=money(a.commission_balance),after=money(before+Number(w.amount));await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);await c.query("UPDATE agent_withdrawals SET status='Rejected',rejected_at=NOW(),updated_at=NOW() WHERE id=$1",[w.id]);await c.query(`INSERT INTO agent_commission_transactions(agent_id,type,amount,balance_before,balance_after,description,reference) VALUES($1,'Credit',$2,$3,$4,'Rejected withdrawal returned',$5)`,[a.id,w.amount,before,after,"RETURN:"+w.reference]);await c.query("COMMIT");res.json({success:true,message:"Withdrawal rejected and commission returned."});}catch(e){await c.query("ROLLBACK");res.status(400).json({success:false,message:e.message});}finally{c.release();}
+    const c=await pool.connect();try{
+      await c.query("BEGIN");
+      const w=(await c.query("SELECT * FROM agent_withdrawals WHERE id=$1 FOR UPDATE",[Number(req.params.id)])).rows[0];
+      if(!w||w.status!=="Pending Approval")throw new Error("Withdrawal is no longer pending.");
+      const source=String(w.source||"commission").toLowerCase();
+      if(source==="wallet"){
+        const wallet=(await c.query("SELECT balance FROM agent_wallets WHERE agent_id=$1 FOR UPDATE",[w.agent_id])).rows[0];
+        if(!wallet)throw new Error("Agent Wallet not found; refund was not issued.");
+        const before=money(wallet.balance),after=money(before+Number(w.amount));
+        await c.query("UPDATE agent_wallets SET balance=$1,updated_at=NOW() WHERE agent_id=$2",[after,w.agent_id]);
+        await c.query(`INSERT INTO agent_wallet_transactions(agent_id,type,amount,balance_before,balance_after,description,reference)
+          VALUES($1,'Credit',$2,$3,$4,'Rejected MoMo withdrawal returned',$5)`,[w.agent_id,w.amount,before,after,"RETURN:"+w.reference]);
+      }else{
+        const a=(await c.query("SELECT * FROM agent_profiles WHERE id=$1 FOR UPDATE",[w.agent_id])).rows[0];
+        if(!a)throw new Error("Agent not found; refund was not issued.");
+        const before=money(a.commission_balance),after=money(before+Number(w.amount));
+        await c.query("UPDATE agent_profiles SET commission_balance=$1,updated_at=NOW() WHERE id=$2",[after,a.id]);
+        await c.query(`INSERT INTO agent_commission_transactions(agent_id,type,amount,balance_before,balance_after,description,reference)
+          VALUES($1,'Credit',$2,$3,$4,'Rejected withdrawal returned',$5)`,[a.id,w.amount,before,after,"RETURN:"+w.reference]);
+      }
+      await c.query("UPDATE agent_withdrawals SET status='Rejected',rejected_at=NOW(),updated_at=NOW() WHERE id=$1",[w.id]);
+      await c.query("COMMIT");
+      res.json({success:true,message:(source==="wallet"?"Agent Wallet":"Available Profit")+" withdrawal rejected; funds returned."});
+    }catch(e){await c.query("ROLLBACK");res.status(400).json({success:false,message:e.message});}finally{c.release();}
   });
 
   setTimeout(()=>{ reconcileAgentSales(); setInterval(reconcileAgentSales,60000); },15000);
