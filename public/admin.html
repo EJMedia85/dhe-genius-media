@@ -218,6 +218,14 @@
   <div class="cards" id="funnelCards" style="margin-top:12px"></div>
 </div>
 <div class="panel" style="margin-top:16px">
+  <div class="kpi" style="align-items:flex-end;flex-wrap:wrap">
+    <div><h2>Failed Orders & Recovery Queue</h2><div class="muted">Read-only exceptions requiring delivery or refund review. This queue never retries orders or changes money.</div></div>
+    <div class="toolbar" style="margin:0"><span class="badge" id="recoveryQueueCount">Loading</span><button class="btn" type="button" onclick="loadRecoveryQueue()">Refresh Queue</button><button class="btn" type="button" onclick="window.__adminNav('orders')">Open Orders →</button></div>
+  </div>
+  <div id="recoveryQueueNotice" class="notice" style="margin-top:10px">Loading order exceptions…</div>
+  <div class="tablebox"><table class="table"><thead><tr><th>Order</th><th>Service / Bundle</th><th>Network</th><th>Recipient</th><th>Amount</th><th>Payment</th><th>Order Status</th><th>Review Reason</th><th>Created</th></tr></thead><tbody id="recoveryQueueBody"><tr><td colspan="9" class="empty">Loading…</td></tr></tbody></table></div>
+</div>
+<div class="panel" style="margin-top:16px">
    <div class="kpi" style="align-items:flex-end;flex-wrap:wrap">
      <div><h2>Financial Intelligence</h2><div class="muted">Paid orders, supplier costs and recorded gross profit. Unknown supplier costs are flagged, never assumed to be zero.</div></div>
      <div class="toolbar" style="margin:0;align-items:flex-end">
@@ -777,7 +785,23 @@ async function loadAnalyticsPage(){
   $('#analyticsPageCards').innerHTML=[['30-Day Completed Sales',money(a.completed_sales)],['30-Day Order Value',money(a.total_order_value)],['Wallet In',money(w.wallet_in)],['Wallet Out',money(w.wallet_out)],['Pending Withdrawals',wd.pending],['Customers',c.total]].map(x=>'<div class="card"><div class="label">'+x[0]+'</div><div class="value" style="font-size:20px">'+x[1]+'</div></div>').join('');
   $('#topServicesBody').innerHTML=(d.top_services||[]).map(x=>'<tr><td>'+esc(x.service||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No service data.</td></tr>';
   $('#topNetworksBody').innerHTML=(d.top_networks||[]).map(x=>'<tr><td>'+esc(x.network||'Unknown')+'</td><td>'+x.orders+'</td><td>'+money(x.value)+'</td></tr>').join('')||'<tr><td colspan="3" class="empty">No network data.</td></tr>';
-  await Promise.all([loadFunnelAnalytics(),loadFinancialOverview()]);
+  await Promise.all([loadFunnelAnalytics(),loadFinancialOverview(),loadRecoveryQueue()]);
+}
+async function loadRecoveryQueue(){
+  const notice=$('#recoveryQueueNotice'),body=$('#recoveryQueueBody'),count=$('#recoveryQueueCount');
+  if(!notice||!body)return;
+  notice.textContent='Loading read-only recovery queue…';
+  try{
+    const d=await api('/api/admin/recovery-queue');
+    const rows=Array.isArray(d.orders)?d.orders:[];
+    if(count)count.textContent=String(rows.length)+' ITEMS';
+    notice.textContent='Read-only review list generated '+new Date(d.generatedAt||Date.now()).toLocaleString()+'. Verify payment, supplier delivery and refund records before taking any action.';
+    body.innerHTML=rows.map(x=>'<tr><td><b>'+esc(x.orderRef||'—')+'</b></td><td>'+esc(x.service||'—')+'</td><td>'+esc(x.network||'—')+(x.supplierStatus?'<br><span class="muted">Supplier: '+esc(x.supplierStatus)+'</span>':'')+'</td><td>'+esc(x.phone||'—')+'</td><td>'+money(x.amountGhs)+'</td><td><span class="badge">'+esc(x.paymentStatus||'unknown')+'</span>'+(x.refundStatus?'<br><span class="muted">Refund: '+esc(x.refundStatus)+'</span>':'')+'</td><td><span class="badge">'+esc(x.status||'unknown')+'</span></td><td>'+esc(x.reviewReason||'Review order')+'</td><td>'+esc(x.createdAt?new Date(x.createdAt).toLocaleString():'—')+'</td></tr>').join('')||'<tr><td colspan="9" class="empty">No flagged orders were found. This means no matching exception statuses were returned by the current query.</td></tr>';
+  }catch(error){
+    if(count)count.textContent='UNAVAILABLE';
+    notice.textContent=error.message||'Could not load the recovery queue. Confirm Super Admin access and retry.';
+    body.innerHTML='<tr><td colspan="9" class="empty">Recovery queue unavailable.</td></tr>';
+  }
 }
 function financeDate(value){return value instanceof Date?value.toISOString().slice(0,10):String(value||'').slice(0,10)}
 function initFinanceDates(){
