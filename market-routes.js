@@ -399,6 +399,24 @@ function installMarket(app) {
       await ensureMarketDatabase();
       const agent=await approvedMarketAgent(req.session.customerId);
       if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
+      // Reconcile paid sales created before earnings were wired in. Ledger references make this idempotent.
+      const reconcileClient=await pool.connect();
+      try {
+        await reconcileClient.query("BEGIN");
+        await creditPaidMarketSellerItems(reconcileClient, null, agent.id);
+        await reconcileClient.query("COMMIT");
+      } catch(creditError) {
+        try { await reconcileClient.query("ROLLBACK"); } catch {}
+        throw creditError;
+      } finally { reconcileClient.release(); }
+      const r=await pool.query(`SELECT o.id,o.order_ref,o.status,o.payment_status,o.payment_method,o.created_at,o.delivery_name,o.delivery_phone,
+        i.product_name,i.quantity,i.unit_price,i.line_total,i.variant
+        FROM market_order_items i JOIN market_orders o ON o.id=i.market_order_id
+        WHERE i.seller_agent_id=$1 ORDER BY o.created_at DESC LIMIT 200`,[agent.id]);
+      return res.json({success:true,orders:r.rows});
+    } catch(e){console.error("Market seller orders:",e);sendError(res,500,"Could not load seller orders.");}
+  });
+
   app.get("/api/market/categories", async (req,res) => {
     try {
       await ensureMarketDatabase();
