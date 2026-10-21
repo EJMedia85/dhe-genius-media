@@ -9422,6 +9422,22 @@ app.post("/api/notifications/:id/read", requireCustomer, async (req,res) => {
   }
 });
 
+app.post("/api/notifications/read-all", requireCustomer, async (req,res) => {
+  try {
+    const result = await pool.query(
+      `UPDATE customer_notifications
+       SET read_at=NOW()
+       WHERE customer_id=$1 AND read_at IS NULL
+       RETURNING id`,
+      [req.session.customerId]
+    );
+    return res.json({success:true,marked_read:result.rowCount || result.rows.length});
+  } catch(error) {
+    console.error("Mark all notifications read error:",error);
+    return res.status(500).json({success:false,message:"Could not mark notifications as read."});
+  }
+});
+
 app.get("/api/transactions", requireCustomer, async (req,res) => {
   try {
     const [wallet,topups,withdrawals,orders]=await Promise.all([
