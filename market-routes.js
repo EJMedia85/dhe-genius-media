@@ -245,22 +245,17 @@ function installMarket(app) {
     try {
       await ensureMarketDatabase();
       const agent=await approvedMarketAgent(req.session.customerId);
-      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to sell on DGM Market.");
-      const reconcileClient=await pool.connect();
-      try {
-        await reconcileClient.query("BEGIN");
-        await creditPaidMarketSellerItems(reconcileClient, null, agent.id);
-        await reconcileClient.query("COMMIT");
-      } catch (creditError) {
-        try { await reconcileClient.query("ROLLBACK"); } catch {}
-        throw creditError;
-      } finally { reconcileClient.release(); }
-      const r=await pool.query(`SELECT o.id,o.order_ref,o.status,o.payment_status,o.payment_method,o.created_at,o.delivery_name,o.delivery_phone,
-        i.product_name,i.quantity,i.unit_price,i.line_total,i.variant
-        FROM market_order_items i JOIN market_orders o ON o.id=i.market_order_id
-        WHERE i.seller_agent_id=$1 ORDER BY o.created_at DESC LIMIT 200`,[agent.id]);
-      return res.json({success:true,orders:r.rows});
-    } catch(e){console.error("Market seller orders:",e);sendError(res,500,"Could not load seller orders.");}
+      if(!agent) return sendError(res,403,"An approved DGM Agent account is required to upload product images.");
+      const cloudName=String(process.env.CLOUDINARY_CLOUD_NAME||"").trim();
+      const apiKey=String(process.env.CLOUDINARY_API_KEY||"").trim();
+      const apiSecret=String(process.env.CLOUDINARY_API_SECRET||"").trim();
+      if(!cloudName||!apiKey||!apiSecret) return sendError(res,503,"Product image uploads are not configured yet. Please contact DGM support.");
+      const timestamp=Math.floor(Date.now()/1000);
+      const folder="dgm-market/products";
+      const signature=crypto.createHash("sha1").update("folder="+folder+"&timestamp="+timestamp+apiSecret).digest("hex");
+      res.set("Cache-Control","no-store");
+      return res.json({success:true,cloud_name:cloudName,api_key:apiKey,timestamp,folder,signature});
+    } catch(e){console.error("Market image signature:",e);return sendError(res,500,"Could not prepare the secure image upload.");}
   });
 
   app.get("/api/market/categories", async (req,res) => {
