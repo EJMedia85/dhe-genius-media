@@ -30,6 +30,11 @@
  .quick-actions{grid-template-columns:repeat(2,minmax(0,1fr))}.quick-action{padding:10px;min-height:70px;font-size:12px}.quick-action .qa-icon{width:32px;height:32px;flex-basis:32px}
  .head{align-items:flex-start}.head .toolbar{flex-wrap:wrap}.value{font-size:23px}
 }
+
+.admin-phone-alerts{display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.admin-phone-alerts .alert-status{font-size:11px;color:var(--muted);max-width:160px}
+.admin-phone-alerts[hidden]{display:none!important}
+@media(max-width:620px){.admin-phone-alerts .alert-status{display:none}.admin-phone-alerts{padding:8px 10px}}
 </style></head>
 <body>
 <script>
@@ -78,7 +83,7 @@
 </nav><div class="bottom"><button class="logout" id="logout" type="button" onclick="(async function(){this.disabled=true;this.textContent='Logging out…';const endpoint=location.pathname==='/staff.html'?'/api/admin/staff/logout':'/api/admin/logout';try{await fetch(endpoint,{method:'POST',credentials:'same-origin',cache:'no-store'});}finally{location.replace(location.pathname==='/staff.html'?'/staff-login.html':'/admin-login.html');}}).call(this)">Logout Admin</button></div>
 </aside>
 <main class="main">
-<header class="head"><div><div class="muted" id="who">Checking secure session…</div><h1 id="pageTitle">Business Control Center</h1><div class="muted" id="pageSubtitle">DGM operations, customers, revenue, services and infrastructure</div></div><div class="toolbar" style="margin:0;align-items:center"><span class="badge" id="adminAreaBadge">EXECUTIVE</span><button class="btn green" onclick="refreshCurrent()">Refresh</button></div></header>
+<header class="head"><div><div class="muted" id="who">Checking secure session…</div><h1 id="pageTitle">Business Control Center</h1><div class="muted" id="pageSubtitle">DGM operations, customers, revenue, services and infrastructure</div></div><div class="toolbar" style="margin:0;align-items:center"><span class="badge" id="adminAreaBadge">EXECUTIVE</span><button class="btn admin-phone-alerts" id="adminPhoneAlertsButton" type="button" hidden>🔔 Enable phone alerts <span class="alert-status" id="adminPhoneAlertsStatus">Free browser alerts</span></button><button class="btn green" onclick="refreshCurrent()">Refresh</button></div></header>
 
 <section id="overview" class="section active">
 <div class="cards" id="overviewCards"></div>
@@ -1001,4 +1006,81 @@ async function recoverPaidAgentStoreOrder(){
     if(result.order)console.log('DGM agent order recovery result',result.order);
   }catch(e){alert('Recovery not confirmed: '+e.message+'\\nDo not retry repeatedly. Check the order status and logs first.');}
 }
-</script><div id="marketProductModal" class="modal" hidden><div class="modal-card" style="max-width:760px"><div class="kpi"><div><h2 id="marketProductTitle">Add Product</h2><div class="muted">Catalog details, pricing and inventory</div></div><button class="btn" onclick="closeMarketProduct()">Close</button></div><form id="marketProductForm"><div class="detail"><div><label class="label">Name</label><input class="input" id="mpName" required></div><div><label class="label">Slug</label><input class="input" id="mpSlug"></div><div><label class="label">Brand</label><input class="input" id="mpBrand"></div><div><label class="label">SKU</label><input class="input" id="mpSku"></div><div><label class="label">Category</label><select class="select" id="mpCategory"></select></div><div><label class="label">Price</label><input class="input" id="mpPrice" type="number" min="0" step="0.01" required></div><div><label class="label">Sale price</label><input class="input" id="mpSale" type="number" min="0" step="0.01"></div><div><label class="label">Stock</label><input class="input" id="mpStock" type="number" min="0" step="1" required></div><div><label class="label">Delivery fee</label><input class="input" id="mpDelivery" type="number" min="0" step="0.01"></div><div><label class="label">Supplier / fulfilment partner</label><select class="select" id="mpSupplier"><option value="">No supplier assigned</option></select></div><div><label class="label">Product photos</label><input class="input" id="mpImageFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple><div id="mpImageUploadHint" class="muted" style="margin:6px 0">Choose photos from your phone gallery (JPG, PNG or WebP, max 5 MB each). The first photo becomes the main product image.</div><label class="label" style="margin-top:10px">Main image URL (optional)</label><input class="input" id="mpImage" placeholder="Uploaded photo URL appears here"></div></div><div class="detail"><div><label class="label">Gallery URLs</label><textarea class="textarea" id="mpGallery" rows="4" placeholder="One image URL per line"></textarea></div><div><label class="label">Variants JSON</label><textarea class="textarea" id="mpVariants" rows="4" placeholder='[{"name":"Color","options":["Black","Blue"]}]'></textarea></div></div><label class="label">Description</label><textarea class="textarea" id="mpDescription" rows="5"></textarea><div class="toolbar" style="margin-top:12px"><label><input type="checkbox" id="mpFeatured"> Featured</label><label><input type="checkbox" id="mpActive" checked> Active</label></div><div id="marketProductMsg" class="danger" style="margin:8px 0"></div><button class="btn green" style="width:100%">Save Product</button></form></div></div></body></html>
+</script><div id="marketProductModal" class="modal" hidden><div class="modal-card" style="max-width:760px"><div class="kpi"><div><h2 id="marketProductTitle">Add Product</h2><div class="muted">Catalog details, pricing and inventory</div></div><button class="btn" onclick="closeMarketProduct()">Close</button></div><form id="marketProductForm"><div class="detail"><div><label class="label">Name</label><input class="input" id="mpName" required></div><div><label class="label">Slug</label><input class="input" id="mpSlug"></div><div><label class="label">Brand</label><input class="input" id="mpBrand"></div><div><label class="label">SKU</label><input class="input" id="mpSku"></div><div><label class="label">Category</label><select class="select" id="mpCategory"></select></div><div><label class="label">Price</label><input class="input" id="mpPrice" type="number" min="0" step="0.01" required></div><div><label class="label">Sale price</label><input class="input" id="mpSale" type="number" min="0" step="0.01"></div><div><label class="label">Stock</label><input class="input" id="mpStock" type="number" min="0" step="1" required></div><div><label class="label">Delivery fee</label><input class="input" id="mpDelivery" type="number" min="0" step="0.01"></div><div><label class="label">Supplier / fulfilment partner</label><select class="select" id="mpSupplier"><option value="">No supplier assigned</option></select></div><div><label class="label">Product photos</label><input class="input" id="mpImageFiles" type="file" accept="image/jpeg,image/png,image/webp" multiple><div id="mpImageUploadHint" class="muted" style="margin:6px 0">Choose photos from your phone gallery (JPG, PNG or WebP, max 5 MB each). The first photo becomes the main product image.</div><label class="label" style="margin-top:10px">Main image URL (optional)</label><input class="input" id="mpImage" placeholder="Uploaded photo URL appears here"></div></div><div class="detail"><div><label class="label">Gallery URLs</label><textarea class="textarea" id="mpGallery" rows="4" placeholder="One image URL per line"></textarea></div><div><label class="label">Variants JSON</label><textarea class="textarea" id="mpVariants" rows="4" placeholder='[{"name":"Color","options":["Black","Blue"]}]'></textarea></div></div><label class="label">Description</label><textarea class="textarea" id="mpDescription" rows="5"></textarea><div class="toolbar" style="margin-top:12px"><label><input type="checkbox" id="mpFeatured"> Featured</label><label><input type="checkbox" id="mpActive" checked> Active</label></div><div id="marketProductMsg" class="danger" style="margin:8px 0"></div><button class="btn green" style="width:100%">Save Product</button></form></div></div>
+<script>
+(function(){
+  // Zero-cost browser notifications for critical order recovery items.
+  // This intentionally does not send WhatsApp messages or use a paid provider.
+  if(location.pathname === '/staff.html' || !('Notification' in window)) return;
+  const button=document.getElementById('adminPhoneAlertsButton');
+  const status=document.getElementById('adminPhoneAlertsStatus');
+  if(!button) return;
+  button.hidden=false;
+  const enabledKey='dgm.admin.phoneAlerts.enabled.v1';
+  const seenKey='dgm.admin.phoneAlerts.seenRefs.v1';
+  let seen=new Set();
+  let baselineReady=false;
+  let pollBusy=false;
+  let pollTimer=null;
+  try{seen=new Set(JSON.parse(localStorage.getItem(seenKey)||'[]'));}catch(_){seen=new Set();}
+  function setStatus(text){const node=document.getElementById('adminPhoneAlertsStatus');if(node)node.textContent=text;}
+  function updateButton(){
+    const enabled=localStorage.getItem(enabledKey)==='1' && Notification.permission==='granted';
+    button.innerHTML=(enabled?'🔔 Phone alerts enabled':'🔔 Enable phone alerts')+' <span class="alert-status" id="adminPhoneAlertsStatus">'+(enabled?'Free browser alerts active':Notification.permission==='denied'?'Allow notifications in Chrome settings':'Free browser alerts')+'</span>';
+    button.classList.toggle('green',enabled);
+  }
+  async function checkRecoveryQueue(){
+    if(pollBusy || document.hidden && !baselineReady) return;
+    pollBusy=true;
+    try{
+      const response=await fetch('/api/admin/recovery-queue',{credentials:'same-origin',cache:'no-store'});
+      if(response.status===401) return;
+      if(!response.ok) throw new Error('Recovery queue unavailable');
+      const data=await response.json();
+      if(data.success!==true || !Array.isArray(data.orders)) throw new Error('Invalid recovery queue response');
+      const rows=data.orders;
+      const current=new Set(rows.map(row=>String(row.orderRef||'')).filter(Boolean));
+      if(baselineReady && localStorage.getItem(enabledKey)==='1' && Notification.permission==='granted'){
+        rows.forEach(row=>{
+          const ref=String(row.orderRef||'');
+          if(!ref || seen.has(ref)) return;
+          const title='DGM admin alert: order needs attention';
+          const body=(row.reviewReason||'Order requires review')+' · '+ref;
+          try{
+            const n=new Notification(title,{body,tag:'dgm-recovery-'+ref,icon:'/icons/dgm-192.svg',silent:false});
+            n.onclick=()=>{window.focus();if(typeof window.__adminNav==='function')window.__adminNav('analytics');n.close();};
+          }catch(_){}
+        });
+      }
+      seen=current;
+      localStorage.setItem(seenKey,JSON.stringify(Array.from(seen).slice(-150)));
+      baselineReady=true;
+      setStatus(localStorage.getItem(enabledKey)==='1'?'Monitoring order recovery':'Free browser alerts');
+      updateButton();
+    }catch(_){
+      setStatus('Waiting for admin connection');
+    }finally{pollBusy=false;}
+  }
+  button.addEventListener('click',async()=>{
+    if(Notification.permission==='denied'){
+      setStatus('Allow notifications in Chrome site settings');
+      return;
+    }
+    if(Notification.permission!=='granted'){
+      const permission=await Notification.requestPermission();
+      if(permission!=='granted'){setStatus('Permission not granted');updateButton();return;}
+    }
+    localStorage.setItem(enabledKey,'1');
+    baselineReady=false;
+    updateButton();
+    await checkRecoveryQueue();
+    setStatus('Monitoring while admin page is open');
+  });
+  updateButton();
+  checkRecoveryQueue();
+  pollTimer=setInterval(checkRecoveryQueue,60000);
+  window.addEventListener('focus',checkRecoveryQueue);
+  window.addEventListener('pageshow',checkRecoveryQueue);
+})();
+</script>
+</body></html>
