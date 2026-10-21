@@ -1023,7 +1023,7 @@ async function recoverPaidAgentStoreOrder(){
   let pollBusy=false;
   let pollTimer=null;
   try{seen=new Set(JSON.parse(localStorage.getItem(seenKey)||'[]'));}catch(_){seen=new Set();}
-  function setStatus(text){if(status)status.textContent=text;}
+  function setStatus(text){const node=document.getElementById('adminPhoneAlertsStatus');if(node)node.textContent=text;}
   function updateButton(){
     const enabled=localStorage.getItem(enabledKey)==='1' && Notification.permission==='granted';
     button.innerHTML=(enabled?'🔔 Phone alerts enabled':'🔔 Enable phone alerts')+' <span class="alert-status" id="adminPhoneAlertsStatus">'+(enabled?'Free browser alerts active':Notification.permission==='denied'?'Allow notifications in Chrome settings':'Free browser alerts')+'</span>';
