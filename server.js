@@ -9844,6 +9844,8 @@ async function initSusuDatabase() {
   await q("ALTER TABLE susu_groups ADD COLUMN IF NOT EXISTS admin_code_hash TEXT");
   // Ensure the legacy account link exists before making it nullable on fresh databases.
   await q("ALTER TABLE susu_groups ADD COLUMN IF NOT EXISTS savings_account_id INTEGER REFERENCES savings_accounts(id) ON DELETE SET NULL");
+  await q("ALTER TABLE susu_groups ADD COLUMN IF NOT EXISTS owner_customer_id INTEGER");
+  await q("ALTER TABLE susu_group_members ADD COLUMN IF NOT EXISTS turn_order INTEGER NOT NULL DEFAULT 1");
   // New Group Susu groups are independent of a personal savings account.
   // The legacy schema required savings_account_id, so allow it to be NULL for new groups.
   await q("ALTER TABLE susu_groups ALTER COLUMN savings_account_id DROP NOT NULL");
