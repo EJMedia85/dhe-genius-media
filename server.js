@@ -1778,6 +1778,20 @@ async function initDatabase() {
     CREATE INDEX IF NOT EXISTS saved_recipients_customer_idx ON saved_recipients(customer_id,created_at DESC);
   `);
 
+  // Ensure the notification table exists before applying its broadcast migration.
+  // The original order failed on a fresh database because ALTER ran before CREATE.
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customer_notifications (
+      id SERIAL PRIMARY KEY,
+      customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      message TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'info',
+      read_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
+
   // Broadcast flag distinguishes admin-wide announcements from ordinary notifications.
   await pool.query(`ALTER TABLE customer_notifications ADD COLUMN IF NOT EXISTS is_broadcast BOOLEAN NOT NULL DEFAULT FALSE;`);
   await pool.query(`CREATE INDEX IF NOT EXISTS customer_notifications_broadcast_idx ON customer_notifications(is_broadcast, created_at DESC);`);
