@@ -288,7 +288,8 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
     }
   });
 
-  app.post("/api/admin/social/posts", requireAdmin, async (req, res) => {
+  // Parse this route explicitly: social routes are installed before server.js app-wide JSON middleware.
+  app.post("/api/admin/social/posts", express.json({ limit: "1mb" }), requireAdmin, async (req, res) => {
     // Some mobile browsers/proxies can omit the select value in the submitted JSON.
     // The wallpaper URL field is only shown for the Wallpapers category, so use it
     // as a safe fallback when the category value is missing or unrecognized.
