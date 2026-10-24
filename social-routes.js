@@ -289,6 +289,7 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
   });
 
   // Parse this route explicitly: social routes are installed before server.js app-wide JSON middleware.
+  // Keep this parser attached to the endpoint so JSON title/category fields are available during validation.
   app.post("/api/admin/social/posts", express.json({ limit: "1mb" }), requireAdmin, async (req, res) => {
     // Some mobile browsers/proxies can omit the select value in the submitted JSON.
     // The wallpaper URL field is only shown for the Wallpapers category, so use it
