@@ -9010,6 +9010,21 @@ app.post(
   "/api/airtime/orders",
   requireLogin,
   async (req, res) => {
+    // Fail closed before touching the wallet when live airtime fulfillment
+    // is unavailable or the provider key is not the required Commission
+    // Services key. This prevents a debit followed by an avoidable refund.
+    if (
+      !KINGFLEXY_API_KEY ||
+      KINGFLEXY_AIRTIME_KEY_TYPE !== "commission_services"
+    ) {
+      return res.status(503).json({
+        success: false,
+        code: "AIRTIME_UNAVAILABLE",
+        message:
+          "Airtime purchases are temporarily unavailable. Your DGM Wallet has not been charged."
+      });
+    }
+
     const client = await pool.connect();
 
     try {
