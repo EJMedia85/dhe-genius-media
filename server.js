@@ -15,6 +15,7 @@ const { installDgmAnalytics } = require("./dgm-analytics-routes");
 const { installStaff } = require("./staff-routes");
 const { installVirtualCard } = require("./virtual-card-routes");
 const { installMusic } = require("./music-routes");
+const { installSocial } = require("./social-routes");
 
 const app = express();
 
@@ -2079,6 +2080,9 @@ installVirtualCard(app, { pool, requireLogin });
 
 // DGM Music: authorized catalog, artist submissions, and optional Spotify account connection.
 installMusic(app, { pool, requireLogin, requireAdmin });
+
+// DGM Social: admin-published feed, likes, comments, saves, and moderation.
+installSocial(app, { pool, requireLogin, requireAdmin });
 
 // Serve the standalone Virtual Card page from the repository root. The main
 // static middleware serves only /public, so without this explicit route the
