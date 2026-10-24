@@ -3585,12 +3585,6 @@ async function initiateGuestSupplierTransfer(order) {
 
 // DataMart public prices are the source of truth for the DGM customer catalogue.
 // The last successful values remain in memory if DataMart is temporarily unavailable.
-const DATAMART_PUBLIC_PRICE_URL = "https://www.datamartgh.shop/";
-const DATAMART_CATALOGUE_URLS = {
-  MTN: "https://www.datamartgh.shop/mtnup2u",
-  AirtelTigo: "https://www.datamartgh.shop/ishare",
-  Telecel: "https://www.datamartgh.shop/telecel"
-};
 const DATAMART_AGENT_PRICE_URL = String(process.env.DATAMART_AGENT_PRICE_URL || "").trim();
 let dataMartPriceCache = { checked_at: 0, customer: {}, agent: {} };
 let dataMartAvailabilityCache = { checked_at: 0, networks: {} };
@@ -3655,15 +3649,6 @@ function parseDataMartCatalogue(text, referencePrices = DGM_PRICES) {
     for (const gb of Object.keys(prices)) result[network][gb] = bySize[gb] ?? null;
   }
   return result;
-}
-
-async function fetchDataMartCataloguePage(url) {
-  const response = await fetch(url, {
-    headers: { Accept: "text/html,application/xhtml+xml" },
-    signal: AbortSignal.timeout(10000)
-  });
-  if (!response.ok) throw new Error("DataMart catalogue HTTP " + response.status);
-  return await response.text();
 }
 
 async function refreshDataMartPrices(force = false) {
