@@ -3768,9 +3768,12 @@ async function refreshDataMartBundleAvailability(force = false) {
     }
   }
 
-  if (successfulNetworks > 0) {
-    dataMartAvailabilityCache = { checked_at: now, networks: next };
+  if (successfulNetworks === 0) {
+    console.warn("DataMart package availability could not be refreshed; retaining the last known results.");
   }
+  // Cache failures too, so repeated page loads do not hammer the API when
+  // DataMart is temporarily unavailable. Existing results remain unchanged.
+  dataMartAvailabilityCache = { checked_at: now, networks: next };
   return dataMartAvailabilityCache.networks;
 }
 app.get("/api/data-bundles", async (req, res) => {
