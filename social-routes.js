@@ -12,18 +12,20 @@ function cleanText(value, maxLength) {
 }
 
 function normalizeCategory(value) {
-  const category = cleanText(value, 40).toLowerCase().replace(/[’']/g, "").replace(/[._-]+/g, " ").replace(/\\s+/g, " ").trim();
+  // Accept canonical values and human-readable labels (including singular forms).
+  // Strip separators and punctuation so "Wallpaper", "wallpapers", and
+  // "🖼️ Wallpapers" all resolve to the same database-safe category.
+  const category = cleanText(value, 80).toLowerCase().replace(/[^a-z0-9]/g, "");
   const aliases = new Map([
-    ["news", "news"], ["dgm news", "news"], ["updates", "news"],
+    ["news", "news"], ["dgmnews", "news"], ["updates", "news"],
     ["meme", "memes"], ["memes", "memes"], ["funny", "memes"],
     ["wallpaper", "wallpapers"], ["wallpapers", "wallpapers"],
     ["announcement", "announcements"], ["announcements", "announcements"],
-    ["dgm announcement", "announcements"], ["dgm announcements", "announcements"],
-    ["dgm update", "announcements"], ["dgm updates", "announcements"]
+    ["dgmannouncement", "announcements"], ["dgmannouncements", "announcements"],
+    ["dgmupdate", "announcements"], ["dgmupdates", "announcements"]
   ]);
   return aliases.get(category) || category;
 }
-
 function safeHttpsUrl(value) {
   const text = String(value || "").trim();
   if (!text) return "";
