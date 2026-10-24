@@ -1,4 +1,6 @@
 const express = require("express");
+const multer = require("multer");
+const crypto = require("crypto");
 
 const CATEGORIES = new Set(["news", "memes", "wallpapers", "announcements"]);
 
@@ -39,6 +41,7 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
             title VARCHAR(140) NOT NULL,
             body TEXT NOT NULL DEFAULT '',
             image_url TEXT NOT NULL DEFAULT '',
+            media_type VARCHAR(12) NOT NULL DEFAULT 'image',
             wallpaper_url TEXT NOT NULL DEFAULT '',
             published BOOLEAN NOT NULL DEFAULT FALSE,
             pinned BOOLEAN NOT NULL DEFAULT FALSE,
@@ -72,6 +75,7 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
           )
         `);
+        await pool.query("ALTER TABLE dgm_social_posts ADD COLUMN IF NOT EXISTS media_type VARCHAR(12) NOT NULL DEFAULT 'image'");
         await pool.query("CREATE INDEX IF NOT EXISTS dgm_social_posts_feed_idx ON dgm_social_posts(published, pinned DESC, created_at DESC)");
         await pool.query("CREATE INDEX IF NOT EXISTS dgm_social_comments_post_idx ON dgm_social_comments(post_id, created_at)");
       })().catch(error => {
@@ -84,6 +88,52 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
 
   const sendFailure = (res, status, message) => res.status(status).json({ success: false, message });
 
+
+  const socialUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024 },
+    fileFilter: (_req, file, callback) => {
+      if (file.mimetype.startsWith("image/") || file.mimetype.startsWith("video/")) return callback(null, true);
+      return callback(new Error("Choose an image or video file."));
+    }
+  });
+  app.post("/api/admin/social/upload", requireAdmin, (req, res, next) => {
+    socialUpload.single("media")(req, res, error => {
+      if (error) return sendFailure(res, error.code === "LIMIT_FILE_SIZE" ? 413 : 400,
+        error.code === "LIMIT_FILE_SIZE" ? "Media must be 100 MB or smaller." : error.message || "Unable to read that file.");
+      next();
+    });
+  }, async (req, res) => {
+    const cloudName = String(process.env.CLOUDINARY_CLOUD_NAME || "").trim();
+    const apiKey = String(process.env.CLOUDINARY_API_KEY || "").trim();
+    const apiSecret = String(process.env.CLOUDINARY_API_SECRET || "").trim();
+    if (!cloudName || !apiKey || !apiSecret) return sendFailure(res, 503, "Gallery uploads are not configured yet. DGM admin must configure the secure media storage keys.");
+    if (!req.file) return sendFailure(res, 400, "Choose a photo or video from your gallery first.");
+    const isVideo = req.file.mimetype.startsWith("video/");
+    const resourceType = isVideo ? "video" : "image";
+    const timestamp = Math.floor(Date.now() / 1000);
+    const folder = "dgm-social";
+    const signature = crypto.createHash("sha1").update("folder=" + folder + "&timestamp=" + timestamp + apiSecret).digest("hex");
+    try {
+      const form = new FormData();
+      form.append("file", new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname || ("dgm-social." + (isVideo ? "mp4" : "jpg")));
+      form.append("api_key", apiKey);
+      form.append("timestamp", String(timestamp));
+      form.append("folder", folder);
+      form.append("signature", signature);
+      const response = await fetch("https://api.cloudinary.com/v1_1/" + encodeURIComponent(cloudName) + "/" + resourceType + "/upload", { method: "POST", body: form, signal: AbortSignal.timeout(120000) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.secure_url) {
+        console.error("DGM Social media upload failed:", result.error?.message || response.status);
+        return sendFailure(res, 502, "The media upload failed. Check the file and try again.");
+      }
+      return res.status(201).json({ success: true, url: result.secure_url, media_type: resourceType });
+    } catch (error) {
+      console.error("DGM Social upload error:", error.message);
+      return sendFailure(res, 502, "Media storage could not be reached. Please try again.");
+    }
+  });
+
   app.get("/api/social/posts", requireLogin, async (req, res) => {
     try {
       await ensureTables();
@@ -92,7 +142,7 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
       const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 30));
       const offset = Math.min(10000, Math.max(0, Number.parseInt(req.query.offset, 10) || 0));
       const result = await pool.query(`
-        SELECT p.id, p.category, p.title, p.body, p.image_url, p.wallpaper_url,
+        SELECT p.id, p.category, p.title, p.body, p.image_url, p.media_type, p.wallpaper_url,
                p.pinned, p.created_at, p.updated_at,
                (SELECT COUNT(*)::int FROM dgm_social_likes l WHERE l.post_id=p.id) AS like_count,
                (SELECT COUNT(*)::int FROM dgm_social_comments c WHERE c.post_id=p.id) AS comment_count,
@@ -228,24 +278,27 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
     const title = cleanText(req.body?.title, 140);
     const body = cleanText(req.body?.body, 3000);
     const imageInput = String(req.body?.image_url || "").trim();
+    const mediaType = cleanText(req.body?.media_type || "image", 12).toLowerCase();
     const wallpaperInput = String(req.body?.wallpaper_url || "").trim();
     const imageUrl = safeHttpsUrl(imageInput);
     const wallpaperUrl = safeHttpsUrl(wallpaperInput);
     const published = req.body?.published === true || req.body?.published === "true";
     const pinned = req.body?.pinned === true || req.body?.pinned === "true";
     if (!CATEGORIES.has(category)) return sendFailure(res, 400, "Choose a valid category.");
+    if (!["image", "video"].includes(mediaType)) return sendFailure(res, 400, "Unsupported media type.");
     if (!title) return sendFailure(res, 400, "Post title is required.");
     if (body.length > 3000) return sendFailure(res, 400, "Post text is too long.");
     if (imageUrl === null || wallpaperUrl === null) return sendFailure(res, 400, "Image and wallpaper links must be valid HTTPS URLs.");
-    if (category === "wallpapers" && !imageUrl && !wallpaperUrl) return sendFailure(res, 400, "Add an HTTPS image or wallpaper link.");
+    if (category === "wallpapers" && !imageUrl && !wallpaperUrl) return sendFailure(res, 400, "Upload an image or add a wallpaper link.");
+    if (mediaType === "video" && category === "wallpapers") return sendFailure(res, 400, "Choose the News, Meme or DGM Announcement category for a video.");
     try {
       await ensureTables();
       const createdBy = cleanText(req.session.adminEmail || req.session.admin?.email || "DGM Admin", 160) || "DGM Admin";
       const result = await pool.query(`
-        INSERT INTO dgm_social_posts(category,title,body,image_url,wallpaper_url,published,pinned,created_by)
-        VALUES($1,$2,$3,$4,$5,$6,$7,$8)
+        INSERT INTO dgm_social_posts(category,title,body,image_url,media_type,wallpaper_url,published,pinned,created_by)
+        VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)
         RETURNING *
-      `, [category, title, body, imageUrl, wallpaperUrl, published, pinned, createdBy]);
+      `, [category, title, body, imageUrl, mediaType, wallpaperUrl, published, pinned, createdBy]);
       return res.status(201).json({ success: true, post: result.rows[0] });
     } catch (error) {
       console.error("DGM Social admin create error:", error.message);
