@@ -11,6 +11,19 @@ function cleanText(value, maxLength) {
     .slice(0, maxLength);
 }
 
+function normalizeCategory(value) {
+  const category = cleanText(value, 40).toLowerCase().replace(/[’']/g, "").replace(/[._-]+/g, " ").replace(/\\s+/g, " ").trim();
+  const aliases = new Map([
+    ["news", "news"], ["dgm news", "news"], ["updates", "news"],
+    ["meme", "memes"], ["memes", "memes"], ["funny", "memes"],
+    ["wallpaper", "wallpapers"], ["wallpapers", "wallpapers"],
+    ["announcement", "announcements"], ["announcements", "announcements"],
+    ["dgm announcement", "announcements"], ["dgm announcements", "announcements"],
+    ["dgm update", "announcements"], ["dgm updates", "announcements"]
+  ]);
+  return aliases.get(category) || category;
+}
+
 function safeHttpsUrl(value) {
   const text = String(value || "").trim();
   if (!text) return "";
@@ -274,7 +287,7 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
   });
 
   app.post("/api/admin/social/posts", requireAdmin, async (req, res) => {
-    const category = cleanText(req.body?.category, 24).toLowerCase();
+    const category = normalizeCategory(req.body?.category);
     const title = cleanText(req.body?.title, 140);
     const body = cleanText(req.body?.body, 3000);
     const imageInput = String(req.body?.image_url || "").trim();
