@@ -3670,136 +3670,109 @@ async function refreshDataMartPrices(force = false) {
   const now = Date.now();
   if (!force && now - Number(dataMartPriceCache.checked_at || 0) < 60000) return dataMartPriceCache;
 
-  try {
-    const customer = {};
-    let storefrontHtml = null;
-    const getStorefrontHtml = async () => {
-      if (storefrontHtml === null) {
-        storefrontHtml = await fetchDataMartCataloguePage(DATAMART_PUBLIC_PRICE_URL);
-      }
-      return storefrontHtml;
-    };
+  // DGM customer retail prices are explicitly controlled by DGM. Do not
+  // scrape public storefront routes for pricing; those routes are not the
+  // authenticated Developer API and may return 404.
+  const customer = Object.fromEntries(
+    Object.entries(DGM_PRICES).map(([network, prices]) => [
+      network,
+      Object.fromEntries(Object.entries(prices).map(([gb, price]) => [gb, Number(price)]))
+    ])
+  );
+  let agent = customer;
 
-    for (const [network, fallback] of Object.entries(DGM_PRICES)) {
-      let parsed = null;
-      let networkError = null;
-      try {
-        const html = await fetchDataMartCataloguePage(DATAMART_CATALOGUE_URLS[network] || DATAMART_PUBLIC_PRICE_URL);
-        parsed = parseDataMartCatalogue(html, { [network]: fallback });
-        if (!Object.values(parsed[network] || {}).some(price => Number(price) > 0)) {
-          parsed = null;
-        }
-      } catch (error) {
-        networkError = error;
-      }
-
-      // Some storefront builds do not expose a separate public route for every
-      // network. Retry against the public storefront before using cached DGM
-      // prices; never make up a price or block an otherwise valid catalogue.
-      if (!parsed) {
+  // Preserve the optional, explicitly configured agent-price override.
+  if (DATAMART_AGENT_PRICE_URL) {
+    try {
+      const response = await fetch(DATAMART_AGENT_PRICE_URL, {
+        headers: { Accept: "text/html,application/json" },
+        signal: AbortSignal.timeout(10000)
+      });
+      if (response.ok) {
+        const raw = await response.text();
         try {
-          const html = await getStorefrontHtml();
-          const storefrontPrices = parseDataMartCatalogue(html, { [network]: fallback });
-          if (Object.values(storefrontPrices[network] || {}).some(price => Number(price) > 0)) {
-            parsed = storefrontPrices;
-          }
-        } catch (storefrontError) {
-          networkError = networkError || storefrontError;
+          const json = JSON.parse(raw);
+          agent = json.prices || json.networks || json.catalogue || customer;
+        } catch {
+          agent = parseDataMartCatalogue(raw, customer);
         }
+      } else {
+        console.warn("DataMart agent price override unavailable; using DGM-approved base prices.");
       }
-
-      // The public supplier catalogue is used for stock/availability checks,
-      // not for setting DGM's retail prices. Keep the approved DGM price list
-      // consistent across guest checkout, logged-in checkout and catalogue UI.
-      customer[network] = {};
-      for (const gb of Object.keys(fallback)) {
-        customer[network][gb] = Number(fallback[gb]);
-      }
-
-      if (!parsed && networkError) {
-        console.warn("DataMart " + network + " price sync unavailable; using configured DGM fallback prices:", networkError.message);
-      }
+    } catch (error) {
+      console.error("DataMart agent price sync failed:", error.message);
     }
-
-    // DataMart's authenticated agent dashboard is not publicly readable.
-    // Until a legitimate agent catalogue endpoint is configured, agents use
-    // the same verified public catalogue as their DGM base catalogue.
-    let agent = customer;
-    if (DATAMART_AGENT_PRICE_URL) {
-      try {
-        const ar = await fetch(DATAMART_AGENT_PRICE_URL, {
-          headers: { Accept: "text/html,application/json" },
-          signal: AbortSignal.timeout(10000)
-        });
-        if (ar.ok) {
-          const raw = await ar.text();
-          try {
-            const json = JSON.parse(raw);
-            agent = json.prices || json.networks || json.catalogue || customer;
-          } catch {
-            agent = parseDataMartCatalogue(raw, customer);
-          }
-        }
-      } catch (agentError) {
-        console.error("DataMart agent price sync failed:", agentError.message);
-      }
-    }
-
-    dataMartPriceCache = { checked_at: now, customer, agent };
-    // Do not mutate DGM_PRICES from provider catalogue data. Retail prices are
-    // intentionally controlled by the approved DGM price list above.
-  } catch (error) {
-    console.error("DataMart price sync failed:", error.message);
   }
 
+  dataMartPriceCache = { checked_at: now, customer, agent };
   return dataMartPriceCache;
 }
 
 async function refreshDataMartBundleAvailability(force = false) {
-  const prices = await refreshDataMartPrices(force);
   const now = Date.now();
   if (!force && now - Number(dataMartAvailabilityCache.checked_at || 0) < 60000) {
     return dataMartAvailabilityCache.networks;
   }
 
-  try {
-    const response = await fetch(DATAMART_PUBLIC_PRICE_URL, {
-      headers: { Accept: "text/html,application/xhtml+xml" },
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!response.ok) throw new Error("DataMart storefront HTTP " + response.status);
-    const text = normalizePublicStoreText(await response.text());
-    const lower = text.toLowerCase();
-    const next = {};
+  // Use DataMart's documented authenticated Developer API, not public
+  // storefront pages. The data-packages endpoint returns the packages that
+  // are currently offered for each network. This check never places an order.
+  const providerNetworks = {
+    MTN: "YELLO",
+    AirtelTigo: "AT_PREMIUM",
+    Telecel: "TELECEL"
+  };
+  const next = { ...(dataMartAvailabilityCache.networks || {}) };
+  let successfulNetworks = 0;
 
-    for (const [network, priceMap] of Object.entries(DGM_PRICES)) {
+  for (const [network, providerCode] of Object.entries(providerNetworks)) {
+    try {
+      const result = await datamartRequest(
+        DATAMART_DEVELOPER_BASE,
+        "/data-packages?network=" + encodeURIComponent(providerCode),
+        { method: "GET" }
+      );
+
+      if (result?.status && String(result.status).toLowerCase() !== "success") {
+        throw new Error("DataMart package lookup did not return success.");
+      }
+
+      const payload = result?.data;
+      const packages = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.[providerCode])
+          ? payload[providerCode]
+          : Array.isArray(payload?.[network])
+            ? payload[network]
+            : Array.isArray(payload?.packages)
+              ? payload.packages
+              : null;
+
+      if (!packages) {
+        throw new Error("DataMart package response had an unexpected format.");
+      }
+
       next[network] = {};
-      const aliases = {MTN:["mtn up2u","mtn data","mtn"],AirtelTigo:["airteltigo","airtel tigo","airteligo","ishare"],Telecel:["telecel"]}[network] || [network];
-      const networkPos = aliases.map(label=>lower.indexOf(label)).filter(pos=>pos>=0).sort((a,b)=>a-b)[0];
-      if (networkPos === undefined) {
-        for (const gb of Object.keys(priceMap)) next[network][gb] = null;
-        continue;
+      for (const gb of Object.keys(DGM_PRICES[network] || {})) {
+        const targetCapacity = Number(gb);
+        next[network][gb] = packages.some(item =>
+          Number(item?.capacity ?? item?.gb ?? item?.size) === targetCapacity
+        );
       }
-      const otherPositions = Object.entries({MTN:["mtn up2u","mtn data","mtn"],AirtelTigo:["airteltigo","airtel tigo","airteligo","ishare"],Telecel:["telecel"]})
-        .filter(([name])=>name!==network)
-        .flatMap(([,labels])=>labels.map(label=>lower.indexOf(label)).filter(pos=>pos>networkPos));
-      const section = lower.slice(networkPos, otherPositions.length ? Math.min(...otherPositions) : lower.length);
-      for (const gb of Object.keys(priceMap)) {
-        const sizeMatch = new RegExp("\\b"+String(gb).replace(".","\\.")+"\\s*gb\\b","i").exec(section);
-        if (!sizeMatch) { next[network][gb] = null; continue; }
-        const card = section.slice(Math.max(0,sizeMatch.index-250), sizeMatch.index+500).replace(/\s+/g," ");
-        const explicitlyOut = /out\s*of\s*stock/i.test(card);
-        const explicitlyAvailable = /in\s*stock|available|buy now|order now/i.test(card);
-        next[network][gb] = explicitlyOut ? false : (explicitlyAvailable ? true : null);
-      }
+      successfulNetworks++;
+    } catch (error) {
+      // Keep the previous known result for this network if the API is
+      // temporarily unavailable; do not incorrectly mark every bundle out
+      // of stock based on a failed request.
+      console.error("DataMart " + network + " package availability lookup failed:", error.message);
     }
+  }
+
+  if (successfulNetworks > 0) {
     dataMartAvailabilityCache = { checked_at: now, networks: next };
-  } catch (error) {
-    console.error("DataMart availability sync failed:", error.message);
   }
   return dataMartAvailabilityCache.networks;
 }
-
 app.get("/api/data-bundles", async (req, res) => {
   let prices = null;
   let availability = {};
@@ -3824,9 +3797,9 @@ app.get("/api/data-bundles", async (req, res) => {
     success: true,
     currency: "GHS",
     validity_days: 90,
-    price_source: DATAMART_PUBLIC_PRICE_URL,
+    price_source: "DGM-approved retail price list",
     price_checked_at: prices.checked_at ? new Date(prices.checked_at).toISOString() : null,
-    availability_source: DATAMART_PUBLIC_PRICE_URL,
+    availability_source: "DataMart Developer API /data-packages",
     availability_checked_at: dataMartAvailabilityCache.checked_at ? new Date(dataMartAvailabilityCache.checked_at).toISOString() : null,
     networks: bundles
   });
