@@ -299,7 +299,7 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
       ? submittedCategory
       : (hasWallpaperLink || (hasUploadedImage && String(req.body?.media_type || "image").toLowerCase() === "image")
         ? "wallpapers"
-        : submittedCategory);
+        : "wallpapers");
     const title = cleanText(req.body?.title, 140);
     const body = cleanText(req.body?.body, 3000);
     const imageInput = String(req.body?.image_url || "").trim();
