@@ -293,9 +293,13 @@ async function installSocial(app, { pool, requireLogin, requireAdmin }) {
     // The wallpaper URL field is only shown for the Wallpapers category, so use it
     // as a safe fallback when the category value is missing or unrecognized.
     const submittedCategory = normalizeCategory(req.body?.category ?? req.body?.category_key ?? req.body?.post_category);
+    const hasUploadedImage = Boolean(String(req.body?.image_url || "").trim());
+    const hasWallpaperLink = Boolean(String(req.body?.wallpaper_url || "").trim());
     const category = CATEGORIES.has(submittedCategory)
       ? submittedCategory
-      : (String(req.body?.wallpaper_url || "").trim() ? "wallpapers" : submittedCategory);
+      : (hasWallpaperLink || (hasUploadedImage && String(req.body?.media_type || "image").toLowerCase() === "image")
+        ? "wallpapers"
+        : submittedCategory);
     const title = cleanText(req.body?.title, 140);
     const body = cleanText(req.body?.body, 3000);
     const imageInput = String(req.body?.image_url || "").trim();
